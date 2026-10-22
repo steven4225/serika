@@ -1,0 +1,34 @@
+CM6_FAILURE_DIAG {"ok":true,"value":{"threadId":"dd9f903d-cc2b-4e6f-bb7d-20dcbd9dc087","enabled":true,"budget":{"enabled":true,"contextWindowTokens":18000,"maxOutputTokens":1024,"safetyMarginTokens":512,"keepRecentTokens":256,"summaryMaxOutputTokens":1024},"estimatorVersion":"char-half/v1","latestValidCompaction":null,"lastPreparation":{"at":"2026-10-22T04:06:11.034Z","outcome":"failed","compactionId":null,"estimatedInputTokens":null,"error":{"code":"CONTEXT_DIAGNOSTICS_FAILED","message":"Context cannot fit required message/tool metadata; original retained"}},"background":{"queued":false,"running":false,"error":null,"normalizations":[]},"modelCallLogWriteFailures":0,"lastPreparationSource":{"messageId":"0af26626-4d55-4e98-981e-6ad8a8f5c7b7","workTaskId":null,"runId":"74eaac96-3626-4e65-8d29-f882d35a0e0d"},"requestedBudget":{"enabled":true,"contextWindowTokens":18000,"maxOutputTokens":1024,"safetyMarginTokens":512,"keepRecentTokens":256,"summaryMaxOutputTokens":1024},"modelCapacity":{"provider":"mock-provider","modelId":"mock-model-id","contextWindowTokens":128000,"source":"unverified_fallback"}}}
+✖ retains the exact active request after immediate masking of a completed oversized tool result, without a foreground summary wait (742.307583ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1029.352958
+
+✖ failing tests:
+
+test at src/main/foreground-autonomy.test.ts:240:1
+✖ retains the exact active request after immediate masking of a completed oversized tool result, without a foreground summary wait (742.307583ms)
+  AssertionError [ERR_ASSERTION]: Failed to prepare model context
+  + actual - expected
+  
+  + 'failed'
+  - 'completed'
+  
+      at TestContext.<anonymous> (./apps/desktop/src/main/foreground-autonomy.test.ts:270:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'failed',
+    expected: 'completed',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+undefined
+./apps/desktop:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: tsx --test '--test-name-pattern=retains the exact active request' src/main/foreground-autonomy.test.ts

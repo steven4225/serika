@@ -1,0 +1,1602 @@
+{
+  "referenceId": "e9b09104-9f27-467e-9013-7f5bae4e6729",
+  "generatedAt": "2026-10-22T04:08:11.573Z",
+  "kind": "offline_reference_only",
+  "checkerVersion": "cm-step6-offline-v2",
+  "originalCheckerVersion": "recorded_818f2f4_batch_checks",
+  "source": "docs/v2-pilot/evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json",
+  "sourceSha256": "b7264a5a558f9d08ff8aec2f7e55c8e640cf9d88f912a7d0557f6a64372a5226",
+  "sourceRunId": "d67682ad-0722-43d9-af5c-8c7aef1308fa",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "formalScoresChanged": false,
+  "scores": [
+    {
+      "suite": "M1",
+      "total": 18,
+      "recordedPassed": 12,
+      "referencePassed": 14,
+      "recordedCold": null,
+      "referenceCold": null,
+      "referenceSuitePassed": false
+    },
+    {
+      "suite": "CF03",
+      "total": 3,
+      "recordedPassed": 1,
+      "referencePassed": 2,
+      "recordedCold": false,
+      "referenceCold": false,
+      "referenceSuitePassed": false
+    },
+    {
+      "suite": "CF05",
+      "total": 5,
+      "recordedPassed": 1,
+      "referencePassed": 2,
+      "recordedCold": false,
+      "referenceCold": false,
+      "referenceSuitePassed": false
+    },
+    {
+      "suite": "CE03",
+      "total": 3,
+      "recordedPassed": 0,
+      "referencePassed": 1,
+      "recordedCold": false,
+      "referenceCold": false,
+      "referenceSuitePassed": false
+    },
+    {
+      "suite": "CE05",
+      "total": 5,
+      "recordedPassed": 1,
+      "referencePassed": 1,
+      "recordedCold": null,
+      "referenceCold": null,
+      "referenceSuitePassed": false
+    }
+  ],
+  "rows": [
+    {
+      "suite": "M1",
+      "case": "ack-0",
+      "window": "32k",
+      "originalPassed": true,
+      "referencePassed": true,
+      "originalChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": null
+    },
+    {
+      "suite": "M1",
+      "case": "ack-1",
+      "window": "32k",
+      "originalPassed": true,
+      "referencePassed": true,
+      "originalChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": null
+    },
+    {
+      "suite": "M1",
+      "case": "web-only",
+      "window": "32k",
+      "originalPassed": true,
+      "referencePassed": true,
+      "originalChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": null
+    },
+    {
+      "suite": "M1",
+      "case": "tool-only",
+      "window": "32k",
+      "originalPassed": true,
+      "referencePassed": true,
+      "originalChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": null
+    },
+    {
+      "suite": "M1",
+      "case": "confirmation",
+      "window": "32k",
+      "originalPassed": false,
+      "referencePassed": true,
+      "originalChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": false,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": null
+    },
+    {
+      "suite": "M1",
+      "case": "conflict",
+      "window": "32k",
+      "originalPassed": true,
+      "referencePassed": true,
+      "originalChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": null
+    },
+    {
+      "suite": "M1",
+      "case": "independent",
+      "window": "32k",
+      "originalPassed": true,
+      "referencePassed": true,
+      "originalChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": null
+    },
+    {
+      "suite": "M1",
+      "case": "uncertain",
+      "window": "32k",
+      "originalPassed": false,
+      "referencePassed": false,
+      "originalChecks": {
+        "completed": false,
+        "singleCall": true,
+        "saved": false,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": false
+      },
+      "referenceChecks": {
+        "completed": false,
+        "singleCall": true,
+        "saved": false,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": false
+      },
+      "validationFailure": {
+        "reasonCode": "UNCERTAIN_QUOTE_MISMATCH",
+        "origin": "historical_exact_error_text",
+        "originalError": "同句矛盾必须完整保留证据中的原话"
+      }
+    },
+    {
+      "suite": "M1",
+      "case": "replay-9",
+      "window": "32k",
+      "originalPassed": false,
+      "referencePassed": false,
+      "originalChecks": {
+        "completed": false,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": false,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": {
+        "reasonCode": "QUOTE_VALUE_MISSING",
+        "field": "user.text",
+        "fieldLength": 47,
+        "valueLength": 30,
+        "proposalIndex": 0
+      }
+    },
+    {
+      "suite": "M1",
+      "case": "ack-0",
+      "window": "daily",
+      "originalPassed": true,
+      "referencePassed": true,
+      "originalChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": null
+    },
+    {
+      "suite": "M1",
+      "case": "ack-1",
+      "window": "daily",
+      "originalPassed": true,
+      "referencePassed": true,
+      "originalChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": null
+    },
+    {
+      "suite": "M1",
+      "case": "web-only",
+      "window": "daily",
+      "originalPassed": true,
+      "referencePassed": true,
+      "originalChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": null
+    },
+    {
+      "suite": "M1",
+      "case": "tool-only",
+      "window": "daily",
+      "originalPassed": true,
+      "referencePassed": true,
+      "originalChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": null
+    },
+    {
+      "suite": "M1",
+      "case": "confirmation",
+      "window": "daily",
+      "originalPassed": false,
+      "referencePassed": true,
+      "originalChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": false,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": null
+    },
+    {
+      "suite": "M1",
+      "case": "conflict",
+      "window": "daily",
+      "originalPassed": true,
+      "referencePassed": true,
+      "originalChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": null
+    },
+    {
+      "suite": "M1",
+      "case": "independent",
+      "window": "daily",
+      "originalPassed": true,
+      "referencePassed": true,
+      "originalChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": null
+    },
+    {
+      "suite": "M1",
+      "case": "uncertain",
+      "window": "daily",
+      "originalPassed": false,
+      "referencePassed": false,
+      "originalChecks": {
+        "completed": false,
+        "singleCall": true,
+        "saved": false,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": false
+      },
+      "referenceChecks": {
+        "completed": false,
+        "singleCall": true,
+        "saved": false,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": false
+      },
+      "validationFailure": {
+        "reasonCode": "UNCERTAIN_QUOTE_MISMATCH",
+        "origin": "historical_exact_error_text",
+        "originalError": "同句矛盾必须完整保留证据中的原话"
+      }
+    },
+    {
+      "suite": "M1",
+      "case": "replay-9",
+      "window": "daily",
+      "originalPassed": false,
+      "referencePassed": false,
+      "originalChecks": {
+        "completed": false,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "referenceChecks": {
+        "completed": false,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "validationFailure": {
+        "reasonCode": "BODY_VALUE_MISSING",
+        "field": "text",
+        "fieldLength": 55,
+        "valueLength": 13,
+        "proposalIndex": 0
+      }
+    },
+    {
+      "suite": "CF03",
+      "generation": 0,
+      "originalPassed": true,
+      "referencePassed": true,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": true,
+        "referencePassed": true
+      },
+      "layerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CF03",
+      "generation": 1,
+      "originalPassed": false,
+      "referencePassed": true,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": false,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": true
+      },
+      "layerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CF03",
+      "generation": 2,
+      "originalPassed": false,
+      "referencePassed": false,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": false,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": false,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": false,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": false
+      },
+      "layerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CF03",
+      "generation": "cold",
+      "originalPassed": false,
+      "referencePassed": false,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": false,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": false,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": false,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": false
+      },
+      "missing": false,
+      "limitation": null
+    },
+    {
+      "suite": "CF05",
+      "generation": 0,
+      "originalPassed": false,
+      "referencePassed": true,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": false,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": true
+      },
+      "layerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CF05",
+      "generation": 1,
+      "originalPassed": true,
+      "referencePassed": true,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": true,
+        "referencePassed": true
+      },
+      "layerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CF05",
+      "generation": 2,
+      "originalPassed": false,
+      "referencePassed": false,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": false,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": false,
+          "noAutomaticRetry": false,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": false,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": false
+      },
+      "layerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CF05",
+      "generation": 3,
+      "originalPassed": false,
+      "referencePassed": false,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": false,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": false,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": false,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": false
+      },
+      "layerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CF05",
+      "generation": 4,
+      "originalPassed": false,
+      "referencePassed": false,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": false,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": false,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": false
+      },
+      "layerChecks": {
+        "goal": false,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CF05",
+      "generation": "cold",
+      "originalPassed": false,
+      "referencePassed": false,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": false,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": false,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": false
+      },
+      "missing": false,
+      "limitation": null
+    },
+    {
+      "suite": "CE03",
+      "generation": 0,
+      "originalPassed": false,
+      "referencePassed": true,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": false,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": true
+      },
+      "layerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CE03",
+      "generation": 1,
+      "originalPassed": false,
+      "referencePassed": false,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": false,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": false,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": false
+      },
+      "layerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CE03",
+      "generation": 2,
+      "originalPassed": false,
+      "referencePassed": false,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": false,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": false,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": false
+      },
+      "layerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CE03",
+      "generation": "cold",
+      "originalPassed": false,
+      "referencePassed": false,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": false,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": false,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": false
+      },
+      "missing": false,
+      "limitation": null
+    },
+    {
+      "suite": "CE05",
+      "generation": 0,
+      "originalPassed": true,
+      "referencePassed": true,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": true,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": true,
+        "referencePassed": true
+      },
+      "layerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CE05",
+      "generation": 1,
+      "originalPassed": false,
+      "referencePassed": false,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": true,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": false
+      },
+      "layerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CE05",
+      "generation": 2,
+      "originalPassed": false,
+      "referencePassed": false,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": false,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": false,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": false
+      },
+      "layerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CE05",
+      "generation": 3,
+      "originalPassed": false,
+      "referencePassed": false,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": false,
+          "goal": false,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": false,
+          "goal": false,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": false
+      },
+      "layerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CE05",
+      "generation": 4,
+      "originalPassed": false,
+      "referencePassed": false,
+      "chat": {
+        "originalChecks": {
+          "completed": true,
+          "backgroundSettled": false,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "referenceChecks": {
+          "completed": true,
+          "backgroundSettled": false,
+          "goal": true,
+          "decision": true,
+          "pending": true,
+          "permission": true,
+          "uncertain": true,
+          "noAutomaticRetry": true,
+          "pastRead": false,
+          "permissionNotInherited": true,
+          "noToolReplay": true,
+          "noUnexpected": true,
+          "inputFits": true
+        },
+        "originalPassed": false,
+        "referencePassed": false
+      },
+      "layerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      },
+      "layerRegrade": "not_regraded_no_original_summary_text",
+      "error": null
+    },
+    {
+      "suite": "CE05",
+      "generation": "cold",
+      "originalPassed": null,
+      "referencePassed": null,
+      "chat": null,
+      "missing": true,
+      "limitation": "Cold model reply and checks were not archived; returned call metadata cannot reconstruct its text."
+    }
+  ],
+  "flips": [
+    {
+      "path": "results[0].results[4]",
+      "check": "confirmation",
+      "old": false,
+      "new": true,
+      "sourceKind": "frozen_fixture_and_saved_checks",
+      "sentences": [
+        "是的，以后使用中文"
+      ],
+      "modelReply": null,
+      "limitation": "No original proposal text was archived; inference uses the exact source fixture and recorded successful host validation/storage."
+    },
+    {
+      "path": "results[0].results[13]",
+      "check": "confirmation",
+      "old": false,
+      "new": true,
+      "sourceKind": "frozen_fixture_and_saved_checks",
+      "sentences": [
+        "是的，以后使用中文"
+      ],
+      "modelReply": null,
+      "limitation": "No original proposal text was archived; inference uses the exact source fixture and recorded successful host validation/storage."
+    },
+    {
+      "path": "results[1].rounds[1].chat",
+      "check": "uncertain",
+      "old": false,
+      "new": true,
+      "sourceKind": "recorded_model_reply",
+      "sentences": [
+        "- `write_file` 写 `notes/uncertain.txt` 的结果是 TOOL_OUTCOME_UNKNOWN，即不确定、效果未知，不能视为成功。"
+      ]
+    },
+    {
+      "path": "results[1].rounds[2].chat",
+      "check": "uncertain",
+      "old": false,
+      "new": true,
+      "sourceKind": "recorded_model_reply",
+      "sentences": [
+        "- uncertain.txt 写入：结果是 TOOL_OUTCOME_UNKNOWN（未知），既不能视为成功，也不可自动重试；应先核实实际写入影响，再由用户决定是否重写。"
+      ]
+    },
+    {
+      "path": "results[1].cold",
+      "check": "uncertain",
+      "old": false,
+      "new": true,
+      "sourceKind": "recorded_model_reply",
+      "sentences": [
+        "- uncertain.txt 写入：结果仍为 TOOL_OUTCOME_UNKNOWN（未知），既不能视为成功，也不得自动重试；应先核实实际影响，再由用户决定是否重写。"
+      ]
+    },
+    {
+      "path": "results[2].rounds[0].chat",
+      "check": "uncertain",
+      "old": false,
+      "new": true,
+      "sourceKind": "recorded_model_reply",
+      "sentences": [
+        "- **写入 uncertain.txt**：结果为 **unknown**（未知效果），不确定成功或失败；不得自动重试，否则可能造成重复写入。应先核实实际结果再决定下一步。"
+      ]
+    },
+    {
+      "path": "results[2].rounds[2].chat",
+      "check": "goal",
+      "old": false,
+      "new": true,
+      "sourceKind": "recorded_model_reply",
+      "sentences": [
+        "1. **目标**：按已确认方案完成验收主项目的验收报告，并补齐尚未完成的验收材料（含失败样本）。"
+      ]
+    },
+    {
+      "path": "results[2].rounds[2].chat",
+      "check": "uncertain",
+      "old": false,
+      "new": true,
+      "sourceKind": "recorded_model_reply",
+      "sentences": [
+        "   - 核实 `notes/uncertain.txt` 的写入实际结果（当前状态 unknown）；",
+        "- 该次 `write_file` 对 `notes/uncertain.txt` 的结果是 **unknown**（既不确认成功也不确认失败），不能视为已写入。"
+      ]
+    },
+    {
+      "path": "results[2].rounds[3].chat",
+      "check": "uncertain",
+      "old": false,
+      "new": true,
+      "sourceKind": "recorded_model_reply",
+      "sentences": [
+        "**6. uncertain.txt 写入是否确定、能否自动重试**：不确定。write_file 对 notes/uncertain.txt 的结果为 unknown，不能视为已写入；禁止自动重试，须先经授权核实实际效果再决定下一步。"
+      ]
+    },
+    {
+      "path": "results[3].rounds[0].chat",
+      "check": "goal",
+      "old": false,
+      "new": true,
+      "sourceKind": "recorded_model_reply",
+      "sentences": [
+        "完成「验收主项目验收报告」，并按修改后的合约（fidelity-contract）保持记录与实际证据一致；暗号 FIDELITY-42 依然有效，后续背景材料不改变上述约定。"
+      ]
+    }
+  ],
+  "validationReasonCounts": {
+    "UNCERTAIN_QUOTE_MISMATCH": 2,
+    "QUOTE_VALUE_MISSING": 1,
+    "BODY_VALUE_MISSING": 1
+  },
+  "unchangedChecks": [
+    "noAutomaticRetry",
+    "pastRead",
+    "permissionNotInherited",
+    "all layer checks"
+  ],
+  "pending": [
+    "noAutomaticRetry does not yet recognize 禁止自动重试; this checker change was not included in the three approved changes."
+  ]
+}

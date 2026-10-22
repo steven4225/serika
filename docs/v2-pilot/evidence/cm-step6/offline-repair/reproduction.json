@@ -1,0 +1,219 @@
+{
+  "materialId": "2a107961-e00d-451e-8e95-ffd76e306b5f",
+  "generatedAt": "2026-10-22T04:09:11.984819+00:00",
+  "sourceCommit": "aa47fc554cb0f7467071707524a27cce755a3273",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "frozenSource": "docs/v2-pilot/evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json",
+  "frozenSourceSha256": "b7264a5a558f9d08ff8aec2f7e55c8e640cf9d88f912a7d0557f6a64372a5226",
+  "fixtureScript": "examples/eval/cm-step6-overflow-repro.mjs",
+  "fixtureScriptSha256": "7b1a332341f4c2a4e7bd4427d3abb969d28935c8cd55d23cc301c7a8d2d4b0ba",
+  "baselineCommit": "818f2f4f0dd6992b45025967324446ddd16ceb6e",
+  "baseline": [
+    {
+      "id": "CE03",
+      "generation": 0,
+      "calls": 1,
+      "error": "Summary segment or far index exceeds its proportional budget; original block retained",
+      "readBefore": false,
+      "readAfter": false,
+      "records": 0,
+      "realModelCalls": 0
+    },
+    {
+      "id": "CE03",
+      "generation": 1,
+      "calls": 2,
+      "error": "Summary segment or far index exceeds its proportional budget; original block retained",
+      "readBefore": false,
+      "readAfter": false,
+      "records": 0,
+      "realModelCalls": 0
+    },
+    {
+      "id": "CE03",
+      "generation": 2,
+      "calls": 3,
+      "error": "Summary segment or far index exceeds its proportional budget; original block retained",
+      "readBefore": false,
+      "readAfter": false,
+      "records": 0,
+      "realModelCalls": 0
+    },
+    {
+      "id": "CE05",
+      "generation": 0,
+      "calls": 1,
+      "error": "Summary segment or far index exceeds its proportional budget; original block retained",
+      "readBefore": false,
+      "readAfter": false,
+      "records": 0,
+      "realModelCalls": 0
+    },
+    {
+      "id": "CE05",
+      "generation": 1,
+      "calls": 2,
+      "error": "Summary segment or far index exceeds its proportional budget; original block retained",
+      "readBefore": false,
+      "readAfter": false,
+      "records": 0,
+      "realModelCalls": 0
+    },
+    {
+      "id": "CE05",
+      "generation": 2,
+      "calls": 3,
+      "error": "Summary segment or far index exceeds its proportional budget; original block retained",
+      "readBefore": false,
+      "readAfter": false,
+      "records": 0,
+      "realModelCalls": 0
+    },
+    {
+      "id": "CE05",
+      "generation": 3,
+      "calls": 4,
+      "error": "Summary segment or far index exceeds its proportional budget; original block retained",
+      "readBefore": false,
+      "readAfter": false,
+      "records": 0,
+      "realModelCalls": 0
+    },
+    {
+      "id": "CE05",
+      "generation": 4,
+      "calls": 5,
+      "error": "Summary segment or far index exceeds its proportional budget; original block retained",
+      "readBefore": false,
+      "readAfter": false,
+      "records": 0,
+      "realModelCalls": 0
+    }
+  ],
+  "fixed": [
+    {
+      "id": "CE03",
+      "generation": 0,
+      "calls": 5,
+      "error": null,
+      "readBefore": true,
+      "readAfter": true,
+      "records": 5,
+      "realModelCalls": 0
+    },
+    {
+      "id": "CE03",
+      "generation": 1,
+      "calls": 9,
+      "error": null,
+      "readBefore": true,
+      "readAfter": true,
+      "records": 9,
+      "realModelCalls": 0
+    },
+    {
+      "id": "CE03",
+      "generation": 2,
+      "calls": 14,
+      "error": null,
+      "readBefore": true,
+      "readAfter": true,
+      "records": 14,
+      "realModelCalls": 0
+    },
+    {
+      "id": "CE05",
+      "generation": 0,
+      "calls": 5,
+      "error": null,
+      "readBefore": true,
+      "readAfter": true,
+      "records": 5,
+      "realModelCalls": 0
+    },
+    {
+      "id": "CE05",
+      "generation": 1,
+      "calls": 9,
+      "error": null,
+      "readBefore": true,
+      "readAfter": true,
+      "records": 9,
+      "realModelCalls": 0
+    },
+    {
+      "id": "CE05",
+      "generation": 2,
+      "calls": 14,
+      "error": null,
+      "readBefore": true,
+      "readAfter": true,
+      "records": 14,
+      "realModelCalls": 0
+    },
+    {
+      "id": "CE05",
+      "generation": 3,
+      "calls": 18,
+      "error": null,
+      "readBefore": true,
+      "readAfter": true,
+      "records": 18,
+      "realModelCalls": 0
+    },
+    {
+      "id": "CE05",
+      "generation": 4,
+      "calls": 23,
+      "error": null,
+      "readBefore": true,
+      "readAfter": true,
+      "records": 23,
+      "realModelCalls": 0
+    }
+  ],
+  "logs": {
+    "compaction-red.log": {
+      "originalOutputSha256": "16841828bad6e2dc098f608a4306b3441f5bdbb7fb412475ea3e7aa656260d4f",
+      "portableOutputSha256": "827e642c7f0f2d4c7d0bc5f2ad4423ec80c954a08f186729786f67402c3f26fb",
+      "pathNormalizationOnly": true
+    },
+    "memory-red.log": {
+      "originalOutputSha256": "8828d5bad46b6deaad31e4b099d10c2027cd7259533d929c42fe09cf6e2eaa41",
+      "portableOutputSha256": "19cb0b1a44f0bd4b76d20fc70ab761ed882d072b0050c938dd2cd285afa99f3a",
+      "pathNormalizationOnly": true
+    },
+    "checker-red.log": {
+      "originalOutputSha256": "24ae55d9092e1fe17b72892c818c94305aea0db7a1db05c20e5061cae3cc18b7",
+      "portableOutputSha256": "8740cbc9216b74a9dc6bc569051baa231ec9fb5d4b129a42c735ac5763a8e609",
+      "pathNormalizationOnly": true
+    },
+    "steer-red.log": {
+      "originalOutputSha256": "b20bb27d9f2f911e553d9d7ddebecdd0ec2bd38ac8292f4357fa300730009c7e",
+      "portableOutputSha256": "b8d1266aa5d09cffdb3a2ef1c764529d43a0fdbe1f8ad96c03b9fdbcadd3473f",
+      "pathNormalizationOnly": true
+    },
+    "steer-green.log": {
+      "originalOutputSha256": "3e7136f85d1b5befb8fdf304ae63a9ec71d5ef35c3966f839dab325434ae1683",
+      "portableOutputSha256": "3e7136f85d1b5befb8fdf304ae63a9ec71d5ef35c3966f839dab325434ae1683",
+      "pathNormalizationOnly": true
+    },
+    "focused-green.log": {
+      "originalOutputSha256": "a58bd8e4e7d67a17ab50630ae309f7008ee2afef7e7d7cc66e76315bb3f51b21",
+      "portableOutputSha256": "a58bd8e4e7d67a17ab50630ae309f7008ee2afef7e7d7cc66e76315bb3f51b21",
+      "pathNormalizationOnly": true
+    },
+    "autonomy-red.log": {
+      "originalOutputSha256": "5634818ce995739a8bdaa564c3934c8ff760b806196c74aa66d17041de2d30d9",
+      "portableOutputSha256": "91cde1d9dbe89ebd730bf7ef4f245b91b1d9b2b3eb7286c5c8c44dda0400d102",
+      "pathNormalizationOnly": true
+    },
+    "autonomy-green.log": {
+      "originalOutputSha256": "667f6aa087973e59ac50a380d9d5fcb5301ff234e2a334fb72a5bc2e51e865a3",
+      "portableOutputSha256": "667f6aa087973e59ac50a380d9d5fcb5301ff234e2a334fb72a5bc2e51e865a3",
+      "pathNormalizationOnly": true
+    }
+  },
+  "limitation": "Controlled structural reproduction using the committed fidelity history and deterministic oversized summary. It is not a replay of missing provider summary text. Probe exits 0 when recording symptoms; the red regression test exits 1."
+}

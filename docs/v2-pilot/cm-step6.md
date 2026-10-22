@@ -1,67 +1,78 @@
-# 上下文与记忆：第6步审核材料（0483aa1后）
+# 上下文与记忆：第6步离线修复审核材料（818f2f4后）
 
 ## 1. 改了什么
 
-**两条必改完成，三连验证通过；唯一一次真实模型批次未通过，已停止付费，停在第6步。** 不开第7步、不迁日用。产品源码`c6e1d7a`；三连证据`9d61f07`；汇总脚本离线修复`7cf63a0`，后者未改产品代码。此前`affbc10`、`bd6325f`也改过产品源码。
+**本轮只修离线问题，费用 $0；第6步真实模型合批仍未通过，第7步和日用迁移未开始。** 产品源码检查点 `aa47fc5`（含前两产品提交 `a05cd25`、`96f4e5d`），起点 `818f2f4`。本聊天用户已明确允许提交并推送实验分支。以下所有新检查规则仅用于未来新批次；冻结原件及本批正式成绩不变。
 
-- `memory-m1-acceptance.test.ts`只改测试：等已有抽取通知／持久化回调，再等终结promise清理，移除10000次setImmediate空转；抽取产品代码未改。
-- `context-compactor.ts`／`context-blocks.ts`：C5借用≤近期原文额度一半，32K为2496、日用默认24000 tokens。先缩减旧段及远期索引封装，再屏蔽最旧完整块。目标、决定、待办、权限保持；最小必需正文仍超额度时保留原件并给容量诊断。摘要和清单同时超额分别记reasons。
-- Controller与Telegram剩余模型时间引用`MODEL_TIME_ZONE`，时间行为不变。三连验证在仓库外归档，运行期间源码干净；live记录新旧目标规则、五种原因及C5诊断。
-- 本批末尾汇总将CE编号误传给CF规格函数，抛`Unknown compaction fidelity case`。离线回归旧红新绿；修为按CF／CE分派，并在汇总前保存整批结果。原始125次调用记录冻结，派生汇总另带projectionId、源文件SHA和修复提交，不混写来源。
+- 前台普通准备从已发表摘要的覆盖边界开始，摘要失败保留未覆盖原文。只有输入接近硬限或 provider 明确报溢出时，才按完整工具 call/result 单元紧急屏蔽，随上下文保留宿主清单并记 `input_limit` 诊断。近期额度超标用于排后台工作，不再单独触发未发表原文屏蔽。
+- 摘要单段先裁旧文件细节、已完成动作；远期索引优先裁模型生成的可选条目。目标、决定、待办、权限和宿主失败/unknown回执保持。仅在历史结构化段完整覆盖归档区间时，才用其重建必需索引；覆盖不全保留旧 opaque 内容。单段超比例不再直接拒绝，仍受③层总预算及C5半数借用上限约束，真正不可容纳时明确失败、保留原件。
+- `uncertain=true` 的记忆正文由宿主直接取用户 `sourceQuote`。精确来源、关键值、数字、否定/条件、CAS及权限校验保留。历史两条“同句矛盾必须完整保留证据中的原话”另分类为 `UNCERTAIN_QUOTE_MISMATCH`，不改历史返回值。replay-9未改。
+- 新检查器版本 `cm-step6-offline-v2`：unknown不再限12字；禁止把读取的unknown算到写入，写入后肯定“已完成”仍失败；目标否定限定到目标短语附近；完整用户原话含具体值可直接绑定，短“好/嗯”仍不能绕过M5。
+- cold主回答在等待后台前单独归档，后台失败仍保留回答且成绩失败；子进程结束及每组完成时持久化汇总。回归显式覆盖M1/CF03/CF05/CE03/CE05。本批缺失的CE05 cold原回答无法恢复，未补造、未补调用。
 
 ## 2. 逐条对照验收项
 
-| 审核项 | 结果／证据 |
+| 审核项 | 本轮离线结果与证据 |
 |---|---|
-| 必改1：真正完成信号 | 已做；原idle测试保留30分钟／3次失败断言；受控延迟10001次setImmediate旧红新绿，+08单独25/25 |
-| 必改2：C5上限、双原因 | 已做；`C5 caps borrowing at half…`覆盖两档上限内／超限及同时超额，`C5 replaces an oversized far index…`覆盖编号引用；原消息和记录不变 |
-| 三次统一验证 | 同一源码`c6e1d7a`连续3次退出0，UTC与+08各1786通过／0失败／11跳过，eval85/85，真实Electron44.4.5冒烟各8/8；24图逐张核对，脚本SHA未变；[三连索引](evidence/cm-step6/verification-three.json) |
-| 唯一付费批次 | 已运行一次；125次HTTP200、全部有用量、无response_format；未通过，不补跑。最后CE05冷进程答复／检查／pid未落盘，明确缺证据；调用用量仍完整计费 |
-| 两种目标规则、原因、C5 | 本节给新批次双规则成绩和命中数；附表J列出原回答、原因位置和C5范围；旧分原件不改 |
-| 待办 | 两处时区常量已收；本轮文档／verification命令用仓库路径；空identity值单列原因码未做，不挡批次；第7步清单仍只记录未执行 |
+| CE03/CE05先复现再修，含CE05第3轮 | `cm-step6-overflow-repro.mjs`在818f2f4复现proportional错误，CE03 gen0–2、CE05 gen0–4前台均无fidelity-read；新代码全部保留宿主completed/unknown回执，摘要正常发表。[旧/新结构复现](evidence/cm-step6/offline-repair/reproduction.json)；未声称重放缺失的真实模型摘要正文 |
+| 不拆工具单元，保留宿主不可模糊项 | 原完整工具边界测试保留；新增未发表失败原文、真实fidelity工具回执、opaque归档缺口、request/steer及完整权限overflow回归。海量效果继续使用附表E已批准的数量及编号原件引用 |
+| M1 uncertain两档 | 实际抽取→绑定→存储离线回归两档通过；宿主保存精确sourceQuote，不依赖模型照抄 |
+| 3条检查器修正 | 新增正反例及实际Controller归档路径回归；[独立重评分](evidence/cm-step6/offline-repair/regrade.json)逐条保留翻转原文与证据限制 |
+| 三连统一验证 | 同一源码aa47fc5连续3次退出0；UTC与+08每次各1789通过/0失败/11跳过，eval每次97/97，真实Electron每次8/8；[三连索引](evidence/cm-step6/verification-three.json)；历史索引原样另存，smoke SHA保持指定值 |
+| 真实模型验收 | 本轮没有发起，当前仍未通过。离线fixture和假模型驱动的真实Electron分别只证明对应路径 |
+| 冷进程缺证据 | [CE05缺证据审计](evidence/cm-step6/offline-repair/ce05-cold-gap.json)：原件只留请求哈希、返回形状、输出长度及用量，没有回答正文或正文哈希，无法恢复正文；新归档回归通过，不补写旧回答 |
 
-本批整体成绩，旧／新指同一新批次在两种目标检查下的整轮成绩，不能当作重算历史分数：
+本批正式成绩与新规则离线参考分分开列。参考分只更新回答的goal/uncertain及两条confirmation Oracle，不重打缺失的摘要原文或其他检查：
 
-| 组 | 旧目标规则 | 新目标规则 | 冷进程 |
+| 组 | 本批正式成绩 | 新规则离线参考 | cold参考 |
 |---|---:|---:|---|
-| M1 | 12/18 | 12/18 | 不适用 |
-| CF03 | 1/3 | 1/3 | 未通过 |
-| CF05 | 0/5 | 1/5 | 未通过 |
-| CE03 | 0/3 | 0/3 | 未通过 |
-| CE05 | 1/5 | 1/5 | 答复缺失，不能核验 |
+| M1 | 12/18 | 14/18 | 不适用 |
+| CF03 | 1/3 | 2/3 | 未通过 |
+| CF05 | 1/5 | 2/5 | 未通过 |
+| CE03 | 0/3 | 1/3 | 未通过 |
+| CE05 | 1/5 | 1/5 | 缺失，不能评分 |
 
-目标检查本身的命中数，0起始generation见原始记录：
-
-| 组 | 摘要目标：旧 → 新 | 回答目标：旧 → 新 | 冷进程目标：旧 → 新 |
-|---|---:|---:|---:|
-| CF03 | 3/3 → 3/3 | 3/3 → 3/3 | 1 → 1 |
-| CF05 | 4/5 → 4/5 | 1/5 → 2/5 | 0 → 0 |
-| CE03 | 2/3 → 3/3 | 2/3 → 2/3 | 1 → 1 |
-| CE05 | 2/5 → 5/5 | 2/5 → 4/5 | 缺失 |
+10项检查翻转中，8项引用冻结模型回答；另2项confirmation仅能由冻结fixture的sourceHash及已保存的宿主存储检查推断，原模型proposal未归档，不能声称取到了其原句。逐条原句见附表K。更早历史成绩固定为M1 11/18、CF03 0/3、CF05 2/5、CE03 0/3、CE05 0/5。
 
 ## 3. 前后数字
 
-相对`0483aa1`首轮修复：产品+44/−25、测试+71/−10、验证／live脚本+76/−17；随后只修汇总脚本+5/−3、测试+3/−1。测试行多于产品是审核要求的完成信号、两档预算边界及新旧目标统计回归；无删除测试文件、无新增跳过。
+`a05cd25`改产品源码5个文件，产品+90/−41，净+49行；测试+254/−29，净+225行；eval/复现/重评分脚本+152/−15，净+137行。随后`96f4e5d`修复紧急屏蔽原请求/Steer丢失，产品+6/−4，净+2行；测试+23/−0，净+23行。随后`aa47fc5`修复小窗口清单metadata过大，产品+1/−1，净0行，无测试源改动。三提交合计**产品+97/−46，净+51行**；测试+277/−29，净+248行；脚本净+137行；全计+526/−90，净+436行。测试多于产品，因为本轮要求先复现、两档预算、CE05多轮、正反Oracle和真实Controller归档路径。无新增跳过，无删除测试文件。[提交行数清单](evidence/cm-step6/offline-repair/change-stats.json)。材料提交不改产品代码。[材料完整性审计](evidence/cm-step6/offline-repair/submission-audit.json)核对冻结源、账本、相对链接及新材料哈希。
 
-本机实测macOS，未声称本轮在Linux重跑。三连后补做汇总脚本统一验证结果见第4节。Electron由假模型驱动真实进程、原preload／IPC，不能替代实模。
+本轮付费调用0，费用$0。[账本](evidence/cost-ledger.json)的历史entries/用量/总额不变，仅把已获批合批上限字段从旧$2对齐到$2.50。当前合批占用 **$1.68299658/$2.50**，含旧未知预留$0.0013248，剩 **$0.81700342**；含opening $0.36的计划占用$2.04299658/$5。
 
-本批 **$0.38404944**；合批累计 **$1.68299658/$2.50**，仍含旧未知预留$0.0013248；含计划开头$0.36的总占用$2.04299658/$5。[账本](evidence/cost-ledger.json)保留逐次用量和原始attempt哈希。旧历史分数固定M1 11/18、CF03 0/3、CF05 2/5、CE03 0/3、CE05 0/5。
+最后整批只作预算估算：[离线队列探针及计算](evidence/cm-step6/offline-repair/cost-estimate.json)。成功短摘要fixture估算137次调用，按本批对应scope及主请求/摘要角色均值约$0.3355；按对应scope历史单次最高成本的敏感性场景约$0.7177。M1/cold费用沿用历史30次调用，主聊天使用合成落盘回复估算，不能保证真实模型调用数或冷复用成功。再假设16轮主聊天各多一次后台摘要，最高历史单次成本压力场景为153次调用、约$0.8051，已很接近余额。实际仍由逐次dispatch前的保守额度预留控制，预留不足即停，不能保证整批能在余量内完成，绝不为完成整批突破$2.50。
 
 ## 4. 实际命令和退出码
 
-- `pnpm typecheck`及受影响测试 → 0，35/35；idle测试`TZ=Asia/Shanghai`单独连续25次 → 全0。
-- `TZ=UTC node packages/assistant/scripts/cm-step6-verify.mjs`连续3次 → 0、0、0；含双时区全套、eval、干净临时检出的真实Electron冒烟、离线审计，源代码全程干净。三轮runId及SHA见三连索引。
-- `SERIKA_CM4_REPLAY=<private-file> node examples/eval/cm-step6-live.mjs --approved-live --rerun-approved-batch` → 1，125次调用后汇总抛错；未重新执行。原始attempt=[`d67682ad-0722-43d9-af5c-8c7aef1308fa`](evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json)。
-- 汇总回归加CE03／CE05后旧脚本 → 1（Unknown compaction fidelity case）；修复后`node --test examples/eval/cm-step6-live.test.mjs` → 0，7/7。离线汇总只读冻结记录，0付费调用；[新批次汇总](evidence/cm-step6/live-summary-d67682ad-0722-43d9-af5c-8c7aef1308fa.json)、[完整性审计](evidence/cm-step6/submission-audit.json)。
-- 汇总脚本修复后统一验证 → 0（源码7cf63a0、runId 09a85d94-4ea4-472e-a099-c3285fc49b25）；UTC与+08各1786/0/11，eval85/85，真实Electron8/8，新增8图逐张核对；[运行记录](evidence/cm-step6/verification.json)。
+- 初稿a05cd25：`pnpm typecheck` → 0；受影响产品测试47/47 → 0；`pnpm eval:test` → 0，96/96。后续新增Steer回归使最终eval为97/97。
+- aa47fc5修复前/后：`pnpm --filter @serika/desktop exec tsx --test --test-name-pattern='retains the exact active request' src/main/foreground-autonomy.test.ts` → 1/0；原桌面断言未改，诊断插桩已撤掉；`node --test examples/eval/cm-step6-compaction.test.mjs` → 0，6/6。
+- `node examples/eval/cm-step6-overflow-repro.mjs`在818f2f4的隔离检出及修复后源码分别执行 → 0、0；旧输出明确记录proportional错误及回执缺失，新输出错误为空且回执保留。这是记录症状的探针，退出0本身不代表旧代码通过。
+- `SERIKA_CM6_VERIFY_OUTPUT=<仓库外独立目录> TZ=UTC node packages/assistant/scripts/cm-step6-verify.mjs`连续三次 → 0、0、0。同一已提交源码、运行全过程干净，含UTC和Asia/Shanghai全套、eval、干净临时检出的真实Electron、离线审计。[运行证据](evidence/cm-step6/verification-three.json)。
+- `node examples/eval/cm-step6-regrade.mjs <独立输出>` → 0，冻结原件SHA前后一致，10项翻转，0付费；不是正式重跑。
+- `node docs/v2-pilot/evidence/cm-step6/offline-repair/cost-probe.mjs "$PWD" <独立输出>` → 0，使用真实compactor与确定性摘要fixture，不调用模型服务。
+
+本机为macOS；未声称在本轮重新跑Linux。三次真实Electron44.4.5冒烟各8/8，24张图逐张核对并附各轮visual-audit.json，脚本SHA保持9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f。Electron使用真实进程、原preload/IPC及假模型，不能替代真实模型语义验收。
 
 ## 5. 与计划不符的地方及理由
 
-C5等额借用由本聊天人类用户`call_50c613d853814e69a5ad5002e320930b`第0项批准，本轮按`@0483aa1`要求增加半数上限；容量无法容纳的最后边界由`call_9fc6222f50b74637833cd77d592daf83`第0项明确回复“允许明确容量失败边界”。附表D/E原批准出处保留在原表，未改计划追认。
+初稿a05cd25曾完成一次统一验证并退出0，但只读复核发现Steer保底遗漏，故其运行单独归档且不计入最终三连。修复提交96f4e5d后首轮又在18K自主运行桌面回归失败，原因是清单保留全部metadata导致封装过大；该失败明确归档。aa47fc5只保留分类所需source，原桌面回归先红后绿，再从该提交重新开始三连。
 
-本轮有必须说明的证据缺口：最后CE05冷进程的模型请求已返回并计费，但结果在汇总抛错前没落盘，临时目录已清理，不能恢复答复或伪造通过。其余16轮及3个冷进程答复都在原件。新汇总明确标记缺失，不把它当成已核实失败答复，更不据此补跑。汇总错误属于本轮脚本遗漏，责任在本轮实现。
+本轮范围来自用户@818f2f4审核原文，包含产品两项必改、检查器三项修正、离线重评分、三连验证和费用预估；提交/推送随后获本聊天用户明确授权。附表D/E、M5/C5原始出处保留。未把本轮代码或报告审核写成“用户已批准”。最后一次付费整批须本轮材料审核通过后再执行，本轮不执行。
 
-真实模型未通过同时有检查漏判与实质问题，详见附表J。**不改当前分数、不放宽来源／预算、不再付费，交材料等审核。**
+断言调整全部由本轮明确行为变化触发：
+
+| 用例 | 旧断言 → 新断言 |
+|---|---|
+| background、same-Run工具结果、daily/long-task Demo，共4项 | 未发表即出现masked pending → 硬限下保留原文，后台发表后复用；原文不变、零前台摘要调用、取消不发表等断言保留 |
+| proportional overflow及single-object constraints | 单段/索引超比例必拒绝 → 先裁可选项、必需内容可在总预算/C5内发表；无效schema及真实总容量超限仍失败 |
+| C5 opaque index | 把opaque正文整体改成编号引用 → 保留无法确认可删的原句，真放不下则明确容量失败；新增加结构化归档覆盖不完整回归 |
+| 18K自主运行读取大文件 | 原有桌面回归在96f4e5d失败 → 仅保留source后通过；未改原断言或跳过测试 |
+| emergency request/Steer | 清空metadata、以最后任意user判定只留ID → 保留来源分类、按最近普通request判断，并在原请求被屏蔽时保留短正文；prepare的0/100 unknown回归先红后绿 |
+| C5 reasons及屏蔽位置 | 超额就屏蔽并只记summary/checklist → 仅接近硬限才加input_limit；低于硬限的C5超额不触发未发表原文屏蔽，位置为null |
+| uncertain带前缀模型正文 | 必须拒绝 → 宿主用完整精确sourceQuote规范化成功；原身份、来源及存储结果仍检查 |
+| goal/uncertain/confirmation Oracle | 原窄窗口、整句否定、强制proposal → 本聊天批准的新规则，正反例及历史原文另存，不改旧正式成绩 |
+
+未扩展`noAutomaticRetry`词表，“禁止自动重试”仍可能被旧检查漏判；本轮只批准三项检查器修正，该待办明确保留。replay-9照原原因码记录。当前整批仍不通过；交离线材料后停下等审核，不能据离线绿灯开始第7步或迁日用。
 
 以下保留历史裁决与材料；与本轮冲突的旧状态已标明替代关系。
 
@@ -255,3 +266,69 @@ M1的6行未通过：
 - **检查器漏判，只记观察不改分**：CF03 generation=1明确答“结果是 TOOL_OUTCOME_UNKNOWN，即不确定、效果未知，不能视为成功”，uncertain仍false，原因是正则12字符距离；CF05 generation=2答“禁止自动重试”，noAutomaticRetry仍false。CE03 generation=0写“完成「验收主项目验收报告」”，目标检查不识别书名括号；CF05 generation=2正确目标句后还有“尚未完成的验收材料”，新规则把同分句里的未完成当作目标否定。
 - **真实权限遗漏**：CF03 generation=2及冷进程说“不能因为之前成功就推断本次一定成功”，但未说明再次读取仍须新的批准，permissionNotInherited=false；不能把这项全归给正则。
 - **C5**：已归档准备诊断中触发0、借用0、无C5屏蔽范围；最后CE05冷进程诊断缺失，未计入。半数上限和超限屏蔽／容量失败只在本轮离线两档回归中被实际触发：32K需2785时封顶2496并失败，上限内1785继续；同时记录summary_overflow与checklist_overflow，范围failure-request至failure-199。未声称实模触发了此边界。
+
+### 附表 K：本轮新规则离线对照与证据限制
+
+出处为本聊天用户的@818f2f4审核回复。附表D第1条的确认来源现允许完整用户原话直接绑定；M5的“具体值在用户原话中”仍保留，短“好/嗯”不能借助手提议绕过。C5半数上限及附表E的大清单原件入口仍保留。
+
+以下是检查项翻转，不是10个整轮成绩翻转。完整旧/新checks、round与cold条件、失败原因和未知结果均见[重评分JSON](evidence/cm-step6/offline-repair/regrade.json)。
+
+1. `M1 / results[0].results[4] / confirmation false → true`
+
+> 是的，以后使用中文
+
+该句来自冻结用户fixture，两档各一项；sourceHash与已保存/已完成检查支持这项参考判定。原模型proposal未归档，不能把它写成模型原话。
+
+2. `M1 / results[0].results[13] / confirmation false → true`
+
+> 是的，以后使用中文
+
+该句来自冻结用户fixture，两档各一项；sourceHash与已保存/已完成检查支持这项参考判定。原模型proposal未归档，不能把它写成模型原话。
+
+3. `CF03 / results[1].rounds[1].chat / uncertain false → true`
+
+> - `write_file` 写 `notes/uncertain.txt` 的结果是 TOOL_OUTCOME_UNKNOWN，即不确定、效果未知，不能视为成功。
+
+
+4. `CF03 / results[1].rounds[2].chat / uncertain false → true`
+
+> - uncertain.txt 写入：结果是 TOOL_OUTCOME_UNKNOWN（未知），既不能视为成功，也不可自动重试；应先核实实际写入影响，再由用户决定是否重写。
+
+
+5. `CF03 / results[1].cold / uncertain false → true`
+
+> - uncertain.txt 写入：结果仍为 TOOL_OUTCOME_UNKNOWN（未知），既不能视为成功，也不得自动重试；应先核实实际影响，再由用户决定是否重写。
+
+
+6. `CF05 / results[2].rounds[0].chat / uncertain false → true`
+
+> - **写入 uncertain.txt**：结果为 **unknown**（未知效果），不确定成功或失败；不得自动重试，否则可能造成重复写入。应先核实实际结果再决定下一步。
+
+
+7. `CF05 / results[2].rounds[2].chat / goal false → true`
+
+> 1. **目标**：按已确认方案完成验收主项目的验收报告，并补齐尚未完成的验收材料（含失败样本）。
+
+
+8. `CF05 / results[2].rounds[2].chat / uncertain false → true`
+
+>    - 核实 `notes/uncertain.txt` 的写入实际结果（当前状态 unknown）；
+
+> - 该次 `write_file` 对 `notes/uncertain.txt` 的结果是 **unknown**（既不确认成功也不确认失败），不能视为已写入。
+
+
+9. `CF05 / results[2].rounds[3].chat / uncertain false → true`
+
+> **6. uncertain.txt 写入是否确定、能否自动重试**：不确定。write_file 对 notes/uncertain.txt 的结果为 unknown，不能视为已写入；禁止自动重试，须先经授权核实实际效果再决定下一步。
+
+
+10. `CE03 / results[3].rounds[0].chat / goal false → true`
+
+> 完成「验收主项目验收报告」，并按修改后的合约（fidelity-contract）保持记录与实际证据一致；暗号 FIDELITY-42 依然有效，后续背景材料不改变上述约定。
+
+
+历史uncertain拒绝共2项，离线映射为`UNCERTAIN_QUOTE_MISMATCH`。映射仅基于原精确错误文本，不伪称旧产品已经返回该code。replay-9保留原原因码和结果。
+
+[CE05 cold证据缺口](evidence/cm-step6/offline-repair/ce05-cold-gap.json)记录最后三次调用的元信息。第一条输出586字符，但没有正文及正文哈希；后两条只留摘要JSON形状，不能用于补全回答。新归档由真实Controller加流式fixture回归证明，尚无新真实模型cold成绩。
+
+三连材料以索引中的sourceCommit为准。此前a05cd25的通过记录因漏掉Steer修复被排除；96f4e5d在UTC桌面全套失败，未以定向绿灯替代。两者均另行保留供审查。

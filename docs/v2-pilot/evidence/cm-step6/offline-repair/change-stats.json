@@ -1,0 +1,220 @@
+{
+  "materialId": "2a107961-e00d-451e-8e95-ffd76e306b5f",
+  "generatedAt": "2026-10-22T04:09:11.984819+00:00",
+  "sourceCommit": "aa47fc554cb0f7467071707524a27cce755a3273",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "baselineCommit": "818f2f4",
+  "changes": [
+    {
+      "commit": "a05cd25c7ba2ccdd34023b7a496efa09861015a6",
+      "productSourceChanged": true,
+      "totals": {
+        "product": {
+          "added": 90,
+          "removed": 41,
+          "net": 49
+        },
+        "tests": {
+          "added": 254,
+          "removed": 29,
+          "net": 225
+        },
+        "scripts": {
+          "added": 152,
+          "removed": 15,
+          "net": 137
+        }
+      },
+      "paths": [
+        {
+          "path": "examples/eval/cm-step4.mjs",
+          "category": "scripts",
+          "added": 3,
+          "removed": 1,
+          "net": 2
+        },
+        {
+          "path": "examples/eval/cm-step6-compaction.test.mjs",
+          "category": "tests",
+          "added": 111,
+          "removed": 0,
+          "net": 111
+        },
+        {
+          "path": "examples/eval/cm-step6-live.mjs",
+          "category": "scripts",
+          "added": 51,
+          "removed": 14,
+          "net": 37
+        },
+        {
+          "path": "examples/eval/cm-step6-live.test.mjs",
+          "category": "tests",
+          "added": 80,
+          "removed": 4,
+          "net": 76
+        },
+        {
+          "path": "examples/eval/cm-step6-overflow-repro.mjs",
+          "category": "scripts",
+          "added": 17,
+          "removed": 0,
+          "net": 17
+        },
+        {
+          "path": "examples/eval/cm-step6-regrade.mjs",
+          "category": "scripts",
+          "added": 81,
+          "removed": 0,
+          "net": 81
+        },
+        {
+          "path": "packages/assistant/src/compaction-records.ts",
+          "category": "product",
+          "added": 18,
+          "removed": 4,
+          "net": 14
+        },
+        {
+          "path": "packages/assistant/src/context-background.test.ts",
+          "category": "tests",
+          "added": 3,
+          "removed": 2,
+          "net": 1
+        },
+        {
+          "path": "packages/assistant/src/context-blocks.ts",
+          "category": "product",
+          "added": 13,
+          "removed": 10,
+          "net": 3
+        },
+        {
+          "path": "packages/assistant/src/context-compaction-runtime.test.ts",
+          "category": "tests",
+          "added": 6,
+          "removed": 4,
+          "net": 2
+        },
+        {
+          "path": "packages/assistant/src/context-compactor.test.ts",
+          "category": "tests",
+          "added": 20,
+          "removed": 16,
+          "net": 4
+        },
+        {
+          "path": "packages/assistant/src/context-compactor.ts",
+          "category": "product",
+          "added": 53,
+          "removed": 20,
+          "net": 33
+        },
+        {
+          "path": "packages/assistant/src/context-diagnostics.ts",
+          "category": "product",
+          "added": 2,
+          "removed": 2,
+          "net": 0
+        },
+        {
+          "path": "packages/assistant/src/memory-m1-acceptance.test.ts",
+          "category": "tests",
+          "added": 28,
+          "removed": 1,
+          "net": 27
+        },
+        {
+          "path": "packages/assistant/src/memory-write.ts",
+          "category": "product",
+          "added": 4,
+          "removed": 5,
+          "net": -1
+        },
+        {
+          "path": "packages/assistant/src/modules/memory-module.test.ts",
+          "category": "tests",
+          "added": 6,
+          "removed": 2,
+          "net": 4
+        }
+      ]
+    },
+    {
+      "commit": "96f4e5d63c244f562769a019090565d95040fcfc",
+      "productSourceChanged": true,
+      "totals": {
+        "product": {
+          "added": 6,
+          "removed": 4,
+          "net": 2
+        },
+        "tests": {
+          "added": 23,
+          "removed": 0,
+          "net": 23
+        },
+        "scripts": {
+          "added": 0,
+          "removed": 0,
+          "net": 0
+        }
+      },
+      "paths": [
+        {
+          "path": "examples/eval/cm-step6-compaction.test.mjs",
+          "category": "tests",
+          "added": 23,
+          "removed": 0,
+          "net": 23
+        },
+        {
+          "path": "packages/assistant/src/compaction-records.ts",
+          "category": "product",
+          "added": 2,
+          "removed": 2,
+          "net": 0
+        },
+        {
+          "path": "packages/assistant/src/context-compactor.ts",
+          "category": "product",
+          "added": 4,
+          "removed": 2,
+          "net": 2
+        }
+      ]
+    },
+    {
+      "commit": "aa47fc554cb0f7467071707524a27cce755a3273",
+      "productSourceChanged": true,
+      "totals": {
+        "product": {
+          "added": 1,
+          "removed": 1,
+          "net": 0
+        },
+        "tests": {
+          "added": 0,
+          "removed": 0,
+          "net": 0
+        },
+        "scripts": {
+          "added": 0,
+          "removed": 0,
+          "net": 0
+        }
+      },
+      "paths": [
+        {
+          "path": "packages/assistant/src/context-compactor.ts",
+          "category": "product",
+          "added": 1,
+          "removed": 1,
+          "net": 0
+        }
+      ]
+    }
+  ],
+  "excluded": "The later material-only commit changes no product or test source."
+}

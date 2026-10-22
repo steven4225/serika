@@ -1,0 +1,43 @@
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE03","generation":0,"records":5,"realModelCalls":0,"preparation":{"at":"2026-10-22T04:01:27.290Z","outcome":"reused","compactionId":"431017e8-206d-4bc9-b366-a8c3c0e80e24","estimatedInputTokens":864,"error":null,"summaryLayer":{"tokens":759,"checklistTokens":254,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1606,"requiredTokens":506,"budget":994,"reducedSegments":4,"compacted":true,"indexReferenced":false,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":237,"sectionBudget":208,"maskedThroughMessageId":null}}}
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE03","generation":1,"records":9,"realModelCalls":0,"preparation":{"at":"2026-10-22T04:01:27.326Z","outcome":"reused","compactionId":"568e0205-3c95-49e0-b6a2-5c5395c5abfe","estimatedInputTokens":3760,"error":null,"summaryLayer":{"tokens":760,"checklistTokens":254,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1607,"requiredTokens":506,"budget":994,"reducedSegments":4,"compacted":true,"indexReferenced":false,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":237,"sectionBudget":208,"maskedThroughMessageId":null}}}
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE03","generation":2,"records":14,"realModelCalls":0,"preparation":{"at":"2026-10-22T04:01:27.402Z","outcome":"reused","compactionId":"bdcd16db-4859-40c6-aae9-0de05979dd75","estimatedInputTokens":864,"error":null,"summaryLayer":{"tokens":759,"checklistTokens":254,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1606,"requiredTokens":506,"budget":994,"reducedSegments":4,"compacted":true,"indexReferenced":false,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":237,"sectionBudget":208,"maskedThroughMessageId":null}}}
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE05","generation":0,"records":5,"realModelCalls":0,"preparation":{"at":"2026-10-22T04:01:27.420Z","outcome":"reused","compactionId":"0410c47e-7217-4447-96c3-84c4232d8b91","estimatedInputTokens":864,"error":null,"summaryLayer":{"tokens":759,"checklistTokens":254,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1606,"requiredTokens":506,"budget":994,"reducedSegments":4,"compacted":true,"indexReferenced":false,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":237,"sectionBudget":208,"maskedThroughMessageId":null}}}
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE05","generation":1,"records":9,"realModelCalls":0,"preparation":{"at":"2026-10-22T04:01:27.459Z","outcome":"reused","compactionId":"697e6351-14f2-4414-94d0-3202e0916fd6","estimatedInputTokens":3760,"error":null,"summaryLayer":{"tokens":760,"checklistTokens":254,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1607,"requiredTokens":506,"budget":994,"reducedSegments":4,"compacted":true,"indexReferenced":false,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":237,"sectionBudget":208,"maskedThroughMessageId":null}}}
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE05","generation":2,"records":14,"realModelCalls":0,"preparation":{"at":"2026-10-22T04:01:27.538Z","outcome":"reused","compactionId":"0faa2af7-e824-4601-b0f2-fb2e4c979929","estimatedInputTokens":864,"error":null,"summaryLayer":{"tokens":759,"checklistTokens":254,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1606,"requiredTokens":506,"budget":994,"reducedSegments":4,"compacted":true,"indexReferenced":false,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":237,"sectionBudget":208,"maskedThroughMessageId":null}}}
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE05","generation":3,"records":18,"realModelCalls":0,"preparation":{"at":"2026-10-22T04:01:27.631Z","outcome":"reused","compactionId":"36beb92a-daf1-4161-9b1d-c04f8c38e77e","estimatedInputTokens":3760,"error":null,"summaryLayer":{"tokens":760,"checklistTokens":254,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1607,"requiredTokens":506,"budget":994,"reducedSegments":4,"compacted":true,"indexReferenced":false,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":237,"sectionBudget":208,"maskedThroughMessageId":null}}}
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE05","generation":4,"records":23,"realModelCalls":0,"preparation":{"at":"2026-10-22T04:01:27.797Z","outcome":"reused","compactionId":"8cfd9d69-c788-45e4-89e3-7bb09c32a924","estimatedInputTokens":864,"error":null,"summaryLayer":{"tokens":759,"checklistTokens":254,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1606,"requiredTokens":506,"budget":994,"reducedSegments":4,"compacted":true,"indexReferenced":false,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":237,"sectionBudget":208,"maskedThroughMessageId":null}}}
+✔ unpublished CE03/CE05 blocks remain visible after failed background work below the hard-input trigger (5.510292ms)
+✔ CE03/CE05 offline generations including CE05 generation 3 reduce optional overflow and preserve host read/unknown receipts (530.970375ms)
+✔ host reduction removes completed actions and file details while preserving structured essentials (0.211833ms)
+✔ far index retains opaque clauses when archived structured coverage is incomplete (40.062291ms)
+✔ overflow checklist retains request and steer references plus complete permissions (0.564583ms)
+✖ emergency prepare preserves the masked ordinary request and classifies Steer, including overflow (0.95675ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 665.844125
+
+✖ failing tests:
+
+test at examples/eval/cm-step6-compaction.test.mjs:113:1
+✖ emergency prepare preserves the masked ordinary request and classifies Steer, including overflow (0.95675ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'original-request'
+  
+      at TestContext.<anonymous> (file://./examples/eval/cm-step6-compaction.test.mjs:127:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'original-request',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

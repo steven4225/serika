@@ -1,0 +1,59 @@
+{
+  "visualAuditId": "76866621-e9ab-4d0d-98a6-636b176795b2",
+  "inspectedAt": "2026-10-22T04:21:58.490377+00:00",
+  "verificationRound": 2,
+  "sourceCommit": "aa47fc554cb0f7467071707524a27cce755a3273",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "method": "Each of the eight source PNGs was visually inspected in labeled four-image contact sheets. Original PNGs remain unchanged.",
+  "screenshots": [
+    {
+      "file": "startup.png",
+      "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f",
+      "observed": "Isolated test banner and empty composer visible.",
+      "matchesSmokeExpectation": true
+    },
+    {
+      "file": "chat-reply.png",
+      "sha256": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497",
+      "observed": "User greeting and offline fixture response visible.",
+      "matchesSmokeExpectation": true
+    },
+    {
+      "file": "remember-success-receipt.png",
+      "sha256": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25",
+      "observed": "Saved host receipt with undo is visible next to the remember request.",
+      "matchesSmokeExpectation": true
+    },
+    {
+      "file": "remember-on-memory-page.png",
+      "sha256": "d93f73be56ca8d62778b73c125474ba037fabb6b361099db8202ce35b450c143",
+      "observed": "Memory page contains the saved report-first preference.",
+      "matchesSmokeExpectation": true
+    },
+    {
+      "file": "restart-persistence.png",
+      "sha256": "16c25bb64926e833de8fd2cbc3851092d394bf8ea8763c5cfb39000e1802d71e",
+      "observed": "Memory card and saved receipt persist after process restart.",
+      "matchesSmokeExpectation": true
+    },
+    {
+      "file": "undo-disappears.png",
+      "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+      "observed": "Receipt changes to withdrawn and memory page has no document.",
+      "matchesSmokeExpectation": true
+    },
+    {
+      "file": "daily-path-refuses-writes.png",
+      "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+      "observed": "Daily-data refusal is visible as the expected startup error, not a connected-success claim.",
+      "matchesSmokeExpectation": true
+    },
+    {
+      "file": "daily-config-retired-fields.png",
+      "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+      "observed": "Retired-field config is rejected with Invalid TUI config schema.",
+      "matchesSmokeExpectation": true
+    }
+  ]
+}

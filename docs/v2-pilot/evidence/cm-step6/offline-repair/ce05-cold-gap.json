@@ -1,0 +1,234 @@
+{
+  "materialId": "2a107961-e00d-451e-8e95-ffd76e306b5f",
+  "generatedAt": "2026-10-22T04:09:11.984819+00:00",
+  "sourceCommit": "aa47fc554cb0f7467071707524a27cce755a3273",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "source": "docs/v2-pilot/evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json",
+  "sourceSha256": "b7264a5a558f9d08ff8aec2f7e55c8e640cf9d88f912a7d0557f6a64372a5226",
+  "replyAvailable": false,
+  "replyReconstructed": false,
+  "replacementModelCalls": 0,
+  "knownCalls": [
+    {
+      "id": "187ee0f9-69bb-44c8-878c-727536edbebe",
+      "scope": "cold",
+      "status": "returned",
+      "inputHash": "jcs-sha256:v1:e6d3454671e5c6def28f79dcba446d705a9586378e3343923b1e39a28a884842",
+      "inputBytes": 17384,
+      "output": {
+        "encoding": "non-json",
+        "chars": 586
+      },
+      "usage": {
+        "input": 4687,
+        "output": 327,
+        "cacheRead": 1664
+      },
+      "costUsd": 0.00070662
+    },
+    {
+      "id": "837aef13-6223-48cd-b993-74558a5ebbf9",
+      "scope": "cold",
+      "status": "returned",
+      "inputHash": "jcs-sha256:v1:263ffc5c4b8feb2874c7a326d7e514484480aca470492b41944ee8c21811eeac",
+      "inputBytes": 22793,
+      "output": {
+        "encoding": "json",
+        "shape": {
+          "version": "number",
+          "goal": {
+            "text": "string",
+            "evidenceMessageIds": [
+              "string",
+              "string"
+            ]
+          },
+          "constraints": [
+            {
+              "text": "string",
+              "evidenceMessageIds": [
+                "string",
+                "string"
+              ]
+            },
+            {
+              "text": "string",
+              "evidenceMessageIds": [
+                "string",
+                "string"
+              ]
+            }
+          ],
+          "decisions": [
+            {
+              "text": "string",
+              "evidenceMessageIds": [
+                "string"
+              ],
+              "source": "string",
+              "status": "string"
+            }
+          ],
+          "actions": [
+            {
+              "text": "string",
+              "evidenceMessageIds": [
+                "string"
+              ],
+              "status": "string",
+              "toolCallIds": []
+            },
+            {
+              "text": "string",
+              "evidenceMessageIds": [
+                "string"
+              ],
+              "status": "string",
+              "toolCallIds": []
+            }
+          ],
+          "pending": [
+            {
+              "text": "string",
+              "evidenceMessageIds": [
+                "string"
+              ]
+            },
+            {
+              "text": "string",
+              "evidenceMessageIds": [
+                "string"
+              ]
+            }
+          ],
+          "files": [],
+          "nextStep": {
+            "text": "string",
+            "evidenceMessageIds": [
+              "string"
+            ]
+          },
+          "farIndex": "string"
+        }
+      },
+      "usage": {
+        "input": 5779,
+        "output": 573,
+        "cacheRead": 5632
+      },
+      "costUsd": 0.0004685
+    },
+    {
+      "id": "ad52d2be-190e-4ce0-9853-965eaf8142ec",
+      "scope": "cold",
+      "status": "returned",
+      "inputHash": "jcs-sha256:v1:fd7b65d5922bf47ea60e44bc8c5e081cb539aa83a85874aff9a2d8234850b1f8",
+      "inputBytes": 33451,
+      "output": {
+        "encoding": "json",
+        "shape": {
+          "version": "number",
+          "goal": {
+            "text": "string",
+            "evidenceMessageIds": [
+              "string",
+              "string",
+              "string",
+              "string"
+            ]
+          },
+          "constraints": [
+            {
+              "text": "string",
+              "evidenceMessageIds": [
+                "string",
+                "string",
+                "string",
+                "string"
+              ]
+            },
+            {
+              "text": "string",
+              "evidenceMessageIds": [
+                "string",
+                "string"
+              ]
+            },
+            {
+              "text": "string",
+              "evidenceMessageIds": [
+                "string"
+              ]
+            }
+          ],
+          "decisions": [
+            {
+              "text": "string",
+              "evidenceMessageIds": [
+                "string",
+                "string"
+              ],
+              "source": "string",
+              "status": "string"
+            }
+          ],
+          "actions": [
+            {
+              "text": "string",
+              "evidenceMessageIds": [
+                "string"
+              ],
+              "status": "string",
+              "toolCallIds": [
+                "string"
+              ]
+            },
+            {
+              "text": "string",
+              "evidenceMessageIds": [
+                "string",
+                "string"
+              ],
+              "status": "string",
+              "toolCallIds": []
+            }
+          ],
+          "pending": [
+            {
+              "text": "string",
+              "evidenceMessageIds": [
+                "string",
+                "string"
+              ]
+            },
+            {
+              "text": "string",
+              "evidenceMessageIds": [
+                "string"
+              ]
+            }
+          ],
+          "files": [],
+          "nextStep": {
+            "text": "string",
+            "evidenceMessageIds": [
+              "string",
+              "string"
+            ]
+          },
+          "farIndex": "string"
+        }
+      },
+      "usage": {
+        "input": 8684,
+        "output": 636,
+        "cacheRead": 0
+      },
+      "costUsd": 0.00175832
+    }
+  ],
+  "finding": "The first of the final three cold calls returned non-JSON text with 586 characters. Its input hash is not a response-body hash. The next two outputs only retain summary JSON shapes. None contains the primary reply text. Existing live.json and live-summary projections have no CE05 cold reply.",
+  "newArchivePath": "examples/eval/cm-step6-live.mjs: runChat primary-returned answerArchive plus cold child and completed-group save",
+  "newRegression": "examples/eval/cm-step6-live.test.mjs: actual Controller archives the primary reply before a background summary failure"
+}

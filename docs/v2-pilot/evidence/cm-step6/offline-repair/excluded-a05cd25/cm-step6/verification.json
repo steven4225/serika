@@ -1,0 +1,2092 @@
+{
+  "runId": "4158c987-2196-4168-bfee-bec8cb0bb4bc",
+  "startedAt": "2026-10-22T03:53:54.585Z",
+  "platform": "darwin",
+  "process": {
+    "node": "v26.4.0",
+    "pid": 19740
+  },
+  "sourceCommit": "a05cd25c7ba2ccdd34023b7a496efa09861015a6",
+  "sourceWorktreeDirty": false,
+  "baseCommit": "a183ddf01c15b51da84b1cd861b9e66686e634fe",
+  "scriptSha256": "b3179337e6fe1ebd376ff14f56eda28635a69040b18fe0f538f62ce0b5d64b59",
+  "commands": [
+    {
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "cwd": ".",
+      "startedAt": "2026-10-22T03:53:54.650Z",
+      "finishedAt": "2026-10-22T03:53:55.367Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "outputBytes": 141,
+      "counts": []
+    },
+    {
+      "command": [
+        "env",
+        "TZ=UTC",
+        "pnpm",
+        "test"
+      ],
+      "cwd": ".",
+      "startedAt": "2026-10-22T03:53:55.367Z",
+      "finishedAt": "2026-10-22T03:57:23.312Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "86dc5700c3b6873a7312c4923721692117d8cf82f1553149e20a431ded3634ec",
+      "outputBytes": 238899,
+      "counts": [
+        [
+          "tests",
+          1156
+        ],
+        [
+          "pass",
+          1145
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          11
+        ],
+        [
+          "tests",
+          632
+        ],
+        [
+          "pass",
+          632
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ],
+        [
+          "tests",
+          12
+        ],
+        [
+          "pass",
+          12
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "command": [
+        "env",
+        "TZ=Asia/Shanghai",
+        "pnpm",
+        "test"
+      ],
+      "cwd": ".",
+      "startedAt": "2026-10-22T03:57:23.313Z",
+      "finishedAt": "2026-10-22T04:00:48.847Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "4378bb1c0957f021a3b329170e2cc0ce0bdeafea53701452174e394b6a820ff9",
+      "outputBytes": 238816,
+      "counts": [
+        [
+          "tests",
+          1156
+        ],
+        [
+          "pass",
+          1145
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          11
+        ],
+        [
+          "tests",
+          632
+        ],
+        [
+          "pass",
+          632
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ],
+        [
+          "tests",
+          12
+        ],
+        [
+          "pass",
+          12
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "command": [
+        "pnpm",
+        "eval:test"
+      ],
+      "cwd": ".",
+      "startedAt": "2026-10-22T04:00:48.847Z",
+      "finishedAt": "2026-10-22T04:00:59.966Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "082bdfc2ae36ae33ff130831b3f2a8aa8f6acc0e4814fbb022b95fc3facf7cab",
+      "outputBytes": 19445,
+      "counts": [
+        [
+          "tests",
+          96
+        ],
+        [
+          "pass",
+          96
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "command": [
+        "git",
+        "clone",
+        "--shared",
+        "--no-checkout",
+        ".",
+        "<temporary>/smoke-source"
+      ],
+      "cwd": ".",
+      "startedAt": "2026-10-22T04:00:59.966Z",
+      "finishedAt": "2026-10-22T04:00:59.996Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "e7962fb3a47cfcf9eeb610e84a522feeb164d8d4dfca79179be17b5aba3d3a07",
+      "outputBytes": 115,
+      "counts": []
+    },
+    {
+      "command": [
+        "git",
+        "checkout",
+        "--detach",
+        "a05cd25c7ba2ccdd34023b7a496efa09861015a6"
+      ],
+      "cwd": "<temporary>/smoke-source",
+      "startedAt": "2026-10-22T04:00:59.996Z",
+      "finishedAt": "2026-10-22T04:01:00.139Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "7e23adc2faa116b844865ed60241d244b17fa58a3d4a635d7c2ca4813709d963",
+      "outputBytes": 88,
+      "counts": []
+    },
+    {
+      "command": [
+        "pnpm",
+        "--filter",
+        "@serika/desktop",
+        "smoke"
+      ],
+      "cwd": "<temporary>/smoke-source",
+      "startedAt": "2026-10-22T04:01:00.141Z",
+      "finishedAt": "2026-10-22T04:01:11.292Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "d36f6e78c973bf629ab50a87447fb195c2b91669878d98afd33ecd508f77e06a",
+      "outputBytes": 3348,
+      "counts": []
+    },
+    {
+      "command": [
+        "node",
+        "examples/eval/cm-step6-offline-audit.mjs"
+      ],
+      "cwd": ".",
+      "startedAt": "2026-10-22T04:01:11.293Z",
+      "finishedAt": "2026-10-22T04:01:11.402Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "b774e9dfaba9992b8f972cd798d107043abf3c8c79b303addc8992d5a44d47d2",
+      "outputBytes": 1638,
+      "counts": []
+    }
+  ],
+  "metrics": [
+    {
+      "case": "C5 essential summary overflow",
+      "at": "2026-10-22T03:54:01.959Z",
+      "outcome": "reused",
+      "compactionId": "saturated",
+      "estimatedInputTokens": 22228,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 1637,
+        "checklistTokens": 193,
+        "budget": 1248,
+        "borrowedTokens": 390,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 390,
+        "reduction": {
+          "originalTokens": 1519,
+          "requiredTokens": 1445,
+          "budget": 1055,
+          "reducedSegments": 4,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "input_limit",
+          "summary_overflow"
+        ],
+        "borrowedTokens": 390,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 390,
+        "maskedOriginalTokens": 3526,
+        "maskedFromMessageId": "u2",
+        "checklistTokens": 0,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "fidelity-write-result"
+      },
+      "modelCalls": 0
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 32768,
+      "exceeds": true,
+      "at": "2026-10-22T03:54:01.962Z",
+      "outcome": "failed",
+      "compactionId": "cap",
+      "estimatedInputTokens": 4203,
+      "error": {
+        "code": "CONTEXT_PREPARE_FAILED",
+        "message": "Essential continuation exceeds the capped C5 allocation after masking; original journal retained"
+      },
+      "summaryLayer": {
+        "tokens": 4044,
+        "checklistTokens": 161,
+        "budget": 1248,
+        "borrowedTokens": 2496,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 2797,
+        "reduction": {
+          "originalTokens": 3851,
+          "requiredTokens": 3884,
+          "budget": 1087,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "input_limit",
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 2496,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 2797,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 32768,
+      "exceeds": false,
+      "at": "2026-10-22T03:54:01.964Z",
+      "outcome": "reused",
+      "compactionId": "cap",
+      "estimatedInputTokens": 3203,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 3044,
+        "checklistTokens": 161,
+        "budget": 1248,
+        "borrowedTokens": 1797,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1797,
+        "reduction": {
+          "originalTokens": 2851,
+          "requiredTokens": 2884,
+          "budget": 1087,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "input_limit",
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 1797,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1797,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 1000000,
+      "exceeds": true,
+      "at": "2026-10-22T03:54:01.967Z",
+      "outcome": "failed",
+      "compactionId": "cap",
+      "estimatedInputTokens": 86483,
+      "error": {
+        "code": "CONTEXT_PREPARE_FAILED",
+        "message": "Essential continuation exceeds the capped C5 allocation after masking; original journal retained"
+      },
+      "summaryLayer": {
+        "tokens": 36300,
+        "checklistTokens": 161,
+        "budget": 12000,
+        "borrowedTokens": 24000,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 24301,
+        "reduction": {
+          "originalTokens": 36107,
+          "requiredTokens": 36140,
+          "budget": 11839,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 24000,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 24301,
+        "maskedOriginalTokens": 1,
+        "maskedFromMessageId": null,
+        "checklistTokens": 10169,
+        "sectionBudget": 2000,
+        "maskedThroughMessageId": null
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 1000000,
+      "exceeds": false,
+      "at": "2026-10-22T03:54:01.968Z",
+      "outcome": "reused",
+      "compactionId": "cap",
+      "estimatedInputTokens": 85483,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 35300,
+        "checklistTokens": 161,
+        "budget": 12000,
+        "borrowedTokens": 23301,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 23301,
+        "reduction": {
+          "originalTokens": 35107,
+          "requiredTokens": 35140,
+          "budget": 11839,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 23301,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 23301,
+        "maskedOriginalTokens": 1,
+        "maskedFromMessageId": null,
+        "checklistTokens": 10169,
+        "sectionBudget": 2000,
+        "maskedThroughMessageId": null
+      }
+    },
+    {
+      "case": "C5 essential summary overflow",
+      "at": "2026-10-22T03:57:30.722Z",
+      "outcome": "reused",
+      "compactionId": "saturated",
+      "estimatedInputTokens": 22228,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 1637,
+        "checklistTokens": 193,
+        "budget": 1248,
+        "borrowedTokens": 390,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 390,
+        "reduction": {
+          "originalTokens": 1519,
+          "requiredTokens": 1445,
+          "budget": 1055,
+          "reducedSegments": 4,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "input_limit",
+          "summary_overflow"
+        ],
+        "borrowedTokens": 390,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 390,
+        "maskedOriginalTokens": 3526,
+        "maskedFromMessageId": "u2",
+        "checklistTokens": 0,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "fidelity-write-result"
+      },
+      "modelCalls": 0
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 32768,
+      "exceeds": true,
+      "at": "2026-10-22T03:57:30.724Z",
+      "outcome": "failed",
+      "compactionId": "cap",
+      "estimatedInputTokens": 4203,
+      "error": {
+        "code": "CONTEXT_PREPARE_FAILED",
+        "message": "Essential continuation exceeds the capped C5 allocation after masking; original journal retained"
+      },
+      "summaryLayer": {
+        "tokens": 4044,
+        "checklistTokens": 161,
+        "budget": 1248,
+        "borrowedTokens": 2496,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 2797,
+        "reduction": {
+          "originalTokens": 3851,
+          "requiredTokens": 3884,
+          "budget": 1087,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "input_limit",
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 2496,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 2797,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 32768,
+      "exceeds": false,
+      "at": "2026-10-22T03:57:30.728Z",
+      "outcome": "reused",
+      "compactionId": "cap",
+      "estimatedInputTokens": 3203,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 3044,
+        "checklistTokens": 161,
+        "budget": 1248,
+        "borrowedTokens": 1797,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1797,
+        "reduction": {
+          "originalTokens": 2851,
+          "requiredTokens": 2884,
+          "budget": 1087,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "input_limit",
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 1797,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1797,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 1000000,
+      "exceeds": true,
+      "at": "2026-10-22T03:57:30.731Z",
+      "outcome": "failed",
+      "compactionId": "cap",
+      "estimatedInputTokens": 86483,
+      "error": {
+        "code": "CONTEXT_PREPARE_FAILED",
+        "message": "Essential continuation exceeds the capped C5 allocation after masking; original journal retained"
+      },
+      "summaryLayer": {
+        "tokens": 36300,
+        "checklistTokens": 161,
+        "budget": 12000,
+        "borrowedTokens": 24000,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 24301,
+        "reduction": {
+          "originalTokens": 36107,
+          "requiredTokens": 36140,
+          "budget": 11839,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 24000,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 24301,
+        "maskedOriginalTokens": 1,
+        "maskedFromMessageId": null,
+        "checklistTokens": 10169,
+        "sectionBudget": 2000,
+        "maskedThroughMessageId": null
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 1000000,
+      "exceeds": false,
+      "at": "2026-10-22T03:57:30.733Z",
+      "outcome": "reused",
+      "compactionId": "cap",
+      "estimatedInputTokens": 85483,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 35300,
+        "checklistTokens": 161,
+        "budget": 12000,
+        "borrowedTokens": 23301,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 23301,
+        "reduction": {
+          "originalTokens": 35107,
+          "requiredTokens": 35140,
+          "budget": 11839,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexReferenced": false,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 23301,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 23301,
+        "maskedOriginalTokens": 1,
+        "maskedFromMessageId": null,
+        "checklistTokens": 10169,
+        "sectionBudget": 2000,
+        "maskedThroughMessageId": null
+      }
+    },
+    {
+      "case": "CE offline overflow and receipt retention",
+      "id": "CE03",
+      "generation": 0,
+      "records": 5,
+      "realModelCalls": 0,
+      "preparation": {
+        "at": "2026-10-22T04:00:49.922Z",
+        "outcome": "reused",
+        "compactionId": "0220578e-a1e3-413b-8757-1d250deeba0e",
+        "estimatedInputTokens": 864,
+        "error": null,
+        "summaryLayer": {
+          "tokens": 759,
+          "checklistTokens": 254,
+          "budget": 1248,
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "reduction": {
+            "originalTokens": 1606,
+            "requiredTokens": 506,
+            "budget": 994,
+            "reducedSegments": 4,
+            "compacted": true,
+            "indexReferenced": false,
+            "indexDuplicateLines": 5
+          }
+        },
+        "degradation": {
+          "reasons": [
+            "checklist_overflow"
+          ],
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "maskedOriginalTokens": 1,
+          "maskedFromMessageId": null,
+          "checklistTokens": 237,
+          "sectionBudget": 208,
+          "maskedThroughMessageId": null
+        }
+      }
+    },
+    {
+      "case": "CE offline overflow and receipt retention",
+      "id": "CE03",
+      "generation": 1,
+      "records": 9,
+      "realModelCalls": 0,
+      "preparation": {
+        "at": "2026-10-22T04:00:49.998Z",
+        "outcome": "reused",
+        "compactionId": "3c939648-b566-472f-b8d6-5c559412bd7d",
+        "estimatedInputTokens": 3760,
+        "error": null,
+        "summaryLayer": {
+          "tokens": 760,
+          "checklistTokens": 254,
+          "budget": 1248,
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "reduction": {
+            "originalTokens": 1607,
+            "requiredTokens": 506,
+            "budget": 994,
+            "reducedSegments": 4,
+            "compacted": true,
+            "indexReferenced": false,
+            "indexDuplicateLines": 5
+          }
+        },
+        "degradation": {
+          "reasons": [
+            "checklist_overflow"
+          ],
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "maskedOriginalTokens": 1,
+          "maskedFromMessageId": null,
+          "checklistTokens": 237,
+          "sectionBudget": 208,
+          "maskedThroughMessageId": null
+        }
+      }
+    },
+    {
+      "case": "CE offline overflow and receipt retention",
+      "id": "CE03",
+      "generation": 2,
+      "records": 14,
+      "realModelCalls": 0,
+      "preparation": {
+        "at": "2026-10-22T04:00:50.105Z",
+        "outcome": "reused",
+        "compactionId": "d5f133ef-9b27-4371-9041-cfcd1cccb317",
+        "estimatedInputTokens": 864,
+        "error": null,
+        "summaryLayer": {
+          "tokens": 759,
+          "checklistTokens": 254,
+          "budget": 1248,
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "reduction": {
+            "originalTokens": 1606,
+            "requiredTokens": 506,
+            "budget": 994,
+            "reducedSegments": 4,
+            "compacted": true,
+            "indexReferenced": false,
+            "indexDuplicateLines": 5
+          }
+        },
+        "degradation": {
+          "reasons": [
+            "checklist_overflow"
+          ],
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "maskedOriginalTokens": 1,
+          "maskedFromMessageId": null,
+          "checklistTokens": 237,
+          "sectionBudget": 208,
+          "maskedThroughMessageId": null
+        }
+      }
+    },
+    {
+      "case": "CE offline overflow and receipt retention",
+      "id": "CE05",
+      "generation": 0,
+      "records": 5,
+      "realModelCalls": 0,
+      "preparation": {
+        "at": "2026-10-22T04:00:50.135Z",
+        "outcome": "reused",
+        "compactionId": "22f8e33d-7ef8-424d-ad59-74e8f8ffadfb",
+        "estimatedInputTokens": 864,
+        "error": null,
+        "summaryLayer": {
+          "tokens": 759,
+          "checklistTokens": 254,
+          "budget": 1248,
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "reduction": {
+            "originalTokens": 1606,
+            "requiredTokens": 506,
+            "budget": 994,
+            "reducedSegments": 4,
+            "compacted": true,
+            "indexReferenced": false,
+            "indexDuplicateLines": 5
+          }
+        },
+        "degradation": {
+          "reasons": [
+            "checklist_overflow"
+          ],
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "maskedOriginalTokens": 1,
+          "maskedFromMessageId": null,
+          "checklistTokens": 237,
+          "sectionBudget": 208,
+          "maskedThroughMessageId": null
+        }
+      }
+    },
+    {
+      "case": "CE offline overflow and receipt retention",
+      "id": "CE05",
+      "generation": 1,
+      "records": 9,
+      "realModelCalls": 0,
+      "preparation": {
+        "at": "2026-10-22T04:00:50.176Z",
+        "outcome": "reused",
+        "compactionId": "33a20ad2-faf2-4c0c-9adc-6dcf335d0506",
+        "estimatedInputTokens": 3760,
+        "error": null,
+        "summaryLayer": {
+          "tokens": 760,
+          "checklistTokens": 254,
+          "budget": 1248,
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "reduction": {
+            "originalTokens": 1607,
+            "requiredTokens": 506,
+            "budget": 994,
+            "reducedSegments": 4,
+            "compacted": true,
+            "indexReferenced": false,
+            "indexDuplicateLines": 5
+          }
+        },
+        "degradation": {
+          "reasons": [
+            "checklist_overflow"
+          ],
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "maskedOriginalTokens": 1,
+          "maskedFromMessageId": null,
+          "checklistTokens": 237,
+          "sectionBudget": 208,
+          "maskedThroughMessageId": null
+        }
+      }
+    },
+    {
+      "case": "CE offline overflow and receipt retention",
+      "id": "CE05",
+      "generation": 2,
+      "records": 14,
+      "realModelCalls": 0,
+      "preparation": {
+        "at": "2026-10-22T04:00:50.271Z",
+        "outcome": "reused",
+        "compactionId": "7884b0f1-73ac-4976-a737-a40328afc31f",
+        "estimatedInputTokens": 864,
+        "error": null,
+        "summaryLayer": {
+          "tokens": 759,
+          "checklistTokens": 254,
+          "budget": 1248,
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "reduction": {
+            "originalTokens": 1606,
+            "requiredTokens": 506,
+            "budget": 994,
+            "reducedSegments": 4,
+            "compacted": true,
+            "indexReferenced": false,
+            "indexDuplicateLines": 5
+          }
+        },
+        "degradation": {
+          "reasons": [
+            "checklist_overflow"
+          ],
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "maskedOriginalTokens": 1,
+          "maskedFromMessageId": null,
+          "checklistTokens": 237,
+          "sectionBudget": 208,
+          "maskedThroughMessageId": null
+        }
+      }
+    },
+    {
+      "case": "CE offline overflow and receipt retention",
+      "id": "CE05",
+      "generation": 3,
+      "records": 18,
+      "realModelCalls": 0,
+      "preparation": {
+        "at": "2026-10-22T04:00:50.387Z",
+        "outcome": "reused",
+        "compactionId": "ee4f28c6-ee77-476e-999e-881adb51f23f",
+        "estimatedInputTokens": 3760,
+        "error": null,
+        "summaryLayer": {
+          "tokens": 760,
+          "checklistTokens": 254,
+          "budget": 1248,
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "reduction": {
+            "originalTokens": 1607,
+            "requiredTokens": 506,
+            "budget": 994,
+            "reducedSegments": 4,
+            "compacted": true,
+            "indexReferenced": false,
+            "indexDuplicateLines": 5
+          }
+        },
+        "degradation": {
+          "reasons": [
+            "checklist_overflow"
+          ],
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "maskedOriginalTokens": 1,
+          "maskedFromMessageId": null,
+          "checklistTokens": 237,
+          "sectionBudget": 208,
+          "maskedThroughMessageId": null
+        }
+      }
+    },
+    {
+      "case": "CE offline overflow and receipt retention",
+      "id": "CE05",
+      "generation": 4,
+      "records": 23,
+      "realModelCalls": 0,
+      "preparation": {
+        "at": "2026-10-22T04:00:50.574Z",
+        "outcome": "reused",
+        "compactionId": "2b1c7e01-19b9-4d41-b7a5-9802c9a295f7",
+        "estimatedInputTokens": 864,
+        "error": null,
+        "summaryLayer": {
+          "tokens": 759,
+          "checklistTokens": 254,
+          "budget": 1248,
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "reduction": {
+            "originalTokens": 1606,
+            "requiredTokens": 506,
+            "budget": 994,
+            "reducedSegments": 4,
+            "compacted": true,
+            "indexReferenced": false,
+            "indexDuplicateLines": 5
+          }
+        },
+        "degradation": {
+          "reasons": [
+            "checklist_overflow"
+          ],
+          "borrowedTokens": 0,
+          "borrowLimitTokens": 2496,
+          "requiredBorrowTokens": 0,
+          "maskedOriginalTokens": 1,
+          "maskedFromMessageId": null,
+          "checklistTokens": 237,
+          "sectionBudget": 208,
+          "maskedThroughMessageId": null
+        }
+      }
+    },
+    {
+      "case": "quote",
+      "window": "32k",
+      "validationFailure": {
+        "reasonCode": "QUOTE_VALUE_MISSING",
+        "field": "user.text",
+        "fieldLength": 7,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "source",
+      "window": "32k",
+      "validationFailure": {
+        "reasonCode": "SOURCE_VALUE_MISSING",
+        "field": "sourceQuote",
+        "fieldLength": 5,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "body",
+      "window": "32k",
+      "validationFailure": {
+        "reasonCode": "BODY_VALUE_MISSING",
+        "field": "text",
+        "fieldLength": 7,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "number",
+      "window": "32k",
+      "validationFailure": {
+        "reasonCode": "NUMBER_UNIT_MISMATCH",
+        "field": "text",
+        "fieldLength": 7,
+        "valueLength": 1,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "condition",
+      "window": "32k",
+      "validationFailure": {
+        "reasonCode": "CONDITION_CLAUSE_MISSING",
+        "field": "text",
+        "fieldLength": 7,
+        "valueLength": 3,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "proposal",
+      "window": "32k",
+      "validationFailure": {
+        "reasonCode": "QUOTE_VALUE_MISSING",
+        "field": "proposal.quote",
+        "fieldLength": 4,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "quote",
+      "window": "daily",
+      "validationFailure": {
+        "reasonCode": "QUOTE_VALUE_MISSING",
+        "field": "user.text",
+        "fieldLength": 7,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "source",
+      "window": "daily",
+      "validationFailure": {
+        "reasonCode": "SOURCE_VALUE_MISSING",
+        "field": "sourceQuote",
+        "fieldLength": 5,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "body",
+      "window": "daily",
+      "validationFailure": {
+        "reasonCode": "BODY_VALUE_MISSING",
+        "field": "text",
+        "fieldLength": 7,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "number",
+      "window": "daily",
+      "validationFailure": {
+        "reasonCode": "NUMBER_UNIT_MISMATCH",
+        "field": "text",
+        "fieldLength": 7,
+        "valueLength": 1,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "condition",
+      "window": "daily",
+      "validationFailure": {
+        "reasonCode": "CONDITION_CLAUSE_MISSING",
+        "field": "text",
+        "fieldLength": 7,
+        "valueLength": 3,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    },
+    {
+      "case": "proposal",
+      "window": "daily",
+      "validationFailure": {
+        "reasonCode": "QUOTE_VALUE_MISSING",
+        "field": "proposal.quote",
+        "fieldLength": 4,
+        "valueLength": 2,
+        "proposalIndex": 0
+      },
+      "realModelCalls": 0
+    }
+  ],
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "status": "passed",
+  "timeZone": "UTC",
+  "lineChanges": [
+    {
+      "path": "apps/desktop/src/main/backup.test.ts",
+      "added": 27,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/main/backup.ts",
+      "added": 21,
+      "removed": 5
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-runtime.test.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "apps/desktop/src/main/foreground-autonomy.test.ts",
+      "added": 5,
+      "removed": 5
+    },
+    {
+      "path": "apps/desktop/src/main/smoke-model.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "apps/desktop/src/main/telegram-gateway.ts",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "apps/desktop/src/main/thread-history.ts",
+      "added": 3,
+      "removed": 3
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/memory-consolidation.tsx",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "docs/context-memory-refactor-plan.md",
+      "added": 3,
+      "removed": 1
+    },
+    {
+      "path": "docs/v2-pilot/cm-step6.md",
+      "added": 257,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/cf05-reference.json",
+      "added": 54,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json",
+      "added": 21016,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json",
+      "added": 20705,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json",
+      "added": 19902,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json",
+      "added": 1530,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-summary-d67682ad-0722-43d9-af5c-8c7aef1308fa.json",
+      "added": 20031,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live.json",
+      "added": 20031,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/m1-offline-diagnosis.json",
+      "added": 489,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-audit.json",
+      "added": 416,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/regression-red.json",
+      "added": 23,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/submission-audit.json",
+      "added": 162,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/submission-followup-audit.json",
+      "added": 44,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-21385ba-dirty-failed.json",
+      "added": 663,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-affbc10-failed.json",
+      "added": 739,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-bd6325f-failed.json",
+      "added": 1020,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-clean-smoke.json",
+      "added": 175,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/offline-audit.json",
+      "added": 416,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/verification.json",
+      "added": 1494,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/offline-audit.json",
+      "added": 416,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/verification.json",
+      "added": 1494,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/offline-audit.json",
+      "added": 416,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/verification.json",
+      "added": 1494,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-three.json",
+      "added": 23,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification.json",
+      "added": 1818,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cost-ledger.json",
+      "added": 45,
+      "removed": 3
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/cm-step4-original-result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/result.json",
+      "added": 36,
+      "removed": 36
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/pending.md",
+      "added": 14,
+      "removed": 1
+    },
+    {
+      "path": "examples/eval/cm-step4.mjs",
+      "added": 6,
+      "removed": 4
+    },
+    {
+      "path": "examples/eval/cm-step6-compaction.test.mjs",
+      "added": 111,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/cm-step6-live.mjs",
+      "added": 452,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/cm-step6-live.test.mjs",
+      "added": 208,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/cm-step6-offline-audit.mjs",
+      "added": 78,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/cm-step6-overflow-repro.mjs",
+      "added": 17,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/cm-step6-regrade.mjs",
+      "added": 81,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/compaction-fidelity.test.mjs",
+      "added": 17,
+      "removed": 10
+    },
+    {
+      "path": "examples/eval/context-blocks.mjs",
+      "added": 13,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/e2e.test.mjs",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "examples/eval/reliability.test.mjs",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "packages/ai-sdk-adapter/src/loop.test.ts",
+      "added": 42,
+      "removed": 0
+    },
+    {
+      "path": "packages/ai-sdk-adapter/src/loop.ts",
+      "added": 12,
+      "removed": 3
+    },
+    {
+      "path": "packages/ai-sdk-adapter/src/model-errors.ts",
+      "added": 14,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/scripts/cm-baseline.mjs",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/scripts/cm-replay.mjs",
+      "added": 3,
+      "removed": 3
+    },
+    {
+      "path": "packages/assistant/scripts/cm-step5-verify.mjs",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/scripts/cm-step6-verify.mjs",
+      "added": 96,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/api.ts",
+      "added": 3,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/app.ts",
+      "added": 31,
+      "removed": 13
+    },
+    {
+      "path": "packages/assistant/src/assistant-controller.test.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/assistant-controller.ts",
+      "added": 12,
+      "removed": 9
+    },
+    {
+      "path": "packages/assistant/src/baseline-assembly.test.ts",
+      "added": 2,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/compaction-records.ts",
+      "added": 61,
+      "removed": 14
+    },
+    {
+      "path": "packages/assistant/src/consolidation-runtime.test.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/consolidation.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/context-assembler.ts",
+      "added": 5,
+      "removed": 2
+    },
+    {
+      "path": "packages/assistant/src/context-background.test.ts",
+      "added": 245,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/context-blocks.ts",
+      "added": 148,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/context-compaction-acceptance.test.ts",
+      "added": 13,
+      "removed": 14
+    },
+    {
+      "path": "packages/assistant/src/context-compaction-runtime.test.ts",
+      "added": 28,
+      "removed": 32
+    },
+    {
+      "path": "packages/assistant/src/context-compaction.ts",
+      "added": 59,
+      "removed": 2
+    },
+    {
+      "path": "packages/assistant/src/context-compactor.test.ts",
+      "added": 347,
+      "removed": 1367
+    },
+    {
+      "path": "packages/assistant/src/context-compactor.ts",
+      "added": 256,
+      "removed": 546
+    },
+    {
+      "path": "packages/assistant/src/context-diagnostics.ts",
+      "added": 4,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/context-source.ts",
+      "added": 19,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/foreground-autonomy.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/history-tools.ts",
+      "added": 45,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-controls.test.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-extraction.ts",
+      "added": 49,
+      "removed": 27
+    },
+    {
+      "path": "packages/assistant/src/memory-factual-receipts.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/memory-m1-acceptance.test.ts",
+      "added": 69,
+      "removed": 34
+    },
+    {
+      "path": "packages/assistant/src/memory-observation-policy.ts",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "packages/assistant/src/memory-store.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-v6-store.test.ts",
+      "added": 21,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-v6-store.ts",
+      "added": 37,
+      "removed": 9
+    },
+    {
+      "path": "packages/assistant/src/memory-write.ts",
+      "added": 40,
+      "removed": 13
+    },
+    {
+      "path": "packages/assistant/src/model-context-budget.test.ts",
+      "added": 4,
+      "removed": 4
+    },
+    {
+      "path": "packages/assistant/src/model-usage.test.ts",
+      "added": 5,
+      "removed": 3
+    },
+    {
+      "path": "packages/assistant/src/modules/memory-module.test.ts",
+      "added": 31,
+      "removed": 9
+    },
+    {
+      "path": "packages/assistant/src/modules/memory-module.ts",
+      "added": 10,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/task-instructions.ts",
+      "added": 2,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/thread-background.ts",
+      "added": 21,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/transcript-access.ts",
+      "added": 63,
+      "removed": 0
+    },
+    {
+      "path": "packages/core/src/jsonl-store.test.ts",
+      "added": 17,
+      "removed": 0
+    },
+    {
+      "path": "packages/core/src/jsonl-store.ts",
+      "added": 52,
+      "removed": 0
+    },
+    {
+      "path": "packages/core/src/types.ts",
+      "added": 1,
+      "removed": 0
+    }
+  ],
+  "sourceHashes": {
+    "apps/desktop/src/main/backup.test.ts": "48cd2d5446123735eb84765b94cb7447f821d49c2e188845ae5bdc38ec559c7b",
+    "apps/desktop/src/main/backup.ts": "d4222e137bda66671c7a1329a06f62121c1eda0a1300f35be63bc8a996cd5839",
+    "apps/desktop/src/main/desktop-runtime.test.ts": "9b88777663a60bdc8a992bafb27656a93bb103fba1ef607a3cd8b82adbebac35",
+    "apps/desktop/src/main/foreground-autonomy.test.ts": "6afdff1d390ce91b55920298af44df6512d57d5de3dca45f5c58f1607396c246",
+    "apps/desktop/src/main/smoke-model.ts": "f7186ba3dd68300ff48cf6e34889dc469c791e05a3ed5401369f46a15d1f819e",
+    "apps/desktop/src/main/telegram-gateway.ts": "4f31d6f9274aa38a8206d961429a5cae9fff0c42dde9943f4e255f02cb6852cd",
+    "apps/desktop/src/main/thread-history.ts": "69306209c1de3f27775f9123647559ba7c9b62d34d1f03e796ad36aa282c9206",
+    "apps/desktop/src/renderer/src/memory-consolidation.tsx": "7d4a7b7955541fd6938ba143d4acb5adef65d9b2d74bf96f78ef9d3090cf202f",
+    "docs/context-memory-refactor-plan.md": "df5986b274f93a54603d7fe7eac80dffed24a21cd495f6804c54ae2755553e3c",
+    "docs/v2-pilot/cm-step6.md": "38cd050dbaf5ba0b76f34f0e17168c6654592bca7aa4d26515b3c4e218f238ce",
+    "docs/v2-pilot/evidence/cm-step6/cf05-reference.json": "0aa141ddf902b9c7960dd756ed72c88ace8150918499402008770707a1268409",
+    "docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json": "6e7eab280c2b4ba47dffea75b6066ec36d10c1179356958687242e89517db6b5",
+    "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json": "8e99d42859cbd53121953305815e51756e02cd39f83ebf052514ef53cb5fee3d",
+    "docs/v2-pilot/evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json": "b7264a5a558f9d08ff8aec2f7e55c8e640cf9d88f912a7d0557f6a64372a5226",
+    "docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json": "8d76edf3837151731c2270d7265c31aa7c91f99fc930cd6b037ba74de97135f2",
+    "docs/v2-pilot/evidence/cm-step6/live-summary-d67682ad-0722-43d9-af5c-8c7aef1308fa.json": "19727d97a023736e7924251684900004d92b5a43cdca9830909a50a97de4279e",
+    "docs/v2-pilot/evidence/cm-step6/live.json": "19727d97a023736e7924251684900004d92b5a43cdca9830909a50a97de4279e",
+    "docs/v2-pilot/evidence/cm-step6/m1-offline-diagnosis.json": "d061516225f97a2aa4b4013392c174fc0f73d292f95f7f7ee08de2ce1a427c35",
+    "docs/v2-pilot/evidence/cm-step6/offline-audit.json": "28447743dc8b7d6ee0fba2376cb9305c2d05a419171ed3a9c8d3380b56b28077",
+    "docs/v2-pilot/evidence/cm-step6/regression-red.json": "19a31a93ca699306a45bf98e9913156194b2673465c035765346e7662025fb4c",
+    "docs/v2-pilot/evidence/cm-step6/submission-audit.json": "dea6499199b037ab750c4ab2ab4be14252afb4d54dc9cd5978887319efb93804",
+    "docs/v2-pilot/evidence/cm-step6/submission-followup-audit.json": "100bcc943a80254a5be7ae14b4af7771e22294043584d5763abfc422b141e3b6",
+    "docs/v2-pilot/evidence/cm-step6/verification-21385ba-dirty-failed.json": "c7c373d57daa1f00bcbdb4fe4b0587a51822a4e2b0b573fb87fead2cac1292aa",
+    "docs/v2-pilot/evidence/cm-step6/verification-affbc10-failed.json": "8ca8e25017c1fbbf920610d92c29a8355e9a3eb4d1cfacc4a42a78054ec14f77",
+    "docs/v2-pilot/evidence/cm-step6/verification-bd6325f-failed.json": "448ee47189c5d022acbc8307b08c5c2838ce1691e0a350a558a419fa4d0b2a9e",
+    "docs/v2-pilot/evidence/cm-step6/verification-clean-smoke.json": "352098093a528439b63f65fc4d0a9d8280f539cf3ce9b1997a3ab6bf5c0af3bf",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/offline-audit.json": "af74e46659ef168f1c6168205afdd0823d7d9dd8cb13f74e60fd2ce7dc35aba4",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/verification.json": "ddc3ad3f5b1275163daa0a1d45c7a2c70cdbf6d4bea21ca7ca8e004956b61fd6",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/chat-reply.png": "7914d7e23517928c82c11dbbd47e23a35f6c5ecb6f15ad2559a8a88567385460",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/cm-step6-run.json": "30d2068cd68499ccaab2863ddf99de40531af92773f5a64de68e225bb28e183f",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/daily-config-retired-fields.png": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/daily-path-refuses-writes.png": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/remember-on-memory-page.png": "66db8520ea32eba0fc7a068835f16298cb154d71a0adc66f341e82eda6ff09fc",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/remember-success-receipt.png": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/restart-persistence.png": "f5e3d3c1e4f7b4bca4afdfa9be7885734a96be7d9401353e69a8b3abc83b014e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/result.json": "ecdddfb875ce10cdf8d60c63bc118f3bbdfbacc3bebd703a4ac5dd9462cd0bcb",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/startup.png": "708d3d1d1e40c14fadad40f8f69918864811f1fed6de485af7678423379dc0c5",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/offline-audit.json": "5a6f3638bae53e8c885004fdffc9550e97c9dd04ec00825c73d8738f03b5795e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/verification.json": "f0f8a25f09f2b02a5cbe839b9f042d864837b8d768c604ee71ba1dc26075f3ff",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/chat-reply.png": "350c6a5340eb1f50e56bc489adb281e7469e8d5924a49ba3665e0bd641d464cb",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/cm-step6-run.json": "3916de9e5cb016970f69e1a97935486b15a87a36354d4c0647d4c436a15539f6",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/daily-config-retired-fields.png": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/daily-path-refuses-writes.png": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/remember-on-memory-page.png": "cab8e267bec89e9d5155ec12978ebbea235266bd0bdc2763b44c976a78fb162e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/remember-success-receipt.png": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/restart-persistence.png": "fb1a7321fb1d7c6c52fb1047c138244e20dec2eabd8d889158727a9f437072c1",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/result.json": "2881253d9cb646fd1f26801dab342d1b504e4c403f26b177f23c627b20a87077",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/startup.png": "3058b293a635dfb678b6a4a557c24dba432a28ef59e47b0947cd5a20ef78fc8a",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/offline-audit.json": "28447743dc8b7d6ee0fba2376cb9305c2d05a419171ed3a9c8d3380b56b28077",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/verification.json": "896d14b41af21cd3a09964c76191b447bb74e3f789f9bae4a534266aacdf5a1a",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/chat-reply.png": "350c6a5340eb1f50e56bc489adb281e7469e8d5924a49ba3665e0bd641d464cb",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/cm-step6-run.json": "a7b2e7368b7e71fa17f6e76fb82634ab03103a464b57e66304df587745fe9580",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/daily-config-retired-fields.png": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/daily-path-refuses-writes.png": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/remember-on-memory-page.png": "c1bfd6ae7f69c5958d025c28135d855a15d37ff66185f7d407f01e82b3993bc9",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/remember-success-receipt.png": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/restart-persistence.png": "445c33323adeb0f6d529bb65282a0dddec1d9ac4b02924b34bf0dbf6ee8bfc48",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/result.json": "057f4559803a4d1e5e205d9d027d5958fad457a730f08e11f18d9c385aec8023",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/startup.png": "708d3d1d1e40c14fadad40f8f69918864811f1fed6de485af7678423379dc0c5",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/cm-step6/verification-three.json": "a8b78d849470e8f8cb293e26bb3bdcd6cb103d28d8f9dbd5ddd500655b1662f7",
+    "docs/v2-pilot/evidence/cm-step6/verification.json": "35a13b5ad779866bf8b66639e49bc7873fa266448a41baa889711850af58cb24",
+    "docs/v2-pilot/evidence/cost-ledger.json": "7fe0d5af7095a39dc47486243f56a345729aee4d23fd48065d81b0efa4497fff",
+    "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "350c6a5340eb1f50e56bc489adb281e7469e8d5924a49ba3665e0bd641d464cb",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step4-original-result.json": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "ca81edd1490422e510e57a5ec92ad61c13a6b72c56b43c8e7284b709c6120793",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "70a0f60b5708b231b91d73e1f285e9f0d599d64f736ceee7b3b73d3113ad3123",
+    "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "84d67e697ae7e15d7af2a77bbf1d7c93448cb499d9c3afd994b9dbd9fcdddb82",
+    "docs/v2-pilot/evidence/electron-smoke/result.json": "bae27ecc7892c74cd171cc04ce960adfe5f6b1b16dbb89ab2bd57cd23a042b3d",
+    "docs/v2-pilot/evidence/electron-smoke/startup.png": "3058b293a635dfb678b6a4a557c24dba432a28ef59e47b0947cd5a20ef78fc8a",
+    "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/pending.md": "1569db6e78728fffa0832303679202376dc100e2abea2a178530823e9a1ee3f2",
+    "examples/eval/cm-step4.mjs": "0492ce54c8afcfcdba0551fb0e5a0d6714b30db61e0cf8d9f3913fb204ce5c9c",
+    "examples/eval/cm-step6-compaction.test.mjs": "8ec26b8e4dd17447b475eb7e0d26a2d24e7954eee8a7b1bd5d328e9af74e4273",
+    "examples/eval/cm-step6-live.mjs": "901a3ea5e696e7f345eb1f0d4ddbfe428c211091dc543ee4fd2bdcc1777a0a4e",
+    "examples/eval/cm-step6-live.test.mjs": "5d1386ef44511184d1f9a2e8a5f1b5a417a4ab101d7d80541ac3a61b21a45872",
+    "examples/eval/cm-step6-offline-audit.mjs": "9dd3e268ad706b61ebc777504b24003de978eda4a5a6917ad95885066fdc0ae0",
+    "examples/eval/cm-step6-overflow-repro.mjs": "7b1a332341f4c2a4e7bd4427d3abb969d28935c8cd55d23cc301c7a8d2d4b0ba",
+    "examples/eval/cm-step6-regrade.mjs": "5a26bbf4b06988a28ab362e8178888502e5a1fdf95bd3211e87dbe12d0670500",
+    "examples/eval/compaction-fidelity.test.mjs": "00889a2ab366ff608d1fe090bded1e4af9928c8651507629bb1904e2bdc9e8f3",
+    "examples/eval/context-blocks.mjs": "0b0dc939371c867cdc0b70ecd5cd115620ee4ab523bbfc3d089420703298efcc",
+    "examples/eval/e2e.test.mjs": "da68557a97d5ff79f212166cfa1e075871067cde139c99b995fac39e79cf2e89",
+    "examples/eval/reliability.test.mjs": "4607dbc6db11fae576ee6f5ca13fedd58496490d88e09aa031d07e188c638028",
+    "packages/ai-sdk-adapter/src/loop.test.ts": "5a1a4b146ab47890d513e358f274da6675bdb603dc9f752851df827d536aec16",
+    "packages/ai-sdk-adapter/src/loop.ts": "2526388c7235a87662d588cec2da979549c63181894dbfe84c9fb33f8148d418",
+    "packages/ai-sdk-adapter/src/model-errors.ts": "216b4abdba6c709c9573b74c6ad18fccad7e894c13d8064a0a3371def154b77c",
+    "packages/assistant/scripts/cm-baseline.mjs": "0554e750fb20639a165350f63bb7b65483b798f37374b8065187b6a4f0910af3",
+    "packages/assistant/scripts/cm-replay.mjs": "612350de0a3fe211f280e52c23521dbadc5a69e7e5daff761ede303996b40094",
+    "packages/assistant/scripts/cm-step5-verify.mjs": "a0e276923badf232ad738fbd76526628a18b95bbfbefe1d0a3e3d781e4adac1a",
+    "packages/assistant/scripts/cm-step6-verify.mjs": "b3179337e6fe1ebd376ff14f56eda28635a69040b18fe0f538f62ce0b5d64b59",
+    "packages/assistant/src/api.ts": "116048839cd4aa72c76b8e7ec009bfee3b62443b9609f15dd96e749c77ab7491",
+    "packages/assistant/src/app.ts": "ae222d563f211a7c213775ace0f09b7e5ade08369ecc408ec31b9cb3eef3b5dc",
+    "packages/assistant/src/assistant-controller.test.ts": "3d3b3e1139ca3cb44c32a6545a7c897b4b7c0958a4998b16a655fdc0462c68e3",
+    "packages/assistant/src/assistant-controller.ts": "6526a23f617c236f6e9b860ecc453adb8213ac22c790e6fc6770789f54bcbdc9",
+    "packages/assistant/src/baseline-assembly.test.ts": "5c8b4ae6f4ddee0eb35b74f8e70892b8b9c97e388e7fdca45b1797bf95920ec6",
+    "packages/assistant/src/compaction-records.ts": "bc5b8cd86fc714ad554ad4a57455431e78903630998bfaf1e07feb002fe43e00",
+    "packages/assistant/src/consolidation-runtime.test.ts": "e8ff4e7bebf4aa404edc0361ea26dc01ecc6caf239d5317cc38243c4546317c0",
+    "packages/assistant/src/consolidation.ts": "482c4d869ffc2402d6dc9b34dbdeb6af2819f2320ed8bd4671bb6246713b099e",
+    "packages/assistant/src/context-assembler.ts": "a46cd4273c3c6a70f0d6d541dc6f79c8da0a7f09fda9af608b8b85d8ddde48d8",
+    "packages/assistant/src/context-background.test.ts": "e7573178e36c7a267a4475c836168bbd303901424b1973e048cac43d950a7392",
+    "packages/assistant/src/context-blocks.ts": "844af87faef94141a8bd806b1dadf24a5323a0f664a46225a8fd0165c4557d45",
+    "packages/assistant/src/context-compaction-acceptance.test.ts": "956a97b320394575597275cd2f153466c9938f2a59c85f01ab688f340294cacd",
+    "packages/assistant/src/context-compaction-runtime.test.ts": "c07412f44bbb21eeee9d49e758431dd541e0bb93ec98fcbe47162ad4b1d2dde6",
+    "packages/assistant/src/context-compaction.ts": "d156a8292b478a0cb82289bfabaf9275a4e1a8bd73149671085eb689096fb2bf",
+    "packages/assistant/src/context-compactor.test.ts": "bda70924741bbeb916b93eafbaab34a944f393062d42ea2bf82d08c5e0a04aef",
+    "packages/assistant/src/context-compactor.ts": "91852adb5c4e8875e705b1b9423b33d8fe7e1ac724dcbeb8d5981d4ae4640943",
+    "packages/assistant/src/context-diagnostics.ts": "61e06b95c90c691a38ff4943bb874a6f8c9d5a160698709b60b88bf454781c51",
+    "packages/assistant/src/context-source.ts": "489f7f38acea8b79194692729fa16cd2e6d120cc0b28f53b1467dee8a86edd39",
+    "packages/assistant/src/foreground-autonomy.ts": "359de414f1f184e3213ee69b0b8cde6a82a05cbdc2ded4d38836ab75e45a3705",
+    "packages/assistant/src/history-tools.ts": "a38063bb13bcb14398a131889e85771c2428b320204b91f78e280a2580300db9",
+    "packages/assistant/src/memory-controls.test.ts": "b6cc58b13d26f526ce5b4f7abf16fa0758c712ffab6c55c3f08dff1bbdb99698",
+    "packages/assistant/src/memory-extraction.ts": "47e0399d089ae86e85281d00aa8755ec932dd1f1f66086d9980391d1843f7539",
+    "packages/assistant/src/memory-factual-receipts.ts": "02e89478b6fcf0380adb0f215caab9a70d84e9bc5a02b673f7efb36319986eff",
+    "packages/assistant/src/memory-m1-acceptance.test.ts": "1975cb0e38ba71e8dbff8ca4019413dbddcce624f2c7d917cc8536751db001ae",
+    "packages/assistant/src/memory-observation-policy.ts": "f68069b5c852ae309a0703c08298ab2bbb3c3709cc2accb2a9ef464d9ab577b6",
+    "packages/assistant/src/memory-store.ts": "dd2dc0360d24eb0844d8ee3e90e37a0aec9a4b7b18fd98707024e03297a3c340",
+    "packages/assistant/src/memory-v6-store.test.ts": "d1d677a81176e937c53e83ddc95b099efb44bca0e0fe5b5ab54c3192e01d2894",
+    "packages/assistant/src/memory-v6-store.ts": "bf5a73feca2534a2112087b98556eea77253736f01d9e1a8c8b29bb0545c5800",
+    "packages/assistant/src/memory-write.ts": "89950a764f6ab0b96c710b80b94db407262c95c1e3f7a8d53aad97774099dbf7",
+    "packages/assistant/src/model-context-budget.test.ts": "f0a67767fbc82e57b619fc64b96775dc79c6f2e817d6ed155bab96b98c7e2a6d",
+    "packages/assistant/src/model-usage.test.ts": "b9b353923588a4864d64446325a2fedf8a4bd902824a7bb6ffcce7c879f32f33",
+    "packages/assistant/src/modules/memory-module.test.ts": "cea34e496d13206361e2e199d48dcfbe3671197b1d895b4eb97020ef40d0d479",
+    "packages/assistant/src/modules/memory-module.ts": "557bfe12e3ef9eb14d87a9186f9affeabaf90a10efdad06bd3270d9a9c0e9d65",
+    "packages/assistant/src/task-instructions.ts": "fb2a9cf0fb9366ac96def04f6cc98a0d140e884a6ea88cd1b10ec60c5d6ba571",
+    "packages/assistant/src/thread-background.ts": "cf70d65950b2683201aef2b14a317e3ce877a7a8e1c6d71f1608265bf89bb7bb",
+    "packages/assistant/src/transcript-access.ts": "b349330cef3ef3492b10711d1faaa132f68bdf0ea73c25e5b96eb79599faf40b",
+    "packages/core/src/jsonl-store.test.ts": "90a2fab7c30494a2c8f8d4b44a5e8e1c417240ee8cf69d96c2a9b014f65241e9",
+    "packages/core/src/jsonl-store.ts": "da31d1ef19e18fa4163076e45e1ce608c2b843226bea12b767327368cfdae8a9",
+    "packages/core/src/types.ts": "d35ad2719f7a58be6182ce7620ab23b1f08ecd3bb6a40fc17d0a31502b86cef8"
+  },
+  "smoke": {
+    "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
+    "sha256": "a24470a3b0f407d820a37d7d1236f68631f032ed12e1aee82f243815d58bae84",
+    "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
+    "checks": [
+      {
+        "name": "startup",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "chat-reply",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "remember-success-receipt",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "remember-on-memory-page",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "restart-persistence",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "undo-disappears",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "daily-path-refuses-writes",
+        "result": "passed",
+        "unexpectedErrors": 0
+      },
+      {
+        "name": "daily-config-retired-fields",
+        "result": "passed",
+        "unexpectedErrors": 0
+      }
+    ],
+    "screenshots": [
+      {
+        "file": "startup.png",
+        "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
+      },
+      {
+        "file": "chat-reply.png",
+        "sha256": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497"
+      },
+      {
+        "file": "remember-success-receipt.png",
+        "sha256": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25"
+      },
+      {
+        "file": "remember-on-memory-page.png",
+        "sha256": "518c1ad866adda3ece9733c85fe3cfdf7c81af47d1b9e38b8e94d1f9ad6f4392"
+      },
+      {
+        "file": "restart-persistence.png",
+        "sha256": "3c24d5b1fe7b673879c9fcb997df588890ea2fe69d33c729911a3056cff1923d"
+      },
+      {
+        "file": "undo-disappears.png",
+        "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+      },
+      {
+        "file": "daily-path-refuses-writes.png",
+        "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+      },
+      {
+        "file": "daily-config-retired-fields.png",
+        "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+      }
+    ]
+  },
+  "offlineAudit": {
+    "file": "docs/v2-pilot/evidence/cm-step6/offline-audit.json",
+    "sha256": "ac1fa4856a027e31a18f84b6cbf119067dd1dab54139dfda99a00d304e902d10"
+  },
+  "sourceStayedCleanDuringVerification": true,
+  "finishedAt": "2026-10-22T04:01:11.410Z",
+  "temporaryDirectoryRemoved": true
+}

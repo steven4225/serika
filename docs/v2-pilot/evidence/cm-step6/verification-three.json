@@ -1,23 +1,30 @@
 {
-  "runId": "b67ccfbb-fd28-40b7-afc9-6a4748ed04be",
-  "startedAt": "2026-10-21T16:52:42.217Z",
-  "sourceCommit": "c6e1d7a69ee6c2f8c309607352c22cdce8cd5ab8",
+  "runId": "3e169e2f-c785-4e3a-a374-8595c8a047ed",
+  "generatedAt": "2026-10-22T04:29:18.623966+00:00",
+  "startedAt": "2026-10-22T04:07:18.316Z",
+  "finishedAt": "2026-10-22T04:28:41.476Z",
+  "sourceCommit": "aa47fc554cb0f7467071707524a27cce755a3273",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "historicalIndex": "docs/v2-pilot/evidence/cm-step6/verification-three-c6e1d7a.json",
   "runs": [
     {
-      "runId": "3f9e612b-4415-4d99-8a26-5d8499d1f1c2",
-      "file": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/verification.json",
-      "sha256": "ddc3ad3f5b1275163daa0a1d45c7a2c70cdbf6d4bea21ca7ca8e004956b61fd6"
+      "runId": "9c94640c-7f8e-416f-a4f9-81e3d5a01ca6",
+      "file": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/cm-step6/verification.json",
+      "sha256": "55b3cb4c911ab418d8de99ea14ac6858d9bfd4b15e599b91f391f90d91e939ec",
+      "evidenceRoot": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1"
     },
     {
-      "runId": "3d8d3484-ff49-4fbc-8775-0a0d5e9a3adc",
-      "file": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/verification.json",
-      "sha256": "f0f8a25f09f2b02a5cbe839b9f042d864837b8d768c604ee71ba1dc26075f3ff"
+      "runId": "f52aa8a4-d90f-4f2c-97a6-aa796ab33bef",
+      "file": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/cm-step6/verification.json",
+      "sha256": "0b56f835843a1fc6bde4665a3cdbdeecffbca9db7c27c082e354b8531f676a41",
+      "evidenceRoot": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2"
     },
     {
-      "runId": "dca0b02c-01f2-4d30-bf80-695797ec5401",
-      "file": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/verification.json",
-      "sha256": "896d14b41af21cd3a09964c76191b447bb74e3f789f9bae4a534266aacdf5a1a"
+      "runId": "8a3fd92a-1449-4725-a168-1763b00c4177",
+      "file": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/cm-step6/verification.json",
+      "sha256": "57c3db0b0d8c0669b5871c57c550f554e6c3a5205aee1801c8e866be8d9e209d",
+      "evidenceRoot": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3"
     }
-  ],
-  "finishedAt": "2026-10-21T17:15:39.194Z"
+  ]
 }
