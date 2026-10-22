@@ -65,9 +65,9 @@ export async function credentials() {
   let key = values.COMMAND_CODE_API_KEY;
   if (!key) {
     assert.ok(process.stdin.isTTY, '非交互启动需在终端环境或 ~/.serika-test.env 提供 COMMAND_CODE_API_KEY');
-    process.stdout.write('请输入测试用 COMMAND_CODE_API_KEY（隐藏输入，仅留内存）：');
     const muted = new Writable({ write(_chunk, _encoding, done) { done(); } });
     const input = createInterface({ input: process.stdin, output: muted, terminal: true });
+    process.stdout.write('请输入测试用 COMMAND_CODE_API_KEY（隐藏输入，仅留内存）：');
     try { key = (await input.question('')).trim(); } finally { input.close(); process.stdout.write('\n'); }
     assert.ok(key, '未提供测试密钥，停止启动');
   }
