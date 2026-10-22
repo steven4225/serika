@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateText, simulateReadableStream } from 'ai';
 import { MockLanguageModelV3 } from 'ai/test';
-import { meteredModel, safeFailure, chargedUsd, noAutomaticRetryMentioned, pastReadSucceeded, goalMentioned, oldGoalMentioned, summarizeBatch, uncertainMentioned, runChat } from './cm-step6-live.mjs';
+import { meteredModel, safeFailure, chargedUsd, noAutomaticRetryMentioned, pastReadSucceeded, goalMentioned, goalContentMentioned, oldGoalMentioned, summarizeBatch, uncertainMentioned, runChat } from './cm-step6-live.mjs';
 import { configureCliModel } from '@serika/assistant/internal/model-config.js';
 import { evaluateM1, m1Cases } from './cm-step4.mjs';
 
@@ -80,11 +80,23 @@ test('extraction JSON Schema stays in prompt text; the configured provider sends
   assert.equal(rejected.passed, false);
 });
 
-test('new-batch goal check accepts qualifiers while rejecting unknown, denied and different goals', () => {
-  for (const text of ['目标：完成验收报告。', '目标：完成验收主项目的验收报告。', '完成验收主项目验收报告。', '目标是完成本轮验收报告。',
-    '目标：完成本地文件方案的验收报告（暗号 FIDELITY-42），并补充失败样本整理入报告。',
-    '目标：完成本项目第一阶段的验收报告。']) assert.equal(goalMentioned(text), true, text);
-  for (const text of ['目标：未知。', '目标：完成另一项目的验收报告。', '目标不是完成验收报告。', '不再完成验收报告。', '完成调研后审阅验收报告。', '是否完成验收报告？无法确认。']) assert.equal(goalMentioned(text), false, text);
+test('v4 goal check requires a labeled main-project goal in one sentence', () => {
+  for (const text of ['目标：完成验收主项目的验收报告。', '目标是完成主项目的本轮验收报告。',
+    '目标：完成主项目验收阶段报告。']) assert.equal(goalMentioned(text), true, text);
+  for (const text of ['目标：完成验收报告。', '完成验收主项目验收报告。', '目标是完成本轮验收报告。',
+    '目标：完成本地文件方案的验收报告。', '目标：完成本项目第一阶段的验收报告。',
+    '目标：完成主项目。方案：验收报告。', '目标：未知。完成主项目验收报告。']) assert.equal(goalMentioned(text), false, text);
+  assert.equal(goalContentMentioned('完成主项目验收阶段报告'), true);
+});
+
+test('v4 goal sentence accepts the four reviewed paraphrases and rejects missing or denied main-project goals', () => {
+  for (const text of [
+    '目标：完成 FIDELITY-42 验收主项目，把本地文件方案下整理的验收报告做好，保留来源证据，并保留失败原因，不把状态当作正确性证明。',
+    '目标：完成验收主项目报告。',
+    '目标：完成“验收主项目”，并给出验收报告；同时补录/核对失败样本。',
+  ]) assert.equal(goalMentioned(text), true, text);
+  for (const text of ['目标：不再需要完成验收报告。', '目标：完成另一个项目的验收报告。', '目标：未知。',
+    '目标：未知。后续完成验收主项目的验收报告。', '目标：完成主项目验收报告，但不再需要完成主项目验收报告。', '目标：完成主项目。其他材料：验收报告。']) assert.equal(goalMentioned(text), false, text);
 });
 
 test('M1 live evidence separates literal-value rejection reasons and retains only field positions and lengths', async () => {
@@ -117,7 +129,7 @@ test('M1 live evidence separates literal-value rejection reasons and retains onl
 });
 
 test('new live evidence reports both goal rules, safe key-value counts and every C5 preparation', () => {
-  const reply = '完成验收主项目的验收报告';
+  const reply = '目标：完成验收主项目的验收报告';
   assert.equal(oldGoalMentioned(reply), false); assert.equal(goalMentioned(reply), true);
   const diagnostic = { lastPreparation: { outcome: 'reused', summaryLayer: { borrowedTokens: 384, borrowLimitTokens: 2496 },
     degradation: { reasons: ['summary_overflow', 'checklist_overflow'], maskedFromMessageId: '1', maskedThroughMessageId: '9' } } };
@@ -133,7 +145,7 @@ test('new live evidence reports both goal rules, safe key-value counts and every
 });
 
 test('approved goal rule scopes negation to the goal and accepts quoted titles', () => {
-  for (const text of ['按已确认方案完成验收主项目的验收报告，并补齐尚未完成的验收材料。', '完成「验收主项目验收报告」。', '不更换本地文件方案并完成验收报告。']) assert.equal(goalMentioned(text), true, text);
+  for (const text of ['目标：按已确认方案完成验收主项目的验收报告，并补齐尚未完成的验收材料。', '目标：完成「验收主项目验收报告」。', '目标：不更换本地文件方案并完成主项目验收报告。']) assert.equal(goalMentioned(text), true, text);
   for (const text of ['不再需要完成验收报告。', '目标尚未确定，不能确认是否需要完成验收报告。', '不需要再继续完成验收报告。']) assert.equal(goalMentioned(text), false, text);
 });
 
@@ -166,17 +178,20 @@ test('recorded reference keeps the source bytes and formal scores frozen', async
   assert.equal(result.formalScoresChanged, false); assert.equal(result.realModelCalls, 0); assert.equal(result.costUsd, 0);
   assert.deepEqual(await readFile(source), before); assert.equal(result.sourceSha256, 'b7264a5a558f9d08ff8aec2f7e55c8e640cf9d88f912a7d0557f6a64372a5226');
   assert.deepEqual(result.scores.map(score => [score.suite, score.recordedPassed, score.referencePassed]),
-    [['M1', 12, 14], ['CF03', 1, 2], ['CF05', 1, 3], ['CE03', 0, 1], ['CE05', 1, 1]]);
-  assert.deepEqual(result.scores.map(score => [score.suite, score.previousReferencePassed]), [['M1', 14], ['CF03', 2], ['CF05', 2], ['CE03', 1], ['CE05', 1]]);
+    [['M1', 12, 14], ['CF03', 1, 1], ['CF05', 1, 3], ['CE03', 0, 1], ['CE05', 1, 1]]);
+  assert.deepEqual(result.scores.map(score => [score.suite, score.previousReferencePassed]), [['M1', 14], ['CF03', 2], ['CF05', 3], ['CE03', 1], ['CE05', 1]]);
   assert.equal(result.validationReasonCounts.UNCERTAIN_QUOTE_MISMATCH, 2);
-  assert.equal(result.flips.length, 12); assert.equal(result.flips.filter(flip => flip.sourceKind === 'recorded_model_reply').length, 10);
-  assert.equal(result.previousFlips.length, 2);
-  assert.deepEqual(result.scanCoverage, { recordedAnswerCount: 19, checkedAnswerFields: 247, semanticFailures: 13, suspectedMisjudgments: 4, m1ProposalTextsMissing: 18 });
+  assert.equal(result.flips.length, 24); assert.equal(result.flips.filter(flip => flip.sourceKind === 'recorded_model_reply').length, 22);
+  assert.equal(result.previousFlips.length, 12);
+  assert.deepEqual(result.scanCoverage, { recordedAnswerCount: 19, checkedAnswerFields: 247, semanticFailures: 17, suspectedMisjudgments: 0, m1ProposalTextsMissing: 18 });
   assert.equal(result.answerFailures.filter(row => row.check === 'permissionNotInherited').length, 2);
   assert.equal(result.answerFailures.every(row => row.sentences.length > 0 && row.reply.includes(row.sentences[0])), true);
   assert.equal(result.runtimeFailures.every(row => row.modelSentences.length === 0), true);
   assert.equal(result.evidenceGaps.find(row => row.suite === 'CE05').sourceKind, 'missing_model_reply');
-  assert.equal(result.checkerFreeze.status, 'awaiting_user_review');
+  assert.equal(result.checkerFreeze.status, 'frozen');
+  assert.deepEqual(result.scores.map(score => score.v2ReferencePassed), [14, 2, 2, 1, 1]);
+  assert.equal(result.checkerVersion, 'cm-step6-offline-v4');
+  assert.equal(Object.keys(result.checkerScriptHashes).length, 5);
   assert.equal(result.rows.find(row => row.suite === 'CE05' && row.generation === 'cold').missing, true);
 });
 

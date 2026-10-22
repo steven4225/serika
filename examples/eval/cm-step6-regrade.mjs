@@ -3,7 +3,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { CHECKER_VERSION, goalMentioned, uncertainMentioned, responseChecks } from './cm-step6-live.mjs';
+import { CHECKER_VERSION, responseChecks } from './cm-step6-live.mjs';
 import { m1Cases } from './cm-step4.mjs';
 import { hashCanonicalJson } from '@serika/core';
 
@@ -20,11 +20,12 @@ const evidenceSentences = (reply, check) => {
   return reply.split('\n').filter(line => patterns[check]?.test(line));
 };
 
-export function regradeRecorded(report) {
+export function regradeRecorded(report, previous) {
+  const previousAnswers = new Map(previous.answerScan.map(row => [`${row.path}:${row.check}`, row]));
   const rows = [], flips = [], previousFlips = [], answerScan = [], answerFailures = [], runtimeFailures = [], evidenceGaps = [];
   const answer = (chat, path, suite, stage) => {
     if (!chat) return null;
-    const previousChecks = { ...chat.checks, goal: goalMentioned(chat.reply), uncertain: uncertainMentioned(chat.reply) };
+    const previousChecks = Object.fromEntries(Object.keys(chat.checks).map(key => [key, previousAnswers.get(`${path}:${key}`).reference]));
     const checks = { ...chat.checks, ...responseChecks(chat.reply) };
     for (const key of Object.keys(checks)) {
       const sentences = evidenceSentences(chat.reply, key), textCheck = key in responseChecks('');
@@ -41,12 +42,11 @@ export function regradeRecorded(report) {
           explanation: 'This is an execution/preparation check, not an answer-content judgment.' });
         continue;
       }
-      const suspected = key === 'goal' && /验收报告做好|完成验收主项目报告|完成“验收主项目”，并给出验收报告/u.test(chat.reply);
-      answerFailures.push({ path, suite, stage, check: key, classification: suspected ? '疑似误判' : '真没答到',
-        reviewOnly: suspected, sentences, reply: chat.reply,
-        rationale: suspected ? 'The recorded answer expresses producing the acceptance report in a different construction. The approved goal checker is unchanged; this row stays failed pending user review.' :
-          key === 'pastRead' ? 'The answer denies or omits the historical successful read, contrary to the fixture receipt.' :
-          key === 'permissionNotInherited' ? 'The answer discusses result/existence limits but does not require a new authorization for another read.' : 'The required answer content is absent or contradicted.' });
+      answerFailures.push({ path, suite, stage, check: key, classification: '真没答到',
+        reviewOnly: false, sentences, reply: chat.reply,
+        rationale: key === 'pastRead' ? 'The answer denies or omits the historical successful read, contrary to the fixture receipt.' :
+          key === 'permissionNotInherited' ? 'The answer discusses result/existence limits but does not require a new authorization for another read.' :
+          key === 'goal' ? 'The labeled goal sentence does not itself include completion, the main project, and an acceptance report without denying the goal.' : 'The required answer content is absent or contradicted.' });
     }
     return { originalChecks: chat.checks, previousReferenceChecks: previousChecks, referenceChecks: checks,
       originalPassed: chat.passed, previousReferencePassed: all(previousChecks), referencePassed: all(checks) };
@@ -99,9 +99,9 @@ export function regradeRecorded(report) {
   const scores = report.results.map(suite => {
     const regular = rows.filter(row => row.suite === suite.suite && row.generation !== 'cold');
     const cold = rows.find(row => row.suite === suite.suite && row.generation === 'cold');
-    return { suite: suite.suite, total: regular.length, recordedPassed: regular.filter(row => row.originalPassed).length,
+    return { suite: suite.suite, total: regular.length, v2ReferencePassed: previous.scores.find(row => row.suite === suite.suite).previousReferencePassed, recordedPassed: regular.filter(row => row.originalPassed).length,
       previousReferencePassed: regular.filter(row => row.previousReferencePassed).length, referencePassed: regular.filter(row => row.referencePassed).length,
-      recordedCold: cold?.originalPassed ?? null, previousReferenceCold: cold?.previousReferencePassed ?? null, referenceCold: cold?.referencePassed ?? null,
+      v2ReferenceCold: previous.scores.find(row => row.suite === suite.suite).previousReferenceCold, recordedCold: cold?.originalPassed ?? null, previousReferenceCold: cold?.previousReferencePassed ?? null, referenceCold: cold?.referencePassed ?? null,
       referenceSuitePassed: regular.every(row => row.referencePassed) && (!cold || cold.referencePassed === true) };
   });
   return { scores, rows, flips, previousFlips, validationReasonCounts: rows.reduce((counts, row) => {
@@ -110,16 +110,21 @@ export function regradeRecorded(report) {
     scanCoverage: { recordedAnswerCount: new Set(answerScan.map(row => row.path)).size, checkedAnswerFields: answerScan.length,
       semanticFailures: answerFailures.length, suspectedMisjudgments: answerFailures.filter(row => row.reviewOnly).length,
       m1ProposalTextsMissing: evidenceGaps.filter(row => row.sourceKind === 'missing_model_proposal_text').length },
-    unchangedChecks: ['goal', 'uncertain', 'permissionNotInherited', 'decision', 'pending', 'permission', 'all runtime and layer checks'],
-    checkerFreeze: { status: 'awaiting_user_review', appliesTo: 'future_batch_only', noRuleChangesUntilUserApprovesSuspectedFindings: true } };
+    unchangedChecks: ['uncertain', 'noAutomaticRetry', 'pastRead', 'permissionNotInherited', 'decision', 'pending', 'permission', 'recorded runtime and layer checks'],
+    checkerFreeze: { status: 'frozen', appliesTo: 'future_batch_only', noFurtherRuleChanges: true } };
 }
 
 export async function writeReference({ source = 'docs/v2-pilot/evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json', output }) {
   const path = resolve(repo, source), bytes = await readFile(path), report = JSON.parse(bytes);
+  const previousSource = 'docs/v2-pilot/evidence/cm-step6/offline-final/regrade.json';
+  const previousBytes = await readFile(resolve(repo, previousSource)), previous = JSON.parse(previousBytes);
+  assert.equal(sha(previousBytes), 'dbce465e3d34b3be99bb6861c486d8ff8ccaa97cfecce5e86f17c05f96dadc12');
+  assert.equal(previous.sourceSha256, sha(bytes));
+  const checkerScriptHashes = Object.fromEntries(await Promise.all(['cm-step6-live.mjs', 'cm-step6-regrade.mjs', 'cm-step4.mjs', 'compaction-fidelity.mjs', 'cm-step6-live.test.mjs'].map(async name => [`examples/eval/${name}`, sha(await readFile(new URL(name, import.meta.url)))])));
   const result = { referenceId: randomUUID(), generatedAt: new Date().toISOString(), kind: 'offline_reference_only',
-    checkerVersion: CHECKER_VERSION, previousCheckerVersion: 'cm-step6-offline-v2', originalCheckerVersion: 'recorded_818f2f4_batch_checks', source,
+    checkerVersion: CHECKER_VERSION, previousCheckerVersion: 'cm-step6-offline-v3', v2CheckerVersion: 'cm-step6-offline-v2', previousSource, previousSourceSha256: sha(previousBytes), checkerScriptHashes, originalCheckerVersion: 'recorded_818f2f4_batch_checks', source,
     sourceSha256: sha(bytes), sourceRunId: report.runId, realModelCalls: 0, costUsd: 0,
-    formalScoresChanged: false, ...regradeRecorded(report) };
+    formalScoresChanged: false, ...regradeRecorded(report, previous) };
   assert.equal(sha(await readFile(path)), result.sourceSha256);
   if (output) { assert.notEqual(resolve(output), path); await writeFile(output, JSON.stringify(result, null, 2) + '\n'); }
   return result;
