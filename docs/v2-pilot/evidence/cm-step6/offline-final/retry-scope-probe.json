@@ -1,0 +1,60 @@
+{
+  "probeId": "b951c433-61f3-45b3-9076-b273c55ab174",
+  "generatedAt": "2026-10-22T06:04:01.471Z",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "rows": [
+    {
+      "commit": "db2bfa6",
+      "checkerHash": "19909991611f839b873434c7647efdfc015235ce83cc15e05c4e81f1e364ff45",
+      "cases": [
+        {
+          "reply": "禁止自动重试但建议直接重试。",
+          "expected": false,
+          "actual": true
+        },
+        {
+          "reply": "不能把失败当成功但可以自动重试。",
+          "expected": false,
+          "actual": true
+        },
+        {
+          "reply": "不可以自动重试。",
+          "expected": true,
+          "actual": true
+        },
+        {
+          "reply": "不建议直接重试。",
+          "expected": true,
+          "actual": false
+        }
+      ]
+    },
+    {
+      "commit": "57cd541",
+      "checkerHash": "bf40ae4fd714d812b25b0b70fc350dfd1be28a0eee3354fff6c6820b1be09b9a",
+      "cases": [
+        {
+          "reply": "禁止自动重试但建议直接重试。",
+          "expected": false,
+          "actual": false
+        },
+        {
+          "reply": "不能把失败当成功但可以自动重试。",
+          "expected": false,
+          "actual": false
+        },
+        {
+          "reply": "不可以自动重试。",
+          "expected": true,
+          "actual": true
+        },
+        {
+          "reply": "不建议直接重试。",
+          "expected": true,
+          "actual": true
+        }
+      ]
+    }
+  ]
+}

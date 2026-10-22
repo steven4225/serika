@@ -1,0 +1,1545 @@
+{
+  "runId": "00f597b3-e74e-4e7b-8814-156b42c66873",
+  "startedAt": "2026-10-22T05:43:28.900Z",
+  "platform": "darwin",
+  "process": {
+    "node": "v26.4.0",
+    "pid": 76780
+  },
+  "sourceCommit": "a09cd8e6f3c05c7cf8187e9296ef502cc4378a94",
+  "sourceWorktreeDirty": false,
+  "baseCommit": "a183ddf01c15b51da84b1cd861b9e66686e634fe",
+  "scriptSha256": "b3179337e6fe1ebd376ff14f56eda28635a69040b18fe0f538f62ce0b5d64b59",
+  "commands": [
+    {
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "cwd": ".",
+      "startedAt": "2026-10-22T05:43:28.997Z",
+      "finishedAt": "2026-10-22T05:43:29.793Z",
+      "exitCode": 0,
+      "signal": null,
+      "outputSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "outputBytes": 141,
+      "counts": []
+    },
+    {
+      "command": [
+        "env",
+        "TZ=UTC",
+        "pnpm",
+        "test"
+      ],
+      "cwd": ".",
+      "startedAt": "2026-10-22T05:43:29.794Z",
+      "finishedAt": "2026-10-22T05:46:23.810Z",
+      "exitCode": null,
+      "signal": "SIGTERM",
+      "outputSha256": "6c5340ac5435ad6b2a1026846f9c2eaaad1ce07bf055dda2285b60b709250858",
+      "outputBytes": 241481,
+      "counts": [
+        [
+          "tests",
+          1156
+        ],
+        [
+          "pass",
+          1145
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          0
+        ],
+        [
+          "skipped",
+          11
+        ],
+        [
+          "tests",
+          614
+        ],
+        [
+          "pass",
+          613
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "cancelled",
+          1
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "case": "C5 essential summary overflow",
+      "at": "2026-10-22T05:43:36.323Z",
+      "outcome": "reused",
+      "compactionId": "saturated",
+      "estimatedInputTokens": 22228,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 1637,
+        "checklistTokens": 193,
+        "budget": 1248,
+        "borrowedTokens": 390,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 390,
+        "reduction": {
+          "originalTokens": 1519,
+          "requiredTokens": 1445,
+          "budget": 1055,
+          "reducedSegments": 4,
+          "compacted": true,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "input_limit",
+          "summary_overflow"
+        ],
+        "borrowedTokens": 390,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 390,
+        "maskedOriginalTokens": 3526,
+        "maskedFromMessageId": "u2",
+        "checklistTokens": 0,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "fidelity-write-result"
+      },
+      "modelCalls": 0
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 32768,
+      "exceeds": true,
+      "at": "2026-10-22T05:43:36.325Z",
+      "outcome": "failed",
+      "compactionId": "cap",
+      "estimatedInputTokens": 4203,
+      "error": {
+        "code": "CONTEXT_PREPARE_FAILED",
+        "message": "Essential continuation exceeds the capped C5 allocation after masking; original journal retained"
+      },
+      "summaryLayer": {
+        "tokens": 4044,
+        "checklistTokens": 161,
+        "budget": 1248,
+        "borrowedTokens": 2496,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 2797,
+        "reduction": {
+          "originalTokens": 3851,
+          "requiredTokens": 3884,
+          "budget": 1087,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "input_limit",
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 2496,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 2797,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 32768,
+      "exceeds": false,
+      "at": "2026-10-22T05:43:36.327Z",
+      "outcome": "reused",
+      "compactionId": "cap",
+      "estimatedInputTokens": 3203,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 3044,
+        "checklistTokens": 161,
+        "budget": 1248,
+        "borrowedTokens": 1797,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1797,
+        "reduction": {
+          "originalTokens": 2851,
+          "requiredTokens": 2884,
+          "budget": 1087,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "input_limit",
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 1797,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1797,
+        "maskedOriginalTokens": 50136,
+        "maskedFromMessageId": "failure-request",
+        "checklistTokens": 10169,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "failure-199"
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 1000000,
+      "exceeds": true,
+      "at": "2026-10-22T05:43:36.330Z",
+      "outcome": "failed",
+      "compactionId": "cap",
+      "estimatedInputTokens": 86483,
+      "error": {
+        "code": "CONTEXT_PREPARE_FAILED",
+        "message": "Essential continuation exceeds the capped C5 allocation after masking; original journal retained"
+      },
+      "summaryLayer": {
+        "tokens": 36300,
+        "checklistTokens": 161,
+        "budget": 12000,
+        "borrowedTokens": 24000,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 24301,
+        "reduction": {
+          "originalTokens": 36107,
+          "requiredTokens": 36140,
+          "budget": 11839,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 24000,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 24301,
+        "maskedOriginalTokens": 1,
+        "maskedFromMessageId": null,
+        "checklistTokens": 10169,
+        "sectionBudget": 2000,
+        "maskedThroughMessageId": null
+      }
+    },
+    {
+      "case": "C5 capped borrow",
+      "window": 1000000,
+      "exceeds": false,
+      "at": "2026-10-22T05:43:36.332Z",
+      "outcome": "reused",
+      "compactionId": "cap",
+      "estimatedInputTokens": 85483,
+      "error": null,
+      "summaryLayer": {
+        "tokens": 35300,
+        "checklistTokens": 161,
+        "budget": 12000,
+        "borrowedTokens": 23301,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 23301,
+        "reduction": {
+          "originalTokens": 35107,
+          "requiredTokens": 35140,
+          "budget": 11839,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow",
+          "checklist_overflow"
+        ],
+        "borrowedTokens": 23301,
+        "borrowLimitTokens": 24000,
+        "requiredBorrowTokens": 23301,
+        "maskedOriginalTokens": 1,
+        "maskedFromMessageId": null,
+        "checklistTokens": 10169,
+        "sectionBudget": 2000,
+        "maskedThroughMessageId": null
+      }
+    }
+  ],
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "status": "failed",
+  "timeZone": "UTC",
+  "lineChanges": [
+    {
+      "path": "apps/desktop/src/main/backup.test.ts",
+      "added": 27,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/main/backup.ts",
+      "added": 21,
+      "removed": 5
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-runtime.test.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "apps/desktop/src/main/foreground-autonomy.test.ts",
+      "added": 5,
+      "removed": 5
+    },
+    {
+      "path": "apps/desktop/src/main/smoke-model.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "apps/desktop/src/main/telegram-gateway.ts",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "apps/desktop/src/main/thread-history.ts",
+      "added": 3,
+      "removed": 3
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/memory-consolidation.tsx",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "docs/context-memory-refactor-plan.md",
+      "added": 3,
+      "removed": 1
+    },
+    {
+      "path": "docs/v2-pilot/cm-step6.md",
+      "added": 334,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/cf05-reference.json",
+      "added": 54,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json",
+      "added": 21016,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json",
+      "added": 20705,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json",
+      "added": 19902,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json",
+      "added": 1530,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live-summary-d67682ad-0722-43d9-af5c-8c7aef1308fa.json",
+      "added": 20031,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/live.json",
+      "added": 20031,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/m1-offline-diagnosis.json",
+      "added": 489,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-audit.json",
+      "added": 416,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/autonomy-green.log",
+      "added": 9,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/autonomy-red.log",
+      "added": 34,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/ce05-cold-gap.json",
+      "added": 234,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/change-stats.json",
+      "added": 220,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/checker-red.log",
+      "added": 76,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/compaction-red.log",
+      "added": 43,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/cost-estimate.json",
+      "added": 183,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/cost-probe.mjs",
+      "added": 57,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/cm-step6/live.json",
+      "added": 20712,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/cm-step6/offline-audit.json",
+      "added": 416,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/cm-step6/verification.json",
+      "added": 2092,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/failed-96f4e5d/cm-step6/verification.json",
+      "added": 1106,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/focused-green.log",
+      "added": 61,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/memory-red.log",
+      "added": 52,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/overflow-baseline.jsonl",
+      "added": 8,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/overflow-fixed.jsonl",
+      "added": 8,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/regrade.json",
+      "added": 1602,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/reproduction.json",
+      "added": 219,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/steer-green.log",
+      "added": 22,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/steer-red.log",
+      "added": 43,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/submission-audit.json",
+      "added": 110,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/cm-step6/live.json",
+      "added": 20712,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/cm-step6/offline-audit.json",
+      "added": 416,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/cm-step6/verification.json",
+      "added": 2092,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/visual-audit.json",
+      "added": 59,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/cm-step6/live.json",
+      "added": 20712,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/cm-step6/offline-audit.json",
+      "added": 416,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/cm-step6/verification.json",
+      "added": 2092,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/visual-audit.json",
+      "added": 59,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/cm-step6/live.json",
+      "added": 20712,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/cm-step6/offline-audit.json",
+      "added": 416,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/cm-step6/verification.json",
+      "added": 2092,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/visual-audit.json",
+      "added": 59,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/regression-red.json",
+      "added": 23,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/submission-audit.json",
+      "added": 162,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/submission-followup-audit.json",
+      "added": 44,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-21385ba-dirty-failed.json",
+      "added": 663,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-affbc10-failed.json",
+      "added": 739,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-bd6325f-failed.json",
+      "added": 1020,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-clean-smoke.json",
+      "added": 175,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/offline-audit.json",
+      "added": 416,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/verification.json",
+      "added": 1494,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/offline-audit.json",
+      "added": 416,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/verification.json",
+      "added": 1494,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/offline-audit.json",
+      "added": 416,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/verification.json",
+      "added": 1494,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/daily-config-retired-fields.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/daily-path-refuses-writes.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-three-c6e1d7a.json",
+      "added": 23,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification-three.json",
+      "added": 30,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cm-step6/verification.json",
+      "added": 1818,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/cost-ledger.json",
+      "added": 45,
+      "removed": 3
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/chat-reply.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/cm-step4-original-result.json",
+      "added": 267,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json",
+      "added": 85,
+      "removed": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/result.json",
+      "added": 36,
+      "removed": 36
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/startup.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png",
+      "added": null,
+      "removed": null
+    },
+    {
+      "path": "docs/v2-pilot/pending.md",
+      "added": 14,
+      "removed": 1
+    },
+    {
+      "path": "examples/eval/cm-step4.mjs",
+      "added": 6,
+      "removed": 4
+    },
+    {
+      "path": "examples/eval/cm-step6-compaction.test.mjs",
+      "added": 134,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/cm-step6-live.mjs",
+      "added": 467,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/cm-step6-live.test.mjs",
+      "added": 222,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/cm-step6-offline-audit.mjs",
+      "added": 78,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/cm-step6-overflow-repro.mjs",
+      "added": 17,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/cm-step6-regrade.mjs",
+      "added": 131,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/compaction-fidelity.test.mjs",
+      "added": 17,
+      "removed": 10
+    },
+    {
+      "path": "examples/eval/context-blocks.mjs",
+      "added": 13,
+      "removed": 0
+    },
+    {
+      "path": "examples/eval/e2e.test.mjs",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "examples/eval/reliability.test.mjs",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "packages/ai-sdk-adapter/src/loop.test.ts",
+      "added": 42,
+      "removed": 0
+    },
+    {
+      "path": "packages/ai-sdk-adapter/src/loop.ts",
+      "added": 12,
+      "removed": 3
+    },
+    {
+      "path": "packages/ai-sdk-adapter/src/model-errors.ts",
+      "added": 14,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/scripts/cm-baseline.mjs",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/scripts/cm-replay.mjs",
+      "added": 3,
+      "removed": 3
+    },
+    {
+      "path": "packages/assistant/scripts/cm-step5-verify.mjs",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/scripts/cm-step6-verify.mjs",
+      "added": 96,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/api.ts",
+      "added": 3,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/app.ts",
+      "added": 31,
+      "removed": 13
+    },
+    {
+      "path": "packages/assistant/src/assistant-controller.test.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/assistant-controller.ts",
+      "added": 12,
+      "removed": 9
+    },
+    {
+      "path": "packages/assistant/src/baseline-assembly.test.ts",
+      "added": 2,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/compaction-records.ts",
+      "added": 56,
+      "removed": 14
+    },
+    {
+      "path": "packages/assistant/src/consolidation-runtime.test.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/consolidation.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/context-assembler.ts",
+      "added": 5,
+      "removed": 2
+    },
+    {
+      "path": "packages/assistant/src/context-background.test.ts",
+      "added": 246,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/context-blocks.ts",
+      "added": 148,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/context-compaction-acceptance.test.ts",
+      "added": 13,
+      "removed": 14
+    },
+    {
+      "path": "packages/assistant/src/context-compaction-runtime.test.ts",
+      "added": 28,
+      "removed": 32
+    },
+    {
+      "path": "packages/assistant/src/context-compaction.ts",
+      "added": 59,
+      "removed": 2
+    },
+    {
+      "path": "packages/assistant/src/context-compactor.test.ts",
+      "added": 347,
+      "removed": 1367
+    },
+    {
+      "path": "packages/assistant/src/context-compactor.ts",
+      "added": 258,
+      "removed": 546
+    },
+    {
+      "path": "packages/assistant/src/context-diagnostics.ts",
+      "added": 4,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/context-source.ts",
+      "added": 19,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/foreground-autonomy.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/history-tools.ts",
+      "added": 45,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-controls.test.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-extraction.ts",
+      "added": 49,
+      "removed": 27
+    },
+    {
+      "path": "packages/assistant/src/memory-factual-receipts.ts",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/memory-m1-acceptance.test.ts",
+      "added": 69,
+      "removed": 34
+    },
+    {
+      "path": "packages/assistant/src/memory-observation-policy.ts",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "packages/assistant/src/memory-store.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-v6-store.test.ts",
+      "added": 21,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-v6-store.ts",
+      "added": 37,
+      "removed": 9
+    },
+    {
+      "path": "packages/assistant/src/memory-write.ts",
+      "added": 40,
+      "removed": 13
+    },
+    {
+      "path": "packages/assistant/src/model-context-budget.test.ts",
+      "added": 4,
+      "removed": 4
+    },
+    {
+      "path": "packages/assistant/src/model-usage.test.ts",
+      "added": 5,
+      "removed": 3
+    },
+    {
+      "path": "packages/assistant/src/modules/memory-module.test.ts",
+      "added": 31,
+      "removed": 9
+    },
+    {
+      "path": "packages/assistant/src/modules/memory-module.ts",
+      "added": 10,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/task-instructions.ts",
+      "added": 2,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/thread-background.ts",
+      "added": 21,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/transcript-access.ts",
+      "added": 63,
+      "removed": 0
+    },
+    {
+      "path": "packages/core/src/jsonl-store.test.ts",
+      "added": 17,
+      "removed": 0
+    },
+    {
+      "path": "packages/core/src/jsonl-store.ts",
+      "added": 52,
+      "removed": 0
+    },
+    {
+      "path": "packages/core/src/types.ts",
+      "added": 1,
+      "removed": 0
+    }
+  ],
+  "sourceHashes": {
+    "apps/desktop/src/main/backup.test.ts": "48cd2d5446123735eb84765b94cb7447f821d49c2e188845ae5bdc38ec559c7b",
+    "apps/desktop/src/main/backup.ts": "d4222e137bda66671c7a1329a06f62121c1eda0a1300f35be63bc8a996cd5839",
+    "apps/desktop/src/main/desktop-runtime.test.ts": "9b88777663a60bdc8a992bafb27656a93bb103fba1ef607a3cd8b82adbebac35",
+    "apps/desktop/src/main/foreground-autonomy.test.ts": "6afdff1d390ce91b55920298af44df6512d57d5de3dca45f5c58f1607396c246",
+    "apps/desktop/src/main/smoke-model.ts": "f7186ba3dd68300ff48cf6e34889dc469c791e05a3ed5401369f46a15d1f819e",
+    "apps/desktop/src/main/telegram-gateway.ts": "4f31d6f9274aa38a8206d961429a5cae9fff0c42dde9943f4e255f02cb6852cd",
+    "apps/desktop/src/main/thread-history.ts": "69306209c1de3f27775f9123647559ba7c9b62d34d1f03e796ad36aa282c9206",
+    "apps/desktop/src/renderer/src/memory-consolidation.tsx": "7d4a7b7955541fd6938ba143d4acb5adef65d9b2d74bf96f78ef9d3090cf202f",
+    "docs/context-memory-refactor-plan.md": "df5986b274f93a54603d7fe7eac80dffed24a21cd495f6804c54ae2755553e3c",
+    "docs/v2-pilot/cm-step6.md": "6b4267280333a615d4543343e622447c0bab63198d3ae7b3ff76d0dca819b35d",
+    "docs/v2-pilot/evidence/cm-step6/cf05-reference.json": "0aa141ddf902b9c7960dd756ed72c88ace8150918499402008770707a1268409",
+    "docs/v2-pilot/evidence/cm-step6/live-1834686a-b68d-49fb-9f39-d04f1f99bac9.json": "6e7eab280c2b4ba47dffea75b6066ec36d10c1179356958687242e89517db6b5",
+    "docs/v2-pilot/evidence/cm-step6/live-7c5b4116-0378-4286-afc2-ac9b00eafe0b.json": "8e99d42859cbd53121953305815e51756e02cd39f83ebf052514ef53cb5fee3d",
+    "docs/v2-pilot/evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json": "b7264a5a558f9d08ff8aec2f7e55c8e640cf9d88f912a7d0557f6a64372a5226",
+    "docs/v2-pilot/evidence/cm-step6/live-legacy-mixed.json": "8d76edf3837151731c2270d7265c31aa7c91f99fc930cd6b037ba74de97135f2",
+    "docs/v2-pilot/evidence/cm-step6/live-summary-d67682ad-0722-43d9-af5c-8c7aef1308fa.json": "19727d97a023736e7924251684900004d92b5a43cdca9830909a50a97de4279e",
+    "docs/v2-pilot/evidence/cm-step6/live.json": "19727d97a023736e7924251684900004d92b5a43cdca9830909a50a97de4279e",
+    "docs/v2-pilot/evidence/cm-step6/m1-offline-diagnosis.json": "d061516225f97a2aa4b4013392c174fc0f73d292f95f7f7ee08de2ce1a427c35",
+    "docs/v2-pilot/evidence/cm-step6/offline-audit.json": "28447743dc8b7d6ee0fba2376cb9305c2d05a419171ed3a9c8d3380b56b28077",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/autonomy-green.log": "667f6aa087973e59ac50a380d9d5fcb5301ff234e2a334fb72a5bc2e51e865a3",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/autonomy-red.log": "91cde1d9dbe89ebd730bf7ef4f245b91b1d9b2b3eb7286c5c8c44dda0400d102",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/ce05-cold-gap.json": "c6c6e2c18886a338723e77158a36f79b5e1c3550de7ce2206563da421c9a457c",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/change-stats.json": "3a6236b733d21834c701ce3cd0c27a578e9dcea020925d6955a47555a94c30aa",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/checker-red.log": "8740cbc9216b74a9dc6bc569051baa231ec9fb5d4b129a42c735ac5763a8e609",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/compaction-red.log": "827e642c7f0f2d4c7d0bc5f2ad4423ec80c954a08f186729786f67402c3f26fb",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/cost-estimate.json": "f881404775b2b78b452fa1095a79142d7b120338c62fec22768b8508bbc4ff22",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/cost-probe.mjs": "c90cd7c9e340feea5b8acc68b15817d65a78d6617a817c2f0454f15ac81dbeee",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/cm-step6/live.json": "5ceb43ed8247e04a73532773e57839ac5152ebbce4ee71b48a00aa65018ae857",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/cm-step6/offline-audit.json": "ac1fa4856a027e31a18f84b6cbf119067dd1dab54139dfda99a00d304e902d10",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/cm-step6/verification.json": "1aabf6ee743b2b5b676ff23f7c6d85dc628874b58927128f7066f9aa8f698132",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/chat-reply.png": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/cm-step6-run.json": "be2b917a0d9ad823c8fe2a650b0cebf0a26ba4d2608a9611f25ed55b57a5c995",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/daily-config-retired-fields.png": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/daily-path-refuses-writes.png": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/remember-on-memory-page.png": "518c1ad866adda3ece9733c85fe3cfdf7c81af47d1b9e38b8e94d1f9ad6f4392",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/remember-success-receipt.png": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/restart-persistence.png": "3c24d5b1fe7b673879c9fcb997df588890ea2fe69d33c729911a3056cff1923d",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/result.json": "a24470a3b0f407d820a37d7d1236f68631f032ed12e1aee82f243815d58bae84",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/startup.png": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/excluded-a05cd25/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/failed-96f4e5d/cm-step6/verification.json": "716ef7020fb4ab725e44c3fdf9bcf5863e28165d50e581355e778404370d772f",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/focused-green.log": "a58bd8e4e7d67a17ab50630ae309f7008ee2afef7e7d7cc66e76315bb3f51b21",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/memory-red.log": "19cb0b1a44f0bd4b76d20fc70ab761ed882d072b0050c938dd2cd285afa99f3a",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/overflow-baseline.jsonl": "8485464974a837606793081a8e9676b6bedf8db41d68cd6160baa110f2cc1fd7",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/overflow-fixed.jsonl": "9d82748b27afa1012a9cdd434900251060bd80f4194c42c13c2fc29b172a2cf3",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/regrade.json": "931e8d8867326f47b98a102590a91f7261bb147bec3022aa45d5ff5979953cbf",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/reproduction.json": "9abbdfc664fd179f53637fa1295ee969f53c08a38b3fa5e9634bb3aa76fc11d9",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/steer-green.log": "3e7136f85d1b5befb8fdf304ae63a9ec71d5ef35c3966f839dab325434ae1683",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/steer-red.log": "b8d1266aa5d09cffdb3a2ef1c764529d43a0fdbe1f8ad96c03b9fdbcadd3473f",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/submission-audit.json": "3e40bf3ad95a66ae479c6ab5c4d2498cb881c74f7410d97ed066bc709ec20893",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/cm-step6/live.json": "d490b9d5a719041895d6123911c0dfed4bcef2b43f96448e6ef440b0cbb97794",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/cm-step6/offline-audit.json": "eb0028263818a71c6c0f80ed4b2b79632f658af60cc73fe6d73913673bc4ddff",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/cm-step6/verification.json": "55b3cb4c911ab418d8de99ea14ac6858d9bfd4b15e599b91f391f90d91e939ec",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/chat-reply.png": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/cm-step6-run.json": "87668c46d91a3476dc5cd7b9e3295b6b8f78d73def8b85dafc4dd3a1361e6d1f",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/daily-config-retired-fields.png": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/daily-path-refuses-writes.png": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/remember-on-memory-page.png": "b6d3f9b831baaa725d57152d9973fe18e955dce89e66fec31d2e5e454fe11ea1",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/remember-success-receipt.png": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/restart-persistence.png": "2108d1d87fe36597dade434073eb15584481b07d03dc15873323271487de3c47",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/result.json": "613251dcee6daf50821617b09fe744ec6df797de987e9beef70df547f247b1e2",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/startup.png": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/visual-audit.json": "4de3892494518c360dfff322e8cf29b9dddf38b227e1698430bb02597046ce08",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/cm-step6/live.json": "f3f00bcb1833887bfd7a0fd27e0399728a7868a94d5ec0f7b0298f20ef5333bd",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/cm-step6/offline-audit.json": "8b8c7dbf231c517d1fc1532dacb153465018447f6a11ef7e18f0e482089071c7",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/cm-step6/verification.json": "0b56f835843a1fc6bde4665a3cdbdeecffbca9db7c27c082e354b8531f676a41",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/chat-reply.png": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/cm-step6-run.json": "80c10f930092665cb451ff2708b578537ae3b2b0af64e0476e33813d9656c03a",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/daily-config-retired-fields.png": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/daily-path-refuses-writes.png": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/remember-on-memory-page.png": "d93f73be56ca8d62778b73c125474ba037fabb6b361099db8202ce35b450c143",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/remember-success-receipt.png": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/restart-persistence.png": "16c25bb64926e833de8fd2cbc3851092d394bf8ea8763c5cfb39000e1802d71e",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/result.json": "36b5c2f03eb482eb7d038257da508797a6039330db8196c44d0e7be9c4122c44",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/startup.png": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/visual-audit.json": "fb944f6489ab8f5aace8f5a59f96c9bea98c6742d722ec525a1eb998e9caff3d",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/cm-step6/live.json": "755f801191dd755a91f545b2db4fee6d409e39e3db16d73a94522a0809690dd0",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/cm-step6/offline-audit.json": "d42ea52414aeecb04e0de77562118a1723b039bd18aeaac83dbe412b9ed44b4d",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/cm-step6/verification.json": "57c3db0b0d8c0669b5871c57c550f554e6c3a5205aee1801c8e866be8d9e209d",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/chat-reply.png": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/cm-step6-run.json": "143d33b14dbf343c61568dde64b60c82e39dda861679bed0d666cfaf3b6adff1",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/daily-config-retired-fields.png": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/daily-path-refuses-writes.png": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/remember-on-memory-page.png": "49b3c8762f5ec0aeaf2a00fa491e0c053129d9572402d160c0a171f3519b891d",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/remember-success-receipt.png": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/restart-persistence.png": "033d993d5bc519d8b7e33c2d9891082fb4e27e300973d27c1a127dbc9416acf0",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/result.json": "5c4266eb61a8a3f69e5bd5c25914bd76fcc36126260843c80f5c6b20e78594d4",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/startup.png": "985ae9cdc8e0edc30e7acbc771a3974299e896425ce18fd8ad5b885fa4d16868",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/visual-audit.json": "754c212dc197897b40f56a62b0e5d2aa13d1b73524ec7f6db4bcc3c8d49e683f",
+    "docs/v2-pilot/evidence/cm-step6/regression-red.json": "19a31a93ca699306a45bf98e9913156194b2673465c035765346e7662025fb4c",
+    "docs/v2-pilot/evidence/cm-step6/submission-audit.json": "dea6499199b037ab750c4ab2ab4be14252afb4d54dc9cd5978887319efb93804",
+    "docs/v2-pilot/evidence/cm-step6/submission-followup-audit.json": "100bcc943a80254a5be7ae14b4af7771e22294043584d5763abfc422b141e3b6",
+    "docs/v2-pilot/evidence/cm-step6/verification-21385ba-dirty-failed.json": "c7c373d57daa1f00bcbdb4fe4b0587a51822a4e2b0b573fb87fead2cac1292aa",
+    "docs/v2-pilot/evidence/cm-step6/verification-affbc10-failed.json": "8ca8e25017c1fbbf920610d92c29a8355e9a3eb4d1cfacc4a42a78054ec14f77",
+    "docs/v2-pilot/evidence/cm-step6/verification-bd6325f-failed.json": "448ee47189c5d022acbc8307b08c5c2838ce1691e0a350a558a419fa4d0b2a9e",
+    "docs/v2-pilot/evidence/cm-step6/verification-clean-smoke.json": "352098093a528439b63f65fc4d0a9d8280f539cf3ce9b1997a3ab6bf5c0af3bf",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/offline-audit.json": "af74e46659ef168f1c6168205afdd0823d7d9dd8cb13f74e60fd2ce7dc35aba4",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/cm-step6/verification.json": "ddc3ad3f5b1275163daa0a1d45c7a2c70cdbf6d4bea21ca7ca8e004956b61fd6",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/chat-reply.png": "7914d7e23517928c82c11dbbd47e23a35f6c5ecb6f15ad2559a8a88567385460",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/cm-step6-run.json": "30d2068cd68499ccaab2863ddf99de40531af92773f5a64de68e225bb28e183f",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/daily-config-retired-fields.png": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/daily-path-refuses-writes.png": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/remember-on-memory-page.png": "66db8520ea32eba0fc7a068835f16298cb154d71a0adc66f341e82eda6ff09fc",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/remember-success-receipt.png": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/restart-persistence.png": "f5e3d3c1e4f7b4bca4afdfa9be7885734a96be7d9401353e69a8b3abc83b014e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/result.json": "ecdddfb875ce10cdf8d60c63bc118f3bbdfbacc3bebd703a4ac5dd9462cd0bcb",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/startup.png": "708d3d1d1e40c14fadad40f8f69918864811f1fed6de485af7678423379dc0c5",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/1/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/offline-audit.json": "5a6f3638bae53e8c885004fdffc9550e97c9dd04ec00825c73d8738f03b5795e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/cm-step6/verification.json": "f0f8a25f09f2b02a5cbe839b9f042d864837b8d768c604ee71ba1dc26075f3ff",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/chat-reply.png": "350c6a5340eb1f50e56bc489adb281e7469e8d5924a49ba3665e0bd641d464cb",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/cm-step6-run.json": "3916de9e5cb016970f69e1a97935486b15a87a36354d4c0647d4c436a15539f6",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/daily-config-retired-fields.png": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/daily-path-refuses-writes.png": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/remember-on-memory-page.png": "cab8e267bec89e9d5155ec12978ebbea235266bd0bdc2763b44c976a78fb162e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/remember-success-receipt.png": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/restart-persistence.png": "fb1a7321fb1d7c6c52fb1047c138244e20dec2eabd8d889158727a9f437072c1",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/result.json": "2881253d9cb646fd1f26801dab342d1b504e4c403f26b177f23c627b20a87077",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/startup.png": "3058b293a635dfb678b6a4a557c24dba432a28ef59e47b0947cd5a20ef78fc8a",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/2/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/offline-audit.json": "28447743dc8b7d6ee0fba2376cb9305c2d05a419171ed3a9c8d3380b56b28077",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/cm-step6/verification.json": "896d14b41af21cd3a09964c76191b447bb74e3f789f9bae4a534266aacdf5a1a",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/chat-reply.png": "350c6a5340eb1f50e56bc489adb281e7469e8d5924a49ba3665e0bd641d464cb",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/cm-step6-run.json": "a7b2e7368b7e71fa17f6e76fb82634ab03103a464b57e66304df587745fe9580",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/daily-config-retired-fields.png": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/daily-path-refuses-writes.png": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/remember-on-memory-page.png": "c1bfd6ae7f69c5958d025c28135d855a15d37ff66185f7d407f01e82b3993bc9",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/remember-success-receipt.png": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/restart-persistence.png": "445c33323adeb0f6d529bb65282a0dddec1d9ac4b02924b34bf0dbf6ee8bfc48",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/result.json": "057f4559803a4d1e5e205d9d027d5958fad457a730f08e11f18d9c385aec8023",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/startup.png": "708d3d1d1e40c14fadad40f8f69918864811f1fed6de485af7678423379dc0c5",
+    "docs/v2-pilot/evidence/cm-step6/verification-runs/3/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/cm-step6/verification-three-c6e1d7a.json": "a8b78d849470e8f8cb293e26bb3bdcd6cb103d28d8f9dbd5ddd500655b1662f7",
+    "docs/v2-pilot/evidence/cm-step6/verification-three.json": "1e2b65d9550029918b0b22b977823713d000c7cd38dca242107e328e2d5b0ed3",
+    "docs/v2-pilot/evidence/cm-step6/verification.json": "35a13b5ad779866bf8b66639e49bc7873fa266448a41baa889711850af58cb24",
+    "docs/v2-pilot/evidence/cost-ledger.json": "216c68fd043225cf5e8654b7dbb12e7359e4687813add6259d30f8ae71ba18c8",
+    "docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "350c6a5340eb1f50e56bc489adb281e7469e8d5924a49ba3665e0bd641d464cb",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step4-original-result.json": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9",
+    "docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "ca81edd1490422e510e57a5ec92ad61c13a6b72c56b43c8e7284b709c6120793",
+    "docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "70a0f60b5708b231b91d73e1f285e9f0d599d64f736ceee7b3b73d3113ad3123",
+    "docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe",
+    "docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "84d67e697ae7e15d7af2a77bbf1d7c93448cb499d9c3afd994b9dbd9fcdddb82",
+    "docs/v2-pilot/evidence/electron-smoke/result.json": "bae27ecc7892c74cd171cc04ce960adfe5f6b1b16dbb89ab2bd57cd23a042b3d",
+    "docs/v2-pilot/evidence/electron-smoke/startup.png": "3058b293a635dfb678b6a4a557c24dba432a28ef59e47b0947cd5a20ef78fc8a",
+    "docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/pending.md": "1569db6e78728fffa0832303679202376dc100e2abea2a178530823e9a1ee3f2",
+    "examples/eval/cm-step4.mjs": "0492ce54c8afcfcdba0551fb0e5a0d6714b30db61e0cf8d9f3913fb204ce5c9c",
+    "examples/eval/cm-step6-compaction.test.mjs": "fc09b41b552888489cdafb5d17456da3a1beeafb4f50a192393107ae09249615",
+    "examples/eval/cm-step6-live.mjs": "3a0fc607f82f321e62935bbd5a8fae15440dc551295379b9633a672eb5942692",
+    "examples/eval/cm-step6-live.test.mjs": "f0d67f897c64c25550ca46a0a825d14ef8687cde2d87b95c685353cc2ba09bce",
+    "examples/eval/cm-step6-offline-audit.mjs": "9dd3e268ad706b61ebc777504b24003de978eda4a5a6917ad95885066fdc0ae0",
+    "examples/eval/cm-step6-overflow-repro.mjs": "7b1a332341f4c2a4e7bd4427d3abb969d28935c8cd55d23cc301c7a8d2d4b0ba",
+    "examples/eval/cm-step6-regrade.mjs": "b281df6b81909469afefd49f5c545739bbe3dd0d516a7f13ea29e8590ce03396",
+    "examples/eval/compaction-fidelity.test.mjs": "00889a2ab366ff608d1fe090bded1e4af9928c8651507629bb1904e2bdc9e8f3",
+    "examples/eval/context-blocks.mjs": "0b0dc939371c867cdc0b70ecd5cd115620ee4ab523bbfc3d089420703298efcc",
+    "examples/eval/e2e.test.mjs": "da68557a97d5ff79f212166cfa1e075871067cde139c99b995fac39e79cf2e89",
+    "examples/eval/reliability.test.mjs": "4607dbc6db11fae576ee6f5ca13fedd58496490d88e09aa031d07e188c638028",
+    "packages/ai-sdk-adapter/src/loop.test.ts": "5a1a4b146ab47890d513e358f274da6675bdb603dc9f752851df827d536aec16",
+    "packages/ai-sdk-adapter/src/loop.ts": "2526388c7235a87662d588cec2da979549c63181894dbfe84c9fb33f8148d418",
+    "packages/ai-sdk-adapter/src/model-errors.ts": "216b4abdba6c709c9573b74c6ad18fccad7e894c13d8064a0a3371def154b77c",
+    "packages/assistant/scripts/cm-baseline.mjs": "0554e750fb20639a165350f63bb7b65483b798f37374b8065187b6a4f0910af3",
+    "packages/assistant/scripts/cm-replay.mjs": "612350de0a3fe211f280e52c23521dbadc5a69e7e5daff761ede303996b40094",
+    "packages/assistant/scripts/cm-step5-verify.mjs": "a0e276923badf232ad738fbd76526628a18b95bbfbefe1d0a3e3d781e4adac1a",
+    "packages/assistant/scripts/cm-step6-verify.mjs": "b3179337e6fe1ebd376ff14f56eda28635a69040b18fe0f538f62ce0b5d64b59",
+    "packages/assistant/src/api.ts": "116048839cd4aa72c76b8e7ec009bfee3b62443b9609f15dd96e749c77ab7491",
+    "packages/assistant/src/app.ts": "ae222d563f211a7c213775ace0f09b7e5ade08369ecc408ec31b9cb3eef3b5dc",
+    "packages/assistant/src/assistant-controller.test.ts": "3d3b3e1139ca3cb44c32a6545a7c897b4b7c0958a4998b16a655fdc0462c68e3",
+    "packages/assistant/src/assistant-controller.ts": "6526a23f617c236f6e9b860ecc453adb8213ac22c790e6fc6770789f54bcbdc9",
+    "packages/assistant/src/baseline-assembly.test.ts": "5c8b4ae6f4ddee0eb35b74f8e70892b8b9c97e388e7fdca45b1797bf95920ec6",
+    "packages/assistant/src/compaction-records.ts": "56462449e7084eece4c674fd470eda50a7a684cb95b7962b1c1b5c0f513ef09e",
+    "packages/assistant/src/consolidation-runtime.test.ts": "e8ff4e7bebf4aa404edc0361ea26dc01ecc6caf239d5317cc38243c4546317c0",
+    "packages/assistant/src/consolidation.ts": "482c4d869ffc2402d6dc9b34dbdeb6af2819f2320ed8bd4671bb6246713b099e",
+    "packages/assistant/src/context-assembler.ts": "a46cd4273c3c6a70f0d6d541dc6f79c8da0a7f09fda9af608b8b85d8ddde48d8",
+    "packages/assistant/src/context-background.test.ts": "22964ec79f384461f6076547c9f36c8584c05b63266b64a2225f052c2ce9d6c9",
+    "packages/assistant/src/context-blocks.ts": "a1fcd6bc24e9fc8aa4be2b21f65b93edb585497e8cd0b7ac986c68b63ee26335",
+    "packages/assistant/src/context-compaction-acceptance.test.ts": "956a97b320394575597275cd2f153466c9938f2a59c85f01ab688f340294cacd",
+    "packages/assistant/src/context-compaction-runtime.test.ts": "c07412f44bbb21eeee9d49e758431dd541e0bb93ec98fcbe47162ad4b1d2dde6",
+    "packages/assistant/src/context-compaction.ts": "d156a8292b478a0cb82289bfabaf9275a4e1a8bd73149671085eb689096fb2bf",
+    "packages/assistant/src/context-compactor.test.ts": "45d4b8ce93200884ce62fa89bd71d70b9ea4b22e2e366200b1ebf8e60b99b116",
+    "packages/assistant/src/context-compactor.ts": "651bdd61eb80b803c9121490fc75df8014414c22ef00c1e7911fa4d2c3b8cfc9",
+    "packages/assistant/src/context-diagnostics.ts": "8173a8afeb41de47c1d0c21e43da0e2a0016e3e5857b942c80c94593a74a3cbd",
+    "packages/assistant/src/context-source.ts": "489f7f38acea8b79194692729fa16cd2e6d120cc0b28f53b1467dee8a86edd39",
+    "packages/assistant/src/foreground-autonomy.ts": "359de414f1f184e3213ee69b0b8cde6a82a05cbdc2ded4d38836ab75e45a3705",
+    "packages/assistant/src/history-tools.ts": "a38063bb13bcb14398a131889e85771c2428b320204b91f78e280a2580300db9",
+    "packages/assistant/src/memory-controls.test.ts": "b6cc58b13d26f526ce5b4f7abf16fa0758c712ffab6c55c3f08dff1bbdb99698",
+    "packages/assistant/src/memory-extraction.ts": "47e0399d089ae86e85281d00aa8755ec932dd1f1f66086d9980391d1843f7539",
+    "packages/assistant/src/memory-factual-receipts.ts": "02e89478b6fcf0380adb0f215caab9a70d84e9bc5a02b673f7efb36319986eff",
+    "packages/assistant/src/memory-m1-acceptance.test.ts": "1975cb0e38ba71e8dbff8ca4019413dbddcce624f2c7d917cc8536751db001ae",
+    "packages/assistant/src/memory-observation-policy.ts": "f68069b5c852ae309a0703c08298ab2bbb3c3709cc2accb2a9ef464d9ab577b6",
+    "packages/assistant/src/memory-store.ts": "dd2dc0360d24eb0844d8ee3e90e37a0aec9a4b7b18fd98707024e03297a3c340",
+    "packages/assistant/src/memory-v6-store.test.ts": "d1d677a81176e937c53e83ddc95b099efb44bca0e0fe5b5ab54c3192e01d2894",
+    "packages/assistant/src/memory-v6-store.ts": "bf5a73feca2534a2112087b98556eea77253736f01d9e1a8c8b29bb0545c5800",
+    "packages/assistant/src/memory-write.ts": "89950a764f6ab0b96c710b80b94db407262c95c1e3f7a8d53aad97774099dbf7",
+    "packages/assistant/src/model-context-budget.test.ts": "f0a67767fbc82e57b619fc64b96775dc79c6f2e817d6ed155bab96b98c7e2a6d",
+    "packages/assistant/src/model-usage.test.ts": "b9b353923588a4864d64446325a2fedf8a4bd902824a7bb6ffcce7c879f32f33",
+    "packages/assistant/src/modules/memory-module.test.ts": "cea34e496d13206361e2e199d48dcfbe3671197b1d895b4eb97020ef40d0d479",
+    "packages/assistant/src/modules/memory-module.ts": "557bfe12e3ef9eb14d87a9186f9affeabaf90a10efdad06bd3270d9a9c0e9d65",
+    "packages/assistant/src/task-instructions.ts": "fb2a9cf0fb9366ac96def04f6cc98a0d140e884a6ea88cd1b10ec60c5d6ba571",
+    "packages/assistant/src/thread-background.ts": "cf70d65950b2683201aef2b14a317e3ce877a7a8e1c6d71f1608265bf89bb7bb",
+    "packages/assistant/src/transcript-access.ts": "b349330cef3ef3492b10711d1faaa132f68bdf0ea73c25e5b96eb79599faf40b",
+    "packages/core/src/jsonl-store.test.ts": "90a2fab7c30494a2c8f8d4b44a5e8e1c417240ee8cf69d96c2a9b014f65241e9",
+    "packages/core/src/jsonl-store.ts": "da31d1ef19e18fa4163076e45e1ce608c2b843226bea12b767327368cfdae8a9",
+    "packages/core/src/types.ts": "d35ad2719f7a58be6182ce7620ab23b1f08ecd3bb6a40fc17d0a31502b86cef8"
+  },
+  "failure": {
+    "name": "AssertionError",
+    "message": "apping refreshes (0.187458ms)\n✔ saved task banner keeps failure and interrupted titles and leaves long results for the inbox (0.922209ms)\n✔ saved task banner mounts once per workspace with one cleaned up read timer and leaves OS privacy intact (6.985709ms)\n✔ renders accepted/applied/not-applied distinctly and restores only by explicit action (4.462917ms)\n✔ composer sends current Run steer before approval/new-task admission and retains Stop (4.439875ms)\n✔ continuation separates unknown receipts, historical delivery and unresolved work (4.71525ms)\n✔ shows actionable recovery reasons without treating a Run conclusion as acceptance (0.189458ms)\n✔ compaction usage requires both latest Run and task binding, never merely a historical record (2.481375ms)\n✔ maintenance template stays a draft with concrete quality requirements and no automatic recovery (0.080417ms)\n✔ renders actual Controller/bridge preparation for the latest task Run, but not after restart or ordinary chat (2124.69675ms)\n✔ saved reminder banner presentation contains the persisted result instead of only task id and completion (1.182625ms)\n✔ task inbox labels kinds without treating model completion or system submission as user receipt (0.649666ms)\n✔ successful inbox/detail reads refresh the same workspace arrangements without polling or execution (4.55075ms)\n✔ does not present missing host, corrupt status or pending connection as a ready Telegram account (0.623209ms)\n▶ tool preview golden samples: run events and history give the same row\n  ✔ edit_file, returned ok (17.265583ms)\n  ✔ edit_file, long text: each side cut at 4000 characters without splitting a surrogate pair (2.100167ms)\n  ✔ write_file, returned ok: content only, no before (2.267417ms)\n  ✔ write_file, the tool returned a failure: intent kept, no receipt, no changed file (2.272208ms)\n  ✔ edit_file, denied by the host before it ran (2.446375ms)\n  ✔ edit_file, denied with the host's default message (2.045375ms)\n  ✔ edit_file without newText: invalid input, no file-change preview (1.717875ms)\n  ✔ write_file with non-string content: path only (1.368375ms)\n  ✔ write_file given edit_file fields: only content counts, never a before (1.79225ms)\n  ✔ read_file, returned ok: content preview and receipt, no file change (1.341916ms)\n  ✔ read_file, file not found (returned by the tool) (1.134667ms)\n  ✔ list_directory, returned ok: entries preview, no receipt (1.282584ms)\n  ✔ search_files, returned ok: path scope only, no content preview, no receipt (0.951625ms)\n  ✔ shell_exec, returned ok: command and cwd, never a path or file change (1.324ms)\n  ✔ file-change preview wording: before/after for edit_file, content only for write_file, truncation notice (2.155958ms)\n✔ tool preview golden samples: run events and history give the same row (42.409417ms)\n✔ keeps source-bound host memory receipts out of the reply copy text (15.307458ms)\n✔ attaches only the current Thread's host receipt to the matching committed user and deduplicates replay (0.620083ms)\n✔ keeps applied steering in the same conversation turn (0.073875ms)\n✔ groups completed work before the final reply without rewriting text or losing row order (0.180791ms)\n✔ does not promote text before a later tool into a final answer or collapse a live answer (2.615709ms)\n✔ keeps unresolved effects expanded, while retaining known failures in the summary without a success claim (0.105291ms)\n✔ preserves completion reasons, system messages and multiple user turns (3.600583ms)\n✔ daily Electron and preview share the reference layout without an opt-in or query-string fallback (0.4505ms)\n✔ ported message containers preserve children as text rather than unsafe HTML (6.030459ms)\n✔ source button retains native disabled semantics and font/color utility groups (6.613959ms)\n✔ source frame uses the native macOS surface without mounting an upstream service (0.344625ms)\n✔ message exclusion explains the actual cloud inference boundary without claiming it disables saved keyword references (3.665583ms)\n✔ UI regression 1: workspace belongs to settings and never selects 手札 (1.211541ms)\n✔ UI regression 2: context compression and memory consolidation have distinct status and stop wording (5.24775ms)\n✔ UI regression 3: the memory automation off state uses the same phrase across summaries and pending (0.735625ms)\n✔ memory automation label distinguishes enabled capability from write policy (0.138125ms)\n✔ UI regression 4: memory setup has one primary entry and workspace context is a navigation link (1.280291ms)\n✔ UI regression 5: settings has one explicit entrance and the persona pill is not that entrance (1.517834ms)\n✔ reminders stay reachable from 手札 and are not a top pill or a settings inbox (2.9215ms)\n✔ UI regression 6: 手札 explicitly allows ordinary conversation without creating a task (13.015958ms)\n✔ optional memory tab selection shares the settings pill instead of an underline (0.481209ms)\n✔ schedule management belongs to reminders instead of task templates (0.691333ms)\n▶ work task presentation invariants\n  ✔ restores the actionable task without hiding unknown effects behind an old selected delivery (0.469458ms)\n  ✔ distinguishes persisted automatic failures from pending human review and completed acceptance (0.238958ms)\n  ✔ builds explicit readback and exact test contracts without converting human quality to automatic (0.595958ms)\n  ✔ templates are editable drafts and next actions distinguish Run end from acceptance (0.131333ms)\n  ✔ selection survives reload only for the exact workspace, Thread, directory and config (0.176083ms)\n  ✔ never starts a needs_review task or exposes the ordinary cancel bypass (0.098417ms)\n  ✔ a human reconciliation removes only the action banner, never the unknown receipt (0.211875ms)\n✔ work task presentation invariants (2.5045ms)\n▶ work task controls\n  ✔ restores all editable task creation fields without creating a task and makes failed persistence actionable (5.928334ms)\n  ✔ renders the retained instruction after a task revision changes and exposes start-in-flight (14.303292ms)\n  ✔ offers explicit rework only at acceptance and labels the retained delivery as historical (6.864708ms)\n  ✔ a paused Run offers a separate next Run and delivery, not completion (1.772541ms)\n  ✔ unknown recovery exposes reconciliation but neither execution nor ordinary cancellation (1.781542ms)\n  ✔ only a submitted delivery offers human acceptance and loading/error locks changes (1.2595ms)\n  ✔ unavailable and empty task lists are not conflated, and chat shows a compact task summary (0.54325ms)\n  ✔ the focused inspector returns to the conversation composer instead of offering a second task input (1.039084ms)\n  ✔ main task actions follow persisted state and never call a paused or unknown task accepted (0.922167ms)\n  ✔ main task card distinguishes checked artifacts, unresolved work and pending human acceptance (0.330334ms)\n  ✔ the running task strip leaves room for tool approval and progress without suggesting another start (0.179834ms)\n✔ work task controls (35.647708ms)\n✔ sends on Enter but preserves Shift+Enter and input-method composition (0.32925ms)\n✔ opens Steer only for an identified foreground primary Run admitted by the controller (0.078167ms)\n✔ allows chat to preempt background Skills but never manual Skills or primary Runs (0.050125ms)\n✔ shows dispatched Computer receipts as unverified, not business success, across live/history/reload (0.887625ms)\n✔ retains unknown outcomes and distinguishes cancellation-before-start from cancellation-after-start (0.215625ms)\n✔ does not turn a truncated Shell receipt into success when applying final receipts (0.0685ms)\n✔ previews exact target and full text without inventing missing window data (0.109958ms)\n▶ context diagnostics panel\n  ✔ uses prepared input rather than an oversized historical prefix for budget status (0.423875ms)\n  ✔ shows explicit input ceilings and conservative 70/85 percent labels without inventing a live measurement (0.155458ms)\n  ✔ explains automatic management without inventing a current measurement or hiding a failed preparation behind old records (0.157917ms)\n  ✔ keeps the last successful read when a refresh fails, without claiming it is current (0.213292ms)\n  ✔ ignores stale success and stale failure from earlier requests (0.061708ms)\n  ✔ does not turn an absent process preparation into historical success (0.06825ms)\n✔ context diagnostics panel (1.64625ms)\n▶ execution record presentation\n  ✔ explains an exact complete missing-file result without claiming success or hiding unknown effects (0.800416ms)\n  ✔ does not treat a query throw as an empty history (0.117667ms)\n  ✔ keeps completed write_file beside a later unknown tool on a failed Run (0.143334ms)\n  ✔ does not treat not_started as an unknown side effect (0.048583ms)\n  ✔ reads Shell receipts from the record instead of assuming completed means success (0.053ms)\n  ✔ labels a running audit row as in progress, not interrupted (0.042292ms)\n✔ execution record presentation (1.742458ms)\n✔ bounded pages keep complete messages, stable cursors and do not lose messages after append (6.352541ms)\n✔ hides raw ids from conversation titles and keeps human text (0.947709ms)\n✔ chrome titles drop business tokens that the reminder card keeps (0.060708ms)\n✔ names a saved reminder from its result and formats schedule times without the raw timestamp (10.178208ms)\n✔ module notifications lead with the human sentence, not the module id (0.166417ms)\n✔ memory conflicts are Chinese explanations, never raw ids or codes (0.412833ms)\n✔ long draft feedback names the byte limit without implying storage repair or discarding input (0.084625ms)\n▶ ShellProgressBuffer\n  ✔ groups by toolCallId and appends stdout/stderr by sequence, not arrival order (0.381ms)\n  ✔ keeps already shown text when a later event is empty and truncated (0.0735ms)\n  ✔ does not treat truncated text as a reason to drop earlier chunks (0.055125ms)\n  ✔ stops at 256 events without clearing prior output (11.756458ms)\n  ✔ stops at 64 KiB without clearing prior output (0.256084ms)\n  ✔ replays snapshot in tool-then-sequence order (0.417375ms)\n✔ ShellProgressBuffer (13.46325ms)\n▶ presentShellExec\n  ✔ does not treat truncated output as a command failure (0.413708ms)\n  ✔ surfaces Shell timeout separately from a generic tool failure (0.121917ms)\n  ✔ surfaces a cancelled command without calling it a successful receipt (0.0595ms)\n  ✔ uses a non-zero exit code as failure when the command was not timed out or cancelled (0.05975ms)\n  ✔ ignores unrelated tool payloads (0.049083ms)\n✔ presentShellExec (1.302375ms)\n✔ upserts authoritative statuses without accepting stale Run messages or regressing applied to accepted (0.513625ms)\nℹ tests 614\nℹ suites 30\nℹ pass 613\nℹ fail 0\nℹ cancelled 1\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 124247.021667\n\n✖ failing tests:\n\ntest at src/main/telegram-gateway.test.ts:1:1\n✖ src/main/telegram-gateway.test.ts (97702.193916ms)\n  'Promise resolution is still pending but the event loop has already resolved'\n[ELIFECYCLE] Test failed. See above for more details.\n./apps/desktop:\n[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @serika/desktop@0.1.0 test: `tsx --test --test-concurrency=4 src/shared/*.test.ts src/main/*.test.ts src/renderer/src/*.test.ts src/renderer/src/personal/*.test.ts && node --test scripts/*.test.mjs`\nCommand failed with signal \"SIGTERM\"\n[ELIFECYCLE] Command failed.\n$ pnpm test:runtime && pnpm desktop:test\n$ pnpm build:runtime && node --test --test-concurrency=4 packages/core/dist/*.test.js packages/ai-sdk-adapter/dist/*.test.js packages/assistant/dist/*.test.js packages/assistant/dist/acceptance/*.test.js packages/assistant/dist/modules/*.test.js apps/cli/dist/*.test.js\n$ tsc -b\n$ pnpm build:runtime && pnpm --filter @serika/desktop test\n$ tsc -b\n$ tsx --test --test-concurrency=4 src/shared/*.test.ts src/main/*.test.ts src/renderer/src/*.test.ts src/renderer/src/personal/*.test.ts && node --test scripts/*.test.mjs\n\n\nnull !== 0\n"
+  },
+  "finishedAt": "2026-10-22T05:46:23.811Z",
+  "temporaryDirectoryRemoved": true
+}

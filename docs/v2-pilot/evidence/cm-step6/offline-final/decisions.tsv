@@ -1,0 +1,6 @@
+time	decision	why	evidence	result
+2026-10-22T13:41:00+08:00	keep C5 implementation unchanged pending human decision	Existing implementation differs from equal-exchange approval	context-compactor.prepare + offline numeric probe	question pending; no C5 ratification
+2026-10-22T13:41:00+08:00	remove checklist branches with production=true	User explicitly requested removal	all callers and 15 exact object comparisons	product net -5
+2026-10-22T13:41:00+08:00	keep permissionNotInherited and goal unchanged	Only noAutomaticRetry/pastRead newly approved	full frozen answer sweep	list possible false negatives for review
+2026-10-22T13:41:00+08:00	set combined cap to 2.75 without dispatch	User approved final batch after review and freeze	current user message	ledger entries and formal scores unchanged
+2026-10-22T13:46:42+08:00	stop superseded a09cd8e verification and restart final three	Independent review found affirmative retry advice escaped through unrelated negation	checker negative red/green + 57cd541	initial run interrupted and excluded, final source fixed

@@ -1,0 +1,30 @@
+{
+  "runId": "3e169e2f-c785-4e3a-a374-8595c8a047ed",
+  "generatedAt": "2026-10-22T04:29:18.623966+00:00",
+  "startedAt": "2026-10-22T04:07:18.316Z",
+  "finishedAt": "2026-10-22T04:28:41.476Z",
+  "sourceCommit": "aa47fc554cb0f7467071707524a27cce755a3273",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "historicalIndex": "docs/v2-pilot/evidence/cm-step6/verification-three-c6e1d7a.json",
+  "runs": [
+    {
+      "runId": "9c94640c-7f8e-416f-a4f9-81e3d5a01ca6",
+      "file": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1/cm-step6/verification.json",
+      "sha256": "55b3cb4c911ab418d8de99ea14ac6858d9bfd4b15e599b91f391f90d91e939ec",
+      "evidenceRoot": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/1"
+    },
+    {
+      "runId": "f52aa8a4-d90f-4f2c-97a6-aa796ab33bef",
+      "file": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2/cm-step6/verification.json",
+      "sha256": "0b56f835843a1fc6bde4665a3cdbdeecffbca9db7c27c082e354b8531f676a41",
+      "evidenceRoot": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/2"
+    },
+    {
+      "runId": "8a3fd92a-1449-4725-a168-1763b00c4177",
+      "file": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3/cm-step6/verification.json",
+      "sha256": "57c3db0b0d8c0669b5871c57c550f554e6c3a5205aee1801c8e866be8d9e209d",
+      "evidenceRoot": "docs/v2-pilot/evidence/cm-step6/offline-repair/verification-runs/3"
+    }
+  ]
+}

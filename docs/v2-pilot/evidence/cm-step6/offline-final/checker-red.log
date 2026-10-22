@@ -1,0 +1,49 @@
+✖ pastRead recognizes long receipt clauses without accepting failed, unknown, future or unrelated writes (2.642667ms)
+✖ approved noAutomaticRetry rule accepts prohibitions and prior verification, rejecting direct retry advice (0.203375ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 212.409792
+
+✖ failing tests:
+
+test at examples/eval/cm-step6-live.test.mjs:46:1
+✖ pastRead recognizes long receipt clauses without accepting failed, unknown, future or unrelated writes (2.642667ms)
+  AssertionError [ERR_ASSERTION]: notes/fixture.txt 曾一次性读取，状态为 completed，成功。
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file://<checker-checkout>/examples/eval/cm-step6-live.test.mjs:55:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at examples/eval/cm-step6-live.test.mjs:211:1
+✖ approved noAutomaticRetry rule accepts prohibitions and prior verification, rejecting direct retry advice (0.203375ms)
+  AssertionError [ERR_ASSERTION]: 禁止自动重试。
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file://<checker-checkout>/examples/eval/cm-step6-live.test.mjs:212:87)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

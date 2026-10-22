@@ -1,0 +1,234 @@
+{
+  "auditId": "c6d936ec-6e72-4c5a-aa59-91981351ca1d",
+  "generatedAt": "2026-10-22T05:47:07.452341+00:00",
+  "baseCommit": "16da181",
+  "sourceCommit": "57cd5419f314e1ec7d3fd857b015dbc445dde313",
+  "commits": [
+    {
+      "commit": "37290c8183da8c7e3b4e9951d5c28bf56e031076",
+      "productSourceChanged": true,
+      "totals": {
+        "product": {
+          "added": 11,
+          "removed": 16,
+          "net": -5
+        },
+        "tests": {
+          "added": 3,
+          "removed": 2,
+          "net": 1
+        },
+        "scripts": {
+          "added": 0,
+          "removed": 0,
+          "net": 0
+        },
+        "materials": {
+          "added": 0,
+          "removed": 0,
+          "net": 0
+        }
+      },
+      "paths": [
+        {
+          "path": "packages/assistant/src/compaction-records.ts",
+          "category": "product",
+          "added": 7,
+          "removed": 12,
+          "net": -5
+        },
+        {
+          "path": "packages/assistant/src/context-background.test.ts",
+          "category": "tests",
+          "added": 2,
+          "removed": 1,
+          "net": 1
+        },
+        {
+          "path": "packages/assistant/src/context-blocks.ts",
+          "category": "product",
+          "added": 1,
+          "removed": 1,
+          "net": 0
+        },
+        {
+          "path": "packages/assistant/src/context-compactor.test.ts",
+          "category": "tests",
+          "added": 1,
+          "removed": 1,
+          "net": 0
+        },
+        {
+          "path": "packages/assistant/src/context-compactor.ts",
+          "category": "product",
+          "added": 2,
+          "removed": 2,
+          "net": 0
+        },
+        {
+          "path": "packages/assistant/src/context-diagnostics.ts",
+          "category": "product",
+          "added": 1,
+          "removed": 1,
+          "net": 0
+        }
+      ]
+    },
+    {
+      "commit": "db2bfa67a95a573b5748f73c6c38b8857ad83e27",
+      "productSourceChanged": false,
+      "totals": {
+        "product": {
+          "added": 0,
+          "removed": 0,
+          "net": 0
+        },
+        "tests": {
+          "added": 20,
+          "removed": 6,
+          "net": 14
+        },
+        "scripts": {
+          "added": 101,
+          "removed": 36,
+          "net": 65
+        },
+        "materials": {
+          "added": 0,
+          "removed": 0,
+          "net": 0
+        }
+      },
+      "paths": [
+        {
+          "path": "examples/eval/cm-step6-live.mjs",
+          "category": "scripts",
+          "added": 28,
+          "removed": 13,
+          "net": 15
+        },
+        {
+          "path": "examples/eval/cm-step6-live.test.mjs",
+          "category": "tests",
+          "added": 20,
+          "removed": 6,
+          "net": 14
+        },
+        {
+          "path": "examples/eval/cm-step6-regrade.mjs",
+          "category": "scripts",
+          "added": 73,
+          "removed": 23,
+          "net": 50
+        }
+      ]
+    },
+    {
+      "commit": "a09cd8e6f3c05c7cf8187e9296ef502cc4378a94",
+      "productSourceChanged": false,
+      "totals": {
+        "product": {
+          "added": 0,
+          "removed": 0,
+          "net": 0
+        },
+        "tests": {
+          "added": 1,
+          "removed": 1,
+          "net": 0
+        },
+        "scripts": {
+          "added": 0,
+          "removed": 0,
+          "net": 0
+        },
+        "materials": {
+          "added": 1,
+          "removed": 1,
+          "net": 0
+        }
+      },
+      "paths": [
+        {
+          "path": "docs/v2-pilot/evidence/cost-ledger.json",
+          "category": "materials",
+          "added": 1,
+          "removed": 1,
+          "net": 0
+        },
+        {
+          "path": "examples/eval/cm-step6-compaction.test.mjs",
+          "category": "tests",
+          "added": 1,
+          "removed": 1,
+          "net": 0
+        }
+      ]
+    },
+    {
+      "commit": "57cd5419f314e1ec7d3fd857b015dbc445dde313",
+      "productSourceChanged": false,
+      "totals": {
+        "product": {
+          "added": 0,
+          "removed": 0,
+          "net": 0
+        },
+        "tests": {
+          "added": 2,
+          "removed": 2,
+          "net": 0
+        },
+        "scripts": {
+          "added": 3,
+          "removed": 4,
+          "net": -1
+        },
+        "materials": {
+          "added": 0,
+          "removed": 0,
+          "net": 0
+        }
+      },
+      "paths": [
+        {
+          "path": "examples/eval/cm-step6-live.mjs",
+          "category": "scripts",
+          "added": 3,
+          "removed": 4,
+          "net": -1
+        },
+        {
+          "path": "examples/eval/cm-step6-live.test.mjs",
+          "category": "tests",
+          "added": 2,
+          "removed": 2,
+          "net": 0
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "product": {
+      "added": 11,
+      "removed": 16,
+      "net": -5
+    },
+    "tests": {
+      "added": 26,
+      "removed": 11,
+      "net": 15
+    },
+    "scripts": {
+      "added": 104,
+      "removed": 40,
+      "net": 64
+    },
+    "materials": {
+      "added": 1,
+      "removed": 1,
+      "net": 0
+    }
+  },
+  "excluded": "Later evidence/report-only commit changes no product code."
+}

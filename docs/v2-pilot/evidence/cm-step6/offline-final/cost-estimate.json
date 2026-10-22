@@ -1,0 +1,25 @@
+{
+  "estimateId": "c5aa1a14-123f-46a8-96e0-8ae424466465",
+  "generatedAt": "2026-10-22T05:41:25.442497+00:00",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "basis": "Reuse aa47fc5 queue probe because this round removes unreachable product branches; no new model or queue forecast.",
+  "source": "docs/v2-pilot/evidence/cm-step6/offline-repair/cost-estimate.json",
+  "sourceSha256": "f881404775b2b78b452fa1095a79142d7b120338c62fec22768b8508bbc4ff22",
+  "combinedCapUsd": 2.75,
+  "combinedChargedUsd": 1.6829965799999995,
+  "remainingUsd": 1.0670034200000005,
+  "estimatedTotalCalls": 137,
+  "estimatedUsd": 0.3355241908734403,
+  "maxObservedCallBasedUsd": 0.7176758400000001,
+  "stressTotalCalls": 153,
+  "stressUsd": 0.80512632,
+  "limitations": [
+    "Counts depend on successful short fixture summaries; actual model invalid output or larger required content changes queues.",
+    "M1 and cold call counts/costs copied from the frozen batch, not a forecast of successful cold reuse.",
+    "Uses the frozen batch price quote and token usage; it is not a provider price refresh.",
+    "Max observed call scenario is a sensitivity calculation, not a guaranteed upper bound.",
+    "Not a guaranteed bound. Pre-dispatch conservative reservation required; stop at cumulative $2.75, incomplete batch is not passing, no retries.",
+    "Live batch remains gated on human review of the full sweep and checker freeze."
+  ]
+}

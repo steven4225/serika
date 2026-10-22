@@ -1,0 +1,82 @@
+✔ foreground retains unpublished complete blocks without model wait below the hard trigger; cancellation never publishes (26.582583ms)
+✔ a null tip boundary remains valid after append while a changed covered prefix fails closed (22.084083ms)
+✔ privacy exclusions survive restart, preserve original chat and redact memory, snapshots, search and numbered reads (221.646166ms)
+✔ oversized messages and tool outputs keep head/tail plus a numbered range placeholder without changing originals (12.173292ms)
+✔ oversized leading assistant and user material is extracted chronologically in exact fragments; cursor waits for the final fragment (454.544708ms)
+✔ background installs one bounded segment per item and folds the fifth into a bounded dated index at both windows (263.141542ms)
+✔ a complete proportional block below the physical window retains every ordinary source byte (13.873084ms)
+✔ extraction gives the model its exact schema and accepts one complete fenced JSON response without a retry (46.296917ms)
+✖ overflow checklist reads page through filtered receipts, including uncommitted unknown effects (187.600125ms)
+﹣ live DeepSeek summary JSON installs a compaction record (0.361833ms) # SKIP
+﹣ live context mode Demo: daily compacts forecast-sized history with the configured provider (0.074458ms) # SKIP
+﹣ live context mode Demo: long-task compacts forecast-sized history with the configured provider (0.058791ms) # SKIP
+✔ retains a same-Run tool result until background publication and restores JSONL layers (76.561125ms)
+✔ cancelled automatic summary does not persist a partial record (5.99025ms)
+✔ Demo: daily retains unpublished full-size JSONL history, drains one background call per block, and reopens without replay (95.601625ms)
+✔ Demo: long-task retains unpublished full-size JSONL history, drains one background call per block, and reopens without replay (109.171834ms)
+✔ passes the fixed budget and finish reason through the real SDK summarizer boundary (14.643916ms)
+▶ parseContextSummary
+  ✔ explicitly requests the top-level version and still rejects its omission (0.771958ms)
+  ✔ accepts DeepSeek-shaped JSON that omits evidence ids and file text (1.07175ms)
+  ✔ extracts a JSON object from markdown with trailing prose (0.179917ms)
+  ✔ coerces version string 2 (0.08075ms)
+  ✔ rejects an empty goal even when fallback ids exist (0.194208ms)
+  ✔ rejects malformed entries instead of silently dropping constraints or decisions (0.180542ms)
+  ✔ rejects omitted sections instead of treating them as empty (0.161417ms)
+  ✔ does not invent a summary when JSON is truncated (0.056208ms)
+✔ parseContextSummary (3.045584ms)
+CM_STEP6_METRICS {"case":"C5 essential summary overflow","at":"2026-10-22T05:38:31.312Z","outcome":"reused","compactionId":"saturated","estimatedInputTokens":22228,"error":null,"summaryLayer":{"tokens":1637,"checklistTokens":193,"budget":1248,"borrowedTokens":390,"borrowLimitTokens":2496,"requiredBorrowTokens":390,"reduction":{"originalTokens":1519,"requiredTokens":1445,"budget":1055,"reducedSegments":4,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["input_limit","summary_overflow"],"borrowedTokens":390,"borrowLimitTokens":2496,"requiredBorrowTokens":390,"maskedOriginalTokens":3526,"maskedFromMessageId":"u2","checklistTokens":0,"sectionBudget":208,"maskedThroughMessageId":"fidelity-write-result"},"modelCalls":0}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":32768,"exceeds":true,"at":"2026-10-22T05:38:31.315Z","outcome":"failed","compactionId":"cap","estimatedInputTokens":4203,"error":{"code":"CONTEXT_PREPARE_FAILED","message":"Essential continuation exceeds the capped C5 allocation after masking; original journal retained"},"summaryLayer":{"tokens":4044,"checklistTokens":161,"budget":1248,"borrowedTokens":2496,"borrowLimitTokens":2496,"requiredBorrowTokens":2797,"reduction":{"originalTokens":3851,"requiredTokens":3884,"budget":1087,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["input_limit","summary_overflow","checklist_overflow"],"borrowedTokens":2496,"borrowLimitTokens":2496,"requiredBorrowTokens":2797,"maskedOriginalTokens":50136,"maskedFromMessageId":"failure-request","checklistTokens":10169,"sectionBudget":208,"maskedThroughMessageId":"failure-199"}}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":32768,"exceeds":false,"at":"2026-10-22T05:38:31.318Z","outcome":"reused","compactionId":"cap","estimatedInputTokens":3203,"error":null,"summaryLayer":{"tokens":3044,"checklistTokens":161,"budget":1248,"borrowedTokens":1797,"borrowLimitTokens":2496,"requiredBorrowTokens":1797,"reduction":{"originalTokens":2851,"requiredTokens":2884,"budget":1087,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["input_limit","summary_overflow","checklist_overflow"],"borrowedTokens":1797,"borrowLimitTokens":2496,"requiredBorrowTokens":1797,"maskedOriginalTokens":50136,"maskedFromMessageId":"failure-request","checklistTokens":10169,"sectionBudget":208,"maskedThroughMessageId":"failure-199"}}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":1000000,"exceeds":true,"at":"2026-10-22T05:38:31.320Z","outcome":"failed","compactionId":"cap","estimatedInputTokens":86483,"error":{"code":"CONTEXT_PREPARE_FAILED","message":"Essential continuation exceeds the capped C5 allocation after masking; original journal retained"},"summaryLayer":{"tokens":36300,"checklistTokens":161,"budget":12000,"borrowedTokens":24000,"borrowLimitTokens":24000,"requiredBorrowTokens":24301,"reduction":{"originalTokens":36107,"requiredTokens":36140,"budget":11839,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["summary_overflow","checklist_overflow"],"borrowedTokens":24000,"borrowLimitTokens":24000,"requiredBorrowTokens":24301,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":10169,"sectionBudget":2000,"maskedThroughMessageId":null}}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":1000000,"exceeds":false,"at":"2026-10-22T05:38:31.322Z","outcome":"reused","compactionId":"cap","estimatedInputTokens":85483,"error":null,"summaryLayer":{"tokens":35300,"checklistTokens":161,"budget":12000,"borrowedTokens":23301,"borrowLimitTokens":24000,"requiredBorrowTokens":23301,"reduction":{"originalTokens":35107,"requiredTokens":35140,"budget":11839,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["summary_overflow","checklist_overflow"],"borrowedTokens":23301,"borrowLimitTokens":24000,"requiredBorrowTokens":23301,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":10169,"sectionBudget":2000,"maskedThroughMessageId":null}}
+✔ step5: restart checklist reads an uncommitted unknown write from real receipts and masks retained old attachments (212.786ms)
+✔ retains the last eight completed receipts plus rollup, unknown and denied effects without losing originals (1.364708ms)
+✔ compacts interleaved successful reads and edits, without turning reads into saved file evidence (0.280166ms)
+✔ asks the summarizer for evidenced values without an empty JSON template (0.19ms)
+✔ background compacts only uncovered blocks, publishes bounded action receipts, and restores without dispatch (10.687542ms)
+✔ background excludes synthetic extraction turns while hashes remain bound to the physical prefix (3.863166ms)
+✔ invalid, empty, length-truncated and oversized background summaries never advance and never retry the item (14.077792ms)
+✔ recorded array shape failures normalize only collection containers and retain remaining semantic failures (10.732125ms)
+✔ recorded CE03/CE05 proportional overflows preserve essentials, trim index topics and publish without retry (199.511416ms)
+✔ changed source or exclusions invalidate all derived layers, including a source after the old boundary (6.066333ms)
+✔ source changes during background work discard the model result before persistence (2.545417ms)
+✔ diagnostics remain read-only, preserve unknown usage, and fail visibly on read errors (2.934083ms)
+✔ foreground counts the supplied fixed prefix once, clips a single oversized message, and rejects fixed overflow (10.517542ms)
+✔ host reconciliation rejects invented success/files/evidence and retains denied, failed, unknown and unexecuted actions (0.24ms)
+✔ an oversized checklist stays within its section and total summary budget with an explicit numbered overflow reference (2.915834ms)
+✔ reusing an old summary rebuilds a checklist with the current permission snapshot (8.491583ms)
+✔ reported provider overflow recalibrates a single oversized current message when there is no additional safe block (11.907083ms)
+✔ C5 preserves oversized essential legacy continuation using unused recent capacity without a model call (0.654709ms)
+✔ CE05 1248 total minus 193 checklist retains goals, confirmed decisions, pending and permissions (0.573208ms)
+✔ C5 masks the oldest complete block for excess essential summary tokens while keeping goals, decisions, pending and permissions (21.97ms)
+✔ C5 caps borrowing at half of recent capacity, masks through the oldest blocks, and records both overflow causes (9.919792ms)
+✔ C5 retains opaque far-index contents instead of hiding possibly essential clauses (0.223917ms)
+✔ recorded single-object constraints normalize while essential overflow uses C5 and invalid semantics still fail (12.562625ms)
+ℹ tests 48
+ℹ suites 1
+ℹ pass 44
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 3
+ℹ todo 0
+ℹ duration_ms 1385.627625
+
+✖ failing tests:
+
+test at packages/assistant/dist/context-background.test.js:263:1
+✖ overflow checklist reads page through filtered receipts, including uncommitted unknown effects (187.600125ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(estimateContextBudget({ messages: [bounded] }, budget).inputTokens <= blockLimits(budget).section)
+  
+      at TestContext.<anonymous> (file://<dead-code-checkout>/repo/packages/assistant/dist/context-background.test.js:287:20)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
