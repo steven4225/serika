@@ -1,4 +1,3 @@
-import { dirname } from "node:path";
 /** Opt-in real model/driver acceptance. Never installs, starts or kills the daemon. */
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -63,7 +62,7 @@ export async function runComputerNativeAcceptance(configPath: string, title: str
   let host: ReturnType<typeof createModuleHost> | undefined;
   try {
     // Static config and trusted-path validation must complete before any driver call.
-    app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(dirname(resolve(configPath)), "workspace/.runloom"), threadId: `native-${scenario}`, configPath: resolve(configPath) }, ...configured, output, env: process.env, cwd: process.cwd() });
+    app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(root, "data"), threadId: `native-${scenario}`, configPath: resolve(configPath) }, ...configured, output, env: process.env, cwd: process.cwd() });
     controller = createAssistantController(app);
     const config = z.object({ modules: z.object({ computer: computerConfigSchema }).strict() }).parse(JSON.parse(await readFile(configPath, "utf8")));
     assert.equal(config.modules.computer.enabled, true);

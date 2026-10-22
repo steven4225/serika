@@ -188,7 +188,7 @@ H/
 
 ## 4. Shell 系统级沙箱：独立步骤 S
 
-S 依赖 b 的授权目录及其批准规则，可在 a–e 完成后单独实施。未完成 S 不得宣称 4.5 的系统沙箱目标完成，也不能放开 host 自主执行。先完成并验收 Seatbelt（macOS），随后 bubblewrap；两者均验收前保留 Docker。通过后删除 Docker，保留逐条确认的 host 模式。
+S 依赖 b 的授权目录及其批准规则，可在 a–e 完成后单独实施。未完成 S 不得宣称 4.5 的系统沙箱目标完成，也不能放开 host 自主执行。先完成并验收 Seatbelt（macOS），停下等审核，再实施并验收 bubblewrap；S1 按这两个平台子步分别交付，两者均验收前保留 Docker。通过后删除 Docker，保留逐条确认的 host 模式。
 
 系统隔离只约束 Shell 子进程。Todoist、web_fetch、Telegram、Computer 的授权不因此扩大。向 Herdr 或浏览器已有进程发送指令可能使外部进程产生副作用，不能把该行为算成已被 Shell 沙箱隔离。
 
