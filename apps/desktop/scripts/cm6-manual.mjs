@@ -58,7 +58,7 @@ export async function validateFault(workspace, path) {
   return join(workspace, path);
 }
 
-async function credentials() {
+export async function credentials() {
   let values = process.env;
   const path = process.env.SERIKA_CM6_TEST_ENV_FILE ?? join(homedir(), '.serika-test.env');
   if (!values.COMMAND_CODE_API_KEY && await exists(path)) values = parseEnv(await readFile(path, 'utf8'));
