@@ -1,8 +1,5 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { createTransitionFetch, runMemoryTransitions, scoreTransition, summarizeTransitions,
   transitionCases, transitionModel, transitionSafeError } from './memory-transition-acceptance.mjs';
 
@@ -141,4 +138,5 @@ test('partial and environment failures stay in planned denominator; no exception
   assert.equal(JSON.stringify(summary).includes('abc123secret'), false);
   await assert.rejects(runMemoryTransitions(), /--live/);
   await assert.rejects(runMemoryTransitions({ live: true, env: {} }), /COMMAND_CODE_API_KEY/);
+  await assert.rejects(runMemoryTransitions({ live: true, env: { COMMAND_CODE_API_KEY: "unused-retired-runner" } }), /v5 候选评测入口已停用/);
 });

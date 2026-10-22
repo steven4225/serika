@@ -1,16 +1,6 @@
-import { createHash, randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
-import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PassThrough } from 'node:stream';
-import { setTimeout as delay } from 'node:timers/promises';
-import { createRuntimeApp } from '@serika/assistant/internal/app.js';
-import { createAssistantController } from '@serika/assistant/internal/assistant-controller.js';
-import { configureCliModel } from '@serika/assistant/internal/model-config.js';
-import { createMemoryStore } from '@serika/assistant/internal/memory-store.js';
-import { memorySnapshot } from '@serika/assistant/internal/memory-snapshot.js';
-import { createTransitionFetch, transitionModel, transitionSafeError } from './memory-transition-acceptance.mjs';
+import { transitionModel, transitionSafeError } from './memory-transition-acceptance.mjs';
 
 export const everydayOracleVersion = 'memory-everyday-oracle-v1';
 const domains = [
@@ -30,11 +20,6 @@ export const everydayCases = Object.freeze(domains.flatMap(domain => {
       ? `下个月我的${domain.label}改成${domain.word}。` : `不要把我的${domain.label}改成${domain.word}。` },
   ].map((test, index) => Object.freeze({ ...domain, ...test, id: `${domain.prefix}${String(index + 1).padStart(2, '0')}` }));
 }));
-const hash = value => createHash('sha256').update(value).digest('hex');
-const checked = result => {
-  if (!result.ok) throw Object.assign(new Error('State unavailable'), { code: 'EVIDENCE_READ_FAILED' });
-  return result.value ?? result.entries;
-};
 const identity = item => item.assertion?.factIdentity ?? item.change?.factIdentity;
 const sources = item => item.sources ?? (item.source ? [item.source] : []);
 const active = item => item.enabled === true && item.status === 'active' && item.temporalState === 'applicable';
@@ -100,87 +85,6 @@ export function scoreEveryday(test, evidence) {
   return { version: everydayOracleVersion, passed: failures.length === 0, failures };
 }
 
-async function capture(workspace, store, threadId, test, seedId) {
-  let raw = null;
-  try { raw = JSON.parse(await readFile(join(workspace, '.runloom/memory.json'), 'utf8')); }
-  catch (error) { if (error.code !== 'ENOENT') throw error; }
-  const formal = checked(await store.list());
-  const reference = _id => memorySnapshot(formal, { now: new Date() }).entries.map(item => item.id);
-  return { raw, formal, readErrors: [], capturedAt: new Date().toISOString(),
-    pending: checked(await store.listCandidates({ status: 'pending' }, undefined, { boundThreadId: threadId })).candidates,
-    seedHistory: seedId ? checked(await store.inspectMemory(seedId)) : null,
-    ownerReferenceIds: reference(threadId), foreignReferenceIds: reference(`${threadId}-foreign`) };
-}
-
-async function executeCase(test, root, env, deadlineMs) {
-  const directory = join(root, test.id), workspace = join(directory, 'workspace'), threadId = `everyday-${test.id}`;
-  await mkdir(workspace, { recursive: true, mode: 0o700 });
-  const store = createMemoryStore(workspace);
-  let seedId = null;
-  if (!['save', 'thread'].includes(test.category)) {
-    const body = `我的${test.label}是${test.oldWord}。`;
-    const seeded = await store.add({ text: test.seedScene ? `在「${test.seedScene}」场景，${body}` : body,
-      kind: 'preference', factIdentity: factIdentity(test, test.oldValue, test.seedScene ?? 'general') }, undefined, { now: new Date(Date.now() - 60_000) });
-    checked(seeded); seedId = seeded.entry.id;
-  }
-  const config = join(directory, 'config.json');
-  await writeFile(config, JSON.stringify({ version: 1, workspace, run: { maxSteps: 2, totalTimeoutMs: 120_000 }, modules: {
-    memory: { enabled: true, autoConsolidate: true, writePolicy: 'automatic' },
-    task: { enabled: false }, web: { enabled: false }, shell: { enabled: false }, 'read-file': { enabled: false },
-  } }), { mode: 0o600 });
-  const transport = createTransitionFetch(), selected = configureCliModel(() => { throw Error('Mocks not allowed'); }, env, { fetch: transport.fetch });
-  const output = new PassThrough(), phaseResults = [];
-  let app, controller, deadline;
-  const evidence = { caseId: test.id, category: test.category, expected: test, threadId, seedId,
-    userMessageId: null, phaseResults, before: await capture(workspace, store, threadId, test, seedId) };
-  output.on('data', chunk => controller?.recordOutput(chunk.toString()));
-  try {
-    app = await createRuntimeApp({ directory: join(directory, 'transcripts'), assistant: { threadId: threadId, configPath: config }, ...selected, output, env, cwd: directory });
-    controller = createAssistantController(app);
-    controller.subscribe(event => {
-      if (event.type === 'approval') controller.confirm({ approvalId: event.approval.approvalId, decision: 'deny' });
-      if (event.type === 'run-result') phaseResults.push({ phase: event.phase, status: event.result.status,
-        runId: event.result.runId, text: event.result.status === 'completed' ? event.result.text : null });
-    });
-    const run = async () => {
-      await controller.runs.list();
-      while (controller.getSnapshot().state.kind !== 'idle') await delay(20);
-      const admission = await controller.run(test.input);
-      if (!admission.ok) throw Object.assign(new Error('Admission failed'), { code: 'ADMISSION_FAILED' });
-      evidence.primaryRunId = admission.runId;
-      while (controller.getSnapshot().state.kind !== 'idle') await delay(20);
-    };
-    await Promise.race([run(), new Promise((_, reject) => { deadline = setTimeout(() => {
-      void controller.cancel(); reject(Object.assign(new Error('Deadline'), { code: 'EVAL_DEADLINE' }));
-    }, deadlineMs); })]);
-  } catch (cause) { evidence.environmentFailure = transitionSafeError(cause); }
-  finally {
-    clearTimeout(deadline);
-    const retain = async (field, operation) => {
-      try { evidence[field] = await operation(); }
-      catch (cause) { (evidence.readErrors ??= []).push({ field, ...transitionSafeError(cause) }); evidence.environmentFailure ??= transitionSafeError({ code: 'EVIDENCE_READ_FAILED' }); }
-    };
-    if (controller) {
-      const snapshot = controller.getSnapshot();
-      evidence.phases = { primary: snapshot.lastPrimaryResult?.status ?? null, consolidation: snapshot.lastConsolidationResult?.status ?? null };
-      await retain('userMessageId', async () => (await controller.getHistory()).findLast(message => message.role === 'user'
-        && message.parts.some(part => part.type === 'text' && part.text === test.input))?.id ?? null);
-      await retain('receipts', async () => checked(await controller.memory.getReceipts()));
-      await retain('usage', () => app.executionRecords.listModelUsage(threadId));
-      evidence.modelVerified = (evidence.usage?.calls.length ?? 0) >= 1 && evidence.usage.droppedCount === 0
-        && evidence.usage.calls.every(call => call.modelId === transitionModel.modelId);
-      if (!evidence.modelVerified) evidence.environmentFailure ??= transitionSafeError({ code: 'MODEL_MISMATCH' });
-      await retain('shutdownComplete', async () => { await controller.shutdown(); return true; });
-    }
-    await retain('after', () => capture(workspace, store, threadId, test, seedId));
-    evidence.requests = transport.requests;
-    if (transport.requests.some(row => row.transportFailure || row.httpStatus >= 400)) evidence.environmentFailure ??= transitionSafeError({});
-    evidence.oracle = scoreEveryday(test, evidence);
-    await writeFile(join(directory, 'evidence.json'), JSON.stringify(evidence, null, 2), { mode: 0o600 });
-  }
-  return evidence;
-}
-
 export function summarizeEveryday(rows) {
   const group = tests => { const ids = new Set(tests.map(test => test.id)), executed = rows.filter(row => ids.has(row.caseId));
     const passed = executed.filter(row => row.oracle?.passed && !row.environmentFailure).length;
@@ -193,39 +97,10 @@ export function summarizeEveryday(rows) {
       failures: row.oracle?.failures ?? [], environmentFailure: row.environmentFailure ?? null })) };
 }
 
-export async function runMemoryEveryday({ live = false, env = process.env, outputRoot = join(dirname(fileURLToPath(import.meta.url)), 'results'), deadlineMs = 180_000 } = {}) {
+export async function runMemoryEveryday({ live = false, env = process.env } = {}) {
   if (!live) throw Error('Explicit --live is required; fixture tests are not model quality data.');
   if (!env.COMMAND_CODE_API_KEY?.trim()) throw Object.assign(new Error('Protected COMMAND_CODE_API_KEY required'), { code: 'CONFIGURATION_FAILED' });
   throw new Error("此 v5 候选评测入口已停用；v6 使用 cm-step4.mjs，历史 Oracle 和分数保持原样");
-  const fixedEnv = { ...env, RUNLOOM_MODEL: 'command-code', COMMAND_CODE_MODEL_ID: transitionModel.modelId, COMMAND_CODE_BASE_URL: transitionModel.baseURL };
-  const requested = join(resolve(outputRoot), `memory-everyday-${new Date().toISOString().replaceAll(':', '-')}-${randomUUID().slice(0, 8)}`);
-  await mkdir(requested, { recursive: true, mode: 0o700 });
-  const root = await realpath(requested), source = await readFile(fileURLToPath(import.meta.url));
-  const dependencySource = await readFile(new URL('./memory-transition-acceptance.mjs', import.meta.url));
-  let gitCommit = null;
-  try { gitCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dirname(fileURLToPath(import.meta.url)), encoding: 'utf8' }).trim(); } catch { /* exported source */ }
-  const runtimeHashes = Object.fromEntries(await Promise.all(['app', 'assistant-controller', 'memory-consolidation', 'memory-observation-policy', 'memory-fact-identity', 'memory-store', 'memory-snapshot', 'model-config'].map(async name =>
-    [name, hash(await readFile(new URL(`../../packages/assistant/dist/${name}.js`, import.meta.url)))])));
-  await writeFile(join(root, 'manifest.json'), JSON.stringify({ suite: 'memory-everyday-v1', source: '我的 eval',
-    kind: 'real-model-controller-consolidation-isolated', datasetRole: 'developer-authored canonical vocabulary; not blind held-out',
-    oracleVersion: everydayOracleVersion, model: transitionModel, requestedModelId: transitionModel.modelId,
-    planned: 12, repeat: 1, caseIds: everydayCases.map(test => test.id), maxHttpRequests: 24, maxDispatchPerPhase: 1, retry: false,
-    gitCommit, runtimeHashes, runtimeFingerprint: hash(JSON.stringify(runtimeHashes)), evalFingerprint: hash(Buffer.concat([source, dependencySource])),
-    deadlineMs, corpus: 'isolated synthetic diet/channel preferences; no daily data',
-    scopeEvidence: 'fixed workspace snapshot owner/foreign views after persistence; not a second chat Run or real TG',
-    modelVerification: 'SDK modelId usage boundary, not independent provider attestation' }, null, 2), { mode: 0o600 });
-  await writeFile(join(root, 'frozen-eval.mjs'), source, { mode: 0o600 });
-  await writeFile(join(root, 'frozen-transition-dependency.mjs'), dependencySource, { mode: 0o600 });
-  const rows = [];
-  for (const test of everydayCases) {
-    try { rows.push(await executeCase(test, root, fixedEnv, deadlineMs)); }
-    catch (cause) { const row = { caseId: test.id, environmentFailure: transitionSafeError(cause) }; rows.push(row);
-      await mkdir(join(root, test.id), { recursive: true, mode: 0o700 });
-      await writeFile(join(root, test.id, 'failure.json'), JSON.stringify(row, null, 2), { mode: 0o600 }); }
-    await writeFile(join(root, 'summary.json'), JSON.stringify(summarizeEveryday(rows), null, 2), { mode: 0o600 });
-    if (rows.at(-1).environmentFailure) break;
-  }
-  return { report: root, ...summarizeEveryday(rows) };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

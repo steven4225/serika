@@ -5,7 +5,7 @@ import { mock } from 'node:test';
 import { pathToFileURL } from 'node:url';
 import { MockLanguageModelV3 } from 'ai/test';
 import { hashCanonicalJson } from '@serika/core';
-import { createMemoryStore } from '@serika/assistant/internal/memory-store.js';
+import { createMemoryStore } from '@serika/assistant/internal/memory-v6-store.js';
 import { createMemoryExtraction } from '@serika/assistant/internal/memory-extraction.js';
 import { v6Conflicts } from '@serika/assistant/internal/memory-v6-store.js';
 import { DEFAULT_CONTEXT_BUDGET_CONFIG, defaultContextBudget } from '@serika/assistant/internal/context-budget.js';

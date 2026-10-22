@@ -102,4 +102,5 @@ test('failed prerequisite keeps unexecuted rounds in denominator; no mock or liv
   assert.equal(summary.planned, 3); assert.equal(summary.unexecuted, 2); assert.equal(summary.passRateOfPlanned, 0);
   await assert.rejects(runMemorySequence({ live: false, env: {} }));
   await assert.rejects(runMemorySequence({ live: true, env: {} }));
+  await assert.rejects(runMemorySequence({ live: true, env: { COMMAND_CODE_API_KEY: "unused-retired-runner" } }), /v5 候选评测入口已停用/);
 });

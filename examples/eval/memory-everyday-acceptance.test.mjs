@@ -1,8 +1,5 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { everydayCases, everydayOracleVersion, scoreEveryday, summarizeEveryday, runMemoryEveryday } from './memory-everyday-acceptance.mjs';
 import { transitionModel } from './memory-transition-acceptance.mjs';
 
@@ -124,4 +121,5 @@ test('model/dispatch/read failures cannot pass and unexecuted cases remain in th
 test('live entry requires explicit invocation and protected host key', async () => {
   await assert.rejects(runMemoryEveryday(), /--live/);
   await assert.rejects(runMemoryEveryday({ live: true, env: {} }), /COMMAND_CODE_API_KEY/);
+  await assert.rejects(runMemoryEveryday({ live: true, env: { COMMAND_CODE_API_KEY: "unused-retired-runner" } }), /v5 候选评测入口已停用/);
 });

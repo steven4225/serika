@@ -1,14 +1,5 @@
-import { createHash, randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
-import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PassThrough } from 'node:stream';
-import { setTimeout as delay } from 'node:timers/promises';
-import { createRuntimeApp } from '@serika/assistant/internal/app.js';
-import { createAssistantController } from '@serika/assistant/internal/assistant-controller.js';
-import { configureCliModel } from '@serika/assistant/internal/model-config.js';
-import { createMemoryStore } from '@serika/assistant/internal/memory-store.js';
 
 export const transitionModel = Object.freeze({ alias: 'command-code/default', modelId: 'deepseek/deepseek-v4.1-flash-fast',
   baseURL: 'https://api.commandcode.ai/provider/v1' });
@@ -29,11 +20,6 @@ export const transitionCases = Object.freeze([
   spec('MT11', 'future', '我打算下个月喝咖啡改成加糖，现在依旧不加糖。'),
   spec('MT12', 'future', '以后，我可能喝咖啡改成加糖，但现在还没决定。'),
 ].map(Object.freeze));
-const hash = value => createHash('sha256').update(value).digest('hex');
-const checked = result => {
-  if (!result.ok) throw Object.assign(new Error('Fixture state could not be read'), { code: 'EVIDENCE_READ_FAILED' });
-  return result.value ?? result.entries;
-};
 const active = entry => entry.enabled && entry.status === 'active' && entry.temporalState === 'applicable';
 const identity = entry => entry.assertion?.factIdentity ?? entry.change?.factIdentity;
 const sources = item => item.sources ?? (item.source ? [item.source] : []);
@@ -142,94 +128,6 @@ export function scoreTransition(test, evidence) {
   return { version: transitionOracleVersion, passed: failures.length === 0, failures };
 }
 
-async function capture(workspace, store, threadId) {
-  return { capturedAt: new Date().toISOString(), readErrors: [],
-    raw: JSON.parse(await readFile(join(workspace, '.runloom/memory.json'), 'utf8')),
-    formal: checked(await store.list()),
-    pending: checked(await store.listCandidates({ status: 'pending' }, undefined, { boundThreadId: threadId })).candidates,
-    material: checked(await store.listConsolidationMaterial(undefined, { boundThreadId: threadId })) };
-}
-
-async function executeCase(test, root, env, deadlineMs) {
-  const directory = join(root, test.id), workspace = join(directory, 'workspace'), threadId = `transition-${test.id}`;
-  await mkdir(workspace, { recursive: true, mode: 0o700 });
-  const scope = test.thread ? { kind: 'thread', threadId } : { kind: 'workspace' };
-  const store = createMemoryStore(workspace);
-  const seeded = await store.add({ text: test.scenario === 'work' ? '工作时我喝咖啡不加糖。' : '我喝咖啡不加糖。',
-    kind: 'preference', scope, factIdentity: { attribute: 'coffee', scenario: test.scenario ?? 'general', value: 'unsweetened' } },
-  undefined, { now: new Date(Date.now() - 60_000) });
-  if (!seeded.ok) throw Object.assign(new Error('Seed failed'), { code: 'EVIDENCE_READ_FAILED' });
-  const config = join(directory, 'config.json');
-  await writeFile(config, JSON.stringify({ version: 1, workspace, run: { maxSteps: 2, totalTimeoutMs: 120_000 }, modules: {
-    memory: { enabled: true, autoConsolidate: true, writePolicy: 'automatic' },
-    task: { enabled: false }, web: { enabled: false }, shell: { enabled: false }, 'read-file': { enabled: false },
-  } }), { mode: 0o600 });
-  const transport = createTransitionFetch();
-  const selected = configureCliModel(() => { throw Error('Mocks not allowed'); }, env, { fetch: transport.fetch });
-  const output = new PassThrough();
-  let controller, app, evidence = { caseId: test.id, category: test.category, expected: test,
-    threadId, seedId: seeded.entry.id, userMessageId: null, phases: {}, before: await capture(workspace, store, threadId) };
-  output.on('data', chunk => controller?.recordOutput(chunk.toString()));
-  const phaseResults = [];
-  evidence.phaseResults = phaseResults;
-  let deadline;
-  try {
-    app = await createRuntimeApp({ directory: join(directory, 'transcripts'), assistant: { threadId: threadId, configPath: config },
-      ...selected, output, env, cwd: directory });
-    controller = createAssistantController(app);
-    controller.subscribe(event => {
-      if (event.type === 'approval') controller.confirm({ approvalId: event.approval.approvalId, decision: 'deny' });
-      if (event.type === 'run-result') phaseResults.push({ phase: event.phase, status: event.result.status,
-        runId: event.result.runId, text: event.result.status === 'completed' ? event.result.text : null });
-    });
-    const task = async () => {
-      await controller.runs.list();
-      while (controller.getSnapshot().state.kind !== 'idle') await delay(20);
-      const admission = await controller.run(test.input);
-      if (!admission.ok) throw Object.assign(new Error('Admission failed'), { code: 'ADMISSION_FAILED' });
-      evidence.primaryRunId = admission.runId;
-      while (controller.getSnapshot().state.kind !== 'idle') await delay(20);
-    };
-    await Promise.race([task(), new Promise((_, reject) => {
-      deadline = setTimeout(() => { void controller.cancel(); reject(Object.assign(new Error('Deadline'), { code: 'EVAL_DEADLINE' })); }, deadlineMs);
-    })]);
-  } catch (cause) { evidence.environmentFailure = transitionSafeError(cause); }
-  finally {
-    clearTimeout(deadline);
-    const retain = async (field, operation) => {
-      try { evidence[field] = await operation(); }
-      catch (cause) {
-        (evidence.readErrors ??= []).push({ field, ...transitionSafeError(cause) });
-        evidence.environmentFailure ??= transitionSafeError({ code: 'EVIDENCE_READ_FAILED' });
-      }
-    };
-    if (controller) {
-      const snapshot = controller.getSnapshot();
-      evidence.phases = { primary: snapshot.lastPrimaryResult?.status ?? null, consolidation: snapshot.lastConsolidationResult?.status ?? null };
-      evidence.consolidationRawText = phaseResults.findLast(result => result.phase === 'consolidation')?.text ?? null;
-      await retain('userMessageId', async () => (await controller.getHistory()).findLast(message => message.role === 'user' && message.parts.some(part => part.type === 'text' && part.text === test.input))?.id ?? null);
-      await retain('receipts', async () => checked(await controller.memory.getReceipts()));
-      await retain('usage', () => app.executionRecords.listModelUsage(threadId));
-      await retain('runs', async () => Promise.all((await controller.runs.list(50)).map(async row => {
-        const run = await controller.runs.get(row.runId);
-        return { runId: run.runId, phase: run.phase, status: run.status, startedAt: run.startedAt, finishedAt: run.finishedAt,
-          tools: run.tools.map(tool => ({ toolCallId: tool.toolCallId, toolName: tool.toolName, status: tool.status })) };
-      })));
-      evidence.modelVerified = (evidence.usage?.calls.length ?? 0) >= 1 && evidence.usage.droppedCount === 0
-        && evidence.usage.calls.every(call => call.modelId === transitionModel.modelId);
-      if (!evidence.modelVerified) evidence.environmentFailure ??= transitionSafeError({ code: 'MODEL_MISMATCH' });
-      await retain('shutdownComplete', async () => { await controller.shutdown(); return true; });
-    }
-    await retain('after', () => capture(workspace, store, threadId));
-    evidence.after ??= { formal: [], pending: [], readErrors: ['capture_failed'] };
-    evidence.requests = transport.requests;
-    if (transport.requests.some(request => request.transportFailure || request.httpStatus >= 400)) evidence.environmentFailure ??= transitionSafeError({});
-    evidence.oracle = scoreTransition(test, evidence);
-    await writeFile(join(directory, 'evidence.json'), JSON.stringify(evidence, null, 2), { mode: 0o600 });
-  }
-  return evidence;
-}
-
 export function summarizeTransitions(rows, planned = transitionCases.length) {
   const passed = rows.filter(row => row.oracle?.passed && !row.environmentFailure).length;
   return { status: rows.some(row => row.environmentFailure) ? 'environment_failed' : rows.length < planned ? 'incomplete'
@@ -242,39 +140,10 @@ export function summarizeTransitions(rows, planned = transitionCases.length) {
     failures: row.oracle?.failures ?? [], environmentFailure: row.environmentFailure ?? null })) };
 }
 
-export async function runMemoryTransitions({ live = false, env = process.env, outputRoot = join(dirname(fileURLToPath(import.meta.url)), 'results'), deadlineMs = 180_000 } = {}) {
+export async function runMemoryTransitions({ live = false, env = process.env } = {}) {
   if (!live) throw Error('Explicit --live is required; no mock scores are generated.');
   if (!env.COMMAND_CODE_API_KEY?.trim()) throw Object.assign(new Error('Configure COMMAND_CODE_API_KEY in the protected environment, never in chat.'), { code: 'CONFIGURATION_FAILED' });
   throw new Error("此 v5 候选评测入口已停用；v6 使用 cm-step4.mjs，历史 Oracle 和分数保持原样");
-  const fixedEnv = { ...env, RUNLOOM_MODEL: 'command-code', COMMAND_CODE_MODEL_ID: transitionModel.modelId, COMMAND_CODE_BASE_URL: transitionModel.baseURL };
-  const requested = join(resolve(outputRoot), `memory-transition-${new Date().toISOString().replaceAll(':', '-')}-${randomUUID().slice(0, 8)}`);
-  await mkdir(requested, { recursive: true, mode: 0o700 });
-  const root = await realpath(requested), source = await readFile(fileURLToPath(import.meta.url));
-  let gitCommit = null;
-  try { gitCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dirname(fileURLToPath(import.meta.url)), encoding: 'utf8' }).trim(); } catch { /* export */ }
-  const runtimeHashes = Object.fromEntries(await Promise.all(['app', 'assistant-controller', 'memory-consolidation', 'memory-store', 'model-config'].map(async name =>
-    [name, hash(await readFile(new URL(`../../packages/assistant/dist/${name}.js`, import.meta.url)))])));
-  const manifest = { suite: 'memory-transition-v1', source: '我的 eval', kind: 'real-model-controller-consolidation-isolated',
-    oracleVersion: transitionOracleVersion,
-    datasetRole: 'developer-authored regression; not blind held-out', model: transitionModel, requestedModelId: transitionModel.modelId,
-    gitCommit, runtimeHashes, runtimeFingerprint: hash(JSON.stringify(runtimeHashes)), evalFingerprint: hash(source),
-    planned: transitionCases.length, caseIds: transitionCases.map(test => test.id), repeat: 1,
-    retry: 'Product bounded retries unchanged; eval blocks second HTTP dispatch in each phase and fails the case.', deadlineMs,
-    corpus: 'isolated synthetic coffee facts only; no daily data', modelVerification: 'SDK modelId usage boundary, not independent provider attestation' };
-  await writeFile(join(root, 'manifest.json'), JSON.stringify(manifest, null, 2), { mode: 0o600 });
-  await writeFile(join(root, 'frozen-eval.mjs'), source, { mode: 0o600 });
-  const rows = [];
-  for (const test of transitionCases) {
-    try { rows.push(await executeCase(test, root, fixedEnv, deadlineMs)); }
-    catch (cause) {
-      const failure = { caseId: test.id, category: test.category, environmentFailure: transitionSafeError(cause) };
-      rows.push(failure);
-      await writeFile(join(root, test.id, 'failure.json'), JSON.stringify(failure, null, 2), { mode: 0o600 });
-    }
-    await writeFile(join(root, 'summary.json'), JSON.stringify(summarizeTransitions(rows), null, 2), { mode: 0o600 });
-    if (rows.at(-1).environmentFailure) break;
-  }
-  return { report: root, ...summarizeTransitions(rows) };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
