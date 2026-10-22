@@ -82,7 +82,8 @@ export class TelegramGateway {
   }
   autonomyBinding(): import("@serika/assistant").TelegramAutonomyGrant | null {
     const data = this.store.snapshot();
-    return data.owner && data.botId ? { workspaceRoot: data.workspace, botId: data.botId, userId: data.owner.userId, chatId: data.owner.chatId, threadId: data.owner.threadId } : null;
+    const workspaceRoot = this.host.channelSnapshot().info.workspaceRoot;
+    return data.owner && data.botId && workspaceRoot ? { workspaceRoot, botId: data.botId, userId: data.owner.userId, chatId: data.owner.chatId, threadId: data.owner.threadId } : null;
   }
   matchesAutonomyGrant(grant: import("@serika/assistant").TelegramAutonomyGrant) {
     const binding = this.autonomyBinding();

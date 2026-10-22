@@ -68,9 +68,7 @@ export function defaultDesktopConfig(workspace?: string): Record<string, unknown
   };
   if (workspace !== undefined) {
     modules["read-file"] = { enabled: true };
-    modules.memory = { enabled: true, autoConsolidate: true, writePolicy: "automatic" };
     modules.checkpoint = { enabled: true };
-    modules.task = { enabled: true };
   }
   return {
     version: 1,
