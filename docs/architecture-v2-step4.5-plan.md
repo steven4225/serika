@@ -56,6 +56,7 @@
 | `W/.runloom/memory.json`、`.lock`、`.memory.json.runloom-*.tmp` | [memory-v6-store.ts:101](https://github.com/steven4225/serika/blob/1275051668433ee94b1ccb65f40a34845e1afcd1/packages/assistant/src/memory-v6-store.ts#L101)，v6 条目/文档库/排除来源/进度/屏蔽/导入回执 | `H/data/memory.json`；scope 扩展建议显式升版本，见 c2 |
 | `W/.runloom/checkpoint.json`、`.lock` | [checkpoint-store.ts:14](https://github.com/steven4225/serika/blob/1275051668433ee94b1ccb65f40a34845e1afcd1/packages/assistant/src/checkpoint-store.ts#L14)，checkpoint 工具/上下文/Home | `H/projects/<projectId>/checkpoint.json`，无项目时不伪造项目 |
 | `W/.runloom/tasks.json`、`.lock`、`task-worker.lock`、`task-worker-health.json` | TaskStore、task-worker-entry、服务健康读取 | `H/data/`；运行租约与健康状态不恢复成“worker 已运行” |
+| `W/.runloom/task-transcripts/` 下的 Thread JSONL 与 append 锁 | [task-worker-entry.ts:423](https://github.com/steven4225/serika/blob/1275051668433ee94b1ccb65f40a34845e1afcd1/packages/assistant/src/task-worker-entry.ts#L423)，worker 的 JsonlAgentStore | `H/transcripts/tasks/`；独立于前台 T，一并纳入完整备份/Thread 计数，不因导入而重跑任务 |
 | `W/.runloom/work-tasks.json`、`.lock`、`.work-task-owner-<sha256(threadId)>.lock` | [work-task-store.ts:457](https://github.com/steven4225/serika/blob/1275051668433ee94b1ccb65f40a34845e1afcd1/packages/assistant/src/work-task-store.ts#L457)，WorkTask 管理与前台注入 | `H/data/`；保留 Thread/Run/证据关联，不自动继续 |
 | `W/.runloom/recipes.json`、`recipes.lock` | [recipe-store.ts:110](https://github.com/steven4225/serika/blob/1275051668433ee94b1ccb65f40a34845e1afcd1/packages/assistant/src/recipe-store.ts#L110)，配方注册/执行 | `H/data/`；注意锁不是 recipes.json.lock，配方不产生授权 |
 | `W/.runloom/rss.json`、`.lock` | [rss-subscriptions.ts:76](https://github.com/steven4225/serika/blob/1275051668433ee94b1ccb65f40a34845e1afcd1/packages/assistant/src/rss-subscriptions.ts#L76)，订阅管理与 worker | `H/data/`；不自动启用服务 |
@@ -130,7 +131,7 @@ H/
 
 ### b0. 固定权限判定快照
 
-- 文件：`packages/assistant/src/{permission-decisions.test,permission-decisions.snapshot,permission-extension.test,foreground-autonomy.test,tool-confirmation-remember.test,tui-module-config.test}.ts`，必要的桌面 module-settings/Telegram 装配测试。
+- 文件：`packages/assistant/src/{permission-decisions.test,permission-decisions.snapshot,permission-extension.test,tool-confirmation-remember.test,tui-module-config.test}.ts`，`apps/desktop/src/main/foreground-autonomy.test.ts` 及必要的桌面 module-settings/Telegram 装配测试。
 - 做法：用改造前的真实代码录制 allow/deny/ask、确认范围、是否能记住、实际确认卡和注册命令。记录源码提交、配置摘要、OS、场景输入与快照 SHA。现有 [permission-decisions.test.ts:246](https://github.com/steven4225/serika/blob/1275051668433ee94b1ccb65f40a34845e1afcd1/packages/assistant/src/permission-decisions.test.ts#L246) 排除了 memory_，且普通确认器表覆盖不了宿主免确认，需要补覆盖。
 - 场景：普通/自主/Docker/Telegram/worker；宿主免确认；真实记忆读写；Run/持久文件授权；记住后、重启/切 Thread 后；拒绝搜索连带规则；配置内外位置；路径越界、符号链接、敏感控制文件；缺失或外来 grant。
 - 验收：同输入重复录制结果一致，快照人工审阅后冻结。后续 b1 逐项比较，禁止自动更新快照消掉差异；发现现有问题只记录，规则改动另经确认。
