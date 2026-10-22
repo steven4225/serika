@@ -4,7 +4,7 @@
   "limits": {
     "perStep": 1,
     "entirePlan": 5,
-    "combinedSteps4To6": 2.5
+    "combinedSteps4To6": 2.75
   },
   "openingBalance": {
     "amount": 0.36,

@@ -103,7 +103,7 @@ test('overflow checklist retains request and steer references plus complete perm
   const permissions = { autonomousFiles: false, shell: false, web: { origins: ['https://example.org'] }, fileAuthorizations: [{ path: 'notes' }], blocked: ['write_file'], remembered: ['read_file'] };
   const messages = [user('request', 'Complete the report'), { ...user('correction', 'Keep deployment pending'), metadata: { source: 'steer' } },
     ...Array.from({ length: 100 }, (_, i) => ({ id: `effect-${i}`, role: 'assistant', parts: [{ type: 'dynamic-tool', toolName: 'write_file', toolCallId: `write-${i}`, state: 'output-error', input: { path: 'notes/uncertain.txt' }, errorText: 'TOOL_OUTCOME_UNKNOWN: dispatched, receipt missing' }] }))];
-  const checklist = createCompactionChecklist({ messages, permissions, maxTokens: 100, hardMaxTokens: 1000, preserveRecentReceipts: true, requestReferenceOnly: true });
+  const checklist = createCompactionChecklist({ messages, permissions, maxTokens: 100, hardMaxTokens: 1000, requestReferenceOnly: true });
   const body = JSON.parse(checklist.parts[0].text.split('\n').slice(1).join('\n'));
   assert.equal(body.unknown, 100); assert.equal(body.request, 'request'); assert.deepEqual(body.corrections, ['correction']);
   assert.deepEqual(body.permissions, { files: permissions.autonomousFiles, shell: permissions.shell, web: permissions.web,
