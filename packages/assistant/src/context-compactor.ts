@@ -319,13 +319,15 @@ export class ContextCompactor {
     const boundedForeground = foreground ? fitMessage(foreground, singleLimit) : undefined;
     const bounded = visible.map(message => fitMessage(message, Math.min(this.#options.budget.contextWindowTokens,
       message.role === "user" ? singleLimit : 16_000)));
-    const checklistMessages = () => messages.map(message => message.role === "user" ? fitMessage({ ...message, metadata: undefined }, requestLimit) : message);
+    const requestIndex = messages.reduce((last, message, index) => message.role === "user" && !isAutoConsolidationRequest(message) &&
+      (message.metadata as { source?: string } | undefined)?.source !== "steer" ? index : last, -1);
+    const checklistMessages = () => messages.map(message => message.role === "user" ? fitMessage(message, requestLimit) : message);
     const borrowLimitTokens = Math.floor(limits.recent / 2);
     let checklistTokens = 0, checklistOverflowTokens = 0, borrowedTokens = 0, requiredBorrowTokens = 0;
     let reduction: NonNullable<ContextDiagnostics["lastPreparation"]>["summaryLayer"];
     const compose = () => {
       const keptIds = new Set(messages.slice(boundary).map(message => message.id));
-      const required = boundary ? createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: checklistMessages(), maxTokens: limits.section, hardMaxTokens: limits.section + borrowLimitTokens, preserveRecentReceipts: true, requestReferenceOnly: !!boundedForeground || boundary <= messages.reduce((last, message, index) => message.role === "user" ? index : last, -1) }) : undefined;
+      const required = boundary ? createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: checklistMessages(), maxTokens: limits.section, hardMaxTokens: limits.section + borrowLimitTokens, preserveRecentReceipts: true, requestReferenceOnly: !!boundedForeground || boundary <= requestIndex }) : undefined;
       checklistTokens = required ? estimateMessageTokens([required]) : 0;
       checklistOverflowTokens = (required?.metadata as { overflowTokens?: number } | undefined)?.overflowTokens ?? 0;
       const fitted = record ? fitSummaryLayer(record, limits.totalSummary - checklistTokens) : undefined;

@@ -109,3 +109,26 @@ test('overflow checklist retains request and steer references plus complete perm
   assert.deepEqual(body.permissions, { files: permissions.autonomousFiles, shell: permissions.shell, web: permissions.web,
     fileAuthorizations: permissions.fileAuthorizations, blocked: permissions.blocked, remembered: permissions.remembered });
 });
+
+test('emergency prepare preserves the masked ordinary request and classifies Steer, including overflow', async () => {
+  for (const effects of [0, 100]) {
+    const spec = effectiveCompactionFidelitySpec('CE05'), store = new Store();
+    store.messages = [user('original-request', '请完成 ONLY-ORIGINAL-GOAL 验收报告'),
+      ...Array.from({ length: effects }, (_, i) => ({ id: `effect-${i}`, role: 'assistant', parts: [{ type: 'dynamic-tool', toolName: 'write_file', toolCallId: `write-${i}`, state: 'output-error', input: { path: 'notes/uncertain.txt' }, errorText: 'TOOL_OUTCOME_UNKNOWN: dispatched, receipt missing' }] })),
+      { id: 'old-1', role: 'assistant', parts: [{ type: 'text', text: 'x'.repeat(24000) }] },
+      { id: 'old-2', role: 'assistant', parts: [{ type: 'text', text: 'y'.repeat(24000) }] },
+      { ...user('correction', '只改输出格式，先给结论'), metadata: { source: 'steer' } }];
+    const before = structuredClone(store.messages);
+    const compactor = open(store, spec.contextBudget, async () => { throw new Error('foreground must not dispatch'); });
+    const prepared = await compactor.prepare(store.messages, signal());
+    assert.equal(prepared.some(message => message.id === 'original-request'), false);
+    const checklist = prepared.find(message => message.id === 'runloom-compaction-checklist');
+    const body = JSON.parse(checklist.parts[0].text.split('\n').slice(1).join('\n'));
+    assert.equal(body.request.messageId, 'original-request');
+    assert.match(JSON.stringify(body.request), /ONLY-ORIGINAL-GOAL/);
+    assert.equal(body.corrections[0].messageId, 'correction');
+    assert.match(JSON.stringify(body.corrections), /只改输出格式/);
+    assert.deepEqual(store.messages, before);
+    assert.ok((await compactor.getDiagnostics()).value.lastPreparation.degradation.reasons.includes('input_limit'));
+  }
+});

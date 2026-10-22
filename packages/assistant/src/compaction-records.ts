@@ -128,8 +128,8 @@ export function createCompactionChecklist(input: CompactionChecklistSources & {
           unknown: unknown.size, failed: failed.size, messages: [1, input.messages.length],
           read: "history_read id=runloom-compaction-checklist", ...(task ? { task: task.id } : {}),
           ...(input.preserveRecentReceipts ? {
-            request: requestView?.id ?? null,
-            ...(corrections.length ? { corrections: corrections.map(message => message.id) } : {}),
+            request: requestView ? literal(requestView) : null,
+            ...(corrections.length ? { corrections: corrections.map(literal) } : {}),
             ...(task ? { goal: task.goal, constraints: task.constraints, unfinished: {
               status: task.status, criteria: task.acceptance.filter(criterion => criterion.status !== "passed"), unresolved: task.delivery?.unresolved ?? [],
             } } : {}),
