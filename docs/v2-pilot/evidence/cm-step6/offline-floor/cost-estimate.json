@@ -1,0 +1,184 @@
+{
+  "sourceCommit": "5889ed6267f1d601196cf3c9a3869232241d6c67",
+  "sourceSha256": "b7264a5a558f9d08ff8aec2f7e55c8e640cf9d88f912a7d0557f6a64372a5226",
+  "probeId": "c452769d-ff69-40a4-9c65-fab83a3e57f8",
+  "generatedAt": "2026-10-22T09:02:53.065Z",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "model": "deterministic fixture summary and synthetic chat append, not model acceptance",
+  "results": [
+    {
+      "id": "CF03",
+      "rounds": [
+        {
+          "generation": 0,
+          "directBackgroundCalls": 6,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        },
+        {
+          "generation": 1,
+          "directBackgroundCalls": 7,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        },
+        {
+          "generation": 2,
+          "directBackgroundCalls": 7,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        }
+      ],
+      "oldCalls": 23,
+      "estimatedCalls": 23,
+      "oldDirectBackgroundCalls": 17,
+      "estimatedDirectBackgroundCalls": 20,
+      "oldChatCalls": 6,
+      "estimatedChatCalls": 3,
+      "meanBasedUsd": 0.0799674011764706,
+      "extraChatBackgroundStressCalls": 3,
+      "extraChatBackgroundStressUsd": 0.02100726,
+      "maxObservedCallBasedUsd": 0.16787244
+    },
+    {
+      "id": "CF05",
+      "rounds": [
+        {
+          "generation": 0,
+          "directBackgroundCalls": 6,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        },
+        {
+          "generation": 1,
+          "directBackgroundCalls": 7,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        },
+        {
+          "generation": 2,
+          "directBackgroundCalls": 7,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        },
+        {
+          "generation": 3,
+          "directBackgroundCalls": 7,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        },
+        {
+          "generation": 4,
+          "directBackgroundCalls": 7,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        }
+      ],
+      "oldCalls": 39,
+      "estimatedCalls": 39,
+      "oldDirectBackgroundCalls": 29,
+      "estimatedDirectBackgroundCalls": 34,
+      "oldChatCalls": 10,
+      "estimatedChatCalls": 5,
+      "meanBasedUsd": 0.1845897,
+      "extraChatBackgroundStressCalls": 5,
+      "extraChatBackgroundStressUsd": 0.05284030000000001,
+      "maxObservedCallBasedUsd": 0.44028888
+    },
+    {
+      "id": "CE03",
+      "rounds": [
+        {
+          "generation": 0,
+          "directBackgroundCalls": 5,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        },
+        {
+          "generation": 1,
+          "directBackgroundCalls": 4,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        },
+        {
+          "generation": 2,
+          "directBackgroundCalls": 5,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        }
+      ],
+      "oldCalls": 12,
+      "estimatedCalls": 17,
+      "oldDirectBackgroundCalls": 6,
+      "estimatedDirectBackgroundCalls": 14,
+      "oldChatCalls": 6,
+      "estimatedChatCalls": 3,
+      "meanBasedUsd": 0.009926073333333334,
+      "extraChatBackgroundStressCalls": 3,
+      "extraChatBackgroundStressUsd": 0.00472962,
+      "maxObservedCallBasedUsd": 0.02451946
+    },
+    {
+      "id": "CE05",
+      "rounds": [
+        {
+          "generation": 0,
+          "directBackgroundCalls": 5,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        },
+        {
+          "generation": 1,
+          "directBackgroundCalls": 4,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        },
+        {
+          "generation": 2,
+          "directBackgroundCalls": 5,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        },
+        {
+          "generation": 3,
+          "directBackgroundCalls": 4,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        },
+        {
+          "generation": 4,
+          "directBackgroundCalls": 5,
+          "estimatedChatBackgroundCalls": 0,
+          "primaryCalls": 1
+        }
+      ],
+      "oldCalls": 21,
+      "estimatedCalls": 28,
+      "oldDirectBackgroundCalls": 11,
+      "estimatedDirectBackgroundCalls": 23,
+      "oldChatCalls": 10,
+      "estimatedChatCalls": 5,
+      "meanBasedUsd": 0.017552576363636364,
+      "extraChatBackgroundStressCalls": 5,
+      "extraChatBackgroundStressUsd": 0.0088733,
+      "maxObservedCallBasedUsd": 0.04150662
+    }
+  ],
+  "oldTotalCalls": 125,
+  "estimatedTotalCalls": 137,
+  "fixedHistoricalCallCount": 30,
+  "fixedHistoricalUsd": 0.04348843999999999,
+  "estimatedUsd": 0.3355241908734403,
+  "maxObservedCallBasedUsd": 0.7176758400000001,
+  "stressTotalCalls": 153,
+  "maxObservedPlusOneExtraChatBackgroundPerRoundUsd": 0.80512632,
+  "combinedCapUsd": 2.75,
+  "remainingUsd": 1.0670034200000005,
+  "limitations": [
+    "Counts depend on successful short fixture summaries; actual model invalid output or larger required content changes queues.",
+    "M1 and cold call counts/costs copied from the frozen batch, not a forecast of successful cold reuse.",
+    "Uses the frozen batch price quote and token usage; it is not a provider price refresh.",
+    "Max observed call scenario is a sensitivity calculation, not a guaranteed upper bound.",
+    "Runtime pre-dispatch reservation remains authoritative; no retry and stop at cumulative approved cap; incomplete batch does not pass."
+  ]
+}

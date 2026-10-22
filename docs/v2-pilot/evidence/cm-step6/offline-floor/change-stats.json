@@ -1,0 +1,156 @@
+{
+  "baseCommit": "1ba4cd39500c4bd3d763d91e849e07c18ebb9161",
+  "sourceCommit": "5889ed6267f1d601196cf3c9a3869232241d6c67",
+  "commits": [
+    {
+      "commit": "f68864eb5e5ca8e70b93f11b2c9111eb9e6437da",
+      "subject": "fix(eval): freeze v4 goal checks to the labeled main-project sentence",
+      "categories": {
+        "product": {
+          "added": 0,
+          "deleted": 0
+        },
+        "tests": {
+          "added": 29,
+          "deleted": 14
+        },
+        "scripts": {
+          "added": 34,
+          "deleted": 22
+        },
+        "materials": {
+          "added": 0,
+          "deleted": 0
+        }
+      },
+      "files": [
+        {
+          "file": "examples/eval/cm-step6-live.mjs",
+          "added": "14",
+          "deleted": "7",
+          "category": "scripts"
+        },
+        {
+          "file": "examples/eval/cm-step6-live.test.mjs",
+          "added": "29",
+          "deleted": "14",
+          "category": "tests"
+        },
+        {
+          "file": "examples/eval/cm-step6-regrade.mjs",
+          "added": "20",
+          "deleted": "15",
+          "category": "scripts"
+        }
+      ]
+    },
+    {
+      "commit": "96f0bab0ce41bda91dae4a6ae6ccabc37a589622",
+      "subject": "fix(eval): reject denied reports and require projected summary goals",
+      "categories": {
+        "product": {
+          "added": 0,
+          "deleted": 0
+        },
+        "tests": {
+          "added": 10,
+          "deleted": 2
+        },
+        "scripts": {
+          "added": 4,
+          "deleted": 1
+        },
+        "materials": {
+          "added": 0,
+          "deleted": 0
+        }
+      },
+      "files": [
+        {
+          "file": "examples/eval/cm-step6-live.mjs",
+          "added": "4",
+          "deleted": "1",
+          "category": "scripts"
+        },
+        {
+          "file": "examples/eval/cm-step6-live.test.mjs",
+          "added": "10",
+          "deleted": "2",
+          "category": "tests"
+        }
+      ]
+    },
+    {
+      "commit": "5889ed6267f1d601196cf3c9a3869232241d6c67",
+      "subject": "fix(cm6): preserve emergency request steer and latest tool floor",
+      "categories": {
+        "product": {
+          "added": 66,
+          "deleted": 16
+        },
+        "tests": {
+          "added": 60,
+          "deleted": 2
+        },
+        "scripts": {
+          "added": 0,
+          "deleted": 0
+        },
+        "materials": {
+          "added": 0,
+          "deleted": 0
+        }
+      },
+      "files": [
+        {
+          "file": "examples/eval/cm-step6-compaction.test.mjs",
+          "added": "3",
+          "deleted": "2",
+          "category": "tests"
+        },
+        {
+          "file": "packages/assistant/src/context-blocks.ts",
+          "added": "19",
+          "deleted": "4",
+          "category": "product"
+        },
+        {
+          "file": "packages/assistant/src/context-compactor.test.ts",
+          "added": "57",
+          "deleted": "0",
+          "category": "tests"
+        },
+        {
+          "file": "packages/assistant/src/context-compactor.ts",
+          "added": "45",
+          "deleted": "11",
+          "category": "product"
+        },
+        {
+          "file": "packages/assistant/src/context-diagnostics.ts",
+          "added": "2",
+          "deleted": "1",
+          "category": "product"
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "product": {
+      "added": 66,
+      "deleted": 16
+    },
+    "tests": {
+      "added": 99,
+      "deleted": 18
+    },
+    "scripts": {
+      "added": 38,
+      "deleted": 23
+    },
+    "materials": {
+      "added": 0,
+      "deleted": 0
+    }
+  }
+}

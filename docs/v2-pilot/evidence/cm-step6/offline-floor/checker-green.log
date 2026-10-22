@@ -1,0 +1,35 @@
+✔ combined batch reserves before dispatch, meters each actual request, and freezes unknown usage (16.674ms)
+✔ failure diagnostics retain status, code, finish and schema paths without messages or upstream bodies (0.433833ms)
+✔ pastRead recognizes long receipt clauses without accepting failed, unknown, future or unrelated writes (0.4335ms)
+✔ extraction JSON Schema stays in prompt text; the configured provider sends no structured-output parameter (199.225208ms)
+✔ v4 goal check requires a labeled main-project goal in one sentence (0.877208ms)
+✔ v4 goal sentence accepts the four reviewed paraphrases and rejects missing or denied main-project goals (0.105125ms)
+CM_STEP6_METRICS {"case":"quote","window":"32k","validationFailure":{"reasonCode":"QUOTE_VALUE_MISSING","field":"user.text","fieldLength":7,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"source","window":"32k","validationFailure":{"reasonCode":"SOURCE_VALUE_MISSING","field":"sourceQuote","fieldLength":5,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"body","window":"32k","validationFailure":{"reasonCode":"BODY_VALUE_MISSING","field":"text","fieldLength":7,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"number","window":"32k","validationFailure":{"reasonCode":"NUMBER_UNIT_MISMATCH","field":"text","fieldLength":7,"valueLength":1,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"condition","window":"32k","validationFailure":{"reasonCode":"CONDITION_CLAUSE_MISSING","field":"text","fieldLength":7,"valueLength":3,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"proposal","window":"32k","validationFailure":{"reasonCode":"QUOTE_VALUE_MISSING","field":"proposal.quote","fieldLength":4,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"quote","window":"daily","validationFailure":{"reasonCode":"QUOTE_VALUE_MISSING","field":"user.text","fieldLength":7,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"source","window":"daily","validationFailure":{"reasonCode":"SOURCE_VALUE_MISSING","field":"sourceQuote","fieldLength":5,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"body","window":"daily","validationFailure":{"reasonCode":"BODY_VALUE_MISSING","field":"text","fieldLength":7,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"number","window":"daily","validationFailure":{"reasonCode":"NUMBER_UNIT_MISMATCH","field":"text","fieldLength":7,"valueLength":1,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"condition","window":"daily","validationFailure":{"reasonCode":"CONDITION_CLAUSE_MISSING","field":"text","fieldLength":7,"valueLength":3,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"proposal","window":"daily","validationFailure":{"reasonCode":"QUOTE_VALUE_MISSING","field":"proposal.quote","fieldLength":4,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+✔ M1 live evidence separates literal-value rejection reasons and retains only field positions and lengths (598.665292ms)
+✔ new live evidence reports both goal rules, safe key-value counts and every C5 preparation (0.804167ms)
+✔ approved goal rule scopes negation to the goal and accepts quoted titles (0.07925ms)
+✔ complete user confirmation value does not require an assistant proposal (101.797416ms)
+✔ approved uncertain rule accepts actual unknown effects and rejects affirmative write success (1.611542ms)
+✔ short acknowledgments cannot use a proposed value absent from the user quote (102.778042ms)
+✔ recorded reference keeps the source bytes and formal scores frozen (8.162208ms)
+✔ actual Controller archives the primary reply before a background summary failure (816.859459ms)
+✔ approved noAutomaticRetry rule accepts prohibitions and prior verification, rejecting direct retry advice (0.287708ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2008.541333

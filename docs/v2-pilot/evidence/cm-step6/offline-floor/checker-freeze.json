@@ -1,0 +1,22 @@
+{
+  "freezeId": "f9235960-d876-47ee-a4b3-ba7063898079",
+  "frozenAt": "2026-10-22T08:44:17.531945+00:00",
+  "sourceCommit": "5889ed6267f1d601196cf3c9a3869232241d6c67",
+  "checkerVersion": "cm-step6-offline-v4",
+  "status": "frozen",
+  "appliesTo": "future_batch_only",
+  "noFurtherRuleChanges": true,
+  "authority": "User decision on 1ba4cd3: final goal rule, then freeze before last paid batch regardless of outcome.",
+  "scripts": {
+    "examples/eval/cm-step6-live.mjs": "308095f342c7be3b6ca1f06a2e88def560be7fedd5458b46576e2ff4de175ce3",
+    "examples/eval/cm-step6-regrade.mjs": "015efed1e7f8d5539152853f5f4bb79c7f4d22eef0a097588595ce37aec45ebd",
+    "examples/eval/cm-step4.mjs": "0492ce54c8afcfcdba0551fb0e5a0d6714b30db61e0cf8d9f3913fb204ce5c9c",
+    "examples/eval/compaction-fidelity.mjs": "1da5c86dc874fab35abe73e071f3079283b25dc912a9463ae87f6c5a335cfac0",
+    "examples/eval/cm-step6-live.test.mjs": "a7eaa2a28ed0ae7232e67055f210891a6537024bcaaac1e36ed21d20a7ec4afa"
+  },
+  "referenceId": "8d1a2ba8-7d38-438c-b86d-11f88ee12632",
+  "referenceSha256": "8d4c674fb5833c2cd0bac06b1e30f3aa93e48fcaed426cb307f264bf1a600113",
+  "formalScoresChanged": false,
+  "realModelCalls": 0,
+  "costUsd": 0
+}

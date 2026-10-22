@@ -1,0 +1,36 @@
+✔ combined batch reserves before dispatch, meters each actual request, and freezes unknown usage (22.926958ms)
+✔ failure diagnostics retain status, code, finish and schema paths without messages or upstream bodies (0.638958ms)
+✔ pastRead recognizes long receipt clauses without accepting failed, unknown, future or unrelated writes (0.496542ms)
+✔ extraction JSON Schema stays in prompt text; the configured provider sends no structured-output parameter (222.349333ms)
+✔ v4 goal check requires a labeled main-project goal in one sentence (1.549875ms)
+✔ v4 goal sentence accepts the four reviewed paraphrases and rejects missing or denied main-project goals (0.351334ms)
+✔ summary goal must be present in the actual projection as plain or JSON-escaped text (0.214334ms)
+CM_STEP6_METRICS {"case":"quote","window":"32k","validationFailure":{"reasonCode":"QUOTE_VALUE_MISSING","field":"user.text","fieldLength":7,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"source","window":"32k","validationFailure":{"reasonCode":"SOURCE_VALUE_MISSING","field":"sourceQuote","fieldLength":5,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"body","window":"32k","validationFailure":{"reasonCode":"BODY_VALUE_MISSING","field":"text","fieldLength":7,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"number","window":"32k","validationFailure":{"reasonCode":"NUMBER_UNIT_MISMATCH","field":"text","fieldLength":7,"valueLength":1,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"condition","window":"32k","validationFailure":{"reasonCode":"CONDITION_CLAUSE_MISSING","field":"text","fieldLength":7,"valueLength":3,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"proposal","window":"32k","validationFailure":{"reasonCode":"QUOTE_VALUE_MISSING","field":"proposal.quote","fieldLength":4,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"quote","window":"daily","validationFailure":{"reasonCode":"QUOTE_VALUE_MISSING","field":"user.text","fieldLength":7,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"source","window":"daily","validationFailure":{"reasonCode":"SOURCE_VALUE_MISSING","field":"sourceQuote","fieldLength":5,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"body","window":"daily","validationFailure":{"reasonCode":"BODY_VALUE_MISSING","field":"text","fieldLength":7,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"number","window":"daily","validationFailure":{"reasonCode":"NUMBER_UNIT_MISMATCH","field":"text","fieldLength":7,"valueLength":1,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"condition","window":"daily","validationFailure":{"reasonCode":"CONDITION_CLAUSE_MISSING","field":"text","fieldLength":7,"valueLength":3,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"proposal","window":"daily","validationFailure":{"reasonCode":"QUOTE_VALUE_MISSING","field":"proposal.quote","fieldLength":4,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+✔ M1 live evidence separates literal-value rejection reasons and retains only field positions and lengths (550.3795ms)
+✔ new live evidence reports both goal rules, safe key-value counts and every C5 preparation (0.682ms)
+✔ approved goal rule scopes negation to the goal and accepts quoted titles (0.096375ms)
+✔ complete user confirmation value does not require an assistant proposal (102.906125ms)
+✔ approved uncertain rule accepts actual unknown effects and rejects affirmative write success (1.791375ms)
+✔ short acknowledgments cannot use a proposed value absent from the user quote (97.200958ms)
+✔ recorded reference keeps the source bytes and formal scores frozen (8.354041ms)
+✔ actual Controller archives the primary reply before a background summary failure (784.897667ms)
+✔ approved noAutomaticRetry rule accepts prohibitions and prior verification, rejecting direct retry advice (0.255875ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2087.198417

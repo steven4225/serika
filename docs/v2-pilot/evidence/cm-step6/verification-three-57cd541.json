@@ -1,0 +1,32 @@
+{
+  "runId": "58d9a17e-28c7-4005-9b61-1759cb76cfe1",
+  "generatedAt": "2026-10-22T06:09:05.579711+00:00",
+  "startedAt": "2026-10-22T05:46:42.718Z",
+  "finishedAt": "2026-10-22T06:08:39.215Z",
+  "sourceCommit": "57cd5419f314e1ec7d3fd857b015dbc445dde313",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "historicalIndex": "docs/v2-pilot/evidence/cm-step6/verification-three-aa47fc5.json",
+  "checkerVersion": "cm-step6-offline-v3",
+  "checkerFreeze": "awaiting_user_review",
+  "runs": [
+    {
+      "runId": "52a29c77-b881-4261-9384-db0af00e92b5",
+      "file": "docs/v2-pilot/evidence/cm-step6/offline-final/verification-runs/1/cm-step6/verification.json",
+      "sha256": "dfd30fd459ac6a87250dc4e392b18b8a62882cf45e5828ad24d1690d164e0327",
+      "evidenceRoot": "docs/v2-pilot/evidence/cm-step6/offline-final/verification-runs/1"
+    },
+    {
+      "runId": "8a5c9982-1191-4744-bc35-5c089e1aba5d",
+      "file": "docs/v2-pilot/evidence/cm-step6/offline-final/verification-runs/2/cm-step6/verification.json",
+      "sha256": "89df64bfb97724fabc6140bce7ee51b07b2e526f93031f04419bcde0d88cc061",
+      "evidenceRoot": "docs/v2-pilot/evidence/cm-step6/offline-final/verification-runs/2"
+    },
+    {
+      "runId": "aefca252-7941-47fa-abf3-0d43b1ebf938",
+      "file": "docs/v2-pilot/evidence/cm-step6/offline-final/verification-runs/3/cm-step6/verification.json",
+      "sha256": "b4ce2a4883a8a3307c5cf897e5d492e66d9e0d6d8ea12bf97ba85f97f4f9fd1d",
+      "evidenceRoot": "docs/v2-pilot/evidence/cm-step6/offline-final/verification-runs/3"
+    }
+  ]
+}

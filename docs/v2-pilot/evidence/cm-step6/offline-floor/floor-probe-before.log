@@ -1,0 +1,104 @@
+{
+  "probeId": "81cca42e-8474-44e9-a5c7-08b159c9ef1c",
+  "sourceCommit": "1ba4cd39500c4bd3d763d91e849e07c18ebb9161",
+  "results": [
+    {
+      "mode": "32k",
+      "scenario": "zero-recent-split-tools",
+      "retainedFloorIds": [
+        "current-request",
+        "current-steer"
+      ],
+      "exactFloorIds": [
+        "current-request",
+        "current-steer"
+      ],
+      "clippedFloorIds": [],
+      "resultHasNumberedPlaceholder": false,
+      "withinInputWindow": true,
+      "retainedUnpublishedTextIds": [],
+      "error": null
+    },
+    {
+      "mode": "32k",
+      "scenario": "oversized-floor",
+      "retainedFloorIds": [
+        "current-request",
+        "current-steer"
+      ],
+      "exactFloorIds": [
+        "current-request",
+        "current-steer"
+      ],
+      "clippedFloorIds": [],
+      "resultHasNumberedPlaceholder": false,
+      "withinInputWindow": true,
+      "retainedUnpublishedTextIds": [],
+      "error": null
+    },
+    {
+      "mode": "32k",
+      "scenario": "provider-overflow",
+      "retainedFloorIds": [
+        "current-steer"
+      ],
+      "exactFloorIds": [
+        "current-steer"
+      ],
+      "clippedFloorIds": [],
+      "resultHasNumberedPlaceholder": false,
+      "withinInputWindow": true,
+      "retainedUnpublishedTextIds": [],
+      "error": null
+    },
+    {
+      "mode": "daily",
+      "scenario": "zero-recent-split-tools",
+      "retainedFloorIds": [
+        "current-request",
+        "current-steer"
+      ],
+      "exactFloorIds": [
+        "current-request",
+        "current-steer"
+      ],
+      "clippedFloorIds": [],
+      "resultHasNumberedPlaceholder": false,
+      "withinInputWindow": true,
+      "retainedUnpublishedTextIds": [],
+      "error": null
+    },
+    {
+      "mode": "daily",
+      "scenario": "oversized-floor",
+      "retainedFloorIds": [
+        "current-request",
+        "current-steer"
+      ],
+      "exactFloorIds": [
+        "current-request",
+        "current-steer"
+      ],
+      "clippedFloorIds": [],
+      "resultHasNumberedPlaceholder": false,
+      "withinInputWindow": true,
+      "retainedUnpublishedTextIds": [],
+      "error": null
+    },
+    {
+      "mode": "daily",
+      "scenario": "provider-overflow",
+      "retainedFloorIds": [
+        "current-steer"
+      ],
+      "exactFloorIds": [
+        "current-steer"
+      ],
+      "clippedFloorIds": [],
+      "resultHasNumberedPlaceholder": false,
+      "withinInputWindow": true,
+      "retainedUnpublishedTextIds": [],
+      "error": null
+    }
+  ]
+}

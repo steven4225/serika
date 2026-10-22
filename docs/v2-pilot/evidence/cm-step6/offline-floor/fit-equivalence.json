@@ -1,0 +1,105 @@
+{
+  "runId": "5c0dc64e-f34d-496b-b3ff-fdb8c64a5f82",
+  "generatedAt": "2026-10-22T08:42:34.532Z",
+  "kind": "fitMessage_extraction_equivalence",
+  "status": "passed",
+  "count": 16,
+  "results": [
+    {
+      "messageId": "text",
+      "tokens": 0,
+      "equal": true,
+      "outcome": "throw"
+    },
+    {
+      "messageId": "text",
+      "tokens": 100,
+      "equal": true,
+      "outcome": "returned"
+    },
+    {
+      "messageId": "text",
+      "tokens": 1000,
+      "equal": true,
+      "outcome": "returned"
+    },
+    {
+      "messageId": "text",
+      "tokens": 16000,
+      "equal": true,
+      "outcome": "returned"
+    },
+    {
+      "messageId": "attachment",
+      "tokens": 0,
+      "equal": true,
+      "outcome": "throw"
+    },
+    {
+      "messageId": "attachment",
+      "tokens": 100,
+      "equal": true,
+      "outcome": "returned"
+    },
+    {
+      "messageId": "attachment",
+      "tokens": 1000,
+      "equal": true,
+      "outcome": "returned"
+    },
+    {
+      "messageId": "attachment",
+      "tokens": 16000,
+      "equal": true,
+      "outcome": "returned"
+    },
+    {
+      "messageId": "result",
+      "tokens": 0,
+      "equal": true,
+      "outcome": "throw"
+    },
+    {
+      "messageId": "result",
+      "tokens": 100,
+      "equal": true,
+      "outcome": "throw"
+    },
+    {
+      "messageId": "result",
+      "tokens": 1000,
+      "equal": true,
+      "outcome": "returned"
+    },
+    {
+      "messageId": "result",
+      "tokens": 16000,
+      "equal": true,
+      "outcome": "returned"
+    },
+    {
+      "messageId": "error",
+      "tokens": 0,
+      "equal": true,
+      "outcome": "throw"
+    },
+    {
+      "messageId": "error",
+      "tokens": 100,
+      "equal": true,
+      "outcome": "throw"
+    },
+    {
+      "messageId": "error",
+      "tokens": 1000,
+      "equal": true,
+      "outcome": "returned"
+    },
+    {
+      "messageId": "error",
+      "tokens": 16000,
+      "equal": true,
+      "outcome": "returned"
+    }
+  ]
+}

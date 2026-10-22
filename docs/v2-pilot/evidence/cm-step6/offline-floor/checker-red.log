@@ -1,0 +1,30 @@
+✖ v4 goal sentence accepts the four reviewed paraphrases and rejects missing or denied main-project goals (1.03075ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 248.802708
+
+✖ failing tests:
+
+test at examples/eval/cm-step6-live.test.mjs:90:1
+✖ v4 goal sentence accepts the four reviewed paraphrases and rejects missing or denied main-project goals (1.03075ms)
+  AssertionError [ERR_ASSERTION]: 目标：完成 FIDELITY-42 验收主项目，把本地文件方案下整理的验收报告做好，保留来源证据，并保留失败原因，不把状态当作正确性证明。
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file://<checker-checkout>/examples/eval/cm-step6-live.test.mjs:95:13)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

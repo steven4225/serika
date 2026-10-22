@@ -1,0 +1,6 @@
+at	decision	why	evidence	result
+2026-10-22	Keep C5 borrow/threshold, add noncontiguous floor	User approved current behavior and explicit request/Steer/latest-tool floor	floor-probe-before.json; floor-probe-after.json	Old missing call/result; fixed both windows with 0 model calls
+2026-10-22	Reuse clipping algorithm with minimum projection	Aggregate protected floor exposed premature metadata error	aggregate-floor-probe.json; aggregate-floor-probe-after.json	Continues with original IDs; originals unchanged
+2026-10-22	Freeze v4 after final internal rule review	User's final goal-sentence rule; no rule changes after last batch	checker-freeze.json; regrade.json	4 named flips accepted; 8 stricter goal failures retained
+2026-10-22	Update old request-mask assertion	User now requires exact original request and Steer	checker-eval-c5-integration-failure.log; eval-final.log	Old false assertion replaced with exact equality, 100/100
+2026-10-22	Keep cap 2.75 and no paid dispatch	User explicitly selected 2.75 in current chat	cost ledger unchanged; verification reports realModelCalls=0	Stop after offline review

@@ -1,0 +1,59 @@
+{
+  "visualAuditId": "4110b233-3186-47bb-9091-2313e275af88",
+  "inspectedAt": "2026-10-22T08:51:40.695501+00:00",
+  "verificationRound": 1,
+  "sourceCommit": "5889ed6267f1d601196cf3c9a3869232241d6c67",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "method": "Eight original PNGs visually inspected in two labeled four-image sheets. Original PNGs unchanged.",
+  "screenshots": [
+    {
+      "file": "startup.png",
+      "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f",
+      "observed": "Isolated-test banner and empty composer visible.",
+      "matchesSmokeExpectation": true
+    },
+    {
+      "file": "chat-reply.png",
+      "sha256": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497",
+      "observed": "Greeting and deterministic offline response visible.",
+      "matchesSmokeExpectation": true
+    },
+    {
+      "file": "remember-success-receipt.png",
+      "sha256": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25",
+      "observed": "Remember receipt shows saved and undo.",
+      "matchesSmokeExpectation": true
+    },
+    {
+      "file": "remember-on-memory-page.png",
+      "sha256": "afd2a65c33ac1aefb4d96249ab7901cfb4da1e260123f2cfecf18196172f786e",
+      "observed": "Memory page shows the report-first preference.",
+      "matchesSmokeExpectation": true
+    },
+    {
+      "file": "restart-persistence.png",
+      "sha256": "d3d1b8e06fcddd84fc4fb1096b3c88e961c2873f1c1c832f46f5840df2685253",
+      "observed": "Preference and saved receipt remain after process restart.",
+      "matchesSmokeExpectation": true
+    },
+    {
+      "file": "undo-disappears.png",
+      "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+      "observed": "Receipt shows withdrawn; memory page is empty.",
+      "matchesSmokeExpectation": true
+    },
+    {
+      "file": "daily-path-refuses-writes.png",
+      "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+      "observed": "Expected runtime refusal to write the daily data path is visible.",
+      "matchesSmokeExpectation": true
+    },
+    {
+      "file": "daily-config-retired-fields.png",
+      "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+      "observed": "Expected Invalid TUI config schema error for retired fields is visible.",
+      "matchesSmokeExpectation": true
+    }
+  ]
+}

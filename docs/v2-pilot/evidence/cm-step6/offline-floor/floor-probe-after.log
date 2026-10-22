@@ -1,0 +1,200 @@
+{
+  "probeId": "d4875937-568c-4b20-8435-bd214a566ddf",
+  "sourceCommit": "5889ed6267f1d601196cf3c9a3869232241d6c67",
+  "results": [
+    {
+      "mode": "32k",
+      "scenario": "zero-recent-split-tools",
+      "retainedFloorIds": [
+        "latest-call",
+        "latest-result",
+        "current-request",
+        "current-steer"
+      ],
+      "exactFloorIds": [
+        "latest-call",
+        "latest-result",
+        "current-request",
+        "current-steer"
+      ],
+      "clippedFloorIds": [],
+      "resultHasNumberedPlaceholder": false,
+      "withinInputWindow": true,
+      "retainedUnpublishedTextIds": [],
+      "emergencyMasking": [
+        {
+          "trigger": "input_threshold",
+          "ranges": [
+            {
+              "fromMessageId": "unpublished-request",
+              "throughMessageId": "unpublished-filler-1"
+            }
+          ]
+        }
+      ],
+      "error": null
+    },
+    {
+      "mode": "32k",
+      "scenario": "oversized-floor",
+      "retainedFloorIds": [
+        "latest-call",
+        "latest-result",
+        "current-request",
+        "current-steer"
+      ],
+      "exactFloorIds": [
+        "latest-call",
+        "current-request",
+        "current-steer"
+      ],
+      "clippedFloorIds": [
+        "latest-result"
+      ],
+      "resultHasNumberedPlaceholder": true,
+      "withinInputWindow": true,
+      "retainedUnpublishedTextIds": [],
+      "emergencyMasking": [
+        {
+          "trigger": "input_threshold",
+          "ranges": [
+            {
+              "fromMessageId": "unpublished-request",
+              "throughMessageId": "unpublished-filler-1"
+            }
+          ]
+        }
+      ],
+      "error": null
+    },
+    {
+      "mode": "32k",
+      "scenario": "provider-overflow",
+      "retainedFloorIds": [
+        "latest-call",
+        "latest-result",
+        "current-request",
+        "current-steer"
+      ],
+      "exactFloorIds": [
+        "latest-call",
+        "latest-result",
+        "current-request",
+        "current-steer"
+      ],
+      "clippedFloorIds": [],
+      "resultHasNumberedPlaceholder": false,
+      "withinInputWindow": true,
+      "retainedUnpublishedTextIds": [],
+      "emergencyMasking": [
+        {
+          "trigger": "provider_overflow",
+          "ranges": [
+            {
+              "fromMessageId": "unpublished-request",
+              "throughMessageId": "unpublished-filler-1"
+            }
+          ]
+        }
+      ],
+      "error": null
+    },
+    {
+      "mode": "daily",
+      "scenario": "zero-recent-split-tools",
+      "retainedFloorIds": [
+        "latest-call",
+        "latest-result",
+        "current-request",
+        "current-steer"
+      ],
+      "exactFloorIds": [
+        "latest-call",
+        "latest-result",
+        "current-request",
+        "current-steer"
+      ],
+      "clippedFloorIds": [],
+      "resultHasNumberedPlaceholder": false,
+      "withinInputWindow": true,
+      "retainedUnpublishedTextIds": [],
+      "emergencyMasking": [
+        {
+          "trigger": "input_threshold",
+          "ranges": [
+            {
+              "fromMessageId": "unpublished-request",
+              "throughMessageId": "unpublished-filler-19"
+            }
+          ]
+        }
+      ],
+      "error": null
+    },
+    {
+      "mode": "daily",
+      "scenario": "oversized-floor",
+      "retainedFloorIds": [
+        "latest-call",
+        "latest-result",
+        "current-request",
+        "current-steer"
+      ],
+      "exactFloorIds": [
+        "latest-call",
+        "current-request",
+        "current-steer"
+      ],
+      "clippedFloorIds": [
+        "latest-result"
+      ],
+      "resultHasNumberedPlaceholder": true,
+      "withinInputWindow": true,
+      "retainedUnpublishedTextIds": [],
+      "emergencyMasking": [
+        {
+          "trigger": "input_threshold",
+          "ranges": [
+            {
+              "fromMessageId": "unpublished-request",
+              "throughMessageId": "unpublished-filler-19"
+            }
+          ]
+        }
+      ],
+      "error": null
+    },
+    {
+      "mode": "daily",
+      "scenario": "provider-overflow",
+      "retainedFloorIds": [
+        "latest-call",
+        "latest-result",
+        "current-request",
+        "current-steer"
+      ],
+      "exactFloorIds": [
+        "latest-call",
+        "latest-result",
+        "current-request",
+        "current-steer"
+      ],
+      "clippedFloorIds": [],
+      "resultHasNumberedPlaceholder": false,
+      "withinInputWindow": true,
+      "retainedUnpublishedTextIds": [],
+      "emergencyMasking": [
+        {
+          "trigger": "provider_overflow",
+          "ranges": [
+            {
+              "fromMessageId": "unpublished-request",
+              "throughMessageId": "unpublished-filler-19"
+            }
+          ]
+        }
+      ],
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "probeId": "2722b451-43c4-40b6-ba3d-41766fc41172",
+  "generatedAt": "2026-10-22T08:34:26.576Z",
+  "sourceCommit": "1ba4cd39500c4bd3d763d91e849e07c18ebb9161",
+  "kind": "offline_current_behavior_observation_not_authorization",
+  "budget": {
+    "enabled": true,
+    "contextWindowTokens": 32768,
+    "maxOutputTokens": 4096,
+    "safetyMarginTokens": 2048,
+    "inputBudgetTokens": 26624,
+    "keepRecentTokens": 20480,
+    "summaryMaxOutputTokens": 2048,
+    "triggerRatio": 0.85,
+    "summaryInputChunkTokens": 22528
+  },
+  "limits": {
+    "block": 3328,
+    "recent": 4992,
+    "section": 208,
+    "totalSummary": 1248
+  },
+  "emergencyThreshold": 22630,
+  "borrowCap": 2496,
+  "nominalEqualExchangeRemainder": 2496,
+  "actualMinimumOldOriginalGuarantee": 0,
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "results": [
+    {
+      "fillerCharsPerMessage": 500,
+      "retainedUnpublishedOriginalIds": [
+        "unpublished-request",
+        "a",
+        "b"
+      ],
+      "retainedCurrent": true,
+      "summaryLayer": {
+        "tokens": 2719,
+        "checklistTokens": 72,
+        "budget": 1248,
+        "borrowedTokens": 1471,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1471,
+        "reduction": {
+          "originalTokens": 2615,
+          "requiredTokens": 2647,
+          "budget": 1176,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "summary_overflow"
+        ],
+        "borrowedTokens": 1471,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1471,
+        "maskedOriginalTokens": 1,
+        "maskedFromMessageId": null,
+        "checklistTokens": 0,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": null
+      },
+      "estimatedInputTokens": 3397,
+      "originalUnchanged": true
+    },
+    {
+      "fillerCharsPerMessage": 24000,
+      "retainedUnpublishedOriginalIds": [],
+      "retainedCurrent": true,
+      "summaryLayer": {
+        "tokens": 2719,
+        "checklistTokens": 72,
+        "budget": 1248,
+        "borrowedTokens": 1471,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1471,
+        "reduction": {
+          "originalTokens": 2615,
+          "requiredTokens": 2647,
+          "budget": 1176,
+          "reducedSegments": 1,
+          "compacted": true,
+          "indexDuplicateLines": 0
+        }
+      },
+      "degradation": {
+        "reasons": [
+          "input_limit",
+          "summary_overflow"
+        ],
+        "borrowedTokens": 1471,
+        "borrowLimitTokens": 2496,
+        "requiredBorrowTokens": 1471,
+        "maskedOriginalTokens": 24122,
+        "maskedFromMessageId": "unpublished-request",
+        "checklistTokens": 0,
+        "sectionBudget": 208,
+        "maskedThroughMessageId": "b"
+      },
+      "estimatedInputTokens": 2884,
+      "originalUnchanged": true
+    }
+  ]
+}

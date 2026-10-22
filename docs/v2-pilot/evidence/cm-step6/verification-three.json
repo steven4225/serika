@@ -1,32 +1,33 @@
 {
-  "runId": "58d9a17e-28c7-4005-9b61-1759cb76cfe1",
-  "generatedAt": "2026-10-22T06:09:05.579711+00:00",
-  "startedAt": "2026-10-22T05:46:42.718Z",
-  "finishedAt": "2026-10-22T06:08:39.215Z",
-  "sourceCommit": "57cd5419f314e1ec7d3fd857b015dbc445dde313",
+  "runId": "134aee06-5ce8-463e-8fff-fcbfbb1b0ecd",
+  "generatedAt": "2026-10-22T09:07:27.564908+00:00",
+  "startedAt": "2026-10-22T08:42:36.948Z",
+  "finishedAt": "2026-10-22T09:07:03.024Z",
+  "sourceCommit": "5889ed6267f1d601196cf3c9a3869232241d6c67",
   "realModelCalls": 0,
   "costUsd": 0,
-  "historicalIndex": "docs/v2-pilot/evidence/cm-step6/verification-three-aa47fc5.json",
-  "checkerVersion": "cm-step6-offline-v3",
-  "checkerFreeze": "awaiting_user_review",
+  "historicalIndex": "docs/v2-pilot/evidence/cm-step6/verification-three-57cd541.json",
+  "checkerVersion": "cm-step6-offline-v4",
+  "checkerFreeze": "frozen",
+  "checkerManifest": "docs/v2-pilot/evidence/cm-step6/offline-floor/checker-freeze.json",
   "runs": [
     {
-      "runId": "52a29c77-b881-4261-9384-db0af00e92b5",
-      "file": "docs/v2-pilot/evidence/cm-step6/offline-final/verification-runs/1/cm-step6/verification.json",
-      "sha256": "dfd30fd459ac6a87250dc4e392b18b8a62882cf45e5828ad24d1690d164e0327",
-      "evidenceRoot": "docs/v2-pilot/evidence/cm-step6/offline-final/verification-runs/1"
+      "runId": "3cb72c25-7be8-40af-88e7-85a8248f180d",
+      "file": "docs/v2-pilot/evidence/cm-step6/offline-floor/verification-runs/1/cm-step6/verification.json",
+      "sha256": "d5c0e7bbaf2bc69ae964079a1af3cc2d4219aba0a231c423689d3d6901336222",
+      "evidenceRoot": "docs/v2-pilot/evidence/cm-step6/offline-floor/verification-runs/1"
     },
     {
-      "runId": "8a5c9982-1191-4744-bc35-5c089e1aba5d",
-      "file": "docs/v2-pilot/evidence/cm-step6/offline-final/verification-runs/2/cm-step6/verification.json",
-      "sha256": "89df64bfb97724fabc6140bce7ee51b07b2e526f93031f04419bcde0d88cc061",
-      "evidenceRoot": "docs/v2-pilot/evidence/cm-step6/offline-final/verification-runs/2"
+      "runId": "945115c9-7f89-43e4-9ca5-b6518aa0607e",
+      "file": "docs/v2-pilot/evidence/cm-step6/offline-floor/verification-runs/2/cm-step6/verification.json",
+      "sha256": "a582a6cd273927fed9bd06bc979d16dd49d783555de68909015abc1380fafe1a",
+      "evidenceRoot": "docs/v2-pilot/evidence/cm-step6/offline-floor/verification-runs/2"
     },
     {
-      "runId": "aefca252-7941-47fa-abf3-0d43b1ebf938",
-      "file": "docs/v2-pilot/evidence/cm-step6/offline-final/verification-runs/3/cm-step6/verification.json",
-      "sha256": "b4ce2a4883a8a3307c5cf897e5d492e66d9e0d6d8ea12bf97ba85f97f4f9fd1d",
-      "evidenceRoot": "docs/v2-pilot/evidence/cm-step6/offline-final/verification-runs/3"
+      "runId": "4562414f-e016-4a2c-ac19-a55e103c8bc2",
+      "file": "docs/v2-pilot/evidence/cm-step6/offline-floor/verification-runs/3/cm-step6/verification.json",
+      "sha256": "85da10a6f7c57de7548de1a69ff915530d2c36d45496186e96dc5b9af76661ab",
+      "evidenceRoot": "docs/v2-pilot/evidence/cm-step6/offline-floor/verification-runs/3"
     }
   ]
 }
