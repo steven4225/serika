@@ -1,0 +1,183 @@
+{
+  "runId": "a53f6a42-ef59-4c17-b7e4-c1a8e9a0c778",
+  "verificationRunId": "767b67cd-08a7-41fe-89ab-7c290ec14c94",
+  "sourceCommit": "052a530091407348b0572c2d33b3f30096a5db4d",
+  "baseCommit": "ae5cf67344e277058a8da3864b566a11f089efeb",
+  "platform": "darwin",
+  "command": [
+    "node",
+    "packages/assistant/scripts/cm-step6-verify.mjs"
+  ],
+  "commands": [
+    {
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "exitCode": 0,
+      "counts": {
+        "tests": 0,
+        "pass": 0,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "command": [
+        "env",
+        "TZ=UTC",
+        "pnpm",
+        "test"
+      ],
+      "exitCode": 0,
+      "counts": {
+        "tests": 1766,
+        "pass": 1759,
+        "fail": 0,
+        "skipped": 7
+      }
+    },
+    {
+      "command": [
+        "env",
+        "TZ=Asia/Shanghai",
+        "pnpm",
+        "test"
+      ],
+      "exitCode": 0,
+      "counts": {
+        "tests": 1766,
+        "pass": 1759,
+        "fail": 0,
+        "skipped": 7
+      }
+    },
+    {
+      "command": [
+        "pnpm",
+        "eval:test"
+      ],
+      "exitCode": 0,
+      "counts": {
+        "tests": 101,
+        "pass": 101,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "command": [
+        "git",
+        "clone",
+        "--shared",
+        "--no-checkout",
+        ".",
+        "<temporary>/smoke-source"
+      ],
+      "exitCode": 0,
+      "counts": {
+        "tests": 0,
+        "pass": 0,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "command": [
+        "git",
+        "checkout",
+        "--detach",
+        "052a530091407348b0572c2d33b3f30096a5db4d"
+      ],
+      "exitCode": 0,
+      "counts": {
+        "tests": 0,
+        "pass": 0,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "command": [
+        "pnpm",
+        "--filter",
+        "@serika/desktop",
+        "smoke"
+      ],
+      "exitCode": 0,
+      "counts": {
+        "tests": 0,
+        "pass": 0,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "command": [
+        "node",
+        "examples/eval/cm-step6-offline-audit.mjs"
+      ],
+      "exitCode": 0,
+      "counts": {
+        "tests": 0,
+        "pass": 0,
+        "fail": 0,
+        "skipped": 0
+      }
+    }
+  ],
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "smoke": {
+    "count": 8,
+    "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f"
+  },
+  "lineChanges": {
+    "tests": {
+      "added": 512,
+      "removed": 360,
+      "net": 152,
+      "files": 86
+    },
+    "product": {
+      "added": 196,
+      "removed": 106,
+      "net": 90,
+      "files": 24
+    },
+    "documentation": {
+      "added": 23,
+      "removed": 18,
+      "net": 5,
+      "files": 1
+    },
+    "migrationTools": {
+      "added": 1,
+      "removed": 1,
+      "net": 0,
+      "files": 1
+    }
+  },
+  "hashes": {
+    "docs/v2-pilot/evidence/architecture-v2-a1/line-changes.json": "73f3cd9f490333be085ed804247994cc5c7bd8aca6f13569e5fff3227199afb0",
+    "docs/v2-pilot/evidence/architecture-v2-a1/runner.log": "b2c77792dba9a4542623b9f89ec3c9ab8c5206f4f7fb9e3370a68ea14e484f82",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/cm-step6/live.json": "466b250eb611acd2c8b825acd9ecd4fea805049e4fbec7152f19e26685b2e671",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/cm-step6/offline-audit.json": "dbfeb630ea02174ed85eb8507140066e6f7501a6963654c0bbf6ba71f78c4955",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/cm-step6/verification.json": "de1ffac6e66356318b23d8c2e934fe04b5e6328b807f91a5fbbb7d551ca0d3f3",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/electron-smoke/README.md": "1ec7dad9eb4e8e9edf8c5b1452c28544550fca2e24e861c28e26ae92d1b8e14e",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/electron-smoke/chat-reply.png": "350c6a5340eb1f50e56bc489adb281e7469e8d5924a49ba3665e0bd641d464cb",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/electron-smoke/cleanup.json": "c62da29d9d3f7b865db18d50028c9750559bc2f569a6e8d730086ec1a6cfaf04",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/electron-smoke/cm-step4-original-result.json": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/electron-smoke/cm-step5-run.json": "b56c7d1cfcdfc0126d3ffb7ab90956296c6f941a699eb0352c3374b578c2760c",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json": "f4899d017289a06cc5a44e21d67aa22f621f253587c2e5871130888f356f63a2",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/electron-smoke/daily-config-retired-fields.png": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/electron-smoke/daily-path-refuses-writes.png": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png": "4ad49b013463a22e4a0d856fcb14b29a09323b4e21596bd91965a1cff9e9d5af",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/electron-smoke/restart-persistence.png": "64d53e107a9d6cba7c31d0e6aa8e043d360f23c6002b07e6b2b7ec4bd728d864",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/electron-smoke/result.json": "0b26b6b0c03c6e0881586cb18f25807c7266191d85b8a3c25b5e4970ebbd9d67",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/electron-smoke/startup.png": "fd3dbd00e3a608197ac290f4225affa8f772cba8bec6874a5e70be4a9dc667a5",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/electron-smoke/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+    "docs/v2-pilot/evidence/architecture-v2-a1/unified/docs/v2-pilot/evidence/electron-smoke/verification.json": "830bdc6e00782763fcca10f68f0cb7fc43da28d74725109bbdb894de72b233c2"
+  }
+}
