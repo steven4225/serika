@@ -24,7 +24,7 @@ const summary = { version: 2, goal: { text: "Continue task", evidenceMessageIds:
 const budgets = [effectiveContextBudget(defaultContextBudget(), { provider: "test", modelId: "32k", source: "configuration", contextWindowTokens: 32768 }), defaultContextBudget()];
 const settle = async (condition: () => boolean) => { const end = Date.now() + 5000; while (!condition()) { if (Date.now() > end) throw new Error("Background did not settle"); await new Promise(resolve => setImmediate(resolve)); } };
 
-test("foreground masks complete blocks without any model wait at 32K and daily windows; queued cancellation never publishes", async () => {
+test("foreground retains unpublished complete blocks without model wait below the hard trigger; cancellation never publishes", async () => {
   for (const budget of budgets) {
     const root = await mkdtemp(join(tmpdir(), "cm6-context-"));
     try {
@@ -42,7 +42,8 @@ test("foreground masks complete blocks without any model wait at 32K and daily w
       const prepared = await compactor.prepare(messages, new AbortController().signal);
       assert.equal(calls, 0); assert.equal(compactor.pending, true);
       assert.ok(estimateContextBudget({ instructions: "system", tools: [], messages: prepared }, budget).inputTokens <= availableInputTokens(budget));
-      assert.equal(prepared.at(-1)?.id, "current"); assert.match(JSON.stringify(prepared), /masked pending/);
+      assert.equal(prepared.at(-1)?.id, "current"); assert.doesNotMatch(JSON.stringify(prepared), /masked pending/);
+      assert.ok(messages.every(message => prepared.some(item => item.id === message.id)));
       const job = compactor.runPending(new AbortController().signal); await settle(() => calls > 0);
       await compactor.prepare(messages, new AbortController().signal); assert.equal(calls, 1);
       await compactor.pause(); release(); await job;

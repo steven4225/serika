@@ -8,7 +8,7 @@ export type ContextResult<T> =
 /** Read-only display evidence, not a tokenizer result or recovery authority. */
 export interface ContextDiagnostics {
   modelCallLogWriteFailures?: number;
-  background?: { queued: boolean; running: boolean; error: string | null; normalizations?: SummaryNormalization[]; failure?: { name: string; code: string; finishReason?: string; schemaPaths: string[] } };
+  background?: { reduction?: { budget: number; segmentBefore: number; segmentAfter: number; indexBefore: number; indexAfter: number } | undefined; queued: boolean; running: boolean; error: string | null; normalizations?: SummaryNormalization[]; failure?: { name: string; code: string; finishReason?: string; schemaPaths: string[] } };
   threadId: string;
   enabled: boolean;
   budget: ContextBudgetConfig;
@@ -33,7 +33,7 @@ export interface ContextDiagnostics {
     compactionId: string | null;
     estimatedInputTokens: number | null;
     summaryLayer?: { tokens: number; checklistTokens: number; budget: number; borrowedTokens: number; borrowLimitTokens: number; requiredBorrowTokens: number; reduction?: { originalTokens: number; requiredTokens: number; budget: number; reducedSegments: number; compacted: boolean; indexReferenced: boolean; indexDuplicateLines: number } };
-    degradation?: { reasons: Array<"checklist_overflow" | "summary_overflow">; borrowedTokens: number; borrowLimitTokens: number; requiredBorrowTokens: number; maskedOriginalTokens: number; maskedFromMessageId: string | null; checklistTokens: number; sectionBudget: number; maskedThroughMessageId: string | null };
+    degradation?: { reasons: Array<"checklist_overflow" | "summary_overflow" | "input_limit">; borrowedTokens: number; borrowLimitTokens: number; requiredBorrowTokens: number; maskedOriginalTokens: number; maskedFromMessageId: string | null; checklistTokens: number; sectionBudget: number; maskedThroughMessageId: string | null };
     error: { code: string; message: string } | null;
   } | null;
 }

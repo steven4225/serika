@@ -10,11 +10,38 @@ import { createRuntimeApp } from "./app.js";
 import { createAssistantController } from "./assistant-controller.js";
 import { createMemoryStore } from "./memory-store.js";
 import { createMemoryExtraction } from "./memory-extraction.js";
-import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
+import { DEFAULT_CONTEXT_BUDGET_CONFIG, defaultContextBudget } from "./context-budget.js";
 
 const usage = { inputTokens: { total: 100, noCache: 100, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 10, text: 10, reasoning: 0 } };
 const user = (id: string, text: string): UIMessage => ({ id, role: "user", parts: [{ type: "text", text }] });
 const wait = async (ready: () => boolean) => { for (let i = 0; i < 100 && !ready(); i++) await new Promise(resolve => setTimeout(resolve, 10)); assert.ok(ready()); };
+
+test("M1 uncertain extraction stores the exact user quote despite a rewritten model body in both windows", async t => {
+  const quote = "我喜欢甜咖啡，但我又不喜欢甜咖啡";
+  for (const [window, budget] of new Map([["32k", DEFAULT_CONTEXT_BUDGET_CONFIG], ["daily", defaultContextBudget()]])) await t.test(window, async () => {
+    const root = await mkdtemp(join(tmpdir(), "cm6-uncertain-")), store = createMemoryStore(root);
+    const messages: UIMessage[] = [{ id: "a", role: "assistant", parts: [{ type: "text", text: "你喜欢甜咖啡吗" }] }, user("u", quote)];
+    let calls = 0, updated!: () => void;
+    const completed = new Promise<void>(resolve => { updated = resolve; });
+    const model = new MockLanguageModelV3({ doGenerate: async () => {
+      calls++;
+      return { content: [{ type: "text", text: JSON.stringify({ proposals: [{ operation: "add", text: "用户喜欢甜咖啡", uncertain: true,
+        category: "preference", sourceMessageId: "u", sourceQuote: quote, identity: { subject: "user", attribute: "coffee", value: "甜咖啡" },
+        proposal: { messageId: "a", quote: "甜咖啡", valueQuote: "甜咖啡" } }], outcomes: [{ messageId: "u", status: "extracted" }] }) }],
+        finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
+    } });
+    const extraction = createMemoryExtraction({ store, threadId: "t", getMessages: async () => messages, model, budget, updated });
+    try {
+      extraction.afterMask("u"); extraction.idle(); await completed;
+      await new Promise<void>(resolve => setImmediate(resolve)); await extraction.pause();
+      assert.equal(calls, 1); assert.equal(extraction.diagnostics().completed, 1); assert.equal(extraction.diagnostics().failed, 0);
+      const saved = await store.readV6!(); assert.ok(saved.ok);
+      const entries = saved.value.entries.filter(entry => entry.state === "active"); assert.equal(entries.length, 1);
+      assert.equal(entries[0]!.text, quote); assert.equal(entries[0]!.uncertain, true);
+      assert.equal(saved.value.progress[0]!.throughMessageId, "u");
+    } finally { await extraction.close(); await rm(root, { recursive: true, force: true }); }
+  });
+});
 
 test("M1 ordinary automatic chat uses one writer without approval: 3 foreground calls / 2 messages; autonomous has no writer", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "cm4-primary-")));

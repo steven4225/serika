@@ -37,6 +37,8 @@ const settle = async extraction => {
     await new Promise(resolve => setImmediate(resolve));
   }
 };
+export const confirmationSatisfied = entries => entries.some(entry => entry.sources.some(source => source.kind === 'conversation' &&
+  (source.proposal || entry.identity?.value && source.quote.includes(entry.identity.value))));
 export async function evaluateM1({ cases = m1Cases(), model, outputDirectory }) {
   const root = await mkdtemp(join(tmpdir(), 'serika-cm4-eval-')), results = [];
   let dispatched = 0, cost = 0, fatal = false;
@@ -75,7 +77,7 @@ export async function evaluateM1({ cases = m1Cases(), model, outputDirectory }) 
           const checks = { completed: extraction.diagnostics().completed === 1, singleCall: requestCount === 1,
             saved: fixture.replay ? entries.every(entry => entry.text.includes(fixture.question)) : entries.length === fixture.saved,
             conflicts: v6Conflicts(entries).length === (fixture.conflicts ?? 0),
-            confirmation: !fixture.confirmed || entries.some(entry => entry.sources.some(item => item.proposal)),
+            confirmation: !fixture.confirmed || confirmationSatisfied(entries),
             uncertain: !fixture.uncertain || entries.some(entry => entry.uncertain && entry.text === fixture.messages[0].parts[0].text) };
           results.push({ case: fixture.id, window, fixture: !model, sourceHash: hashCanonicalJson(fixture.messages), rows, diagnostics: extraction.diagnostics(), checks, passed: Object.values(checks).every(Boolean) });
         } finally { mock.timers.reset(); await extraction.close(); }

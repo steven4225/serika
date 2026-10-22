@@ -24,6 +24,17 @@ export function summaryText(summary: ContextSummaryV2): string {
     ...summary.pending.map(item => item.text), ...summary.actions.filter(item => item.status !== "unknown" && item.status !== "failed").map(item => `${item.status} ${item.toolCallIds.join(",")}: ${item.text}`),
     ...summary.files.map(item => `${item.path}: ${item.purpose}`), ...(summary.nextStep ? [summary.nextStep.text] : [])].join("\n");
 }
+
+export function reduceSummarySection(summary: ContextSummaryV2, maxTokens: number): ContextSummaryV2 {
+  const reduced = { ...summary, files: [...summary.files], actions: [...summary.actions] };
+  while (reduced.files.length && estimateSerializedTokens(summaryText(reduced)) > maxTokens) reduced.files.shift();
+  while (estimateSerializedTokens(summaryText(reduced)) > maxTokens) {
+    const completed = reduced.actions.findIndex(action => action.status === "completed");
+    if (completed < 0) break;
+    reduced.actions.splice(completed, 1);
+  }
+  return reduced;
+}
 export function layerMessage(record: ContextCompactionRecord): UIMessage {
   const layers = record.layers;
   const range = (segment: Omit<SummarySegment, "summary">) => ({ messages: [segment.firstMessageId, segment.lastMessageId],
@@ -35,7 +46,7 @@ export function layerMessage(record: ContextCompactionRecord): UIMessage {
 }
 
 /** Opaque index text is retained: the host cannot identify its important clauses. */
-export function fitSummaryLayer(record: ContextCompactionRecord, maxTokens: number, hardMaxTokens = Infinity) {
+export function fitSummaryLayer(record: ContextCompactionRecord, maxTokens: number) {
   const original = layerMessage(record), originalTokens = estimateMessageTokens([original]);
   const segments = record.layers?.recent ?? [{ firstMessageId: "1", lastMessageId: String(record.firstKeptMessageIndex), timeRange: [null, null], summary: record.summary }];
   const essential = (summary: ContextSummaryV2) => summaryText({ ...summary, files: [],
@@ -58,19 +69,11 @@ export function fitSummaryLayer(record: ContextCompactionRecord, maxTokens: numb
     "Historical continuation (exact duplicate clauses shown once); history_read/search gives originals.\n" +
     `Ranges [first,last,time]: ${JSON.stringify(ranges)}\n` + requiredLines.join("\n") +
     (index.length ? "\nFar index:\n" + index.join("\n") : "") }] };
-  let indexReferenced = false;
-  if (estimateMessageTokens([minimum]) > hardMaxTokens && index.length) {
-    minimum.parts = [{ type: "text", text:
-      "Historical continuation; history_read/search gives originals.\n" +
-      `Ranges [first,last,time]: ${JSON.stringify(ranges)}\n` + requiredLines.join("\n") +
-      `\nFar index: ${index.length} clauses retained in the numbered original ranges above; use history_read/search.` }];
-    indexReferenced = true;
-  }
   const requiredTokens = estimateMessageTokens([minimum]);
   const compacted = estimateMessageTokens([message]) > maxTokens;
   if (compacted) message = minimum;
   return { message, fits: estimateMessageTokens([message]) <= maxTokens,
-    diagnostics: { originalTokens, requiredTokens, budget: maxTokens, reducedSegments, compacted, indexReferenced,
+    diagnostics: { originalTokens, requiredTokens, budget: maxTokens, reducedSegments, compacted, indexReferenced: false,
       indexDuplicateLines: compacted ? indexLines.length - index.length : 0 } };
 }
 

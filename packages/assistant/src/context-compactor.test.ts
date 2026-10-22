@@ -183,7 +183,7 @@ it("recorded array shape failures normalize only collection containers and retai
   }
 });
 
-it("recorded CE03/CE05 proportional overflows retain four old segments; bounded summary and index can publish", async () => {
+it("recorded CE03/CE05 proportional overflows preserve essentials, trim index topics and publish without retry", async () => {
   for (const config of [budget, defaultContextBudget()]) for (const overflow of ["segment", "index"] as const) {
     const limits = blockLimits(config), store = new FakeStore();
     store.messages = [user("u1", "continue"), ...Array.from({ length: 7 }, (_, i) => user(`u${i + 2}`, "x".repeat(limits.block * 2))), user("current", "continue")];
@@ -202,11 +202,11 @@ it("recorded CE03/CE05 proportional overflows retain four old segments; bounded 
     reject = true; await compactor.prepare(store.messages, signal());
     assert.equal(compactor.pending, true, JSON.stringify({ limits, overflow, boundary: store.records.at(-1)?.firstKeptMessageIndex, messages: store.messages.length }));
     await compactor.runPending(signal());
-    assert.ok(compactor.backgroundError, JSON.stringify({ limits, overflow, calls, records: store.records.length, pending: compactor.pending }));
-    assert.match(compactor.backgroundError!, /proportional budget/); assert.deepEqual(store.records, before);
-    const count = calls; await compactor.runPending(signal()); assert.equal(calls, count);
-    reject = false; await compactor.prepare(store.messages, signal()); await compactor.runPending(signal());
-    assert.equal(compactor.backgroundError, undefined); assert.equal(store.records.length, 5);
+    assert.equal(compactor.backgroundError, undefined, JSON.stringify({ limits, overflow, calls }));
+    assert.equal(store.records.length, 5);
+    const projected = await compactor.prepare(store.messages, signal());
+    if (overflow === "segment") assert.ok(JSON.stringify(projected).includes("x".repeat(limits.section * 2 + 1)));
+    assert.deepEqual(store.records.slice(0, 4), before);
     assert.equal((store.records.at(-1) as unknown as ContextCompactionRecord).layers?.recent.length, 4);
   }
 });
@@ -282,7 +282,7 @@ it("an oversized checklist stays within its section and total summary budget wit
   assert.ok(estimateMessageTokens(summaryView) <= blockLimits(budget).totalSummary);
   assert.ok(estimateContextBudget({ instructions: "instructions", messages: projected }, budget).inputTokens <= budget.inputBudgetTokens!);
   const diagnostics = await compactor.getDiagnostics(); assert.ok(diagnostics.ok);
-  assert.deepEqual(diagnostics.value.lastPreparation?.degradation?.reasons, ["checklist_overflow"]);
+  assert.deepEqual(diagnostics.value.lastPreparation?.degradation?.reasons, ["input_limit", "checklist_overflow"]);
   assert.ok(diagnostics.value.lastPreparation!.degradation!.maskedThroughMessageId);
   assert.equal(calls, 0); assert.equal(store.records.length, 0); assert.deepEqual(store.messages, before);
 });
@@ -399,7 +399,7 @@ it("C5 masks the oldest complete block for excess essential summary tokens while
   const prepared = await compactor.prepare(store.messages, signal());
   const diagnostic = await compactor.getDiagnostics(); assert.ok(diagnostic.ok);
   const layer = diagnostic.value.lastPreparation!.summaryLayer!, degradation = diagnostic.value.lastPreparation!.degradation!;
-  assert.equal(layer.checklistTokens, 193); assert.deepEqual(degradation.reasons, ["summary_overflow"]); assert.ok(layer.borrowedTokens > 0);
+  assert.equal(layer.checklistTokens, 193); assert.deepEqual(degradation.reasons, ["input_limit", "summary_overflow"]); assert.ok(layer.borrowedTokens > 0);
   assert.ok(degradation.maskedOriginalTokens! >= layer.borrowedTokens);
   assert.ok(degradation.maskedThroughMessageId); assert.equal(calls, 0); assert.equal(compactor.pending, true);
   assert.ok(diagnostic.value.lastPreparation!.estimatedInputTokens! <= 26624);
@@ -428,25 +428,26 @@ it("C5 caps borrowing at half of recent capacity, masks through the oldest block
     const result = await compactor.getDiagnostics(); assert.ok(result.ok);
     const prepared = result.value.lastPreparation!, layer = prepared.summaryLayer!, degraded = prepared.degradation!;
     assert.equal(layer.borrowLimitTokens, borrowLimit); assert.ok(layer.borrowedTokens <= borrowLimit);
-    assert.deepEqual(degraded.reasons, ["summary_overflow", "checklist_overflow"]);
+    assert.deepEqual(degraded.reasons, sizedBudget === budget ? ["input_limit", "summary_overflow", "checklist_overflow"] : ["summary_overflow", "checklist_overflow"]);
     assert.equal(prepared.outcome, exceeds ? "failed" : "reused");
-    if (exceeds) { assert.equal(layer.borrowedTokens, borrowLimit); assert.ok(layer.requiredBorrowTokens > borrowLimit); assert.equal(degraded.maskedThroughMessageId, "failure-199"); }
+    if (exceeds) { assert.equal(layer.borrowedTokens, borrowLimit); assert.ok(layer.requiredBorrowTokens > borrowLimit); assert.equal(degraded.maskedFromMessageId === null, sizedBudget !== budget); }
     else assert.ok(layer.tokens <= limits.totalSummary + borrowLimit);
     assert.deepEqual({ messages: store.messages, records: store.records }, before);
     console.info("CM_STEP6_METRICS " + JSON.stringify({ case: "C5 capped borrow", window: sizedBudget.contextWindowTokens, exceeds, ...prepared }));
   }
 });
 
-it("C5 replaces an oversized far index with numbered references before reaching the borrowing cap", () => {
+it("C5 retains opaque far-index contents instead of hiding possibly essential clauses", () => {
   const record = { firstKeptMessageIndex: 2, summary, layers: { recent: [{ firstMessageId: "u1", lastMessageId: "a1", timeRange: [null, null], summary }],
     index: [{ firstMessageId: "old-1", lastMessageId: "old-99", timeRange: [null, null], text: "index".repeat(2000) }] } } as ContextCompactionRecord;
-  const before = structuredClone(record), fitted = fitSummaryLayer(record, 1055, 3744 - 193);
-  assert.equal(fitted.fits, true); assert.equal(fitted.diagnostics.indexReferenced, true);
+  const before = structuredClone(record), fitted = fitSummaryLayer(record, 1055);
+  assert.equal(fitted.fits, false); assert.equal(fitted.diagnostics.indexReferenced, false);
+  assert.ok(JSON.stringify(fitted.message).includes(record.layers!.index[0]!.text));
   for (const text of [summary.goal.text, "old-1", "old-99", "history_read/search"]) assert.ok(JSON.stringify(fitted.message).includes(text));
   assert.deepEqual(record, before);
 });
 
-it("recorded single-object constraints normalize with diagnostics before unchanged semantic and budget checks", async () => {
+it("recorded single-object constraints normalize while essential overflow uses C5 and invalid semantics still fail", async () => {
   for (const fault of ["none", "semantic", "budget", "extra-wrapper-field"] as const) {
     const store = new FakeStore(); store.messages = seed();
     const value = { ...summary, constraints: { text: fault === "budget" ? "x".repeat(1000) : "不得部署", evidenceMessageIds: ["u1"] },
@@ -454,11 +455,14 @@ it("recorded single-object constraints normalize with diagnostics before unchang
       ...(fault === "extra-wrapper-field" ? { constraints: { items: [], text: "do not drop me" } } : {}) };
     const compactor = make(store, { complete: async () => ({ text: JSON.stringify(value) }) });
     await compactor.prepare(store.messages, signal()); await compactor.runPending(signal());
-    assert.equal(store.records.length, fault === "none" ? 1 : 0);
+    assert.equal(store.records.length, (fault === "none" || fault === "budget") ? 1 : 0);
     assert.deepEqual(compactor.backgroundNormalizations, fault === "extra-wrapper-field" ? [] : [{ field: "constraints", operation: "single_object_to_array" }]);
     const diagnostic = await compactor.getDiagnostics(); assert.ok(diagnostic.ok);
     assert.deepEqual(diagnostic.value.background?.normalizations, compactor.backgroundNormalizations);
     if (fault === "semantic") assert.deepEqual(compactor.backgroundFailure?.schemaPaths, ["decisions.0.status"]);
-    if (fault === "budget") assert.match(compactor.backgroundError!, /proportional budget/);
+    if (fault === "budget") {
+      assert.equal(compactor.backgroundError, undefined);
+      assert.ok(diagnostic.value.background!.reduction!.segmentAfter > blockLimits(budget).section);
+    }
   }
 });

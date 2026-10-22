@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { generateText } from 'ai';
+import { generateText, simulateReadableStream } from 'ai';
 import { MockLanguageModelV3 } from 'ai/test';
-import { meteredModel, safeFailure, chargedUsd, pastReadSucceeded, goalMentioned, oldGoalMentioned, summarizeBatch } from './cm-step6-live.mjs';
+import { meteredModel, safeFailure, chargedUsd, pastReadSucceeded, goalMentioned, oldGoalMentioned, summarizeBatch, uncertainMentioned, runChat } from './cm-step6-live.mjs';
 import { configureCliModel } from '@serika/assistant/internal/model-config.js';
 import { evaluateM1, m1Cases } from './cm-step4.mjs';
 
@@ -123,10 +123,86 @@ test('new live evidence reports both goal rules, safe key-value counts and every
   const summary = summarizeBatch([{ suite: 'M1', planned: 18, passed: false, results: [{ passed: false, diagnostics: { validationFailure: { reasonCode: 'SOURCE_VALUE_MISSING' } } }] },
     { suite: 'CF03', passed: false, rounds: [{ generation: 0, passed: true, passedOldRule: false, preparations: [{ stage: 'mask', diagnostics: diagnostic.lastPreparation }],
       chat: { reply, passedByRule: { old: false, new: true }, diagnostics: diagnostic } }] },
-    { suite: 'CE03', passed: false, rounds: [] }, { suite: 'CE05', passed: false, rounds: [] }]);
+    { suite: 'CF05', passed: false, rounds: [] }, { suite: 'CE03', passed: false, rounds: [] }, { suite: 'CE05', passed: false, rounds: [] }]);
   assert.equal(summary.keyValueFailures.SOURCE_VALUE_MISSING, 1); assert.equal(summary.keyValueFailures.QUOTE_VALUE_MISSING, 0);
-  assert.equal(summary.scores[2].newRule.total, 3); assert.equal(summary.scores[3].newRule.total, 5);
+  assert.deepEqual(summary.scores.map(score => [score.suite, score.newRule?.total ?? score.total]), [['M1', 18], ['CF03', 3], ['CF05', 5], ['CE03', 3], ['CE05', 5]]);
   assert.equal(summary.scores[1].newRule.passed, 1); assert.equal(summary.scores[1].oldRule.passed, 0);
   assert.equal(summary.qualifiedAnswers[0].reply, reply); assert.equal(summary.c5.count, 2);
   assert.equal(summary.c5.providerPreparationCount, 1); assert.equal(summary.c5.totalBorrowedTokensAcrossPreparations, 768);
+});
+
+test('approved goal rule scopes negation to the goal and accepts quoted titles', () => {
+  for (const text of ['按已确认方案完成验收主项目的验收报告，并补齐尚未完成的验收材料。', '完成「验收主项目验收报告」。', '不更换本地文件方案并完成验收报告。']) assert.equal(goalMentioned(text), true, text);
+  for (const text of ['不再需要完成验收报告。', '目标尚未确定，不能确认是否需要完成验收报告。', '不需要再继续完成验收报告。']) assert.equal(goalMentioned(text), false, text);
+});
+
+test('complete user confirmation value does not require an assistant proposal', async () => {
+  const fixture = m1Cases().find(item => item.id === 'confirmation');
+  const result = await evaluateM1({ cases: [{ ...fixture, proposals: fixture.proposals.map(({ proposal, ...rest }) => rest) }] });
+  assert.equal(result.calls, 0); assert.equal(result.results.every(row => row.checks.confirmation && row.passed), true);
+});
+
+
+test('approved uncertain rule accepts actual unknown effects and rejects affirmative write success', () => {
+  for (const reply of ['写入结果是 TOOL_OUTCOME_UNKNOWN，即不确定、效果未知，不能视为成功。',
+    'write_file 对 notes/uncertain.txt 的结果为 unknown，不能视为已写入。', '读取成功；写入效果未知。',
+    '写入结果 unknown（既不确认成功也不确认失败）。']) assert.equal(uncertainMentioned(reply), true, reply);
+  for (const reply of ['写入成功。', '写入已完成。', '之前读取 unknown；写入已完成。',
+    '写入结果未知，但写入已完成。', '读取状态 unknown。写入状态未说明。', '写入状态 unknown，已完成。', '写入结果未说明。天气 unknown。']) assert.equal(uncertainMentioned(reply), false, reply);
+});
+
+test('short acknowledgments cannot use a proposed value absent from the user quote', async () => {
+  const fixture = m1Cases().find(item => item.id === 'confirmation');
+  const result = await evaluateM1({ cases: [{ ...fixture, messages: [fixture.messages[0], { id: 'u', role: 'user', parts: [{ type: 'text', text: '嗯' }] }],
+    proposals: fixture.proposals.map(proposal => ({ ...proposal, sourceQuote: '嗯' })) }] });
+  assert.equal(result.calls, 0); assert.equal(result.results.every(row => !row.checks.completed && !row.checks.saved && !row.checks.confirmation), true);
+});
+
+test('recorded reference keeps the source bytes and formal scores frozen', async () => {
+  const { writeReference } = await import('./cm-step6-regrade.mjs');
+  const source = new URL('../../docs/v2-pilot/evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json', import.meta.url);
+  const before = await readFile(source), result = await writeReference({});
+  assert.equal(result.formalScoresChanged, false); assert.equal(result.realModelCalls, 0); assert.equal(result.costUsd, 0);
+  assert.deepEqual(await readFile(source), before); assert.equal(result.sourceSha256, 'b7264a5a558f9d08ff8aec2f7e55c8e640cf9d88f912a7d0557f6a64372a5226');
+  assert.deepEqual(result.scores.map(score => [score.suite, score.recordedPassed, score.referencePassed]),
+    [['M1', 12, 14], ['CF03', 1, 2], ['CF05', 1, 2], ['CE03', 0, 1], ['CE05', 1, 1]]);
+  assert.equal(result.validationReasonCounts.UNCERTAIN_QUOTE_MISMATCH, 2);
+  assert.equal(result.flips.length, 10); assert.equal(result.flips.filter(flip => flip.sourceKind === 'recorded_model_reply').length, 8);
+  assert.equal(result.rows.find(row => row.suite === 'CE05' && row.generation === 'cold').missing, true);
+});
+
+
+test('actual Controller archives the primary reply before a background summary failure', async () => {
+  const { JsonlAgentStore } = await import('@serika/core');
+  const { effectiveCompactionFidelitySpec, compactionFidelityHistory } = await import('./compaction-fidelity.mjs');
+  const root = await mkdtemp(join(tmpdir(), 'cm6-cold-archive-')), answerArchive = join(root, 'primary.json');
+  const reply = '完成验收报告。采用本地文件方案，补充失败样本。部署未获批准。写入结果 unknown，不能自动重试。读取已完成，但需新的批准。';
+  let backgroundCalls = 0, observedArchive = null;
+  const usage = { inputTokens: { total: 10 }, outputTokens: { total: 5 } };
+  const response = text => ({ stream: simulateReadableStream({ chunks: [
+      { type: 'stream-start', warnings: [] }, { type: 'text-start', id: 'answer' }, { type: 'text-delta', id: 'answer', delta: text },
+      { type: 'text-end', id: 'answer' }, { type: 'finish', finishReason: { unified: 'stop', raw: undefined }, usage },
+    ] }) });
+  let streamedCalls = 0;
+  const model = new MockLanguageModelV3({ doStream: async () => {
+    if (++streamedCalls === 1) return response(reply);
+    backgroundCalls++;
+    const deadline = Date.now() + 3000;
+    while (Date.now() < deadline) {
+      try { observedArchive = JSON.parse(await readFile(answerArchive, 'utf8')); break; }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+      await new Promise(resolve => setTimeout(resolve, 5));
+    }
+    assert.equal(observedArchive?.reply, reply); assert.equal(observedArchive?.stage, 'primary-returned');
+    return response('invalid summary output after primary archive');
+  } });
+  try {
+    const spec = effectiveCompactionFidelitySpec('CE03');
+    const store = new JsonlAgentStore({ directory: join(root, 'transcripts') });
+    await store.save('eval', compactionFidelityHistory(spec, 0).messages);
+    const result = await runChat({ model, modelAlias: 'archive-fixture', root, spec, question: spec.turns[0], label: 'cold-process', answerArchive });
+    assert.equal(backgroundCalls, 1); assert.equal(result.usageCalls, 2); assert.equal(result.reply, reply); assert.equal(observedArchive.backgroundSettled, false);
+    assert.equal(result.checks.completed, true); assert.equal(result.checks.backgroundSettled, false); assert.equal(result.passed, false);
+    assert.equal(JSON.parse(await readFile(answerArchive, 'utf8')).reply, reply);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });

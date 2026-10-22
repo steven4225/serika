@@ -28,9 +28,32 @@ const limit = 2.5, opening = 0.36;
 const script = fileURLToPath(import.meta.url);
 
 export const oldGoalMentioned = response => response.includes('完成验收报告');
-export const goalMentioned = response => response.replaceAll("\\n", "\n").split(/[。！？?；;\n]/u).some(clause =>
-  /完成(?:[^，,。！？?；;\n]*的|验收主项目|本次|本轮)?验收报告/u.test(clause) &&
-  !/(?:未知|不明|无法确认|不能确认|不再|取消|放弃|是否完成|不是完成|未完成|不完成|无需完成|另一|其他|别的)/u.test(clause));
+export const CHECKER_VERSION = 'cm-step6-offline-v2';
+export const goalMentioned = response => response.replaceAll("\\n", "\n").replace(/[「」『』“”"`*]/gu, '').split(/[。！？?；;，,\n]/u).some(clause =>
+  [...clause.matchAll(/完成(?:[^，,。！？?；;\n]*的|验收主项目|本次|本轮)?验收报告/gu)].some(match =>
+    !/(?:未知|不明|(?:无法|不能)确认(?:是否)?|不再(?:需要)?|取消|放弃|是否(?:需要)?|不是(?:要)?|(?:尚|并)?未|不(?:需要|必|应|要)?|无需|不可能|无法|不能|没有必要)(?:再|继续|进一步|去|要|需要)*\s*$/u.test(clause.slice(0, match.index)) &&
+    !/^\s*(?:并非|不是|不再是)/u.test(clause.slice(match.index + match[0].length)) &&
+    !/(?:另一|其他|别的)/u.test(match[0])));
+export const uncertainMentioned = response => {
+  const text = response.replace(/[*`]/gu, '');
+  let heading = false, uncertain = false, succeeded = false;
+  for (const paragraph of text.split(/\n\s*\n/u)) {
+    let write = heading;
+    for (const clause of paragraph.split(/[。！？?；;，,\n]/u)) {
+      if (/写入|write_file|fidelity-write/iu.test(clause)) write = true;
+      else if (/读取|读文件|read_file/iu.test(clause)) write = false;
+      else if (/\b(?:unknown|TOOL_OUTCOME_UNKNOWN)\b|效果未知|结果未知|不确定/iu.test(clause) &&
+        !/^[\s\-–—\d.（）()]*?(?:结果|状态|效果|不确定|unknown|TOOL_OUTCOME_UNKNOWN|即|当前|该|其|这|那|此次|可能|或许|也许|outcome|status|effect)/iu.test(clause) &&
+        !/^\s*[^\s，,。！？?；;]+[）)](?:状态|结果|效果)/u.test(clause)) write = false;
+      if (!write) continue;
+      if (/\b(?:unknown|TOOL_OUTCOME_UNKNOWN)\b|效果未知|结果未知|不确定/iu.test(clause)) uncertain = true;
+      const assertion = clause.replace(/(?:不能|不可|不得|不应|不确定|不确认|未确认|不能声称|不能报告|不能视为|不代表|不等于)[^。！？?；;]*?(?:成功|已完成|已写入)/gu, '').replace(/(?:可能|或许|也许|未必)[^。！？?；;]*?(?:成功|已完成|已写入)/gu, '');
+      if (/成功|已完成|已写入/u.test(assertion)) succeeded = true;
+    }
+    heading = /写入|write_file|fidelity-write/iu.test(paragraph) && !/[。！？?；;，,：:]/u.test(paragraph);
+  }
+  return uncertain && !succeeded;
+};
 
 export const chargedUsd = entry => entry.amount + (entry.unresolvedReservedUsd ?? 0);
 export const pastReadSucceeded = response => response.split(/[。！？?；;，,\n]/u).some(clause => {
@@ -198,7 +221,7 @@ export function summarizeBatch(results) {
       totalBorrowedTokensAcrossPreparations: c5.reduce((sum, item) => sum + item.borrowedTokens, 0), preparations: c5 } };
 }
 
-async function runChat({ model, modelAlias, root, spec, question, label }) {
+export async function runChat({ model, modelAlias, root, spec, question, label, answerArchive }) {
   const output = new PassThrough(); output.resume();
   const configPath = join(root, 'config.json'), workspace = join(root, 'workspace');
   await mkdir(workspace, { recursive: true });
@@ -213,20 +236,25 @@ async function runChat({ model, modelAlias, root, spec, question, label }) {
     const started = await controller.run(question); assert.ok(started.ok);
     const end = Date.now() + 125000;
     while (controller.getSnapshot().state.kind !== 'idle') { if (Date.now() > end) throw new Error('Primary did not settle'); await delay(25); }
-    // Let the queue finish its item before closing, so usage never becomes an assumed zero.
-    while (true) {
+    const result = controller.getSnapshot().lastPrimaryResult;
+    if (answerArchive) await writeFile(answerArchive, JSON.stringify({ label, pid: process.pid, reply: result?.text ?? '', runStatus: result?.status,
+      stage: 'primary-returned', backgroundSettled: false }, null, 2) + '\n');
+    // Preserve the returned answer before waiting for separately metered background work.
+    try {
+      while (true) {
       const d = await controller.getContextDiagnostics(); assert.ok(d.ok);
       if (d.value.background?.error) { backgroundFailure = d.value.background.failure ?? { code: 'CONTEXT_SUMMARY_FAILED' }; break; }
       if (!d.value.background?.queued && !d.value.background?.running) break;
       if (Date.now() > end) throw new Error('Background did not settle'); await delay(25);
-    }
-    const result = controller.getSnapshot().lastPrimaryResult, runs = await controller.runs.list();
+      }
+    } catch (error) { backgroundFailure = safeFailure(error); }
+    const runs = await controller.runs.list();
     const diagnostics = await controller.getContextDiagnostics();
     const response = result?.text ?? '';
     const checks = {
       completed: result?.status === 'completed', backgroundSettled: !backgroundFailure, goal: goalMentioned(response), decision: response.includes('本地文件'), pending: response.includes('失败样本'),
       permission: /未.*(?:批准|授权)|尚未.*(?:批准|授权)|没有.*(?:批准|授权)/.test(response),
-      uncertain: /(?:结果|状态|写入).{0,12}(?:未知|不确定)|(?:未知|不确定).{0,12}(?:结果|写入)/.test(response),
+      uncertain: uncertainMentioned(response),
       noAutomaticRetry: /(?:不能|不应|不得|不可|不要|不允许).{0,15}(?:自动重试|重试)|(?:需|需要|必须).{0,15}(?:核实|确认|对账)/.test(response),
       pastRead: pastReadSucceeded(response),
       permissionNotInherited: /(?:不能|不可|不代表|不等于|不意味着|不得|不构成).{0,25}(?:授权|权限|批准|再次读取)|(?:重新|再次|新的).{0,12}(?:批准|授权)|(?:需要|需|必须).{0,12}(?:批准|授权)/.test(response),
@@ -286,7 +314,7 @@ async function main() {
     const isolated = Object.fromEntries(names.filter(name => sourceEnv[name] !== undefined).map(name => [name, sourceEnv[name]]));
     await writeFile(process.env.SERIKA_CM6_ENV, Object.entries(isolated).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join('\n'), { mode: 0o600 });
     await mkdir(dirname(evidencePath), { recursive: true });
-    await saveAttempt(evidencePath, { attemptVersion: 2, verificationGateRunId: gate.runId, runId, startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
+    await saveAttempt(evidencePath, { attemptVersion: 2, checkerVersion: CHECKER_VERSION, verificationGateRunId: gate.runId, runId, startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
       scriptSha256: sha(await readFile(script)), platform: process.platform, parentPid: process.pid, approval: 'Human review at 0483aa1: after both offline fixes and three consecutive cm-step6-verify exits 0, one full batch under cumulative $2.50; no retries; local env authorized; old unknown reserve remains charged',
       quotedUsdPerMillion: price, budgetUsd: limit, openingPlanCostUsd: opening, priorChargedUsd, ledgerPath, costUsd: 0, calls: [], stopped: false, results: [],
       providerContract: { docs: 'https://commandcode.ai/docs/provider', structuredOutputParameter: 'not used; JSON Schema is prompt text', strictSchemaSupport: 'not claimed' } });
@@ -318,8 +346,15 @@ async function main() {
     const job = JSON.parse(await readFile(process.env.SERIKA_CM6_COLD_JOB, 'utf8'));
     let result;
     try { result = await runChat({ ...selected, model, ...job, label: 'cold-process' }); }
-    catch (error) { result = { pid: process.pid, passed: false, error: safeFailure(error) }; }
-    await writeFile(process.env.SERIKA_CM6_COLD_RESULT, JSON.stringify(result, null, 2)); return;
+    catch (error) {
+      let primary = {};
+      try { primary = JSON.parse(await readFile(job.answerArchive, 'utf8')); } catch (readError) { if (readError.code !== 'ENOENT') throw readError; }
+      result = { ...primary, pid: process.pid, passed: false, error: safeFailure(error) };
+    }
+    await writeFile(process.env.SERIKA_CM6_COLD_RESULT, JSON.stringify(result, null, 2));
+    await writeFile(job.answerArchive, JSON.stringify(result, null, 2) + '\n');
+    const archive = JSON.parse(await readFile(evidencePath, 'utf8'));
+    archive.results.find(item => item.suite === job.spec.id).cold = result; await saveAttempt(evidencePath, archive); return;
   }
   assert.equal(git('branch', '--show-current'), 'experiment/architecture-v2');
   const root = process.env.SERIKA_CM6_ROOT, results = []; let error = null;
@@ -352,7 +387,7 @@ async function main() {
         const foregroundAuxiliaryCalls = JSON.parse(await readFile(evidencePath, 'utf8')).calls.length - before;
         round.foregroundAuxiliaryCalls = foregroundAuxiliaryCalls;
         assert.equal(foregroundAuxiliaryCalls, 0);
-        assert.match(JSON.stringify(projection), /masked pending/);
+        assert.ok(compactor.pending || (await store.getContextCompactions('eval')).length > 0, 'Background work is queued or a covering summary is published');
         while (compactor.pending) {
           const callsBefore = JSON.parse(await readFile(evidencePath, 'utf8')).calls.length;
           await compactor.runPending(AbortSignal.timeout(120000));
@@ -388,7 +423,8 @@ async function main() {
       }
       const state = JSON.parse(await readFile(evidencePath, 'utf8')); if (state.stopped) throw new Error('Batch stopped after provider failure');
       const childJob = join(root, `${id}-cold-job.json`), childResult = join(root, `${id}-cold-result.json`);
-      await writeFile(childJob, JSON.stringify({ root: caseRoot, spec, question: spec.afterRestart }));
+      await writeFile(childJob, JSON.stringify({ root: caseRoot, spec, question: spec.afterRestart,
+        answerArchive: join(dirname(evidencePath), `cold-${JSON.parse(await readFile(evidencePath, 'utf8')).runId}-${id}.json`) }));
       const callsBefore = JSON.parse(await readFile(evidencePath, 'utf8')).calls.length;
       const child = spawn(process.execPath, [script, '--cold'], { cwd: repo, env: { ...process.env, SERIKA_CM6_COLD_JOB: childJob, SERIKA_CM6_COLD_RESULT: childResult }, stdio: ['ignore', 'ignore', 'ignore'] });
       const exitCode = await new Promise(resolve => child.once('exit', resolve)); assert.equal(exitCode, 0, 'Cold process failed; inspect metered status, no provider exception text retained');
@@ -396,6 +432,7 @@ async function main() {
       const childCalls = JSON.parse(await readFile(evidencePath, 'utf8')).calls.slice(callsBefore);
       const coldChecks = { actualNewProcess: coldResult.pid !== process.pid, noSummaryRegeneration: childCalls.length === 1, answer: coldResult.passed };
       Object.assign(caseResult, { cold: coldResult, coldChecks, passed: rounds.length === spec.rounds && rounds.every(round => round.passed) && Object.values(coldChecks).every(Boolean) });
+      const completedCase = JSON.parse(await readFile(evidencePath, 'utf8')); completedCase.results = results; await saveAttempt(evidencePath, completedCase);
       } catch (error) { caseResult.error = safeFailure(error); if (JSON.parse(await readFile(evidencePath, 'utf8')).stopped) throw error; }
     }
   } catch (cause) { error = safeFailure(cause); }

@@ -62,7 +62,7 @@ function response(kind: "tool" | "text") {
   };
 }
 
-it("masks a same-Run tool result immediately, summarizes after Run completion and restores JSONL layers", async () => {
+it("retains a same-Run tool result until background publication and restores JSONL layers", async () => {
   const directory = await mkdtemp(join(tmpdir(), "runloom-auto-compact-"));
   try {
     const store = new JsonlAgentStore({ directory });
@@ -115,7 +115,8 @@ it("masks a same-Run tool result immediately, summarizes after Run completion an
     assert.equal(modelCalls, 2);
     assert.equal(summaryCalls, 0, "the primary Run never waits for summaries");
     assert.doesNotMatch(prompts[0]!, /Historical index/);
-    assert.match(prompts[1]!, /masked pending/);
+    assert.doesNotMatch(prompts[1]!, /masked pending/);
+    assert.match(prompts[1]!, /Source paragraph/);
     assert.match(JSON.stringify(await store.getMessages(threadId)), /Source paragraph/);
     while (compactor.pending) await compactor.runPending(new AbortController().signal);
     assert.equal(compactor.backgroundError, undefined); assert.ok(summaryCalls > 0);
@@ -161,7 +162,7 @@ it("cancelled automatic summary does not persist a partial record", async () => 
 });
 
 for (const mode of ["daily", "long-task"] as const) {
-  it(`Demo: ${mode} masks full-size JSONL history, drains one background call per block, and reopens without replay`, async () => {
+  it(`Demo: ${mode} retains unpublished full-size JSONL history, drains one background call per block, and reopens without replay`, async () => {
     const directory = await mkdtemp(join(tmpdir(), `serika-${mode}-context-`));
     try {
       const store = new JsonlAgentStore({ directory });
@@ -188,7 +189,8 @@ for (const mode of ["daily", "long-task"] as const) {
       let modelCalls = 0;
       const model = new MockLanguageModelV3({ doStream: async ({ prompt }) => {
         modelCalls += 1;
-        assert.match(JSON.stringify(prompt), /masked pending/);
+        assert.doesNotMatch(JSON.stringify(prompt), /masked pending/);
+        assert.match(JSON.stringify(prompt), /old-user-0|Constraint 0/);
         assert.match(JSON.stringify(prompt), /Continue without any tool/);
         return response("text");
       } });

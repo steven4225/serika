@@ -36,7 +36,7 @@ import { CONTEXT_ESTIMATOR_VERSION } from "./context-budget.js";
 import { isAutoConsolidationRequest, withoutConsolidationTurns } from "./consolidation.js";
 import { expandMessageReferences } from "./context-assembler.js";
 import { placeForegroundTaskReference } from "./foreground-autonomy.js";
-import { blockLimits, maskOldestBlock, fitMessage, layerMessage, appendSummaryLayer, validLayers, summaryText, fitSummaryLayer } from "./context-blocks.js";
+import { blockLimits, maskOldestBlock, fitMessage, layerMessage, appendSummaryLayer, validLayers, summaryText, fitSummaryLayer, reduceSummarySection } from "./context-blocks.js";
 import { compactSummaryActions, createCompactionChecklist, type CompactionChecklistSources } from "./compaction-records.js";
 
 const SUMMARY_TIMEOUT_MS = 30_000;
@@ -256,7 +256,7 @@ export class ContextCompactor {
 
   async getDiagnostics(): Promise<ContextResult<ContextDiagnostics>> {
     const result = await readContextDiagnostics(this.#options.store, this.#options.threadId, this.#options.budget, this.#lastPreparation);
-    if (result.ok) result.value.background = { queued: this.pending, running: !!this.#task, error: this.#backgroundError ?? null, normalizations: this.backgroundNormalizations,
+    if (result.ok) result.value.background = { queued: this.pending, running: !!this.#task, error: this.#backgroundError ?? null, normalizations: this.backgroundNormalizations, reduction: this.#summaryReduction,
       ...(this.#backgroundFailure ? { failure: structuredClone(this.#backgroundFailure) } : {}) };
     return result;
   }
@@ -289,6 +289,7 @@ export class ContextCompactor {
   #backgroundError: string | undefined;
   #backgroundFailure: { name: string; code: string; finishReason?: string; schemaPaths: string[] } | undefined;
   #normalizations: SummaryNormalization[] = [];
+  #summaryReduction: NonNullable<ContextDiagnostics["background"]>["reduction"];
   #installedId: string | undefined;
   #reportedScale = 1;
   #extraBlock = false;
@@ -306,7 +307,7 @@ export class ContextCompactor {
       prefix = await this.#options.refreshReference(messages, signal);
       this.#effectiveReferencePrefix = prefix; this.#installedId = record.id;
     }
-    let boundary = Math.max(record?.firstKeptMessageIndex ?? 0, this.#maskedThrough);
+    let boundary = record?.firstKeptMessageIndex ?? 0;
     const initialBoundary = boundary;
     const sources = await this.#options.checklist?.();
     const requestLimit = Math.max(1, limits.section);
@@ -324,10 +325,10 @@ export class ContextCompactor {
     let reduction: NonNullable<ContextDiagnostics["lastPreparation"]>["summaryLayer"];
     const compose = () => {
       const keptIds = new Set(messages.slice(boundary).map(message => message.id));
-      const required = boundary ? createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: checklistMessages(), maxTokens: limits.section, requestReferenceOnly: !!boundedForeground || boundary <= messages.reduce((last, message, index) => message.role === "user" ? index : last, -1) }) : undefined;
+      const required = boundary ? createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: checklistMessages(), maxTokens: limits.section, hardMaxTokens: limits.section + borrowLimitTokens, preserveRecentReceipts: true, requestReferenceOnly: !!boundedForeground || boundary <= messages.reduce((last, message, index) => message.role === "user" ? index : last, -1) }) : undefined;
       checklistTokens = required ? estimateMessageTokens([required]) : 0;
       checklistOverflowTokens = (required?.metadata as { overflowTokens?: number } | undefined)?.overflowTokens ?? 0;
-      const fitted = record ? fitSummaryLayer(record, limits.totalSummary - checklistTokens, limits.totalSummary + borrowLimitTokens - checklistTokens) : undefined;
+      const fitted = record ? fitSummaryLayer(record, limits.totalSummary - checklistTokens) : undefined;
       const historical = fitted?.message;
       const tokens = checklistTokens + (historical ? estimateMessageTokens([historical]) : 0);
       requiredBorrowTokens = Math.max(0, tokens - limits.totalSummary);
@@ -344,19 +345,20 @@ export class ContextCompactor {
       measured.exceeds = measured.inputTokens > measured.availableInputTokens;
       return measured;
     };
-    if (this.#extraBlock) {
+    const overflowRetry = this.#extraBlock;
+    if (overflowRetry) {
       const next = maskOldestBlock(messages, boundary, limits.block);
       this.#extraBlock = false;
       if (next > boundary) boundary = next;
     }
     let view = compose(), measured = estimate(view);
     const recentTokens = () => estimateMessageTokens(bounded.filter(message => messages.slice(boundary).some(item => item.id === message.id)));
-    // C5 may exchange recent-original capacity for essential continuation, preserving total input capacity.
-    let requireMask = checklistOverflowTokens > limits.section || borrowedTokens > 0;
-    while (measured.exceeds || recentTokens() > Math.max(0, limits.recent + limits.block - borrowedTokens) || requiredBorrowTokens > borrowLimitTokens || requireMask) {
+    const emergencyThreshold = Math.floor(measured.availableInputTokens * (this.#options.budget.triggerRatio ?? 0.85));
+    const emergency = measured.inputTokens >= emergencyThreshold;
+    while (measured.exceeds || emergency && measured.inputTokens >= emergencyThreshold) {
       const next = maskOldestBlock(messages, boundary, limits.block);
       if (next <= boundary) break;
-      boundary = next; view = compose(); measured = estimate(view); requireMask = false;
+      boundary = next; view = compose(); measured = estimate(view);
     }
     if (measured.exceeds && requiredBorrowTokens <= borrowLimitTokens) {
       const current = bounded.reduce((last, message, index) => message.role === "user" ? index : last, -1);
@@ -372,12 +374,12 @@ export class ContextCompactor {
     this.#lastPreparation = { at: this.#now().toISOString(), outcome: record ? "reused" : "passthrough", compactionId: record?.id ?? null,
       estimatedInputTokens: measured.inputTokens, error: null,
       summaryLayer: { ...reduction!, tokens: summaryTokens },
-      ...(borrowedTokens > 0 || checklistOverflowTokens > limits.section ? { degradation: {
-        reasons: [...(requiredBorrowTokens > 0 ? ["summary_overflow" as const] : []), ...(checklistOverflowTokens > limits.section ? ["checklist_overflow" as const] : [])],
+      ...(boundary > initialBoundary || borrowedTokens > 0 || checklistOverflowTokens > limits.section ? { degradation: {
+        reasons: [...((emergency || overflowRetry) && boundary > initialBoundary ? ["input_limit" as const] : []), ...(requiredBorrowTokens > 0 ? ["summary_overflow" as const] : []), ...(checklistOverflowTokens > limits.section ? ["checklist_overflow" as const] : [])],
         borrowedTokens, borrowLimitTokens, requiredBorrowTokens, maskedOriginalTokens: estimateMessageTokens(bounded.filter(message => messages.slice(initialBoundary, boundary).some(item => item.id === message.id))),
         maskedFromMessageId: boundary > initialBoundary ? messages[initialBoundary]?.id ?? null : null,
         checklistTokens: checklistOverflowTokens, sectionBudget: limits.section,
-        maskedThroughMessageId: messages[boundary - 1]?.id ?? null } } : {}) };
+        maskedThroughMessageId: boundary > initialBoundary ? messages[boundary - 1]?.id ?? null : null } } : {}) };
     if (summaryTokens > limits.totalSummary + borrowLimitTokens) {
       const error = contextError("Essential continuation exceeds the capped C5 allocation after masking; original journal retained");
       this.#lastPreparation.outcome = "failed"; this.#lastPreparation.error = diagnosticError(error);
@@ -416,7 +418,7 @@ export class ContextCompactor {
       this.#backgroundError = undefined;
       this.#backgroundFailure = undefined;
       const covered = this.#latest?.firstKeptMessageIndex ?? 0;
-      if (covered < this.#maskedThrough) {
+      if (covered < this.#maskedThrough || estimateMessageTokens(job.messages.slice(covered)) >= blockLimits(this.#options.budget).recent) {
         const next = maskOldestBlock(job.messages, covered, blockLimits(this.#options.budget).block);
         if (next > covered) this.#pending = { ...job, end: next };
       }
@@ -437,6 +439,7 @@ export class ContextCompactor {
   async #summarize(job: NonNullable<{ messages: UIMessage[]; end: number; prefix: readonly UIMessage[]; sources?: CompactionChecklistSources }>, signal: AbortSignal): Promise<void> {
     abortIfNeeded(signal);
     this.#normalizations = [];
+    this.#summaryReduction = undefined;
     const { messages, end, prefix, sources } = job;
     const persisted = await this.#findLatestValid(messages);
     const start = persisted?.firstKeptMessageIndex ?? 0;
@@ -480,13 +483,39 @@ export class ContextCompactor {
       { cause: { finishReason: result.finishReason, schemaPaths: contextSummaryFailurePaths(result.text) } });
     const json = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(result.text)?.[1] ?? result.text;
     const raw = JSON.parse(json.slice(json.indexOf("{"), json.lastIndexOf("}") + 1)) as { farIndex?: unknown };
-    const summary = reconcilePublishedSummary(parsed, original, persisted ? { ...persisted.summary, files: [] } : undefined);
-    const layers = appendSummaryLayer({ ...(persisted ? { previous: persisted } : {}), messages, start, end, summary,
-      ...(typeof raw.farIndex === "string" ? { farIndex: raw.farIndex } : {}) });
-    if (estimateSerializedTokens(summaryText(summary)) > limits.section || estimateSerializedTokens(layers.index) > limits.section) {
-      throw contextError("Summary segment or far index exceeds its proportional budget; original block retained");
+    const reconciled = reconcilePublishedSummary(parsed, original, persisted ? { ...persisted.summary, files: [] } : undefined);
+    const summary = reduceSummarySection(reconciled, limits.section);
+    let farIndex = typeof raw.farIndex === "string" ? raw.farIndex : undefined;
+    if (archive && farIndex) {
+      const archivedThrough = messages.findIndex(message => message.id === archive.oldest.lastMessageId) + 1;
+      const records = (await this.#options.store.getContextCompactions(this.#options.threadId)).map(asContextRecord)
+        .filter((candidate): candidate is ContextCompactionRecord => candidate !== undefined &&
+          candidate.firstKeptMessageIndex <= archivedThrough && validRecord(candidate, messages));
+      const essential = (value: ContextSummaryV2) => summaryText({ ...value, files: [], actions: value.actions.filter(action => action.status === "not_executed") });
+      const segments = [...records.flatMap(record => record.layers?.recent ?? []), archive.oldest]
+        .map(segment => ({ segment, start: messages.findIndex(message => message.id === segment.firstMessageId),
+          end: messages.findIndex(message => message.id === segment.lastMessageId) + 1 }))
+        .filter(segment => segment.start >= 0 && segment.end <= archivedThrough)
+        .sort((left, right) => left.start - right.start || right.end - left.end);
+      let covered = 0;
+      const reconstructed: string[] = [];
+      for (const { segment, start, end } of segments) {
+        if (start !== covered) continue;
+        reconstructed.push(essential(segment.summary)); covered = end;
+      }
+      const required = [...new Set([...(covered === archivedThrough ? reconstructed : archive.index.map(segment => segment.text)),
+        essential(archive.oldest.summary)].flatMap(text => text.split("\n")))];
+      const optional = farIndex.split("\n").filter(line => !required.includes(line));
+      const text = () => [...required, ...optional].join("\n");
+      while (optional.length && estimateSerializedTokens(text()) + indexFraming > limits.section) optional.pop();
+      farIndex = text();
     }
-    const checklist = createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: withoutConsolidationTurns(messages.slice(0, end)), maxTokens: limits.section, requestReferenceOnly: true });
+    const layers = appendSummaryLayer({ ...(persisted ? { previous: persisted } : {}), messages, start, end, summary,
+      ...(farIndex ? { farIndex } : {}) });
+    this.#summaryReduction = { budget: limits.section, segmentBefore: estimateSerializedTokens(summaryText(reconciled)), segmentAfter: estimateSerializedTokens(summaryText(summary)),
+      indexBefore: estimateSerializedTokens(raw.farIndex ?? []), indexAfter: estimateSerializedTokens(layers.index) };
+    const checklist = createCompactionChecklist({ ...sources, permissions: sources?.permissions, messages: withoutConsolidationTurns(messages.slice(0, end)), maxTokens: limits.section,
+      hardMaxTokens: limits.section + Math.floor(limits.recent / 2), preserveRecentReceipts: true, requestReferenceOnly: true });
     const fresh = await this.#options.store.getMessages(this.#options.threadId);
     if (compactPrefixHash(fresh, end) !== compactPrefixHash(messages, end) ||
         JSON.stringify(this.#exclusions(fresh)) !== JSON.stringify(this.#exclusions(messages))) throw contextError("Summary sources changed; result discarded");
@@ -500,6 +529,10 @@ export class ContextCompactor {
       metrics: { estimatedInputBefore: estimateMessageTokens(messages), estimatedInputAfter: estimateMessageTokens([layerMessage({ layers, summary } as ContextCompactionRecord), checklist, ...messages.slice(end)]),
         durationMs: Date.now() - started, attempts: 1, ...(result.usage ? { usage: result.usage } : {}) },
     };
+    const fitted = fitSummaryLayer(record, limits.totalSummary - estimateMessageTokens([checklist]));
+    if (estimateMessageTokens([fitted.message, checklist]) > limits.totalSummary + Math.floor(limits.recent / 2)) {
+      throw contextError("Essential continuation exceeds the capped C5 allocation; original block retained");
+    }
     await this.#options.store.appendContextCompaction(asOpaqueRecord(record));
     this.#latest = record;
   }
