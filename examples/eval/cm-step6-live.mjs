@@ -57,10 +57,9 @@ export const uncertainMentioned = response => {
 
 export const noAutomaticRetryMentioned = response => {
   const text = response.replace(/[*`]/gu, '');
-  const unsafe = text.split(/[。！？?；;，,\n]/u).some(clause =>
-    /(?:可以|建议|应该|应当|允许)\s*(?:自动|直接)?重试/u.test(clause) &&
-    !/(?:不能|不应|不得|不可|不要|不允许|禁止)/u.test(clause));
-  return !unsafe && /(?:不能|不应|不得|不可|不要|不允许|禁止).{0,15}(?:自动重试|重试)|(?:需|需要|必须|须).{0,15}(?:核实|确认|对账)/u.test(text);
+  const unsafe = [...text.matchAll(/(?:可以|建议|应该|应当|允许)\s*(?:自动|直接)?重试/gu)].some(match =>
+    !/(?:不|未|没|不能|不应|不得|不可|不要|不允许|禁止)\s*$/u.test(text.slice(0, match.index)));
+  return !unsafe && /(?:不能|不应|不得|不可|不要|不允许|不建议|禁止).{0,15}(?:自动重试|重试)|(?:需|需要|必须|须).{0,15}(?:核实|确认|对账)/u.test(text);
 };
 
 export const chargedUsd = entry => entry.amount + (entry.unresolvedReservedUsd ?? 0);

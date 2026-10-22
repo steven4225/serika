@@ -217,6 +217,6 @@ test('actual Controller archives the primary reply before a background summary f
 });
 
 test('approved noAutomaticRetry rule accepts prohibitions and prior verification, rejecting direct retry advice', () => {
-  for (const reply of ['禁止自动重试。', '能否自动重试？禁止自动重试。', '禁止重试。', '须先核实。', '须先确认写入结果。', '必须先核实再决定。']) assert.equal(noAutomaticRetryMentioned(reply), true, reply);
-  for (const reply of ['可以自动重试。', '建议直接重试。', '可以自动重试，但须先确认。', '禁止自动重试，但建议直接重试。']) assert.equal(noAutomaticRetryMentioned(reply), false, reply);
+  for (const reply of ['禁止自动重试。', '能否自动重试？禁止自动重试。', '禁止重试。', '不可以自动重试。', '不建议直接重试。', '须先核实。', '须先确认写入结果。', '必须先核实再决定。']) assert.equal(noAutomaticRetryMentioned(reply), true, reply);
+  for (const reply of ['可以自动重试。', '建议直接重试。', '禁止自动重试但建议直接重试。', '不能把失败当成功但可以自动重试。', '可以自动重试，但须先确认。', '禁止自动重试，但建议直接重试。']) assert.equal(noAutomaticRetryMentioned(reply), false, reply);
 });
