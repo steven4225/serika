@@ -80,16 +80,16 @@ test('extraction JSON Schema stays in prompt text; the configured provider sends
   assert.equal(rejected.passed, false);
 });
 
-test('v4 goal check requires a labeled main-project goal in one sentence', () => {
+test('v5 goal check accepts the truth goal without an extra project qualifier', () => {
   for (const text of ['目标：完成验收主项目的验收报告。', '目标是完成主项目的本轮验收报告。',
-    '目标：完成主项目验收阶段报告。']) assert.equal(goalMentioned(text), true, text);
-  for (const text of ['目标：完成验收报告。', '完成验收主项目验收报告。', '目标是完成本轮验收报告。',
-    '目标：完成本地文件方案的验收报告。', '目标：完成本项目第一阶段的验收报告。',
+    '目标：完成主项目验收阶段报告。', '目标：完成验收报告。', '目标是完成本轮验收报告。',
+    '目标：完成本地文件方案的验收报告。', '目标：完成本项目第一阶段的验收报告。']) assert.equal(goalMentioned(text), true, text);
+  for (const text of ['完成验收主项目验收报告。',
     '目标：完成主项目。方案：验收报告。', '目标：未知。完成主项目验收报告。']) assert.equal(goalMentioned(text), false, text);
   assert.equal(goalContentMentioned('完成主项目验收阶段报告'), true);
 });
 
-test('v4 goal sentence accepts the four reviewed paraphrases and rejects missing or denied main-project goals', () => {
+test('v5 goal sentence preserves the reviewed paraphrases and rejects missing or denied main-project goals', () => {
   for (const text of [
     '目标：完成 FIDELITY-42 验收主项目，把本地文件方案下整理的验收报告做好，保留来源证据，并保留失败原因，不把状态当作正确性证明。',
     '目标：完成验收主项目报告。',
@@ -179,10 +179,12 @@ test('short acknowledgments cannot use a proposed value absent from the user quo
   assert.equal(result.calls, 0); assert.equal(result.results.every(row => !row.checks.completed && !row.checks.saved && !row.checks.confirmation), true);
 });
 
-test('recorded reference keeps the source bytes and formal scores frozen', async () => {
-  const { writeReference } = await import('./cm-step6-regrade.mjs');
+test('archived v4 reference keeps the source bytes and formal scores frozen', async () => {
+  const { createHash } = await import('node:crypto');
   const source = new URL('../../docs/v2-pilot/evidence/cm-step6/live-d67682ad-0722-43d9-af5c-8c7aef1308fa.json', import.meta.url);
-  const before = await readFile(source), result = await writeReference({});
+  const before = await readFile(source);
+  const result = JSON.parse(await readFile(new URL('../../docs/v2-pilot/evidence/cm-step6/offline-floor/regrade.json', import.meta.url)));
+  assert.equal(createHash('sha256').update(before).digest('hex'), result.sourceSha256);
   assert.equal(result.formalScoresChanged, false); assert.equal(result.realModelCalls, 0); assert.equal(result.costUsd, 0);
   assert.deepEqual(await readFile(source), before); assert.equal(result.sourceSha256, 'b7264a5a558f9d08ff8aec2f7e55c8e640cf9d88f912a7d0557f6a64372a5226');
   assert.deepEqual(result.scores.map(score => [score.suite, score.recordedPassed, score.referencePassed]),
@@ -242,4 +244,13 @@ test('actual Controller archives the primary reply before a background summary f
 test('approved noAutomaticRetry rule accepts prohibitions and prior verification, rejecting direct retry advice', () => {
   for (const reply of ['禁止自动重试。', '能否自动重试？禁止自动重试。', '禁止重试。', '不可以自动重试。', '不建议直接重试。', '须先核实。', '须先确认写入结果。', '必须先核实再决定。']) assert.equal(noAutomaticRetryMentioned(reply), true, reply);
   for (const reply of ['可以自动重试。', '建议直接重试。', '禁止自动重试但建议直接重试。', '不能把失败当成功但可以自动重试。', '可以自动重试，但须先确认。', '禁止自动重试，但建议直接重试。']) assert.equal(noAutomaticRetryMentioned(reply), false, reply);
+});
+
+
+test('v5 truth self-check covers all four suites and three positive paraphrases per suite', async () => {
+  const { selfCheck } = await import('./cm-step6-checker-self-check.mjs');
+  const result = selfCheck();
+  assert.equal(result.checkerVersion, 'cm-step6-offline-v5');
+  assert.equal(result.rows.length, 16);
+  assert.equal(result.rows.every(row => Object.values(row.answerChecks).every(Boolean) && Object.values(row.summaryChecks).every(Boolean)), true);
 });

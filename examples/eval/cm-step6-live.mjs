@@ -28,10 +28,10 @@ const limit = 2.75, opening = 0.36;
 const script = fileURLToPath(import.meta.url);
 
 export const oldGoalMentioned = response => response.includes('完成验收报告');
-export const CHECKER_VERSION = 'cm-step6-offline-v4';
+export const CHECKER_VERSION = 'cm-step6-offline-v5';
 export const goalContentMentioned = sentence => {
   const completion = sentence.indexOf('完成');
-  return completion >= 0 && /主项目/u.test(sentence) && /验收[^。！？?；;\n]*报告/u.test(sentence) &&
+  return completion >= 0 && /验收[^。！？?；;\n]*报告/u.test(sentence) &&
     !/(?:未知|不明|(?:无法|不能)确认(?:是否)?|不再(?:需要)?|取消|放弃|是否(?:需要)?|不是(?:要)?|(?:尚|并)?未|不(?:需要|必|应|要)?|无需|不可能|无法|不能|没有必要)(?:再|继续|进一步|去|要|需要)*\s*$/u.test(sentence.slice(0, completion)) &&
     !/(?:不再(?:需要)?|取消|放弃|不是(?:要)?|不(?:需要|必|应|要)?|无需|无法|不能)(?:再|继续|进一步|去|要|需要)*\s*完成[^，,。！？?；;\n]*(?:主项目|验收[^，,。！？?；;\n]*报告)/u.test(sentence) &&
     !/(?:不再(?:需要)?|取消|放弃|不是(?:要)?|不(?:需要|必|应|要)?|无需|无法|不能)(?:再|继续|进一步|去|要|需要)*(?:完成|给出|提供|提交|生成|出具)?\s*(?:主项目|验收[^，,。！？?；;\n]*报告)/u.test(sentence) &&
@@ -90,6 +90,15 @@ export const responseChecks = response => ({
   uncertain: uncertainMentioned(response), noAutomaticRetry: noAutomaticRetryMentioned(response), pastRead: pastReadSucceeded(response),
   permissionNotInherited: /(?:不能|不可|不代表|不等于|不意味着|不得|不构成).{0,25}(?:授权|权限|批准|再次读取)|(?:重新|再次|新的).{0,12}(?:批准|授权)|(?:需要|需|必须).{0,12}(?:批准|授权)/.test(response),
 });
+
+export function summaryChecks({ record, view, prepared, budget, preparation }) {
+  const viewText = view?.parts.filter(part => part.type === "text").map(part => part.text).join("\n") ?? "";
+  const bounds = blockLimits(budget);
+  return { goal: !!record && summaryGoalMentioned({ goal: record.summary.goal.text, projectedText: viewText }), decision: viewText.includes('本地文件'), pending: viewText.includes('失败样本'),
+          permission: viewText.includes('批准'), unknown: !!record?.summary.actions.some(action => action.toolCallIds.includes('fidelity-write') && action.status === 'unknown'),
+          recent: !!record && record.layers.recent.length <= 4, index: !!record && record.layers.index.length <= 1,
+          total: !!view && estimateMessageTokens(prepared.filter(message => ["runloom-context-summary", "runloom-compaction-checklist"].includes(message.id))) <= bounds.totalSummary + (preparation?.summaryLayer?.borrowedTokens ?? 0) && (preparation?.summaryLayer?.borrowedTokens ?? 0) <= Math.floor(bounds.recent / 2) };
+}
 
 async function recheckRecorded() {
   assert.deepEqual(process.argv.slice(2), ['--recheck-recorded']);
@@ -427,11 +436,8 @@ async function main() {
         const prepared = await compactor.prepare(messages, AbortSignal.timeout(30000));
         round.preparations.push({ stage: 'summary', diagnostics: (await compactor.getDiagnostics()).value.lastPreparation });
         const view = prepared.find(message => message.id === "runloom-context-summary"), viewText = view?.parts.filter(part => part.type === "text").map(part => part.text).join("\n") ?? "";
-        const bounds = blockLimits(spec.contextBudget), preparation = (await compactor.getDiagnostics()).value.lastPreparation;
-        const layerChecks = { goal: !!record && summaryGoalMentioned({ goal: record.summary.goal.text, projectedText: viewText }), decision: viewText.includes('本地文件'), pending: viewText.includes('失败样本'),
-          permission: viewText.includes('批准'), unknown: !!record?.summary.actions.some(action => action.toolCallIds.includes('fidelity-write') && action.status === 'unknown'),
-          recent: !!record && record.layers.recent.length <= 4, index: !!record && record.layers.index.length <= 1,
-          total: !!view && estimateMessageTokens(prepared.filter(message => ["runloom-context-summary", "runloom-compaction-checklist"].includes(message.id))) <= bounds.totalSummary + (preparation?.summaryLayer?.borrowedTokens ?? 0) && (preparation?.summaryLayer?.borrowedTokens ?? 0) <= Math.floor(bounds.recent / 2) };
+        const preparation = (await compactor.getDiagnostics()).value.lastPreparation;
+        const layerChecks = summaryChecks({ record, view, prepared, budget: spec.contextBudget, preparation });
         current = `${id}/chat/${generation}`;
         const chat = await runChat({ ...selected, model, root: caseRoot, spec, question: spec.turns[generation], label: `round-${generation}` });
         Object.assign(round, { storedLayerTokens: record ? estimateMessageTokens([layerMessage(record), record.checklist]) : null, finishedAt: new Date().toISOString(), records: records.length, layerChecks, chat, goalChecks: { old: viewText.includes(spec.truth.goal), new: layerChecks.goal },

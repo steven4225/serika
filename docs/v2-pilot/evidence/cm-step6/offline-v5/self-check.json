@@ -1,0 +1,721 @@
+{
+  "runId": "ed938d0d-7530-4c52-939d-68c246921084",
+  "generatedAt": "2026-10-22T09:42:22.150Z",
+  "checkerVersion": "cm-step6-offline-v5",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "rows": [
+    {
+      "suite": "CF03",
+      "variant": 0,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "目标：完成验收报告。已确认决定：采用本地文件方案。待办：补充失败样本。部署尚未获批准。读取文件成功。写入结果 unknown，不能视为成功，不得自动重试。再次读取需要新的授权。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"完成验收报告\\n部署尚未获批准\\nuser/confirmed: 采用本地文件方案\\n补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    },
+    {
+      "suite": "CF03",
+      "variant": 1,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "**目标**：按已确认方案完成验收报告，保留尚未完成的材料。决定为采用本地文件方案。未完成事项是补充失败样本。部署尚未获批准。此前读文件已完成。write_file 结果 TOOL_OUTCOME_UNKNOWN；须先核实效果。旧回执不构成新的授权。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"按已确认方案完成验收报告\\n已确认约定：部署尚未获批准\\nuser/confirmed: 已确认约定：采用本地文件方案\\n已确认约定：补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    },
+    {
+      "suite": "CF03",
+      "variant": 2,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "目标是继续完成验收报告并保留来源证据。已确认采用本地文件方案，下一步补充失败样本。部署尚未获批准。之前成功读取了文件。写入效果未知，禁止自动重试。重新读取需批准。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"继续完成验收报告并保留来源证据\\n继续保持部署尚未获批准\\nuser/confirmed: 继续保持采用本地文件方案\\n继续保持补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    },
+    {
+      "suite": "CF03",
+      "variant": 3,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "目标：依既定决定完成验收报告，并补齐未完成材料。方案保持采用本地文件方案。待办仍为补充失败样本。部署尚未获批准。文件读取状态 completed。写入结果不确定，不能报告已写入；应先核实实际影响，不应重试。旧读取成功不代表新的权限。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"依既定决定完成验收报告，并补齐未完成材料\\n当前任务中，部署尚未获批准\\nuser/confirmed: 当前任务中，采用本地文件方案\\n当前任务中，补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    },
+    {
+      "suite": "CF05",
+      "variant": 0,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "目标：完成验收报告。已确认决定：采用本地文件方案。待办：补充失败样本。部署尚未获批准。读取文件成功。写入结果 unknown，不能视为成功，不得自动重试。再次读取需要新的授权。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"完成验收报告\\n部署尚未获批准\\nuser/confirmed: 采用本地文件方案\\n补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    },
+    {
+      "suite": "CF05",
+      "variant": 1,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "**目标**：按已确认方案完成验收报告，保留尚未完成的材料。决定为采用本地文件方案。未完成事项是补充失败样本。部署尚未获批准。此前读文件已完成。write_file 结果 TOOL_OUTCOME_UNKNOWN；须先核实效果。旧回执不构成新的授权。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"按已确认方案完成验收报告\\n已确认约定：部署尚未获批准\\nuser/confirmed: 已确认约定：采用本地文件方案\\n已确认约定：补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    },
+    {
+      "suite": "CF05",
+      "variant": 2,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "目标是继续完成验收报告并保留来源证据。已确认采用本地文件方案，下一步补充失败样本。部署尚未获批准。之前成功读取了文件。写入效果未知，禁止自动重试。重新读取需批准。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"继续完成验收报告并保留来源证据\\n继续保持部署尚未获批准\\nuser/confirmed: 继续保持采用本地文件方案\\n继续保持补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    },
+    {
+      "suite": "CF05",
+      "variant": 3,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "目标：依既定决定完成验收报告，并补齐未完成材料。方案保持采用本地文件方案。待办仍为补充失败样本。部署尚未获批准。文件读取状态 completed。写入结果不确定，不能报告已写入；应先核实实际影响，不应重试。旧读取成功不代表新的权限。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"依既定决定完成验收报告，并补齐未完成材料\\n当前任务中，部署尚未获批准\\nuser/confirmed: 当前任务中，采用本地文件方案\\n当前任务中，补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    },
+    {
+      "suite": "CE03",
+      "variant": 0,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "目标：完成验收报告。已确认决定：采用本地文件方案。待办：补充失败样本。部署尚未获批准。读取文件成功。写入结果 unknown，不能视为成功，不得自动重试。再次读取需要新的授权。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"完成验收报告\\n部署尚未获批准\\nuser/confirmed: 采用本地文件方案\\n补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    },
+    {
+      "suite": "CE03",
+      "variant": 1,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "**目标**：按已确认方案完成验收报告，保留尚未完成的材料。决定为采用本地文件方案。未完成事项是补充失败样本。部署尚未获批准。此前读文件已完成。write_file 结果 TOOL_OUTCOME_UNKNOWN；须先核实效果。旧回执不构成新的授权。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"按已确认方案完成验收报告\\n已确认约定：部署尚未获批准\\nuser/confirmed: 已确认约定：采用本地文件方案\\n已确认约定：补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    },
+    {
+      "suite": "CE03",
+      "variant": 2,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "目标是继续完成验收报告并保留来源证据。已确认采用本地文件方案，下一步补充失败样本。部署尚未获批准。之前成功读取了文件。写入效果未知，禁止自动重试。重新读取需批准。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"继续完成验收报告并保留来源证据\\n继续保持部署尚未获批准\\nuser/confirmed: 继续保持采用本地文件方案\\n继续保持补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    },
+    {
+      "suite": "CE03",
+      "variant": 3,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "目标：依既定决定完成验收报告，并补齐未完成材料。方案保持采用本地文件方案。待办仍为补充失败样本。部署尚未获批准。文件读取状态 completed。写入结果不确定，不能报告已写入；应先核实实际影响，不应重试。旧读取成功不代表新的权限。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"依既定决定完成验收报告，并补齐未完成材料\\n当前任务中，部署尚未获批准\\nuser/confirmed: 当前任务中，采用本地文件方案\\n当前任务中，补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    },
+    {
+      "suite": "CE05",
+      "variant": 0,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "目标：完成验收报告。已确认决定：采用本地文件方案。待办：补充失败样本。部署尚未获批准。读取文件成功。写入结果 unknown，不能视为成功，不得自动重试。再次读取需要新的授权。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"完成验收报告\\n部署尚未获批准\\nuser/confirmed: 采用本地文件方案\\n补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    },
+    {
+      "suite": "CE05",
+      "variant": 1,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "**目标**：按已确认方案完成验收报告，保留尚未完成的材料。决定为采用本地文件方案。未完成事项是补充失败样本。部署尚未获批准。此前读文件已完成。write_file 结果 TOOL_OUTCOME_UNKNOWN；须先核实效果。旧回执不构成新的授权。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"按已确认方案完成验收报告\\n已确认约定：部署尚未获批准\\nuser/confirmed: 已确认约定：采用本地文件方案\\n已确认约定：补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    },
+    {
+      "suite": "CE05",
+      "variant": 2,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "目标是继续完成验收报告并保留来源证据。已确认采用本地文件方案，下一步补充失败样本。部署尚未获批准。之前成功读取了文件。写入效果未知，禁止自动重试。重新读取需批准。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"继续完成验收报告并保留来源证据\\n继续保持部署尚未获批准\\nuser/confirmed: 继续保持采用本地文件方案\\n继续保持补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    },
+    {
+      "suite": "CE05",
+      "variant": 3,
+      "truth": {
+        "goal": "完成验收报告",
+        "decision": "采用本地文件方案",
+        "pending": "补充失败样本",
+        "permission": "部署尚未获批准"
+      },
+      "answer": "目标：依既定决定完成验收报告，并补齐未完成材料。方案保持采用本地文件方案。待办仍为补充失败样本。部署尚未获批准。文件读取状态 completed。写入结果不确定，不能报告已写入；应先核实实际影响，不应重试。旧读取成功不代表新的权限。",
+      "summaryProjection": {
+        "id": "runloom-context-summary",
+        "role": "assistant",
+        "metadata": {
+          "source": "context-compaction"
+        },
+        "parts": [
+          {
+            "type": "text",
+            "text": "Historical index and summaries; history_read/search gives originals:\n{\"index\":[],\"recent\":[{\"messages\":[\"u\",\"w\"],\"time\":[null,null],\"text\":\"依既定决定完成验收报告，并补齐未完成材料\\n当前任务中，部署尚未获批准\\nuser/confirmed: 当前任务中，采用本地文件方案\\n当前任务中，补充失败样本\"}]}"
+          }
+        ]
+      },
+      "answerChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "uncertain": true,
+        "noAutomaticRetry": true,
+        "pastRead": true,
+        "permissionNotInherited": true
+      },
+      "summaryChecks": {
+        "goal": true,
+        "decision": true,
+        "pending": true,
+        "permission": true,
+        "unknown": true,
+        "recent": true,
+        "index": true,
+        "total": true
+      }
+    }
+  ],
+  "answerCheckCount": 128,
+  "summaryCheckCount": 128,
+  "scriptHashes": {
+    "cm-step6-live.mjs": "f45f10aa5f644fdc450d9e8ffef81d45d48f53f38d7455cca00c611b4e43c46a",
+    "cm-step6-live.test.mjs": "6ee1fbaf02cf9fb428d29e24d02bfcdfaa960c97719fcbd1e5cac98825c43893",
+    "cm-step6-checker-self-check.mjs": "ee5401d21557a8072b6d32dd56dee5fc2ff2e36c98cd216fbb11c1a8cb8c0262",
+    "compaction-fidelity.mjs": "1da5c86dc874fab35abe73e071f3079283b25dc912a9463ae87f6c5a335cfac0"
+  }
+}
