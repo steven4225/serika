@@ -3,7 +3,8 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { createMemoryStore, MEMORY_CONTEXT_MAX_BYTES, memoryContextBytes, selectInjectableMemoryEntries } from "./memory-store.js";
+import { MEMORY_CONTEXT_MAX_BYTES, selectInjectableMemoryEntries } from "./memory-types.js";
+import { createMemoryStore } from "./memory-v6-store.js";
 import { createCheckpointStore } from "./checkpoint-store.js";
 import type { TaskRecordV3, TaskStore, TaskListInput, TaskSummaryV3 } from "./task-store.js";
 import { TASK_LIST_MAX_LIMIT } from "./task-store.js";
@@ -80,7 +81,6 @@ describe("task-worker workspace snapshot", () => {
       reads += 1;
       return { ok: true, entries: [
         { id: "workspace", revision, text: `M10 plan revision ${revision}`, enabled: true },
-        { id: "private", revision: 1, text: "M10 plan private", enabled: true, scope: { kind: "thread", threadId: "worker-new-thread" } },
         { id: "unrelated", revision: 1, text: "vegetable garden", enabled: true },
       ] };
     } } as ReturnType<typeof createMemoryStore>;
@@ -101,11 +101,7 @@ describe("task-worker workspace snapshot", () => {
       const memory = createMemoryStore(root);
       for (let index = 0; index < 10; index++) assert.equal((await memory.add({ text: `project snapshot ${index}: ${"x".repeat(1300)}` })).ok, true);
       const all = await memory.list(); assert.ok(all.ok);
-      assert.ok(memoryContextBytes(selectInjectableMemoryEntries(all.entries)) > MEMORY_CONTEXT_MAX_BYTES);
-      assert.equal((await memory.commitCandidateBatch({ batchId: "candidate-batch", originThreadId: "user-thread", expectedCursor: null, nextCursor: null, candidates: [{
-        change: { operation: "add", text: "pending secret", scope: { kind: "workspace" }, expiresAt: null },
-        source: { kind: "conversation", threadId: "user-thread", messageId: "source", quote: "pending secret" }, reason: "test",
-      }] }, undefined, { boundThreadId: "user-thread" })).ok, false);
+      assert.ok(Buffer.byteLength(JSON.stringify(selectInjectableMemoryEntries(all.entries))) > MEMORY_CONTEXT_MAX_BYTES);
       const context = await createTaskWorkerContextLoader(root, attentionStore(() => undefined))(claimedTask(), new AbortController().signal);
       const serialized = JSON.stringify(context.referenceMessages);
       assert.match(serialized, /memoryTruncated.*true/);
@@ -138,9 +134,8 @@ describe("task-worker workspace snapshot", () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-worker-context-populated-"));
     try {
       const memory = createMemoryStore(root);
-      const workspaceEntry = await memory.add({ text: "Use the M10 plan", scope: { kind: "workspace" } });
+      const workspaceEntry = await memory.add({ text: "Use the M10 plan" });
       assert.equal(workspaceEntry.ok, true);
-      assert.equal((await memory.add({ text: "private thread note", scope: { kind: "thread", threadId: "creator-thread" } })).ok, true);
       assert.equal((await memory.add({ text: "disabled fact", enabled: false })).ok, true);
       const checkpoint = await createCheckpointStore(root).saveNextVersion({
         expectedVersion: null,

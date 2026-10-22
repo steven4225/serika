@@ -7,6 +7,7 @@ import { simulateReadableStream, tool, type UIMessage } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { z } from "zod";
 import {
+  AgentError,
   DefaultAgentRuntime,
   InMemoryAgentCatalog,
   JsonlAgentStore,
@@ -228,3 +229,68 @@ for (const mode of ["daily", "long-task"] as const) {
     }
   });
 }
+
+for (const sizedBudget of [budget, defaultContextBudget()]) it(`unknown write failure retains the original request and receipt in the next request, compaction and cold restart (${sizedBudget.contextWindowTokens})`, async () => {
+  const directory = await mkdtemp(join(tmpdir(), "serika-unknown-history-"));
+  const request = "请只调用一次 write_file；结果未知就停止，不重试、不读回，不说成成功或失败";
+  const unknownDefinition = { ...definition, tools: ["write_file"] };
+  let invocations = 0;
+  try {
+    const store = new JsonlAgentStore({ directory });
+    const model = new MockLanguageModelV3({ doStream: async () => ({ stream: simulateReadableStream({ chunks: [
+      { type: "stream-start" as const, warnings: [] },
+      { type: "tool-call" as const, toolCallId: "unknown-write", toolName: "write_file", input: "{}" },
+      { type: "finish" as const, finishReason: { unified: "tool-calls" as const, raw: undefined }, usage },
+    ] }) }) });
+    const runtime = new DefaultAgentRuntime({ catalog: new InMemoryAgentCatalog([unknownDefinition]), store,
+      loop: new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ mock: model }), tools: new ToolRegistry([{
+        metadata: { name: "write_file", version: "1", risk: "write", timeoutMs: 1_000, idempotent: false },
+        tool: tool({ inputSchema: z.object({}), outputSchema: z.object({ ok: z.boolean() }), execute: async () => {
+          invocations++;
+          throw new AgentError({ code: "TOOL_OUTCOME_UNKNOWN", message: "Receipt lost after dispatch", retryable: false, phase: "tool" });
+        } }),
+      }]) }),
+    });
+    const failed = await (await runtime.run({ agentId: definition.id, threadId,
+      messages: [message("unknown-request", "user", request)] })).result;
+    assert.equal(failed.status, "failed"); assert.equal(failed.error?.code, "TOOL_OUTCOME_UNKNOWN");
+    const saved = await store.getMessages(threadId);
+    assert.equal(saved[0]?.parts[0]?.type === "text" && saved[0].parts[0].text, request);
+    assert.match(JSON.stringify(saved), /TOOL_OUTCOME_UNKNOWN/);
+    const next = async (currentStore: JsonlAgentStore, compactor?: ContextCompactor) => {
+      const checking = new MockLanguageModelV3({ doStream: async ({ prompt }) => {
+        const text = JSON.stringify(prompt);
+        assert.ok(text.includes(request), "exact failed request must reach the provider input");
+        assert.match(text, /unknown-write/); assert.match(text, /unknown|TOOL_OUTCOME_UNKNOWN/);
+        return response("text");
+      } });
+      const nextRuntime = new DefaultAgentRuntime({ catalog: new InMemoryAgentCatalog([{ ...definition, tools: [] }]), store: currentStore,
+        loop: new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ mock: checking }), tools: new ToolRegistry() }),
+        ...(compactor ? { prepareModelContext: ({ messages, signal }) => compactor.prepare(messages, signal) } satisfies Pick<ConstructorParameters<typeof DefaultAgentRuntime>[0], "prepareModelContext"> : {}),
+      });
+      assert.equal((await (await nextRuntime.run({ agentId: definition.id, threadId,
+        messages: [message(`next-${(await currentStore.getMessages(threadId)).length}`, "user", "继续说明当前状态，不调用工具")] })).result).status, "completed");
+    };
+    await next(store);
+    await store.save(threadId, [...await store.getMessages(threadId), ...Array.from({ length: 12 }, (_, i) => [
+      message(`padding-user-${i}`, "user", "旧讨论 ".repeat(1_200)), message(`padding-answer-${i}`, "assistant", "旧回复 ".repeat(1_200)),
+    ]).flat()]);
+    const makeCompactor = (currentStore: JsonlAgentStore) => new ContextCompactor({ store: currentStore, threadId, modelId: "mock", budget: sizedBudget,
+      summarizer: { async complete() { return { text: JSON.stringify({ version: 2, goal: { text: "继续当前工作", evidenceMessageIds: ["unknown-request"] },
+        constraints: [], decisions: [], actions: [], pending: [], files: [], nextStep: null, farIndex: "Earlier conversation" }) }; } },
+      fixedContext: () => ({ instructions: definition.instructions, tools: [], dynamicContext: "" }),
+    });
+    const compactor = makeCompactor(store);
+    await compactor.prepare(await store.getMessages(threadId), new AbortController().signal);
+    while (compactor.pending) await compactor.runPending(new AbortController().signal);
+    assert.equal(compactor.backgroundError, undefined);
+    const records = await store.getContextCompactions(threadId);
+    assert.ok(records.length > 0, "exercise a persisted compaction, not a no-op");
+    assert.ok(records.some(record => typeof record.firstKeptMessageIndex === "number" && record.firstKeptMessageIndex >= 2), "failed turn must be inside the summarized prefix");
+    await next(store, compactor);
+    await compactor.close();
+    const reopened = new JsonlAgentStore({ directory });
+    await next(reopened, makeCompactor(reopened));
+    assert.equal(invocations, 1, "failed write is never replayed");
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

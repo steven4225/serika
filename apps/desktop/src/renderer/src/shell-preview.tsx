@@ -35,7 +35,7 @@ for (const thread of threads) {
   ]);
 }
 const snapshot: UiSnapshot = { state: { kind: "idle" }, canSubmit: true, canSteer: false, steers: [], pendingApproval: null, recentOutput: "", outputTruncated: false,
-  toolActivity: [], lastPrimaryResult: null, lastConsolidationResult: null, resultTextTruncated: false, shellProgress: [] };
+  toolActivity: [], lastPrimaryResult: null, resultTextTruncated: false, shellProgress: [] };
 let infoPatch: Partial<AppInfo> = {};
 const info = (): AppInfo => ({ entryMode: "test", configPath: "/preview/config.json", threadId,
   directory: "/preview/transcripts", workspaceRoot: "/preview/Serika", modelAlias: "mock", modelId: "界面示例（不调用模型）",

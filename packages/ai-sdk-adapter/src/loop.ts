@@ -1,6 +1,6 @@
 import { reportedContextOverflow } from "./model-errors.js";
 import { asSchema, convertToModelMessages, stepCountIs, streamText, type LanguageModelUsage, type UIMessage } from "ai";
-import { AgentError, type AfterToolCallInput, type AgentLoop, type AgentLoopInput, type TokenUsage } from "@serika/core";
+import { AgentError, type AfterToolCallInput, type AgentLoop, type AgentLoopInput, type LoopOutcome, type TokenUsage } from "@serika/core";
 import { abortReason, awaitWithSignal, invocationDeadline, modelStreamWithSignal, sleepWithSignal, throwIfAborted } from "./abort.js";
 import { isStartedModelOutput, modelFailureError, validateStepOutcome } from "./model-errors.js";
 import type { ModelRegistry, ToolRegistry } from "./registries.js";
@@ -48,7 +48,7 @@ export class AiSdkAgentLoop implements AgentLoop {
     this.#modelRetryDelaysMs = options.modelRetryDelaysMs ? [...options.modelRetryDelaysMs] : [];
   }
 
-  async execute<TContext>(input: AgentLoopInput<TContext>) {
+  async execute<TContext>(input: AgentLoopInput<TContext>): Promise<LoopOutcome> {
     const { definition, signal } = input;
     const executableTools = this.#tools.resolve(definition.tools);
     const modelTools = this.#tools.definitions(definition.tools);
@@ -247,8 +247,9 @@ export class AiSdkAgentLoop implements AgentLoop {
             // Never disguise an unconfirmed side effect as an ordinary failure.
             const unknown = toolOutcomeUnknown(call.toolName,
               timedOut ? `execution timed out after ${timeoutMs}ms` : "execution failed before a result was confirmed", error);
-            await input.emit("tool.call.failed", { toolCallId: call.toolCallId, toolName: call.toolName, error: unknown.data });
-            throw unknown;
+            await failCall(call, unknown);
+            messages.push({ id: input.generateId(), role: "assistant", parts: assistantParts });
+            return { text: stepText, messages, steps, usage: totalUsage, stopReason: "failed" as const, error: unknown.data };
           }
           await failCall(call, toolError("TOOL_EXECUTION_FAILED", call.toolName,
             timedOut ? `Tool execution timed out after ${timeoutMs}ms: ${call.toolName}` : `Tool execution failed: ${call.toolName}`, error));

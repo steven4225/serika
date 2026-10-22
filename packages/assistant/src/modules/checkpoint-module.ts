@@ -114,8 +114,8 @@ const checkpointPrepareOutputSchema = z.discriminatedUnion("ok", [
     current: checkpointSnapshotSchema.nullable(),
     memories: z.array(z.object({ id: z.string(), text: z.string() }).strict()),
     selection: z.object({
-      bytes: z.number(), truncated: z.boolean(), queryTruncated: z.boolean(), eligibleCount: z.number(),
-      temporalView: z.object({ validAt: z.string(), knownAt: z.string() }).strict(),
+      bytes: z.number(), truncated: z.boolean(), queryTruncated: z.boolean().optional(), eligibleCount: z.number(),
+      temporalView: z.object({ validAt: z.string(), knownAt: z.string() }).strict().optional(),
       selected: z.array(z.object({ id: z.string(), revision: z.number(), reason: z.enum(["pinned", "snapshot"]),
         assertion: z.object({ assertionId: z.string(), kind: z.enum(["preference", "fact", "event", "note"]), state: z.enum(["asserted", "retracted"]),
           validTime: z.object({ from: z.string().nullable(), to: z.string().nullable(), basis: z.enum(["explicit", "reported", "unknown"]) }).strict(),

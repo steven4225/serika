@@ -6,8 +6,8 @@ import { afterEach, describe, it } from "node:test";
 import { createDreamingService, type DreamingBatch, type DreamingResult } from "./dreaming.js";
 import type { WorkTask, WorkTaskStore } from "./work-task-store.js";
 import type { ExecutionRecordStore, ExecutionRunRecord } from "./execution-record-store.js";
-import type { MemoryEntry, WorkspaceMemoryStore } from "./memory-store.js";
-import { createMemoryStore } from "./memory-store.js";
+import type { MemoryEntry, WorkspaceMemoryStore } from "./memory-types.js";
+import { createMemoryStore } from "./memory-v6-store.js";
 
 const directories: string[] = [];
 afterEach(async () => { await Promise.all(directories.splice(0).map(d => rm(d, { recursive: true, force: true }))); });
@@ -226,7 +226,7 @@ describe("host-managed dreaming experience skills", () => {
 
   it("binds actual injected Memory revisions and suppresses a skill after memory changes or withdrawal", async () => {
     const f = await fixture();
-    let memory: MemoryEntry = { id: "memory-a", revision: 1, text: "复盘偏好", enabled: true, status: "active", scope: { kind: "workspace" } };
+    let memory: MemoryEntry = { id: "memory-a", revision: 1, text: "复盘偏好", enabled: true, status: "active" };
     for (const run of f.runs.values()) run.memoryReferences = [{ id: memory.id, revision: 1 }];
     const memoryStore = { get: async () => ({ ok: true, entry: structuredClone(memory) }) } as unknown as WorkspaceMemoryStore;
     const service = createDreamingService({ workspaceRoot: f.root, workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
@@ -243,7 +243,7 @@ describe("host-managed dreaming experience skills", () => {
   it("does not consume Thread-private Memory experience into a workspace-wide method", async () => {
     const f = await fixture();
     const memoryStore = createMemoryStore(f.root);
-    const saved = await memoryStore.add({ text: "仅本对话的复盘约束", scope: { kind: "thread", threadId: "thread-common" } });
+    const saved = await memoryStore.add({ text: "仅本对话的复盘约束" });
     assert.ok(saved.ok);
     assert.ok(saved.entry.revision);
     for (const task of f.tasks) task.threadId = "thread-common";
@@ -257,17 +257,16 @@ describe("host-managed dreaming experience skills", () => {
     await assert.rejects(readFile(join(f.root, ".runloom/dreaming.json")), { code: "ENOENT" });
   });
 
-  it("suppresses legacy Thread-dependent methods consistently in overview, same-Thread selection and restoration", async () => {
+  it("suppresses disabled Memory-dependent methods consistently in overview, selection and restoration", async () => {
     const f = await fixture();
-    let memory: MemoryEntry = { id: "legacy-dependency", revision: 1, text: "复盘方法", enabled: true, status: "active", scope: { kind: "workspace" } };
+    let memory: MemoryEntry = { id: "legacy-dependency", revision: 1, text: "复盘方法", enabled: true, status: "active" };
     for (const run of f.runs.values()) run.memoryReferences = [{ id: memory.id, revision: 1 }];
     const memoryStore = { get: async () => ({ ok: true, entry: structuredClone(memory) }) } as unknown as WorkspaceMemoryStore;
     const service = createDreamingService({ workspaceRoot: f.root, workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
     const batch = value(await service.prepare()); assert.ok(batch);
     const learned = value(await service.commit(batch, response(batch))), id = learned.skillIds[0]!;
-    // Represents old persisted derived data depending on Thread-only Memory.
-    // New prepare() must reject such source material, and old data cannot bypass it.
-    memory = { ...memory, scope: { kind: "thread", threadId: "thread-task-a" } };
+    // A method cannot revive a disabled dependency.
+    memory = { ...memory, enabled: false };
     assert.equal(value(await service.overview()).skills[0]!.needsReview, true);
     assert.deepEqual(value(await service.index("thread-task-a")), []);
     assert.deepEqual(value(await service.index("other-thread")), []);
@@ -287,7 +286,7 @@ describe("host-managed dreaming experience skills", () => {
     // Individually eligible experiences must still fail if one learned method
     // would combine different versions of the same logical Memory.
     const memoryStore = { get: async () => ({ ok: true, entry: { id: "memory-a", revision: ++memoryReads % 2 ? 1 : 2,
-      text: "复盘偏好", enabled: true, status: "active", scope: { kind: "workspace" } } }) } as unknown as WorkspaceMemoryStore;
+      text: "复盘偏好", enabled: true, status: "active" } }) } as unknown as WorkspaceMemoryStore;
     const service = createDreamingService({ workspaceRoot: f.root, workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
     const batch = value(await service.prepare()); assert.ok(batch);
     const mixed = await service.commit(batch, response(batch)); assert.ok(!mixed.ok); assert.equal(mixed.error.code, "DREAMING_SOURCE_INVALID");

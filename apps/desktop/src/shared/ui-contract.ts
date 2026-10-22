@@ -6,7 +6,7 @@ import type { BackupResult, RestoreResult, RestorePreview } from "./backup.js";
 import type { ResidentServiceState } from "./resident-service.js";
 import type { ConversationDraftScope, ConversationDraft, ConversationDraftState, DesktopSteerInput, DesktopSteerResponse, TaskDraftUpdate } from "./conversation-drafts.js";
 import type { FormalMemory, MemoryPage, MemoryListInput, MemoryEditInput } from "@serika/assistant";
-import type { MemoryAction, MemoryActionPreview, MemoryHistoryInput, MemoryHistoryPage, MemoryMaintenance } from "@serika/assistant";
+import type { MemoryAction, MemoryMaintenance } from "@serika/assistant";
 import type { AssistantRunOptions, AssistantSteerRecord, AutomationResult } from "@serika/assistant";
 export type { AssistantSteerRecord } from "@serika/assistant";
 import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@serika/assistant";
@@ -129,7 +129,6 @@ export interface UiSnapshot {
   outputTruncated: boolean;
   toolActivity: readonly ToolActivity[];
   lastPrimaryResult: RunResult | null;
-  lastConsolidationResult: RunResult | null;
   resultTextTruncated: boolean;
   /** Main-process buffer. The controller snapshot does not include live Shell output. */
   shellProgress: readonly ShellProgressChunk[];
@@ -271,8 +270,6 @@ export interface RendererApi {
   listMemories(input?: MemoryListInput): Promise<MemoryResult<MemoryPage>>;
   getMemory(id: string): Promise<MemoryResult<FormalMemory>>;
   updateMemory(input: MemoryEditInput): Promise<MemoryResult<FormalMemory>>;
-  getMemoryHistory(input: MemoryHistoryInput): Promise<MemoryResult<MemoryHistoryPage>>;
-  previewMemoryAction(input: MemoryAction): Promise<MemoryResult<MemoryActionPreview>>;
   applyMemoryAction(input: MemoryAction): Promise<MemoryResult<FormalMemory | null>>;
   getMemoryMaintenance(): Promise<MemoryResult<MemoryMaintenance>>;
   getMemoryReferences(): Promise<(MemoryReferenceSnapshot & { runId: string }) | null>;

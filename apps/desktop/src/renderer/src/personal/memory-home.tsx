@@ -78,7 +78,7 @@ export function MemoryCategoryFolder({ category, entries, now, onBack, onOpen }:
       <strong>{memoryItemTitle(entry.preview)}</strong>
       <small>{memoryUpdatedLabel(entry.updatedAt ?? entry.createdAt, now)}</small>
       <p>{entry.preview.replace(/^#{1,6}\s+/gm, "").trim() || "当前没有适用内容"}{entry.truncated ? "…" : ""}</p>
-      <span className="memory-source-line">{memorySourcePhrase(entry.assertion?.sourceIds ?? [])}</span>
+      <span className="memory-source-line">{memorySourcePhrase(entry.sourceKinds ?? [])}</span>
     </button>)}
   </div>;
 }
@@ -104,7 +104,7 @@ export function MemoryUnderstanding({ entries, texts, now, onBack }: {
           const body = saved !== undefined && saved !== "" ? saved : `${entry.preview}${entry.truncated ? "…" : ""}`;
           return <article key={entry.id}>
             <MessageContent text={body || "当前没有适用内容"} />
-            <p className="memory-source-line">{memorySourcePhrase(entry.assertion?.sourceIds ?? [])}</p>
+            <p className="memory-source-line">{memorySourcePhrase(entry.sourceKinds ?? [])}</p>
           </article>;
         })}
       </section>;

@@ -1,9 +1,9 @@
 import { z } from "zod";
-import type { MemoryEntry } from "./memory-store.js";
+import type { MemoryEntry } from "./memory-types.js";
 
 const id = z.string().min(1).max(256);
 const label = (max: number) => z.string().trim().min(1).max(max).refine(text => !/[\x00-\x1f]/.test(text));
-const scope = z.discriminatedUnion("kind", [z.object({ kind: z.literal("workspace") }).strict(), z.object({ kind: z.literal("thread"), threadId: id }).strict()]);
+const scope = z.object({ kind: z.literal("workspace") }).strict();
 export const memoryLibrarySchema = z.object({
   revision: z.number().int().nonnegative(),
   folders: z.array(z.object({ id, name: label(80) }).strict()).max(64),
@@ -33,14 +33,14 @@ export interface MemoryLibraryDocument extends MemoryLibrarySummary {
 }
 export const emptyMemoryLibrary = (): MemoryLibrary => ({ revision: 0, folders: [], documents: [] });
 export const legacyDocumentId = (entryId: string) => `memory:${entryId}`;
-const active = (entry: MemoryEntry, now: Date) => entry.enabled && entry.status !== "disabled" && entry.temporalState !== "retracted" && entry.temporalState !== "not_applicable" && (!entry.expiresAt || Date.parse(entry.expiresAt) > now.getTime());
+const active = (entry: MemoryEntry, now: Date) => entry.enabled && entry.status !== "disabled" && (!entry.expiresAt || Date.parse(entry.expiresAt) > now.getTime());
 
 /** One document is a view of current assertions, never another copy of their text. */
-export function memoryLibraryDocuments(library: MemoryLibrary, entries: MemoryEntry[], threadId: string, now = new Date()): MemoryLibraryDocument[] {
-  const visible = entries.filter(entry => entry.scope?.kind !== "thread" || entry.scope.threadId === threadId);
+export function memoryLibraryDocuments(library: MemoryLibrary, entries: MemoryEntry[], now = new Date()): MemoryLibraryDocument[] {
+  const visible = entries;
   const byId = new Map(visible.map(entry => [entry.id, entry]));
   const owned = new Set(library.documents.flatMap(document => document.entryIds));
-  const documents = library.documents.filter(document => document.scope.kind !== "thread" || document.scope.threadId === threadId).map(document => {
+  const documents = library.documents.map(document => {
     const parts = document.entryIds.flatMap(id => byId.has(id) ? [byId.get(id)!] : []);
     const text = parts.map(part => part.text).join("");
     return { id: document.id, libraryRevision: library.revision, title: document.title, folderId: document.folderId, scope: document.scope,
@@ -58,8 +58,8 @@ export function memoryLibraryDocuments(library: MemoryLibrary, entries: MemoryEn
   }
   return documents;
 }
-export function memoryLibraryView(library: MemoryLibrary, entries: MemoryEntry[], threadId: string): MemoryLibraryView {
-  return { revision: library.revision, folders: library.folders, documents: memoryLibraryDocuments(library, entries, threadId).map(({ text: _text, entries: _entries, libraryRevision: _revision, ...summary }) => summary) };
+export function memoryLibraryView(library: MemoryLibrary, entries: MemoryEntry[]): MemoryLibraryView {
+  return { revision: library.revision, folders: library.folders, documents: memoryLibraryDocuments(library, entries).map(({ text: _text, entries: _entries, libraryRevision: _revision, ...summary }) => summary) };
 }
 
 /** Preserve document order and Unicode. Internal chunks remain bounded Memory assertions. */

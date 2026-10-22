@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
-import { selectInjectableMemoryEntries, type WorkspaceMemoryStore } from "./memory-store.js";
+import { selectInjectableMemoryEntries, type WorkspaceMemoryStore } from "./memory-types.js";
 import type { DreamingService } from "./dreaming.js";
 import { memoryLibraryDocuments } from "./memory-library.js";
 
@@ -19,9 +19,9 @@ export function memoryReadTools(options: { store: WorkspaceMemoryStore | undefin
         const now = new Date();
         const result = await options.store.readReferenceMaterial?.(signal, now);
         if (!result?.ok) return result ?? { ok: false, error: { code: "MEMORY_DISABLED", message: "Memory unavailable" } };
-        const entries = selectInjectableMemoryEntries(result.value.entries, { now }).filter(entry => entry.temporalState !== "retracted" && entry.temporalState !== "not_applicable");
+        const entries = selectInjectableMemoryEntries(result.value.entries, { now });
         if (id) {
-          const document = memoryLibraryDocuments(result.value.library, entries, options.threadId, now).find(item => item.id === id);
+          const document = memoryLibraryDocuments(result.value.library, entries, now).find(item => item.id === id);
           return document?.active && !document.missing ? { ok: true, id, title: document.title, text: document.text } : { ok: false, error: { code: "NOT_FOUND", message: "Document unavailable" } };
         }
         const keywords = query!.normalize("NFKC").toLowerCase().trim().split(/\s+/u).filter(Boolean);

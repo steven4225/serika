@@ -9,7 +9,6 @@ import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp } from "./app.js";
 import { createAssistantController, type AssistantController } from "./assistant-controller.js";
 import { createExecutionRecordStore } from "./execution-record-store.js";
-import { memoryConsolidationBacklog } from "./memory-consolidation.js";
 
 const usage = { inputTokens: { total: 2, noCache: 2, cacheRead: undefined, cacheWrite: undefined },
   outputTokens: { total: 2, text: 2, reasoning: undefined } };
@@ -59,7 +58,7 @@ test("Steer revokes old file preview, replans inside the same Run, refreshes Mem
   let controller: AssistantController | undefined;
   try {
     const first = await f.open(); controller = first.controller;
-    const remembered = await first.app.memoryStore!.add({ text: "复盘喜欢两条行动", scope: { kind: "workspace" } }); assert.ok(remembered.ok);
+    const remembered = await first.app.memoryStore!.add({ text: "复盘喜欢两条行动" }); assert.ok(remembered.ok);
     const started = await controller.run("修改 notes/plan.md", { memoryConsolidation: "exclude" }); assert.ok(started.ok);
     await waitFor(() => controller!.getSnapshot().pendingApproval?.toolCallId === "old-edit");
     const old = controller.getSnapshot().pendingApproval!;
@@ -89,7 +88,6 @@ test("Steer revokes old file preview, replans inside the same Run, refreshes Mem
     const steerMetadata = history.find(message => message.id === run.steers![0]!.messageId)?.metadata as Record<string, unknown>;
     assert.equal(steerMetadata.source, "steer"); assert.equal(steerMetadata.memoryConsolidation, "exclude");
     assert.ok(Array.isArray(steerMetadata.contextReferences));
-    assert.deepEqual(memoryConsolidationBacklog(history, null), { ok: true, value: 0 });
     await controller.shutdown(); controller = undefined;
     controller = (await f.open()).controller;
     assert.equal(controller.getSnapshot().steers[0]?.status, "applied");

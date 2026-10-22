@@ -1,6 +1,6 @@
 import { excludedTranscriptView, type JsonlAgentStore, type TranscriptExclusion } from "@serika/core";
 import type { UIMessage } from "ai";
-import type { WorkspaceMemoryStore } from "./memory-store.js";
+import type { WorkspaceMemoryStore } from "./memory-types.js";
 import type { ExecutionRunRecord } from "./execution-record-store.js";
 import { memoryText } from "./memory-write.js";
 
@@ -31,10 +31,10 @@ export function createTranscriptAccess(options: { store: JsonlAgentStore; thread
       const text = memoryText(target);
       const mentions = text ? messages.filter(message => message.id !== target.id && memoryText(message).includes(text)).map(message => message.id) : [];
       const relatedDocumentIds: string[] = [];
-      const library = await options.memory?.getLibrary?.(options.threadId);
+      const library = await options.memory?.getLibrary?.();
       if (library && !library.ok) throw new Error(`${library.error.code}: ${library.error.message}`);
       for (const document of library?.ok ? library.value.documents : []) {
-        const body = await options.memory!.readLibraryDocument!(document.id, options.threadId);
+        const body = await options.memory!.readLibraryDocument!(document.id);
         if (!body.ok) throw new Error(`${body.error.code}: ${body.error.message}`);
         if (text && body.value.text.includes(text)) relatedDocumentIds.push(document.id);
       }

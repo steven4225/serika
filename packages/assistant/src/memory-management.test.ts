@@ -48,12 +48,13 @@ describe("formal Memory controller and actual reference preparation", () => {
   it("exposes current entries, CAS edits, explicit pin/disable, source semantics and Thread isolation without a Run", async () => {
     const test = await setup(); const { app, controller } = await test.open();
     try {
-      const added = await app.memoryStore!.add({ text: "复盘先给结论", source: { kind: "conversation", threadId: "thread-a", messageId: "user-source", quote: "复盘先给结论" } });
+      const added = await app.memoryStore!.add({ text: "复盘先给结论", source: { kind: "conversation", threadId: "thread-a", messageId: "user-source", quote: "复盘先给结论", sentAt: null } });
       assert.ok(added.ok); if (!added.ok) return;
-      await app.memoryStore!.add({ text: "hidden", scope: { kind: "thread", threadId: "thread-b" } });
       const listed = await controller.memory.list(); assert.ok(listed.ok); if (!listed.ok) return;
       assert.equal(listed.value.entries.length, 1); assert.ok(!("source" in listed.value.entries[0]!));
-      const { history: _history, v6: _v6, ...current } = added.entry;
+      assert.deepEqual(listed.value.entries[0]!.sourceKinds, [{ kind: "conversation" }]);
+      assert.ok(!JSON.stringify(listed.value.entries).includes("user-source"));
+      const { v6: _v6, ...current } = added.entry;
       assert.deepEqual((await controller.memory.get(added.entry.id)), { ok: true, value: current });
       const edit = await controller.memory.update({ id: added.entry.id, expectedRevision: 1, text: "复盘先给一句结论，再给行动" });
       assert.ok(edit.ok); if (!edit.ok) return;
@@ -65,10 +66,6 @@ describe("formal Memory controller and actual reference preparation", () => {
       assert.ok(pinned.ok && pinned.value.pinned);
       const disabled = await controller.memory.update({ id: edit.value.id, expectedRevision: 2, status: "disabled" });
       assert.ok(disabled.ok && disabled.value.status === "disabled");
-      const hidden = (await app.memoryStore!.list()); assert.ok(hidden.ok); if (!hidden.ok) return;
-      const privateId = hidden.entries.find(entry => entry.text === "hidden")!.id;
-      assert.ok(!(await controller.memory.get(privateId)).ok);
-      assert.ok(!(await controller.memory.update({ id: privateId, expectedRevision: 1, pinned: true })).ok);
       assert.deepEqual(test.counts(), { primary: 0, rewrites: 0 });
       assert.equal((await controller.runs.list()).length, 0);
       assert.equal(controller.memory.getReferences(), null);
@@ -118,9 +115,9 @@ describe("formal Memory controller and actual reference preparation", () => {
 
   it("bounds management pages and rejects forged fields", () => {
     const entries = Array.from({ length: 70 }, (_, i) => ({ id: String(i), text: "x".repeat(200), enabled: true, revision: 1 }));
-    const page = memoryPage(entries, "current"); assert.ok(page.ok); if (!page.ok) return;
+    const page = memoryPage(entries); assert.ok(page.ok); if (!page.ok) return;
     assert.equal(page.value.entries.length, 20); assert.equal(page.value.nextOffset, 20); assert.equal(page.value.entries[0]?.truncated, true);
-    assert.ok(!memoryPage(entries, "current", { offset: -1 }).ok);
+    assert.ok(!memoryPage(entries, { offset: -1 }).ok);
     assert.ok(!validMemoryEdit({ id: "x", expectedRevision: 1, source: { kind: "manual" } } as never));
     assert.ok(!validMemoryEdit({ id: "x", expectedRevision: 1 }));
     assert.ok(!validMemoryEdit(null as never));

@@ -8,10 +8,8 @@ import {
   checkpointContextMessageBytes,
   createCheckpointContextMessage,
 } from "./checkpoint-context.js";
-import {
-  createMemoryStore,
-  type WorkspaceMemoryStore,
-} from "./memory-store.js";
+import { type WorkspaceMemoryStore } from "./memory-types.js";
+import { createMemoryStore } from "./memory-v6-store.js";
 import { readMemorySnapshot, createMemorySnapshotMessage } from "./memory-snapshot.js";
 import {
   TASK_LIST_MAX_LIMIT,

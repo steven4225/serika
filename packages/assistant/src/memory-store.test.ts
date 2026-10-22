@@ -3,9 +3,9 @@ import { test } from "node:test";
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createMemoryStore } from "./memory-store.js";
+import { createMemoryStore } from "./memory-v6-store.js";
 
-test("v1-v5 are readable without upgrading; every old-format write requires Step 7 migration", async () => {
+test("v1-v5 remain unchanged and require explicit migration for every product read and write", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm4-read-versions-"));
   try {
     await mkdir(join(root, ".runloom"));
@@ -13,7 +13,7 @@ test("v1-v5 are readable without upgrading; every old-format write requires Step
     for (let version = 1; version <= 5; version++) {
       const original = JSON.stringify({ version, lastWrittenAt: null, entries: [], candidates: [], consolidationCursors: [], ...(version === 5 ? { library: { revision: 0, folders: [], documents: [] } } : {}) });
       await writeFile(file, original);
-      assert.ok((await store.list()).ok, `read v${version}`);
+      assert.equal((await store.list()).ok, false, `read v${version} requires migration`);
       const write = await store.add({ text: "must not migrate" }); assert.equal(write.ok, false);
       if (!write.ok) assert.equal(write.error.code, "MEMORY_MIGRATION_REQUIRED");
       assert.equal(await readFile(file, "utf8"), original);

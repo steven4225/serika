@@ -11,9 +11,8 @@ import { MODEL_TIME_ZONE } from "./task-instructions.js";
 import { userMessageClock } from "./memory-observation-policy.js";
 import type { UIMessage } from "ai";
 import type { AgentEvent, RunHandle, RunResult } from "@serika/core";
-import { automaticConsolidationSkip, waitForConsolidationHandoff } from "./consolidation-lifecycle.js";
-import { createRuntimeAutomation, MEMORY_SKILL_ID, type AutomationExecution, type SkillRunInput, type SkillResult } from "./automation-execution.js";
-import { createBuiltinSkill } from "./skill-catalog.js";
+import { waitForConsolidationHandoff } from "./consolidation-lifecycle.js";
+import { createRuntimeAutomation, type AutomationExecution, type SkillRunInput, type SkillResult } from "./automation-execution.js";
 import { DREAMING_AGENT_ID, type DreamingOverview, type DreamingResult } from "./dreaming.js";
 import type { HookRequest } from "./automation-hooks.js";
 import type { RuntimeApp } from "./app.js";
@@ -24,10 +23,7 @@ import type { WorkTask } from "./work-task-store.js";
 import { recoverRunningWorkTasks } from "./work-task-recovery.js";
 import type { ShellProgress } from "./modules/shell-module.js";
 import type { PendingToolApproval } from "./tool-confirmation.js";
-import { memoryControlFailure, type MemoryMaintenance } from "./memory-controls.js";
-import { memoryConsolidationBacklog, prepareConsolidationExtraction, stageConsolidationExtraction } from "./memory-consolidation.js";
-import { memoryConsolidationFailureText } from "./memory-failure.js";
-import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
+import { memoryControlFailure } from "./memory-controls.js";
 
 const MAX_RECENT_OUTPUT_CHARS = 16 * 1024;
 const MAX_TOOL_ACTIVITY = 30;
@@ -55,7 +51,7 @@ export interface ToolActivity {
 
 export type AssistantState =
   | { kind: "idle" }
-  | { kind: "running"; runId: string | null; phase: "primary" | "consolidation" | "skill"; background?: true; source?: "telegram" }
+  | { kind: "running"; runId: string | null; phase: "primary" | "skill"; background?: true; source?: "telegram" }
   | { kind: "compacting" }
   | { kind: "resuming" }
   | { kind: "command"; name: string };
@@ -71,7 +67,6 @@ export interface AssistantSnapshot {
   outputTruncated: boolean;
   toolActivity: readonly ToolActivity[];
   lastPrimaryResult: RunResult | null;
-  lastConsolidationResult: RunResult | null;
   resultTextTruncated: boolean;
 }
 
@@ -80,9 +75,9 @@ export type AssistantEvent =
   | { type: "steer"; steer: AssistantSteerRecord }
   | { type: "approval"; approval: PendingToolApproval }
   | { type: "approval-cleared"; approvalId: string }
-  | { type: "run-event"; phase: "primary" | "consolidation" | "skill"; event: AgentEvent }
-  | { type: "run-result"; phase: "primary" | "consolidation" | "skill"; result: RunResult }
-  | { type: "shell-progress"; phase: "primary" | "consolidation" | "skill"; runId: string; progress: ShellProgress }
+  | { type: "run-event"; phase: "primary" | "skill"; event: AgentEvent }
+  | { type: "run-result"; phase: "primary" | "skill"; result: RunResult }
+  | { type: "shell-progress"; phase: "primary" | "skill"; runId: string; progress: ShellProgress }
   | { type: "work-task-updated"; task: WorkTask }
   | { type: "memory-updated"; reason: "proposals" | "review" | "write" }
   | { type: "memory-references-changed" }
@@ -179,14 +174,7 @@ export function dreamingThreadIdFor(workspaceRoot: string | undefined, threadId:
 }
 
 export function createAssistantController(app: RuntimeApp): AssistantController {
-  // Compatibility for embedders supplying the pre-registry RuntimeApp shape.
-  const automation = app.automation ?? createRuntimeAutomation({
-    skills: app.autoConsolidationAgentId ? [createBuiltinSkill({ id: MEMORY_SKILL_ID,
-      description: "Legacy registered memory consolidator", kind: "memory-consolidate",
-      instructions: "Consolidate committed incremental material using the host's existing memory lifecycle.",
-      agentId: app.autoConsolidationAgentId })] : [],
-    registrations: [], workspaceRoot: app.workspaceRoot,
-  });
+  const automation = app.automation ?? createRuntimeAutomation({ skills: [], registrations: [], workspaceRoot: app.workspaceRoot });
   app.enableExecutionRecords();
   let workTaskLease: Awaited<ReturnType<NonNullable<RuntimeApp["workTasks"]>["claimThread"]>> | undefined;
   let threadLease: Awaited<ReturnType<RuntimeApp["executionRecords"]["claimThread"]>> | undefined;
@@ -244,12 +232,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   const steerRequests = new Map<string, { text: string; response: Promise<AssistantSteerResponse> }>();
   let primaryMemoryReferences = new Map<string, { id: string; revision: number }>();
   let primaryMemoryReferencesTruncated = false;
-  let lastConsolidationResult: RunResult | null = null;
-  // A completed model Run is not proof that its proposal/cursor write succeeded.
-  let consolidationFailure: string | undefined;
-  let consolidationRunning = false;
-  let lastConsolidationAttempt: MemoryMaintenance["consolidation"]["lastAttempt"];
-  let lastConsolidationSkippedReason: string | undefined;
 
   const dreamingThreadId = dreamingThreadIdFor(app.workspaceRoot, app.threadId);
   let resultTextTruncated = false;
@@ -303,7 +285,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   const executeRun = async (
     agentId: string,
     message: UIMessage,
-    phase: "primary" | "consolidation" | "skill",
+    phase: "primary" | "skill",
     signal?: AbortSignal,
     started?: (handle: RunHandle) => void,
     background = false,
@@ -320,11 +302,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       steers = []; steerRequests.clear();
       primaryMemoryReferences = new Map(); primaryMemoryReferencesTruncated = false;
     }
-    if (phase === "consolidation") { consolidationFailure = undefined; consolidationRunning = true; }
     try {
-      app.memoryConsolidation?.begin(agentId);
-      const hostExtraction = app.hostConsolidationExtraction === true && phase === "consolidation" && agentId === AUTO_CONSOLIDATION_AGENT_ID && app.memoryConsolidation !== undefined;
-      if (hostExtraction) message = await prepareConsolidationExtraction(app.memoryConsolidation!, message, signal);
       const handle = await app.runtime.run({
         agentId,
         threadId: executionThreadId,
@@ -351,7 +329,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       if (cancelRequested || signal?.aborted) await handle.cancel("Cancelled before Run started");
       let requestedMemoryTool = false;
       let completionCorrections = 0;
-      const consolidationAttempts = { prepare: 0, stage: 0 };
       const pump = (async () => {
         for await (const event of handle.events) {
           if (phase === "primary" && (event.type === "run.steer.accepted" || event.type === "run.steer.applied" || event.type === "run.steer.not_applied")) {
@@ -373,12 +350,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           if (event.type === "tool.call.requested") {
             toolNames.set(event.data.toolCallId, event.data.toolName);
             if (event.data.toolName.startsWith("memory_")) requestedMemoryTool = true;
-            if (event.data.toolName === "memory_prepare_consolidation") consolidationAttempts.prepare += 1;
-            if (event.data.toolName === "memory_stage_candidates") consolidationAttempts.stage += 1;
-            if (event.data.toolName === "memory_prepare_consolidation" || event.data.toolName === "memory_stage_candidates") {
-              if (!consolidationRunning) consolidationFailure = undefined;
-              consolidationRunning = true;
-            }
+
           }
           if (event.type === "tool.call.completed" || event.type === "tool.call.failed") {
             // A completed invocation may return an explicit failure. Classify
@@ -430,74 +402,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           needs_information: "缺少信息或可用能力，请补充后再执行", budget_exhausted: "本轮预算耗尽，任务未完成", needs_review: "效果待核对，不会自动重放" };
         controller.recordOutput(`\n任务停止原因：${result.status === "cancelled" ? "已取消" : labels[result.completion.reason]}。\n`);
       }
-      let lastProcessedCount = 0, lastCandidateCount = 0;
-      let finalizationFailed = false;
-      let accepted: NonNullable<NonNullable<MemoryMaintenance["consolidation"]["lastAttempt"]>["accepted"]> = [];
-      try {
-        const extracted = hostExtraction && result.status === "completed" ?
-          await stageConsolidationExtraction(app.memoryConsolidation!, result.text, signal) : undefined;
-        const finalized = await app.memoryConsolidation?.finalize({ ...result,
-          ...(extracted && !extracted.ok ? { extractionFailed: true } : {}),
-          ...(hostExtraction && consolidationAttempts.prepare === 0 && consolidationAttempts.stage === 0 ? {} : { consolidationAttempts }) }, signal);
-        if (finalized !== undefined && !finalized.ok) {
-          finalizationFailed = true;
-          consolidationFailure = `${finalized.error.code}: ${finalized.error.message}`;
-          emit({ type: "error", message: memoryConsolidationFailureText(consolidationFailure) });
-        } else if (finalized?.ok) {
-          lastProcessedCount = finalized.value.processedCount ?? 0;
-          accepted = finalized.value.accepted ?? [];
-          const pendingIds = finalized.value.pendingCandidateIds ?? finalized.value.candidateIds;
-          lastCandidateCount = pendingIds.length;
-          if (!finalized.value.replayed) for (const outcome of finalized.value.outcomes ?? []) {
-            if (outcome.status === "not_saved") {
-              const message = outcome.reason === "retry_exhausted"
-                ? memoryConsolidationFailureText("MEMORY_RETRY_EXHAUSTED")
-                : "这条记忆没保存：内容太长，请分段再告诉我。原话仍保留在对话里。";
-              controller.recordOutput(`\n${message}\n`);
-              emit({ type: "error", message });
-            }
-          }
-          if (phase === "consolidation" || consolidationAttempts.prepare > 0 || consolidationAttempts.stage > 0) {
-            consolidationFailure = result.status === "completed" ? undefined : result.error?.message ?? `Consolidation Run ${result.status}`;
-          }
-          const deferred = finalized.value.outcomes?.some(outcome => outcome.status === "deferred");
-          if (finalized.value.outcomes?.some(outcome => outcome.status === "not_saved" && outcome.reason === "retry_exhausted")) consolidationFailure = "MEMORY_RETRY_EXHAUSTED";
-          else if (deferred || extracted && !extracted.ok) {
-            consolidationFailure = "MEMORY_EXTRACTION_DEFERRED" + (extracted && !extracted.ok ? `: ${extracted.error.code}: ${extracted.error.message}` : "");
-            if (!finalized.value.replayed) emit({ type: "error", message: memoryConsolidationFailureText(consolidationFailure) });
-          }
-          if (deferred || finalized.value.outcomes?.some(outcome => outcome.status === "not_saved" && outcome.reason === "retry_exhausted")) finalizationFailed = true;
-          if (finalized.value.outcomes?.length && !finalized.value.candidateIds.length && !finalized.value.replayed) emit({ type: "memory-updated", reason: "proposals" });
-          if (finalized.value.candidateIds.length > 0 && !finalized.value.replayed) {
-            emit({ type: "memory-updated", reason: "proposals" });
-            if (pendingIds.length > 0) controller.recordOutput(app.memoryConsolidation?.reviewQueue === false
-              ? `\n有 ${pendingIds.length} 项内容不确定或与已有记忆冲突，没有自动保存；原记忆没有被覆盖。\n`
-              : `\n有 ${pendingIds.length} 项记忆待确认；原记忆没有被覆盖。可以让助手列出并逐项确认。\n`);
-            for (const receipt of accepted) {
-              const label = receipt.operation === "retract" ? "已撤回" : receipt.operation === "disable" ? "已停用" : receipt.operation === "add" ? "已保存" : "已更新";
-              controller.recordOutput(`\n记忆${label}，可在记忆页查看或撤回。\n`);
-            }
-          }
-        }
-      } catch (error) {
-        finalizationFailed = true;
-        consolidationFailure = String(error);
-        emit({ type: "error", message: memoryConsolidationFailureText("acknowledgement: " + String(error)) });
-      }
-      if (phase === "consolidation") {
-        const yielded = result.status === "cancelled" && signal?.aborted &&
-          signal.reason instanceof Error && signal.reason.message === "Foreground chat has priority";
-        if (yielded && !finalizationFailed) {
-          consolidationFailure = undefined;
-          lastConsolidationSkippedReason = "自动整理已让给新消息，未推进游标；待处理材料会在后续整理中重试";
-          lastConsolidationAttempt = undefined;
-        } else lastConsolidationAttempt = {
-          mode: "incremental", runId: handle.runId,
-          status: result.status === "completed" && !consolidationFailure ? "completed" : "failed",
-          processedCount: lastProcessedCount, candidateCount: lastCandidateCount,
-          ...(accepted.length ? { accepted } : {}),
-        };
-      }
+      const finalizationFailed = false;
       let executionFinalized = true;
       try {
         await approvalTracePending;
@@ -517,7 +422,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         ? { ...result, text: result.text.slice(-MAX_RECENT_OUTPUT_CHARS) }
         : result;
       if (phase === "primary") lastPrimaryResult = retainedResult;
-      else if (phase === "consolidation") lastConsolidationResult = retainedResult;
       if (phase === "primary" && activeWorkTask !== undefined && app.workTasks !== undefined) {
         const record = executionFinalized
           ? await app.executionRecords.getRun(app.threadId, handle.runId).catch(() => null)
@@ -551,12 +455,9 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       emit({ type: "run-result", phase, result });
       return { result, requestedMemoryTool, finalizationFailed };
     } catch (error) {
-      if (phase === "consolidation") consolidationFailure = String(error);
       throw error;
     } finally {
       await outputTiming?.finish();
-      consolidationRunning = false;
-      app.memoryConsolidation?.discard();
       if (phase === "primary" && activeWorkTask !== undefined) {
         app.workTaskContext.end();
         activeWorkTask = undefined;
@@ -585,41 +486,13 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       const prepared = await automation.prepare(input);
       if (!prepared.ok) {
         automation.record({ ...base, id, status: "failed", message: prepared.error.message });
-        if (skill.kind === "memory-consolidate") consolidationFailure = prepared.error.message;
         return prepared;
       }
       signal.throwIfAborted();
-      if (skill.kind === "memory-consolidate") {
-        if (!app.memoryConsolidation) {
-          automation.record({ ...base, id, status: "failed", message: "Memory consolidation is unavailable" });
-          return memoryControlFailure("MEMORY_DISABLED", "Memory consolidation is unavailable");
-        }
-        const readiness = await app.memoryConsolidation?.canStart(signal);
-        if (readiness && (!readiness.ok || !readiness.value.canStart)) {
-          const failure = !readiness.ok ? readiness : memoryControlFailure("MEMORY_LIMIT_EXCEEDED", "Review pending candidates before consolidating");
-          consolidationFailure = `${failure.error.code}: ${failure.error.message}`;
-          if (readiness.ok) controller.recordOutput("\nMemory candidate queue is full; review pending candidates before consolidating.\n");
-          automation.record({ ...base, id, status: "failed", message: consolidationFailure });
-          return failure;
-        }
-        if (origin.source === "hook" && app.getMemoryConsolidationBacklog) {
-          const backlog = await app.getMemoryConsolidationBacklog();
-          if (!backlog.ok) {
-            consolidationFailure = `${backlog.error.code}: ${backlog.error.message}`;
-            automation.record({ ...base, id, status: "failed", message: consolidationFailure });
-            return backlog;
-          }
-          if (backlog.value === 0) {
-            const message = "没有尚未整理的合格增量";
-            lastConsolidationSkippedReason = message;
-            automation.record({ ...base, id, status: "skipped", message });
-            return { ok: false, error: { code: "SKILL_NO_MATERIAL", message } };
-          }
-        }
-      }
+      if (skill.kind === "memory-consolidate") return memoryControlFailure("SKILL_UNAVAILABLE", "旧候选整理 Skill 已停用；使用现有记忆整理入口");
       controller.recordOutput(`\n[automation] ${origin.source === "hook" ? `规则 ${origin.ruleId}` : "手动调用"} → ${skill.id} · ${skill.hash.slice(0, 12)}${background ? "（新对话优先）" : ""}\n`);
       const execution = await executeRun(skill.agentId, prepared.value.message,
-        skill.kind === "memory-consolidate" ? "consolidation" : "skill", signal, handle => {
+        "skill", signal, handle => {
           runId = handle.runId;
           automation.record({ ...base, id, runId, status: "running" });
           started?.(runId);
@@ -627,14 +500,13 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       const failed = execution.result.status !== "completed" || execution.finalizationFailed;
       automation.record({ ...base, id, ...(runId ? { runId } : {}),
         status: signal.aborted || execution.result.status === "cancelled" ? "cancelled" : failed ? "failed" : "completed",
-        ...(failed ? { message: execution.result.error?.message ?? consolidationFailure ?? `Run ${execution.result.status}` } : {}),
+        ...(failed ? { message: execution.result.error?.message ?? `Run ${execution.result.status}` } : {}),
       });
-      return failed ? { ok: false, error: { code: "SKILL_EXECUTION_FAILED", message: execution.result.error?.message ?? consolidationFailure ?? `Run ${execution.result.status}` } }
+      return failed ? { ok: false, error: { code: "SKILL_EXECUTION_FAILED", message: execution.result.error?.message ?? `Run ${execution.result.status}` } }
         : { ok: true, value: { runId: execution.result.runId } };
     } catch (error) {
       const message = String(error);
       automation.record({ ...base, id, ...(runId ? { runId } : {}), status: signal.aborted ? "cancelled" : "failed", message });
-      if (skill.kind === "memory-consolidate" && !signal.aborted) consolidationFailure = message;
       return { ok: false, error: { code: signal.aborted ? "SKILL_CANCELLED" : "SKILL_EXECUTION_FAILED", message } };
     }
   };
@@ -676,7 +548,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       if (backgroundTask === task) backgroundTask = undefined;
     });
     const first = automation.getSkill(requests[0]!.skillId)!;
-    setState({ kind: "running", runId: null, phase: first.kind === "memory-consolidate" ? "consolidation" : "skill", background: true });
+    setState({ kind: "running", runId: null, phase: "skill", background: true });
   };
 
   const startManualSkill = async (input: SkillRunInput): Promise<SkillResult<{ runId: string }>> => {
@@ -686,11 +558,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     const startup = new AbortController();
     startupController = startup;
     cancelRequested = false;
-    if (skill.kind === "memory-consolidate") {
-      lastConsolidationResult = null;
-      lastConsolidationSkippedReason = undefined;
-    }
-    setState({ kind: "running", phase: skill.kind === "memory-consolidate" ? "consolidation" : "skill", runId: null });
+    setState({ kind: "running", phase: "skill", runId: null });
     let resolveStarted!: (value: SkillResult<{ runId: string }>) => void;
     const started = new Promise<SkillResult<{ runId: string }>>(resolve => { resolveStarted = resolve; });
     activeTask = (async () => {
@@ -733,15 +601,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     primaryReference: reference => reference && primaryContextMessageIds.has(reference.messageId) && primaryRunId
       ? { ...reference, runId: primaryRunId } : null,
   };
-  const memory = createMemoryControls(kernel, {
-    automation,
-    consolidationStatus: () => ({
-      running: consolidationRunning,
-      failure: consolidationFailure,
-      lastAttempt: lastConsolidationAttempt,
-      lastSkippedReason: lastConsolidationSkippedReason,
-    }),
-  });
+  const memory = createMemoryControls(kernel);
   const workTasks = createWorkTaskControls(kernel, {
     slot: {
       busy: () => nextWorkTask !== undefined || activeWorkTask !== undefined,
@@ -786,7 +646,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       outputTruncated,
       toolActivity: [...toolActivity],
       lastPrimaryResult,
-      lastConsolidationResult,
       resultTextTruncated,
     }),
     getHistory: async () => { await recovery; return app.store.getMessages(app.threadId); },
@@ -805,13 +664,11 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       const previousBackground = state.kind === "running" && state.background === true ? backgroundTask : undefined;
       if (closed || (state.kind !== "idle" && previousBackground === undefined)) return { ok: false, reason: "busy" };
       const excludeFromConsolidation = options?.memoryConsolidation === "exclude" || attachments.length > 0;
-      lastConsolidationSkippedReason = undefined;
 
       cancelRequested = false;
       toolActivity.length = 0;
       toolNames.clear();
       lastPrimaryResult = null;
-      lastConsolidationResult = null;
       resultTextTruncated = false;
       const startup = new AbortController();
       startupController = startup;
@@ -853,23 +710,11 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
           } finally {
             app.resume?.endRun();
           }
-          const skip = automaticConsolidationSkip({ enabled: app.autoConsolidationAgentId !== undefined,
-            status: primary.result.status, requestedMemoryTool: primary.requestedMemoryTool,
-            cancelled: cancelRequested || startup.signal.aborted, excluded: excludeFromConsolidation });
-          if (app.autoConsolidationAgentId) lastConsolidationSkippedReason = skip;
           if (primary.result.status === "completed" && !cancelRequested && !startup.signal.aborted) {
             const matched = automation.select({ event: "primary.completed", threadId: app.threadId,
               runId: primary.result.runId, agentId: app.agentId, phase: "primary", status: "completed" });
-            pendingHooks = matched.filter(request => {
-              const skill = automation.getSkill(request.skillId)!;
-              if (skill.kind !== "memory-consolidate" || skip === undefined) return true;
-              automation.record({ skillId: skill.id, hash: skill.hash, source: "hook", ruleId: request.ruleId,
-                event: request.event.event, status: "skipped", message: skip });
-              return false;
-            });
-            if (app.autoConsolidationAgentId && !matched.some(request => automation.getSkill(request.skillId)?.kind === "memory-consolidate")) {
-              lastConsolidationSkippedReason = "当前配置没有匹配的记忆 Hook";
-            }
+            pendingHooks = matched.filter(request => automation.getSkill(request.skillId)?.kind !== "memory-consolidate");
+
           }
         } catch (error) {
           settleStart({ ok: false, reason: "starting" });
@@ -881,7 +726,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             activeWorkTask = undefined;
           }
           if (previousBackground && backgroundTask === previousBackground) {
-            setState({ kind: "running", runId: activeHandle?.runId ?? null, phase: "consolidation", background: true });
+            setState({ kind: "running", runId: activeHandle?.runId ?? null, phase: "skill", background: true });
           } else {
             setState({ kind: "idle" });
             startAutomaticSkills(pendingHooks);
@@ -1030,7 +875,6 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       unsubscribeMemoryReferences?.();
       unsubscribeMemoryUpdates?.();
       app.resume?.clear();
-      app.memoryConsolidation?.discard();
       app.dispose();
       disposed = true;
       const releaseErrors = leaseReleases
@@ -1044,24 +888,11 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     try {
       await ensureRecovered();
       const matched = automation.select({ event: "thread.ready", threadId: app.threadId, agentId: app.agentId });
-      // Old RuntimeApp embedders have no backlog callback; retain the existing read check.
-      let requests = matched.filter(request => automation.getSkill(request.skillId)?.kind !== "memory-consolidate" ||
-        (app.memoryStore !== undefined && app.memoryConsolidation !== undefined));
-      if (requests.some(request => automation.getSkill(request.skillId)?.kind === "memory-consolidate")) {
-        const backlog = app.getMemoryConsolidationBacklog
-          ? await app.getMemoryConsolidationBacklog()
-          : await (async () => {
-            const cursor = await app.memoryStore!.getConsolidationCursor(app.threadId);
-            if (!cursor.ok) return cursor;
-            return memoryConsolidationBacklog(await app.store.getMessages(app.threadId), cursor.value);
-          })();
-        if (!backlog.ok) throw new Error(`${backlog.error.code}: ${backlog.error.message}`);
-        if (backlog.value === 0) requests = requests.filter(request => automation.getSkill(request.skillId)?.kind !== "memory-consolidate");
-      }
+      const requests = matched.filter(request => automation.getSkill(request.skillId)?.kind !== "memory-consolidate");
       startAutomaticSkills(requests);
       lifecycleReady = true;
       if (state.kind === "idle") app.background?.idle();
-    } catch (error) { consolidationFailure = String(error); emit({ type: "error", message: String(error) }); }
+    } catch (error) { emit({ type: "error", message: String(error) }); }
   });
   return controller;
 }

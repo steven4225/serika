@@ -28,8 +28,6 @@ import { createRuntimeAutomation, type RuntimeAutomation } from "./automation-ex
 import { createDreamingService, DREAMING_AGENT_ID, type DreamingService, type LearnedSkillReferenceSnapshot } from "./dreaming.js";
 import { readMemorySnapshot, createMemorySnapshotMessage, type MemoryReferenceSnapshot } from "./memory-snapshot.js";
 import { memoryReadTools } from "./memory-read-tools.js";
-import { memoryConsolidationBacklog, type MemoryConsolidation } from "./memory-consolidation.js";
-import type { MemoryResult } from "./memory-candidates.js";
 import { createExecutionRecordAdapter } from "./execution-record-adapter.js";
 import { createExecutionRecordStore, EXECUTION_RECORD_MAX_RUNS, type ExecutionRecordStore } from "./execution-record-store.js";
 import { acquireFlock } from "./flock.js";
@@ -45,7 +43,8 @@ import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js
 import { createAiSdkSummarizer } from "./context-compaction.js";
 import { lookupTranscript } from "./work-summary.js";
 import type { AssistantAssembly } from "./assembly.js";
-import { createMemoryStore, type WorkspaceMemoryStore } from "./memory-store.js";
+import { type WorkspaceMemoryStore } from "./memory-types.js";
+import { createMemoryStore } from "./memory-v6-store.js";
 import { formatMemoryHealth, readMemoryHealth } from "./memory-health.js";
 import { createCheckpointStore, type WorkspaceCheckpointStore } from "./checkpoint-store.js";
 import { formatHome, readHomeSnapshot, type HomeSnapshot } from "./home.js";
@@ -194,8 +193,6 @@ export interface RuntimeApp {
   commands: ReadonlyMap<string, TuiCommand> | undefined;
   getContextDiagnostics(): Promise<ContextResult<ContextDiagnostics>>;
   resume: TuiResume | undefined;
-  autoConsolidationAgentId: string | undefined;
-  hostConsolidationExtraction?: true;
   automation?: RuntimeAutomation;
   dreaming?: DreamingService;
   getLearnedSkillReferences?: () => LearnedSkillReferenceSnapshot | null;
@@ -203,12 +200,10 @@ export interface RuntimeApp {
   activateTaskAutomation?: () => Promise<{ enabled: boolean; message?: string }>;
   memoryStore?: WorkspaceMemoryStore;
   recipes?: RecipeStore;
-  memoryConsolidation?: MemoryConsolidation;
   memoryExtraction?: MemoryExtraction;
   background?: ThreadBackground;
   settleModelUsage?: () => Promise<void>;
   projectExecutionRuns: (runs: import("./execution-record-store.js").ExecutionRunRecord[]) => Promise<import("./execution-record-store.js").ExecutionRunRecord[]>;
-  getMemoryConsolidationBacklog?: () => Promise<MemoryResult<number>>;
   getMemoryReferences?: () => MemoryReferenceSnapshot | null;
   subscribeMemoryReferences?: (listener: () => void) => () => void;
   renderHome: () => Promise<void>;
@@ -438,7 +433,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                   createMemoryModule(
                     memoryStore!,
                     () => transcript.read(),
-                    { threadId, transcript, ...(workspaceRoot === undefined ? {} : { workspaceRoot }), writePolicy: moduleConfig?.memoryWritePolicy ?? "review", consolidationAgentIds: externalSkills.filter(skill => skill.kind === "memory-consolidate").map(skill => skill.agentId),
+                    { threadId, transcript, ...(workspaceRoot === undefined ? {} : { workspaceRoot }), writePolicy: moduleConfig?.memoryWritePolicy ?? "review",
                       getCurrentUserMessage: () => currentRun.memorySource?.signal.aborted ? undefined : currentRun.memorySource?.message,
                      },
                   ),
@@ -983,8 +978,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       getMemoryReferences: () => memoryReference === null ? null : structuredClone(memoryReference),
       subscribeMemoryReferences: (listener) => { memoryReferenceListeners.add(listener); return () => { memoryReferenceListeners.delete(listener); }; },
       resume,
-      autoConsolidationAgentId: undefined,
-      ...(moduleConfig?.autoConsolidate ? { hostConsolidationExtraction: true as const } : {}),
       automation,
       ...(dreaming ? { dreaming } : {}),
       getLearnedSkillReferences: () => learnedSkillReference === null ? null : structuredClone(learnedSkillReference),
@@ -1002,11 +995,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       },
       endForegroundExecution: () => { currentRun.foreground = undefined; },
       ...(recipes ? { recipes } : {}),
-      ...(memoryStore ? { getMemoryConsolidationBacklog: async () => {
-        const cursor = await memoryStore.getConsolidationCursor(threadId);
-        if (!cursor.ok) return cursor;
-        return memoryConsolidationBacklog(await transcript.read(), cursor.value);
-      } } : {}),
       renderHome: renderFreshHome,
       registerNotificationRedraw: (redraw) => {
         redrawAfterModuleNotification = redraw;

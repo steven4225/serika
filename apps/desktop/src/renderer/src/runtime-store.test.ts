@@ -54,7 +54,7 @@ const newStore = () => harness().store;
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const snapshotOf = (fields: Partial<UiSnapshot>): UiSnapshot => ({
   state: { kind: "idle" }, canSubmit: true, canSteer: false, steers: [], pendingApproval: null, recentOutput: "", outputTruncated: false,
-  toolActivity: [], lastPrimaryResult: null, lastConsolidationResult: null, resultTextTruncated: false, shellProgress: [], ...fields,
+  toolActivity: [], lastPrimaryResult: null, resultTextTruncated: false, shellProgress: [], ...fields,
 });
 const result = (runId: string, status: RunResult["status"] = "completed"): RunResult =>
   ({ runId, threadId: "thread-1", status, text: "完成", steps: 1, usage: {} as RunResult["usage"] });

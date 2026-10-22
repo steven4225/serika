@@ -12,7 +12,7 @@ import { createRuntimeApp } from "./app.js";
 import { createAssistantController, type AssistantController } from "./assistant-controller.js";
 import type { HookRule } from "./automation-hooks.js";
 import { createCheckpointStore } from "./checkpoint-store.js";
-import { createMemoryStore } from "./memory-store.js";
+import { createMemoryStore } from "./memory-v6-store.js";
 
 type ModelOptions = Parameters<MockLanguageModelV3["doStream"]>[0];
 const PREFERENCE = "我的长期复盘偏好是先结论，再给两条步骤。";
@@ -59,7 +59,7 @@ function stageResponse(options: ModelOptions, sourceText = PREFERENCE, override 
   assert.ok(source, "proposal must use a committed user source from the prepared material");
   const payload = { batchId: material.batchId, outcomes: material.turns.map(turn => ({ messageId: turn.user.messageId,
     status: turn.user.messageId === source.messageId ? "extracted" : "no_memory" })), proposals: [{
-    action: "add", text: SAVED_PREFERENCE, kind: "preference", scope: { kind: "workspace" },
+    action: "add", text: SAVED_PREFERENCE, kind: "preference",
     sourceMessageId: source.messageId, sourceQuote: sourceText, reason: "用户明确长期偏好",
     eligibility: "durable_self_statement", ...override,
   }] };
@@ -154,8 +154,6 @@ test("config hook dispatches an external text Skill with its instructions and no
     assert.doesNotMatch(JSON.stringify(diagnostics.skills), /CUSTOM_TEXT_SKILL/, "diagnostics expose metadata, not instruction contents");
     const saved = await app.memoryStore!.list(); assert.ok(saved.ok);
     assert.equal(saved.entries.length, 1, "text Skill must not perform implicit memory consolidation");
-    const cursor = await app.memoryStore!.getConsolidationCursor(app.threadId); assert.ok(cursor.ok);
-    assert.equal(cursor.value, null);
   } finally { await f.cleanup(); }
 });
 

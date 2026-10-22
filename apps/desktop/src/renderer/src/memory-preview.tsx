@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { FormalMemory } from "@serika/assistant";
-import type { MemoryAssertion } from "@serika/assistant";
+import type { MemorySource } from "@serika/assistant";
 import type { RendererApi } from "../../shared/ui-contract.js";
 import { MemoryPanel } from "./memory.js";
 import { MemoryReferences } from "./memory-references.js";
@@ -17,27 +17,22 @@ function daysAgo(days: number): string {
   return date.toISOString();
 }
 
-function remembered(input: { id: string; text: string; kind: "preference" | "fact" | "note"; updatedDays: number; sources: MemoryAssertion["sources"]; factIdentity?: NonNullable<FormalMemory["assertion"]>["factIdentity"] }): FormalMemory {
+function remembered(input: { id: string; text: string; kind: "preference" | "fact" | "note"; updatedDays: number; sources: MemorySource[] }): FormalMemory {
   for (const source of input.sources) if (source.kind === "conversation") quotes.set(`${input.id}:${source.messageId}`, source.quote);
   const updatedAt = daysAgo(input.updatedDays);
   const source = input.sources[0] ?? { kind: "manual" as const };
   return {
     id: input.id, text: input.text, revision: 2, enabled: true, status: "active", pinned: false, expiresAt: null,
-    scope: { kind: "workspace" }, createdAt: daysAgo(input.updatedDays + 2), updatedAt, temporalState: "applicable", source,
-    assertion: {
-      assertionId: `${input.id}-assertion`, kind: input.kind, recallTerms: [], state: "asserted",
-      ...(input.factIdentity ? { factIdentity: input.factIdentity } : {}),
-      validTime: { from: null, to: null, basis: "unknown" }, systemTime: { from: updatedAt, to: null },
-      sourceIds: input.sources.map(item => item.kind === "conversation" ? { kind: item.kind, threadId: item.threadId, messageId: item.messageId } : { kind: item.kind }),
-    },
+    scope: { kind: "workspace" }, createdAt: daysAgo(input.updatedDays + 2), updatedAt, source,
+
   };
 }
 
-const quote = (messageId: string, text: string) => ({ kind: "conversation" as const, threadId: "fixture-a", messageId, quote: text });
+const quote = (messageId: string, text: string) => ({ kind: "conversation" as const, threadId: "fixture-a", messageId, quote: text, sentAt: null });
 const quotes = new Map<string, string>();
 let memories: FormalMemory[] = [
   remembered({ id: "fixture-writing", kind: "preference", updatedDays: 1, text: "复盘先给一行结论，再列两条可执行步骤。", sources: [quote("fixture-source", "我的复盘偏好是：先给一行结论，再列两条可执行步骤。")] }),
-  remembered({ id: "fixture-coffee", kind: "fact", updatedDays: 3, text: "咖啡不加糖。", factIdentity: { attribute: "coffee", scenario: "personal", value: "unsweetened" }, sources: [quote("coffee-source", "咖啡不加糖。")] }),
+  remembered({ id: "fixture-coffee", kind: "fact", updatedDays: 3, text: "咖啡不加糖。", sources: [quote("coffee-source", "咖啡不加糖。")] }),
   remembered({
     id: "fixture-background", kind: "note", updatedDays: 3,
     text: "## 教育背景\n- 宁波大学，计算机科学与技术\n\n## 编程语言\n- 主力：TypeScript（AI agent 运行时、Next.js 全栈）",
@@ -47,15 +42,10 @@ let memories: FormalMemory[] = [
 ];
 let changed = () => {};
 const byId = (id: string) => memories.find(item => item.id === id) ?? memories[0]!;
-const fixtureApi: Pick<RendererApi, "listMemories" | "getMemory" | "getMemoryHistory" | "getMemoryMaintenance" | "updateMemory" | "getMemoryReferences"> = {
-  listMemories: async () => ({ ok: true, value: { entries: memories.map(item => { const { text, source: _source, ...rest } = item; return { ...rest, preview: Array.from(text).slice(0, 120).join(""), truncated: Array.from(text).length > 120 }; }), nextOffset: null } }),
+const fixtureApi: Pick<RendererApi, "listMemories" | "getMemory" | "getMemoryMaintenance" | "updateMemory" | "getMemoryReferences"> = {
+  listMemories: async () => ({ ok: true, value: { entries: memories.map(item => { const { text, source: _source, ...rest } = item; return { ...rest, sourceKinds: item.source ? [{ kind: item.source.kind }] : [], preview: Array.from(text).slice(0, 120).join(""), truncated: Array.from(text).length > 120 }; }), nextOffset: null } }),
   getMemory: async id => ({ ok: true, value: structuredClone(byId(id)) }),
-  getMemoryHistory: async ({ id }) => {
-    const item = byId(id);
-    const sources = item.assertion?.sourceIds.map(source => source.kind === "conversation" ? quote(source.messageId, quotes.get(`${item.id}:${source.messageId}`) ?? "原话未附带") : source) ?? [];
-    return { ok: true, value: { id: item.id, revision: item.revision ?? 1, historyCoverage: "complete", nextOffset: null, versions: [{ revision: item.revision ?? 1, assertionId: item.assertion?.assertionId ?? id, scope: { kind: "workspace" }, pinned: false, status: "active", expiresAt: null, changedAt: item.updatedAt ?? null }], assertions: [{ assertionId: item.assertion?.assertionId ?? id, text: item.text, kind: item.assertion?.kind ?? "note", recallTerms: [], validTime: { from: null, to: null, basis: "unknown" }, systemTime: { from: item.updatedAt ?? null, to: null }, state: "asserted", sources }] } };
-  },
-  getMemoryMaintenance: async () => ({ ok: true, value: { stored: memories.length, pending: 0, expired: 0, disabled: 0, duplicateSuggestions: 0, capacity: { entries: 512, bytes: 16 * 1024 * 1024, assertionsPerEntry: 64 }, consolidation: { enabled: true, state: "idle" } } }),
+  getMemoryMaintenance: async () => ({ ok: true, value: { stored: memories.length, disabled: 0, capacity: { entries: 512, bytes: 16 * 1024 * 1024 }, consolidation: { enabled: true, state: "idle" } } }),
   updateMemory: async input => {
     const current = byId(input.id);
     if (input.expectedRevision !== current.revision) return { ok: false, error: { code: "MEMORY_REVISION_CONFLICT", message: "fixture conflict" } };
@@ -64,7 +54,7 @@ const fixtureApi: Pick<RendererApi, "listMemories" | "getMemory" | "getMemoryHis
     changed();
     return { ok: true, value: structuredClone(next) };
   },
-  getMemoryReferences: async () => ({ runId: "fixture-run", messageId: "fixture-user", preparedAt: daysAgo(0), temporalView: { validAt: daysAgo(0), knownAt: daysAgo(0) }, selected: [{ id: memories[0]!.id, revision: 1, text: memories[0]!.text, reason: "snapshot" }], referenceBytes: 128, eligibleCount: 1, truncated: false, queryTruncated: false }),
+  getMemoryReferences: async () => ({ runId: "fixture-run", messageId: "fixture-user", preparedAt: daysAgo(0), selected: [{ id: memories[0]!.id, revision: 1, text: memories[0]!.text, reason: "snapshot" }], referenceBytes: 128, eligibleCount: 1, truncated: false }),
 };
 window.runloom = fixtureApi as RendererApi;
 function Preview() {

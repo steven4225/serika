@@ -46,7 +46,10 @@ try {
   report.lineChanges = git('diff', '--numstat', 'a183ddf', 'HEAD').split('\n').filter(Boolean).map(line => {
     const [added, removed, path] = line.split('\t'); return { path, added: Number(added), removed: Number(removed) };
   });
-  report.sourceHashes = Object.fromEntries(await Promise.all(report.lineChanges.map(async ({ path }) => [path, await hash(path)])));
+  report.sourceHashes = Object.fromEntries(await Promise.all(report.lineChanges.map(async ({ path }) => {
+    try { return [path, await hash(path)]; }
+    catch (error) { if (error.code === 'ENOENT' && git('ls-tree', 'HEAD', '--', path) === '') return [path, null]; throw error; }
+  })));
   run('pnpm', ['typecheck']);
   for (const timeZone of ['UTC', 'Asia/Shanghai']) run('env', [`TZ=${timeZone}`, 'pnpm', 'test']);
   run('pnpm', ['eval:test']);

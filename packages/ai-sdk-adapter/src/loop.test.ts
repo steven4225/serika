@@ -1099,21 +1099,20 @@ describe("AiSdkAgentLoop", () => {
       },
     ]);
 
-    await assert.rejects(
-      new AiSdkAgentLoop({
-        models: new InMemoryModelRegistry({ test: model }),
-        tools,
-      }).execute({
-        definition: { ...definition, tools: ["double"] },
-        messages: [userMessage()],
-        signal: new AbortController().signal,
-        generateId: () => "assistant-1",
-        emit: createEmit(events),
-      }),
-      (error: unknown) =>
-        error instanceof AgentError &&
-        error.data.code === "TOOL_OUTCOME_UNKNOWN",
-    );
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools,
+    }).execute({
+      definition: { ...definition, tools: ["double"] },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => "assistant-1",
+      emit: createEmit(events),
+    });
+    assert.equal(outcome.stopReason, "failed");
+    assert.ok(outcome.stopReason === "failed");
+    assert.equal(outcome.error.code, "TOOL_OUTCOME_UNKNOWN");
+    assert.match(JSON.stringify(outcome.messages), /TOOL_OUTCOME_UNKNOWN/);
 
     assert.equal(modelCalls, 1);
     assert.equal(executeCount, 1);
@@ -1156,21 +1155,20 @@ describe("AiSdkAgentLoop", () => {
       },
     ]);
 
-    await assert.rejects(
-      new AiSdkAgentLoop({
-        models: new InMemoryModelRegistry({ test: model }),
-        tools,
-      }).execute({
-        definition: { ...definition, tools: ["double"] },
-        messages: [userMessage()],
-        signal: new AbortController().signal,
-        generateId: () => "assistant-1",
-        emit: createEmit(events),
-      }),
-      (error: unknown) =>
-        error instanceof AgentError &&
-        error.data.code === "TOOL_OUTCOME_UNKNOWN",
-    );
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools,
+    }).execute({
+      definition: { ...definition, tools: ["double"] },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => "assistant-1",
+      emit: createEmit(events),
+    });
+    assert.equal(outcome.stopReason, "failed");
+    assert.ok(outcome.stopReason === "failed");
+    assert.equal(outcome.error.code, "TOOL_OUTCOME_UNKNOWN");
+    assert.match(JSON.stringify(outcome.messages), /TOOL_OUTCOME_UNKNOWN/);
 
     assert.equal(modelCalls, 1);
     assert.equal(executeCount, 1);
@@ -1209,21 +1207,20 @@ describe("AiSdkAgentLoop", () => {
       },
     ]);
 
-    await assert.rejects(
-      new AiSdkAgentLoop({
-        models: new InMemoryModelRegistry({ test: model }),
-        tools,
-      }).execute({
-        definition: { ...definition, tools: ["double"] },
-        messages: [userMessage()],
-        signal: new AbortController().signal,
-        generateId: () => "assistant-1",
-        emit: async () => undefined,
-      }),
-      (error: unknown) =>
-        error instanceof AgentError &&
-        error.data.code === "TOOL_OUTCOME_UNKNOWN",
-    );
+    const outcome = await new AiSdkAgentLoop({
+      models: new InMemoryModelRegistry({ test: model }),
+      tools,
+    }).execute({
+      definition: { ...definition, tools: ["double"] },
+      messages: [userMessage()],
+      signal: new AbortController().signal,
+      generateId: () => "assistant-1",
+      emit: async () => undefined,
+    });
+    assert.equal(outcome.stopReason, "failed");
+    assert.ok(outcome.stopReason === "failed");
+    assert.equal(outcome.error.code, "TOOL_OUTCOME_UNKNOWN");
+    assert.match(JSON.stringify(outcome.messages), /TOOL_OUTCOME_UNKNOWN/);
 
     assert.deepEqual(executed, ["first-call"]);
   });
@@ -2781,7 +2778,7 @@ describe("AiSdkAgentLoop", () => {
 });
 
 describe("beforeToolExecute Runtime integration", () => {
-  it("does not save when a non-idempotent tool outcome is unknown", async () => {
+  it("saves the original request and unknown receipt while the Run remains failed", async () => {
     const threadId = "thread-unknown-outcome";
     const committed: UIMessage[] = [
       { ...userMessage("remember this"), id: "old-user" },
@@ -2839,8 +2836,12 @@ describe("beforeToolExecute Runtime integration", () => {
 
     assert.equal(result.status, "failed");
     assert.equal(result.error?.code, "TOOL_OUTCOME_UNKNOWN");
-    assert.equal(store.saveCount, 0);
-    assert.deepEqual(await store.getMessages(threadId), committed);
+    assert.equal(store.saveCount, 1);
+    const saved = await store.getMessages(threadId);
+    assert.deepEqual(saved.slice(0, committed.length), committed);
+    const savedRequest = saved.at(-2)?.parts[0];
+    assert.equal(savedRequest?.type === "text" && savedRequest.text, "run the tool");
+    assert.match(JSON.stringify(saved.at(-1)), /TOOL_OUTCOME_UNKNOWN/);
   });
 
   it("does not save when beforeToolExecute fails in the real runtime loop", async () => {

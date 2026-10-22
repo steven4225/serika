@@ -156,14 +156,19 @@ export type AfterToolCall = (
   input: AfterToolCallInput,
 ) => AfterToolCallDecision | undefined | Promise<AfterToolCallDecision | undefined>;
 
-export interface LoopOutcome {
+export type LoopOutcome = {
   text: string;
   messages: UIMessage[];
   steps: number;
   usage: TokenUsage;
+} & ({
   stopReason: "completed" | "approval_required";
   completion?: CompletionReport;
-}
+} | {
+  stopReason: "failed";
+  completion?: never;
+  error: import("./errors.js").AgentErrorData;
+});
 
 export interface AgentLoopInput<TContext = unknown> {
   definition: AgentDefinition<TContext>;

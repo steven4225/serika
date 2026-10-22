@@ -9,7 +9,7 @@ import { historyPage, type HistoryPageInput } from "../shared/history.js";
 import { ExecutionRecordStore } from "@serika/assistant";
 import type { DesktopThread } from "./desktop-identity.js";
 import type { MemoryEditInput, MemoryListInput } from "@serika/assistant";
-import type { MemoryAction, MemoryHistoryInput } from "@serika/assistant";
+import type { MemoryAction } from "@serika/assistant";
 import type { AssistantRunOptions } from "@serika/assistant";
 import type { AutomationDiagnostics, SkillRunInput, SkillResult } from "@serika/assistant";
 import type { AutomationScheduleAction, ScheduleSkillInput } from "@serika/assistant";
@@ -173,7 +173,6 @@ function toUiSnapshot(snapshot: AssistantSnapshot, shellProgress: UiSnapshot["sh
     outputTruncated: snapshot.outputTruncated,
     toolActivity: snapshot.toolActivity,
     lastPrimaryResult: snapshot.lastPrimaryResult,
-    lastConsolidationResult: snapshot.lastConsolidationResult,
     resultTextTruncated: snapshot.resultTextTruncated,
     shellProgress,
   };
@@ -317,8 +316,6 @@ export class RuntimeBridge {
   listRecipes() { return this.#controller.recipes.list(); }
   changeRecipe(input: RecipeChange) { return this.#controller.recipes.change(input); }
   updateMemory(input: MemoryEditInput) { return this.#controller.memory.update(input); }
-  getMemoryHistory(input: MemoryHistoryInput) { return this.#controller.memory.getHistory(input); }
-  previewMemoryAction(input: MemoryAction) { return this.#controller.memory.previewAction(input); }
   applyMemoryAction(input: MemoryAction) { return this.#controller.memory.applyAction(input); }
   getMemoryMaintenance() { return this.#controller.memory.getMaintenance(); }
   getMemoryReferences() { return this.#controller.memory.getReferences(); }

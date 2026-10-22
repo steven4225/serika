@@ -34,8 +34,6 @@ export const IPC_FORWARDS = {
     listRecipes: 0,
     changeRecipe: 1,
     updateMemory: 1,
-    getMemoryHistory: 1,
-    previewMemoryAction: 1,
     applyMemoryAction: 1,
     getMemoryMaintenance: 0,
     getMemoryReferences: 0,

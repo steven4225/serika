@@ -1,5 +1,5 @@
 import type { ControllerKernel } from "./controller-kernel.js";
-import type { MemoryResult } from "./memory-candidates.js";
+import type { MemoryResult } from "./memory-types.js";
 import { memoryControlFailure } from "./memory-controls.js";
 import { RecipeError, recipeChangeSchema, type RecipeChange, type RecipeEntry } from "./recipe-store.js";
 

@@ -8,44 +8,29 @@ export const MEMORY_CATEGORIES: readonly { id: MemoryCategoryId; name: string }[
   { id: "work", name: "工作" },
 ];
 
-const PREFERENCE_ATTRIBUTES = new Set(["response_language", "review_format", "coffee", "residence"]);
-
 export interface MemoryCardEntry {
   id: string;
   preview: string;
   truncated?: boolean;
   updatedAt?: string | null;
   createdAt?: string | null;
-  temporalState?: "applicable" | "retracted" | "not_applicable";
+  kind?: string;
   enabled?: boolean;
   status?: string;
   expiresAt?: string | null;
-  assertion?: {
-    state?: "asserted" | "retracted";
-    validTime?: { from: string | null; to: string | null };
-    kind?: string;
-    factIdentity?: { attribute?: string; scenario?: string };
-    sourceIds?: readonly { kind: "manual" | "legacy" | "conversation" }[];
-  };
+  sourceKinds?: readonly { kind: "manual" | "conversation" }[];
 }
 
-export function memoryCategory(entry: Pick<MemoryCardEntry, "assertion">): MemoryCategoryId {
-  const attribute = entry.assertion?.factIdentity?.attribute;
-  const scenario = entry.assertion?.factIdentity?.scenario;
-  const kind = entry.assertion?.kind;
-  if (attribute !== undefined && PREFERENCE_ATTRIBUTES.has(attribute)) return "preference";
-  if (kind === "preference" || scenario === "personal") return "preference";
-  if (scenario === "work") return "work";
-  if (kind === "fact") return "work";
+export function memoryCategory(entry: Pick<MemoryCardEntry, "kind">): MemoryCategoryId {
+  if (entry.kind === "preference") return "preference";
+  if (entry.kind === "fact") return "work";
   return "project";
 }
 
 /** This is a current view, not a history or a claim that inactive records were deleted. */
 export function isCurrentMemory(entry: MemoryCardEntry, now: Date): boolean {
-  if (entry.enabled === false || entry.status === "disabled" || entry.temporalState === "retracted" || entry.temporalState === "not_applicable" || entry.assertion?.state === "retracted") return false;
+  if (entry.enabled === false || entry.status === "disabled") return false;
   if (entry.expiresAt && (!Number.isFinite(Date.parse(entry.expiresAt)) || Date.parse(entry.expiresAt) <= now.getTime())) return false;
-  const time = entry.assertion?.validTime;
-  if (time?.from && Date.parse(time.from) > now.getTime() || time?.to && Date.parse(time.to) <= now.getTime()) return false;
   return true;
 }
 
@@ -59,17 +44,16 @@ export function memoryCountLabel(count: number): string {
   return `${count} 项`;
 }
 
-export function memorySourcePhrase(sources: readonly { kind: "manual" | "legacy" | "conversation" }[]): string {
+export function memorySourcePhrase(sources: readonly { kind: "manual" | "conversation" }[]): string {
   if (sources.length === 0) return "来源未附带";
   const labels = sources.map(source => sourceLabel(source.kind));
   return sources.length === 1 ? `来自${labels[0]}` : `多条来源：${labels.join("、")}`;
 }
 
-function sourceLabel(kind: "manual" | "legacy" | "conversation"): string {
+function sourceLabel(kind: "manual" | "conversation"): string {
   switch (kind) {
     case "conversation": return "对话";
     case "manual": return "手动记录";
-    case "legacy": return "旧记录";
     default: {
       const exhaustive: never = kind;
       return exhaustive;

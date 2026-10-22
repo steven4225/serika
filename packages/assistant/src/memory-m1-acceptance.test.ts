@@ -8,7 +8,7 @@ import { simulateReadableStream, type UIMessage } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp } from "./app.js";
 import { createAssistantController } from "./assistant-controller.js";
-import { createMemoryStore } from "./memory-store.js";
+import { createMemoryStore } from "./memory-v6-store.js";
 import { createMemoryExtraction } from "./memory-extraction.js";
 import { DEFAULT_CONTEXT_BUDGET_CONFIG, defaultContextBudget } from "./context-budget.js";
 
@@ -147,7 +147,7 @@ test("M1 saved older pending replay cannot supersede a newer-source value after 
   const messages = [user("old", old), user("new", latest)];
   const { hashCanonicalJson } = await import("@serika/core");
   const hash = (count: number) => hashCanonicalJson(JSON.parse(JSON.stringify(messages.slice(0, count))));
-  const seed = await store.writeV6!([{ operation: "add", text: latest, category: "note", scope: { kind: "workspace" }, identity: { subject: "user", attribute: "residence", value: "上海" },
+  const seed = await store.writeV6!([{ operation: "add", text: latest, category: "note", identity: { subject: "user", attribute: "residence", value: "上海" },
     source: { kind: "conversation", threadId: "t", messageId: "new", quote: latest, sentAt: null } }], new AbortController().signal,
     { expectedProgress: null, progress: { threadId: "t", throughMessageId: "new", prefixHash: hash(2), retry: null, pending: [{ messageId: "old", prefixHash: hash(1) }] } });
   assert.ok(seed.ok);

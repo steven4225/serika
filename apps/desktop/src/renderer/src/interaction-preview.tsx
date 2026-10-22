@@ -27,7 +27,7 @@ const info = (): AppInfo => ({ entryMode: "test", configPath: "/fixture/config.j
     { id: "memory", enabled: memoryEnabled }, { id: "task", enabled: true }, { id: "pomodoro", enabled: true }, { id: "shell", enabled: true },
   ] });
 const snapshot: UiSnapshot = { state: { kind: "idle" }, canSubmit: true, canSteer: false, steers: [], pendingApproval: null, recentOutput: "", outputTruncated: false,
-  toolActivity: [], lastPrimaryResult: null, lastConsolidationResult: null, resultTextTruncated: false, shellProgress: [] };
+  toolActivity: [], lastPrimaryResult: null, resultTextTruncated: false, shellProgress: [] };
 const changeThread = (id: string) => { threadId = id; for (const listener of [...listeners]) listener({ type: "identity-changed", info: info() }); };
 const briefMode = new URLSearchParams(location.search).get("brief");
 const taskFixture = new URLSearchParams(location.search).get("tasks") === "1";

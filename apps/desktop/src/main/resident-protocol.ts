@@ -14,7 +14,7 @@ export const RESIDENT_BRIDGE_METHODS = [
   "getDreamingOverview", "dream", "changeLearnedSkill", "getLearnedSkillReferences", "runSkill",
   "listRecipes", "changeRecipe",
   "getMemoryLibrary", "readMemoryDocument", "changeMemoryLibrary",
-  "listMemories", "getMemory", "updateMemory", "getMemoryHistory", "previewMemoryAction", "applyMemoryAction", "getMemoryMaintenance",
+  "listMemories", "getMemory", "updateMemory", "applyMemoryAction", "getMemoryMaintenance",
   "getMemoryReferences",
   "getRssSubscriptions", "updateRssSubscriptions", "getRssInbox", "acknowledgeRssResult", "getTaskInbox", "getScheduledTask", "acknowledgeTaskResult",
   "createWorkTask", "listWorkTasks", "getWorkTask", "getWorkTaskDeliveryDraft", "getWorkTaskContinuation", "getWorkTaskArtifact", "runWorkTask",

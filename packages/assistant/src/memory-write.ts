@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
 import { z } from "zod";
-import { MemoryStoreError } from "./memory-store.js";
+import { MemoryStoreError } from "./memory-types.js";
 import { findCommittedUserMessage, isExactUserQuote } from "./consolidation.js";
 import type { V6Change, V6Source } from "./memory-v6-store.js";
 
@@ -65,7 +65,7 @@ export function bindMemoryWrite(input: MemoryWrite, options: { messages: readonl
     const normalizedQuote = clauses(quote).join("，"), normalizedText = clauses(text).join("，");
     if (guardedClauses(quote).some(clause => !normalizedText.includes(clause)) || guardedClauses(text).some(clause => !normalizedQuote.includes(clause))) return rejectValue("CONDITION_CLAUSE_MISSING", "text", text);
     return {
-      operation: input.operation, text, uncertain: input.uncertain ?? false, category: input.category!, source, scope: { kind: "workspace" },
+      operation: input.operation, text, uncertain: input.uncertain ?? false, category: input.category!, source,
       identity: input.identity!, ...(input.id ? { id: input.id } : {}), ...(input.expectedRevision ? { expectedRevision: input.expectedRevision } : {}),
     };
   }

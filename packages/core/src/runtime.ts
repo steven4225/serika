@@ -337,7 +337,7 @@ export class DefaultAgentRuntime {
         emit,
       });
 
-      await options.steering?.close("run_ended");
+      await options.steering?.close(outcome.stopReason === "failed" ? "run_failed" : "run_ended");
 
       if (outcome.stopReason === "approval_required") {
         await this.#store.transition(runId, version, "waiting_approval");
@@ -350,8 +350,8 @@ export class DefaultAgentRuntime {
       }
 
       if (
-        controller.signal.aborted ||
-        budgetLeft() <= 0
+        outcome.stopReason !== "failed" &&
+        (controller.signal.aborted || budgetLeft() <= 0)
       ) {
         acceptTimeoutIfDue();
         throw abortReason(controller.signal);
@@ -362,23 +362,24 @@ export class DefaultAgentRuntime {
       saveStarted = true;
       await this.#store.save(request.threadId, outcome.messages);
       transcriptCommitted = true;
-      const completed: RunResult = {
+      const committed: RunResult = {
         runId,
         threadId: request.threadId,
-        status: "completed",
+        status: outcome.stopReason === "failed" ? "failed" : "completed",
+        ...(outcome.stopReason === "failed" ? { error: outcome.error } : {}),
         text: outcome.text,
         steps: outcome.steps,
         usage: outcome.usage,
-        ...(outcome.completion === undefined ? {} : { completion: outcome.completion }),
+        ...(outcome.stopReason === "failed" || outcome.completion === undefined ? {} : { completion: outcome.completion }),
       };
 
       try {
-        await this.#store.transition(runId, version, "completed", completed);
+        await this.#store.transition(runId, version, committed.status, committed);
       } catch (error) {
         throw new AgentError(
           {
             code: "INTERNAL",
-            message: "Failed to finalize the completed run",
+            message: "Failed to finalize the committed run",
             retryable: false,
             phase: "storage",
           },
@@ -386,12 +387,13 @@ export class DefaultAgentRuntime {
         );
       }
 
-      await notify("run.completed", {
+      if (outcome.stopReason === "failed") await notify("run.failed", { error: outcome.error });
+      else await notify("run.completed", {
         text: outcome.text,
         steps: outcome.steps,
         usage: outcome.usage,
       });
-      return completed;
+      return committed;
     } catch (error) {
       await options.steering?.close(getStopCause() ?? "run_failed");
       if (transcriptCommitted) {

@@ -13,9 +13,8 @@ import { EXECUTION_RECORD_FILE } from "./execution-record-store.js";
 import { createExecutionRecordStore } from "./execution-record-store.js";
 import { createWorkTaskStore } from "./work-task-store.js";
 import { createToolConfirmation, type PendingToolApproval } from "./tool-confirmation.js";
-import { createMemoryStore, type WorkspaceMemoryStore } from "./memory-store.js";
-import type { CandidateResolution, MemoryResult } from "./memory-candidates.js";
-import { createMemoryConsolidation } from "./memory-consolidation.js";
+import { type WorkspaceMemoryStore } from "./memory-types.js";
+import { createMemoryStore } from "./memory-v6-store.js";
 
 function deferred<T>(): {
   promise: Promise<T>;
@@ -84,7 +83,6 @@ function appWith(overrides: Partial<RuntimeApp> = {}): RuntimeApp {
     commands: undefined,
     getContextDiagnostics: async () => ({ ok: false, error: { code: "TEST", message: "not configured" } }),
     resume: undefined,
-    autoConsolidationAgentId: undefined,
     renderHome: async () => undefined,
     registerNotificationRedraw: () => undefined,
     dispose: () => undefined,
@@ -263,7 +261,6 @@ describe("AssistantController", () => {
       workspaceRoot: workspace,
       workTasks,
       executionRecords,
-      autoConsolidationAgentId: "memory-consolidator",
       bindNextExecutionWorkTask: (input) => {
         boundTask = input;
         return () => { boundTask = undefined; };

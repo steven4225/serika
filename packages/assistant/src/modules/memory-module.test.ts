@@ -5,7 +5,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createModuleHost } from "../module-host.js";
-import { createMemoryStore } from "../memory-store.js";
+import { createMemoryStore } from "../memory-v6-store.js";
 import { createMemoryModule } from "./memory-module.js";
 import { bindMemoryWrite, memoryWriteSchema, MemoryWriteValidationError } from "../memory-write.js";
 import type { UIMessage } from "ai";

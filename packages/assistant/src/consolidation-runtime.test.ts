@@ -4,7 +4,7 @@ import { mkdtemp, rm, mkdir, writeFile, readFile, readdir } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MockLanguageModelV3 } from "ai/test";
-import { createMemoryStore } from "./memory-store.js";
+import { createMemoryStore } from "./memory-v6-store.js";
 import { createMemoryExtraction, extractionThreshold } from "./memory-extraction.js";
 import { DEFAULT_CONTEXT_BUDGET_CONFIG, defaultContextBudget } from "./context-budget.js";
 import { observeModelUsage } from "./model-usage-observer.js";

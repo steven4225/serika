@@ -20,10 +20,8 @@ it("formal Memory bridge edits actual current versions, validates IPC, preserves
   const bridge = new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, message => messages.push(message));
   try {
     const entry = await app.memoryStore!.add({ text: "复盘先给结论" }); assert.ok(entry.ok); if (!entry.ok) return;
-    const privateEntry = await app.memoryStore!.add({ text: "私有", scope: { kind: "thread", threadId: "other" } }); assert.ok(privateEntry.ok); if (!privateEntry.ok) return;
     const list = await bridge.listMemories(); assert.ok(list.ok); if (!list.ok) return;
     assert.equal(list.value.entries.length, 1);
-    assert.ok(!(await bridge.getMemory(privateEntry.entry.id)).ok);
     for (const bad of [null, [], "string", { offset: -1 }, { limit: 100 }]) assert.ok(!(await bridge.listMemories(bad as never)).ok);
     assert.ok(!(await bridge.getMemory(null as never)).ok);
     assert.ok(!(await bridge.updateMemory({ id: entry.entry.id, expectedRevision: 1, pinned: true, scope: { kind: "workspace" } } as never)).ok);

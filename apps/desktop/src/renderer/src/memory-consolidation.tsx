@@ -1,153 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { MemoryMaintenance } from "@serika/assistant";
-import type { MemoryActionPreview } from "@serika/assistant";
-import type { FormalMemory } from "@serika/assistant";
-import type { MemoryResult } from "@serika/assistant";
 import { memoryConsolidationFailureText } from "@serika/assistant/browser";
-import { MemoryActionPreviewDetails, MemorySources } from "./memory-temporal.js";
-import { memoryAutomationLabel, savedMemoryNoticeText } from "./memory-copy.js";
-import { FailureAlert } from "./failure-notice.js";
-
-const labels = { off: memoryAutomationLabel({ enabled: true, autoConsolidate: false }), backlog: "等待记忆整理", running: "正在整理记忆", failed: "记忆整理失败", awaiting_review: "有记忆待确认", idle: "没有待整理的新增记忆材料" };
-type SavedMemoryReceipt = NonNullable<NonNullable<MemoryMaintenance["consolidation"]["lastAttempt"]>["accepted"]>[number] & {
-  operation?: "add" | "update" | "correct" | "change" | "retract" | "disable";
-};
-
-export function memoryReceiptPresentation(receipt: SavedMemoryReceipt): { label: string; undoLabel: string | null } {
-  switch (receipt.operation) {
-    case "add": return { label: "已记住", undoLabel: "撤回…" };
-    case "update": case "correct": case "change": return { label: "已更新", undoLabel: "撤回整条记忆…" };
-    case "retract": return { label: "已撤回", undoLabel: null };
-    case "disable": return { label: "已停用", undoLabel: null };
-    default: return { label: "已处理", undoLabel: "撤回整条记忆…" };
-  }
-}
-
-export function memoryReceiptSummary(accepted: readonly SavedMemoryReceipt[]): string {
-  return accepted.every(receipt => receipt.operation === "add")
-    ? `已记住 ${accepted.length} 条信息` : `已处理 ${accepted.length} 条记忆`;
-}
-
-type ReceiptHistoryRead = {
-  versions: readonly { revision: number; assertionId: string }[];
-  assertions: readonly { assertionId: string; text: string }[];
-};
-
-/**
- * Text for one saved receipt, identified by its version's assertion.
- * The current time projection can differ even at the same revision.
- */
-export function receiptSnapshotText(
-  receiptRevision: number,
-  history: ReceiptHistoryRead,
-): string | null {
-  const version = history.versions.find(item => item.revision === receiptRevision);
-  if (!version) return null;
-  return history.assertions.find(item => item.assertionId === version.assertionId)?.text ?? null;
-}
-
-const RECEIPT_HISTORY_PAGE_LIMIT = 10;
-const RECEIPT_HISTORY_PAGE_MAX = 8;
-
-/** Read the body saved at `receipt.revision`, never a later revision of the same memory. */
-export async function loadSavedReceiptText(
-  receipt: { memoryId: string; revision: number },
-  api: Pick<Window["runloom"], "getMemory" | "getMemoryHistory">,
-): Promise<string | null> {
-  const current = await api.getMemory(receipt.memoryId);
-  if (!current.ok || current.value.id !== receipt.memoryId) return null;
-  const versions: { revision: number; assertionId: string }[] = [];
-  const assertions: { assertionId: string; text: string }[] = [];
-  let offset = 0;
-  for (let page = 0; page < RECEIPT_HISTORY_PAGE_MAX; page += 1) {
-    const history = await api.getMemoryHistory({ id: receipt.memoryId, offset, limit: RECEIPT_HISTORY_PAGE_LIMIT });
-    if (!history.ok || history.value.id !== receipt.memoryId) return null;
-    versions.push(...history.value.versions);
-    assertions.push(...history.value.assertions);
-    const text = receiptSnapshotText(receipt.revision, { versions, assertions });
-    if (text !== null) return text;
-    const next = history.value.nextOffset;
-    if (next === null || next <= offset) return null;
-    offset = next;
-  }
-  return null;
-}
-
-/** Undo binds to the saved revision, never to whatever newer value now occupies that id. */
-export async function previewAutomaticMemoryUndo(receipt: SavedMemoryReceipt, api: Pick<Window["runloom"], "getMemory" | "previewMemoryAction">): Promise<MemoryResult<MemoryActionPreview>> {
-  if (memoryReceiptPresentation(receipt).undoLabel === null) return { ok: false, error: { code: "INVALID_INPUT", message: "这条记忆已经撤回或停用，请在记忆详情中查看历史；不会再次撤回。" } };
-  const current = await api.getMemory(receipt.memoryId);
-  if (!current.ok) return current;
-  if (current.value.revision !== receipt.revision) return { ok: false, error: { code: "MEMORY_REVISION_CONFLICT", message: "这条记忆已有后续修改，请在记忆详情中核对当前版本；不会撤回新内容。" } };
-  return api.previewMemoryAction({ operation: "retract", id: receipt.memoryId, expectedRevision: receipt.revision });
-}
-
-function AutomaticMemoryReceipts({ accepted, busy, refreshToken }: { accepted: readonly SavedMemoryReceipt[]; busy: boolean; refreshToken: number }) {
-  const [current, setCurrent] = useState<FormalMemory | null>(null);
-  const [preview, setPreview] = useState<MemoryActionPreview | null>(null);
-  const [error, setError] = useState("");
-  const [working, setWorking] = useState(false);
-  const [undone, setUndone] = useState<string[]>([]);
-  const [texts, setTexts] = useState<Record<string, string>>({});
-  const generation = useRef(0);
-  const receiptKey = accepted.map(receipt => `${receipt.memoryId}:${receipt.revision}:${receipt.operation ?? "unknown"}`).join("|");
-  useEffect(() => { generation.current++; setPreview(null); setCurrent(null); setError(""); }, [refreshToken, receiptKey, busy]);
-  useEffect(() => {
-    if (!accepted.length || typeof window === "undefined" || !window.runloom?.getMemory || !window.runloom.getMemoryHistory) return;
-    let cancelled = false;
-    void Promise.all(accepted.map(async receipt => {
-      const key = `${receipt.memoryId}:${receipt.revision}`;
-      try {
-        const text = await loadSavedReceiptText(receipt, window.runloom);
-        return [key, text ?? ""] as const;
-      } catch {
-        return [key, ""] as const;
-      }
-    })).then(pairs => { if (!cancelled) setTexts(Object.fromEntries(pairs)); });
-    return () => { cancelled = true; };
-  }, [receiptKey]);
-  const act = async (operation: (isCurrent: () => boolean) => Promise<void>) => {
-    if (busy || working) return;
-    const requestGeneration = generation.current;
-    setWorking(true); setError(""); setPreview(null);
-    try { await operation(() => generation.current === requestGeneration); } catch (cause) { if (generation.current === requestGeneration) setError(String(cause)); }
-    finally { setWorking(false); }
-  };
-  if (!accepted.length) return null;
-  return <section className="memory-saved-toast" aria-label="最近一次自动处理的记忆" role="status">
-    {accepted.map(receipt => <div className="memory-actions" key={`${receipt.memoryId}:${receipt.revision}`}>
-      <span>{savedMemoryNoticeText(undone.includes(receipt.memoryId) ? "已撤回" : memoryReceiptPresentation(receipt).label, texts[`${receipt.memoryId}:${receipt.revision}`])}</span>
-      <details><summary>详情</summary><p>{`记忆 ${receipt.memoryId} · 版本 ${receipt.revision}`}</p></details>
-      <button className="ghost" disabled={busy || working} onClick={() => void act(async isCurrent => {
-        const result = await window.runloom.getMemory(receipt.memoryId);
-        if (!isCurrent()) return;
-        if (result.ok) setCurrent(result.value); else setError(`${result.error.code}: ${result.error.message}`);
-      })}>查看</button>
-      {memoryReceiptPresentation(receipt).undoLabel !== null ? <button className="ghost" disabled={busy || working || undone.includes(receipt.memoryId)} onClick={() => void act(async isCurrent => {
-        const result = await previewAutomaticMemoryUndo(receipt, window.runloom);
-        if (!isCurrent()) return;
-        if (result.ok) { setCurrent(result.value.current); setPreview(result.value); }
-        else setError(`${result.error.code}: ${result.error.message}`);
-      })}>{memoryReceiptPresentation(receipt).undoLabel}</button> : null}
-    </div>)}
-    {current && !preview ? <div className="memory-current-content"><pre className="memory-text">{current.text || "当前没有适用内容"}</pre>
-      <p className="hint">下面是当前保存的内容；撤回前请核对，历史仍会保留。</p>
-      <MemorySources sources={current.source ? [current.source] : []} />
-    </div> : null}
-    {preview ? <div role="group" aria-label="撤回自动记忆预览"><p className="hint">这会撤回当前整条记忆，不是恢复到修改前的版本。若要恢复旧内容，请在记忆详情中选择历史版本。</p><MemoryActionPreviewDetails preview={preview} />
-      <div className="memory-actions"><button disabled={busy || working} onClick={() => {
-        const input = preview.input;
-        void act(async () => {
-          const result = await window.runloom.applyMemoryAction(input);
-          if (!result.ok) { setError(`${result.error.code}: ${result.error.message}`); return; }
-          setCurrent(result.value); setUndone(previous => [...previous, input.id]);
-        });
-      }}>确认撤回</button><button className="ghost" disabled={working} onClick={() => setPreview(null)}>保留</button></div>
-    </div> : null}
-    {error ? <FailureAlert text={error} /> : null}
-  </section>;
-}
-
+import { memoryAutomationLabel } from "./memory-copy.js";
+const labels = { off: memoryAutomationLabel({ enabled: true, autoConsolidate: false }), backlog: "等待记忆整理", running: "正在整理记忆", failed: "记忆整理失败", idle: "没有待整理的新增记忆材料" };
 export function consolidationStatusLabel(enabled: boolean, maintenance: MemoryMaintenance | null, error: string): string {
   if (!enabled) return "记忆未启用";
   if (error) return "记忆整理状态读取失败";
@@ -155,13 +10,6 @@ export function consolidationStatusLabel(enabled: boolean, maintenance: MemoryMa
   if (maintenance.extraction?.pendingSegments) return `有 ${maintenance.extraction.pendingSegments} 段没整理`;
   const consolidation = maintenance.consolidation;
   if (consolidation.state === "failed" && consolidation.error) return memoryConsolidationFailureText(consolidation.error);
-  const accepted = consolidation.lastAttempt?.accepted ?? [];
-  const saved = accepted.length;
-  if (consolidation.lastAttempt?.status === "completed" && saved > 0) {
-    if (consolidation.state === "idle") return memoryReceiptSummary(accepted);
-    if (consolidation.state === "awaiting_review") return `${memoryReceiptSummary(accepted)}；另有记忆待确认`;
-  }
-  if (consolidation.state === "idle" && consolidation.lastAttempt?.status === "completed" && consolidation.lastAttempt.candidateCount === 0 && saved === 0) return "记忆整理完成，没有新增记忆";
   return labels[consolidation.state];
 }
 
@@ -184,13 +32,10 @@ export function MemoryConsolidationNotice({ enabled, busy, running = false, quie
   }, [enabled, busy, refreshToken]);
   if (!enabled) return null;
   const c = maintenance?.consolidation;
-  const accepted = c?.lastAttempt?.accepted ?? [];
-  const emptyAttempt = c?.state === "idle" && c.lastAttempt?.status === "completed" && c.lastAttempt.candidateCount === 0;
-  if (quiet && !running && !error && accepted.length === 0 && c?.state !== "failed") return null;
-  if (!running && !error && !emptyAttempt && accepted.length === 0 && c?.state !== "failed" && c?.state !== "backlog" && c?.state !== "running") return null;
+  if (quiet && !running && !error && c?.state !== "failed") return null;
+  if (!running && !error && c?.state !== "failed" && c?.state !== "backlog" && c?.state !== "running") return null;
   const title = running ? labels.running : consolidationStatusLabel(enabled, maintenance, error);
   return <div className="memory-consolidation"><div className="attention-summary" role="status"><span>{title}{c?.state === "backlog" && c.backlogCount !== undefined ? `（${c.backlogCount} 条取材范围内消息）` : ""}</span><button className="ghost" onClick={onOpen}>查看记忆</button></div>
     {c?.error ? <p className="error" role="alert">{memoryConsolidationFailureText(c.error)}</p> : null}
-    <AutomaticMemoryReceipts accepted={accepted} busy={busy} refreshToken={refreshToken} />
   </div>;
 }

@@ -68,6 +68,19 @@ export function createCompactionChecklist(input: CompactionChecklistSources & {
   const literal = (message: UIMessage) => input.requestReferenceOnly ? message.id : ({ messageId: message.id,
     parts: maskCompactionSources([message])[0]!.parts });
   const facts = collectTranscriptToolFacts(input.messages);
+  const unknownRequests = new Map<string, UIMessage>();
+  for (const fact of facts.filter(fact => fact.status === "unknown")) {
+    const end = input.messages.findIndex(message => fact.evidenceMessageIds.includes(message.id));
+    const preceding = input.messages.slice(0, end + 1).reverse();
+    const offset = preceding.findIndex(message => message.role === "user" &&
+      !isAutoConsolidationRequest(message) && (message.metadata as { source?: string } | undefined)?.source !== "steer");
+    if (offset < 0) continue;
+    for (const message of preceding.slice(0, offset + 1).reverse().filter(message => message.role === "user")) {
+      if (message.id !== request?.id) unknownRequests.set(message.id, message);
+    }
+  }
+  const unknownRequestViews = [...unknownRequests.values()].map(message => ({ messageId: message.id,
+    parts: maskCompactionSources([message])[0]!.parts }));
   const receipts = new Map<string, unknown>(facts.map(fact => [fact.toolCallId, fact]));
   const unknown = new Map<string, unknown>(facts.filter(fact => fact.status === "unknown").map(fact => [fact.toolCallId, fact]));
   const failed = new Map<string, unknown>(facts.filter(fact => fact.status === "failed").map(fact => [fact.toolCallId, fact]));
@@ -110,6 +123,7 @@ export function createCompactionChecklist(input: CompactionChecklistSources & {
         unresolved: task.delivery?.unresolved ?? [],
       } } : {}),
       ...(unknown.size ? { unknown: [...unknown.values()].map(compactReceipt) } : {}),
+      ...(unknownRequestViews.length ? { unknownRequests: unknownRequestViews } : {}),
       ...(failed.size ? { failed: [...failed.values()].map(compactReceipt) } : {}),
       ...(input.permissions ? { permissions: permissionView } : {}),
       ...(recent.length ? { recentReceipts: recent.map(compactReceipt) } : {}),
@@ -117,13 +131,15 @@ export function createCompactionChecklist(input: CompactionChecklistSources & {
   if (input.maxTokens !== undefined) {
     const originalTokens = estimateMessageTokens([compose()]);
     if (originalTokens > input.maxTokens) {
-      const effectsTokens = estimateSerializedTokens({ unknown: [...unknown.values()].map(compactReceipt), failed: [...failed.values()].map(compactReceipt) });
+      const effectsTokens = estimateSerializedTokens({ unknown: [...unknown.values()].map(compactReceipt),
+        ...(unknownRequestViews.length ? { unknownRequests: unknownRequestViews } : {}), failed: [...failed.values()].map(compactReceipt) });
       if (input.hardMaxTokens !== undefined && originalTokens <= input.hardMaxTokens && effectsTokens <= input.maxTokens) {
         return { ...compose(), metadata: { overflowTokens: originalTokens } };
       }
       const overflow: UIMessage = { id: "runloom-compaction-checklist", role: "assistant", metadata: { overflowTokens: originalTokens },
         parts: [{ type: "text", text: "Checklist overflow; never retry unknown effects.\n" + JSON.stringify({
           unknown: unknown.size, failed: failed.size, messages: [1, input.messages.length],
+          ...(unknownRequestViews.length ? { unknownRequests: unknownRequestViews } : {}),
           read: "history_read id=runloom-compaction-checklist", ...(task ? { task: task.id } : {}),
           request: requestView ? literal(requestView) : null,
           ...(corrections.length ? { corrections: corrections.map(literal) } : {}),

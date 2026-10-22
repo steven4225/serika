@@ -77,9 +77,9 @@ test("desktop chat preempts real background consolidation without approving tool
     assert.equal((await bridge.run("下一句马上发送", { memoryConsolidation: "exclude" })).ok, true);
     await until(() => bridge!.snapshot().state.kind === "idle");
     assert.equal(calls, 3);
-    const cursor = await app.memoryStore!.getConsolidationCursor("chat");
+    const cursor = await app.memoryStore!.readV6!();
     assert.equal(cursor.ok, true);
-    if (cursor.ok) assert.equal(cursor.value, null);
+    if (cursor.ok) assert.equal(cursor.value.progress.length, 0);
     const history = await bridge.history();
     assert.equal(history.filter(message => message.role === "user").length, 2);
     const records = await controller.runs.list();

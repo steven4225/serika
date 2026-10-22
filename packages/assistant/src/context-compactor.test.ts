@@ -335,7 +335,7 @@ it("C5 preserves oversized essential legacy continuation using unused recent cap
 });
 
 
-it("CE05 1248 total minus 193 checklist retains goals, confirmed decisions, pending and permissions", async () => {
+it("CE05 1248 total minus literal unknown request checklist retains goals, confirmed decisions, pending and permissions", async () => {
   const item = (text: string) => ({ text, evidenceMessageIds: ["fidelity-contract"] });
   const core: ContextSummaryV2 = { ...summary, goal: item("完成验收报告"), constraints: [item("部署尚未获批准，不能把旧回执当新的读取授权")],
     decisions: [{ ...item("采用本地文件方案"), source: "user", status: "confirmed" }], pending: [item("补充失败样本")],
@@ -361,7 +361,7 @@ it("CE05 1248 total minus 193 checklist retains goals, confirmed decisions, pend
   const compactor = make(store, { complete: async () => { throw new Error("must not dispatch"); } }, { checklist: () => ({ permissions: createToolConfirmation(new PassThrough()).snapshot() }) });
   const prepared = await compactor.prepare(store.messages, signal());
   const diagnostic = await compactor.getDiagnostics(); assert.ok(diagnostic.ok);
-  assert.equal(diagnostic.value.lastPreparation?.summaryLayer?.checklistTokens, 193);
+  assert.equal(diagnostic.value.lastPreparation?.summaryLayer?.checklistTokens, 264);
   assert.ok(prepared.some(message => message.id === "runloom-context-summary"));
   for (const text of ["完成验收报告", "采用本地文件方案", "补充失败样本", "部署尚未获批准"]) assert.ok(JSON.stringify(prepared).includes(text), text);
 });
@@ -399,7 +399,7 @@ it("C5 masks the oldest complete block for excess essential summary tokens while
   const prepared = await compactor.prepare(store.messages, signal());
   const diagnostic = await compactor.getDiagnostics(); assert.ok(diagnostic.ok);
   const layer = diagnostic.value.lastPreparation!.summaryLayer!, degradation = diagnostic.value.lastPreparation!.degradation!;
-  assert.equal(layer.checklistTokens, 193); assert.deepEqual(degradation.reasons, ["input_limit", "summary_overflow"]); assert.ok(layer.borrowedTokens > 0);
+  assert.equal(layer.checklistTokens, 409); assert.deepEqual(degradation.reasons, ["input_limit", "summary_overflow", "checklist_overflow"]); assert.ok(layer.borrowedTokens > 0);
   assert.ok(degradation.maskedOriginalTokens! >= layer.borrowedTokens);
   assert.ok(degradation.maskedThroughMessageId); assert.equal(calls, 0); assert.equal(compactor.pending, true);
   assert.ok(diagnostic.value.lastPreparation!.estimatedInputTokens! <= 26624);

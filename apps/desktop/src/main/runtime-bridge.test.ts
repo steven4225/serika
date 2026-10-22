@@ -27,7 +27,7 @@ describe("assistantEventToRenderer", () => {
     });
   });
 
-  it("keeps primary and consolidation run results distinct", () => {
+  it("keeps primary and text Skill run results distinct", () => {
     const result = {
       runId: "run-1",
       threadId: "thread",
@@ -38,13 +38,13 @@ describe("assistantEventToRenderer", () => {
     };
     const mapped = assistantEventToRenderer({
       type: "run-result",
-      phase: "consolidation",
+      phase: "skill",
       result,
     });
     assert.ok(mapped);
     if (mapped === null) return;
     assert.equal(mapped.type, "result");
-    if (mapped.type === "result") assert.equal(mapped.phase, "consolidation");
+    if (mapped.type === "result") assert.equal(mapped.phase, "skill");
     assert.notEqual(mapped.type, "memory-updated");
   });
 

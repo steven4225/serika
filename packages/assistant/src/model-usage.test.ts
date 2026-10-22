@@ -247,7 +247,6 @@ test("Demo: real Controller records chat/consolidation, compactor usage and summ
     while (controller.getSnapshot().state.kind !== "idle" && Date.now() < deadline) await delay(10);
     assert.equal(controller.getSnapshot().state.kind, "idle");
     assert.equal(resultAfterRound, true, "result delivery must not race a newly awaited timing write before idle");
-    assert.equal(controller.getSnapshot().lastConsolidationResult, null);
     assert.equal(app.memoryExtraction!.diagnostics().calls, 0);
     const memories = await controller.memory.list(); assert.ok(memories.ok);
     assert.equal(memories.value.entries.length, 0);

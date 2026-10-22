@@ -1,21 +1,6 @@
 import type { UIMessage } from "ai";
 import { AUTO_CONSOLIDATION_SOURCE } from "./consolidation.js";
 
-/** Shared application rule; views do not decide which committed turns become sources. */
-export function automaticConsolidationSkip(input: {
-  enabled: boolean;
-  status: string;
-  requestedMemoryTool: boolean;
-  cancelled: boolean;
-  excluded?: boolean;
-}): string | undefined {
-  if (!input.enabled) return "记忆自动整理未启用";
-  if (input.excluded) return "本条消息不参与记忆整理";
-  if (input.requestedMemoryTool) return "本轮已请求记忆工具，自动整理跳过，避免重复处理";
-  if (input.status !== "completed" || input.cancelled) return "主任务未成功结束或已取消，未触发自动整理";
-  return undefined;
-}
-
 export function automaticConsolidationMessage(id: string): UIMessage {
   return {
     id, role: "user", metadata: { source: AUTO_CONSOLIDATION_SOURCE },

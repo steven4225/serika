@@ -6,10 +6,9 @@ import { z } from "zod";
 import { hashCanonicalJson } from "@serika/core";
 import { acquireFlock } from "./flock.js";
 import { assertExperimentalDataPaths } from "./experimental-data.js";
-import { LegacyMemoryReader, MemoryStoreError, MEMORY_FILE_MAX_BYTES, MEMORY_MAX_ENTRIES, type MemoryEntry, type MemoryAddInput, type MemoryUpdateInput, type MemoryWriteOptions, type MemoryReviseInput, type MemoryRestoreInput, type MemoryStoreAction, type MemoryRecord, type MemoryTemporalQuery, type MemoryFailure, type TemporalWorkspaceMemoryStore } from "./memory-store.js";
+import { MemoryStoreError, MEMORY_FILE_MAX_BYTES, MEMORY_MAX_ENTRIES, type MemoryEntry, type MemoryAddInput, type MemoryUpdateInput, type MemoryWriteOptions, type MemoryFailure, type WorkspaceMemoryStore, type MemoryResult } from "./memory-types.js";
 import { memoryLibrarySchema, memoryLibraryView, memoryLibraryDocuments, memoryLibraryActionSchema, memoryDocumentChunks, emptyMemoryLibrary, type MemoryLibraryAction } from "./memory-library.js";
 import { memoryImportEntriesSchema, memoryImportConfirmSchema, memoryImportReceiptSchema, MEMORY_IMPORT_MAX_RECEIPTS, type MemoryImportEntry, type MemoryImportPreview, type MemoryImportConfirm, type MemoryImportReceipt } from "./memory-import.js";
-import type { CandidatePage, CandidatePreview, CandidateResolution, CandidateBatchResult, ConsolidationCursor, ConsolidationReceipt, MemoryResult } from "./memory-candidates.js";
 
 const string = z.string().min(1);
 const time = z.iso.datetime({ offset: true });
@@ -18,7 +17,7 @@ export const v6SourceSchema = z.union([
   z.object({ kind: z.literal("conversation"), threadId: string, messageId: string, quote: z.string().refine(value => Buffer.byteLength(value) <= 2048), sentAt: time.nullable(),
     proposal: z.object({ messageId: string, quote: string.refine(value => Buffer.byteLength(value) <= 2048) }).strict().optional() }).strict(),
 ]);
-const scope = z.union([z.object({ kind: z.literal("workspace") }).strict(), z.object({ kind: z.literal("thread"), threadId: string }).strict()]);
+const scope = z.object({ kind: z.literal("workspace") }).strict();
 const identity = z.object({ subject: string, attribute: string, value: string }).strict();
 const body = string.refine(text => text.trim().length > 0 && Buffer.byteLength(text) <= 2048, "Memory text exceeds 2048 bytes or is blank");
 const entrySchema = z.object({ id: string, revision: z.number().int().positive(), text: body, uncertain: z.boolean().default(false), category: z.enum(["preference", "note", "document"]),
@@ -31,22 +30,19 @@ const progress = z.object({ threadId: string, throughMessageId: string.nullable(
   retry: z.object({ ...segment.shape, failures: z.number().int().min(1).max(3) }).strict().nullable() }).strict();
 const documentSchema = z.object({ version: z.literal(6), lastWrittenAt: time.nullable(), entries: z.array(entrySchema).max(512),
   excludedSources: z.array(z.object({ threadId: string, messageId: string }).strict()).default([]),
-  progress: z.array(progress), suppressed: z.array(z.object({ threadId: string, messageId: string, memoryHash: string,
-    identity: identity.pick({ subject: true, attribute: true }).optional() }).strict()),
+  progress: z.array(progress), suppressed: z.array(z.object({ threadId: string, messageId: string, identity: identity.pick({ subject: true, attribute: true }) }).strict()),
   library: memoryLibrarySchema, importReceipts: z.array(memoryImportReceiptSchema).max(MEMORY_IMPORT_MAX_RECEIPTS) }).strict();
 export const validateV6MemoryDocument = (value: unknown): V6Document => documentSchema.parse(value);
 export type V6Source = z.infer<typeof v6SourceSchema>;
 export type V6Entry = z.infer<typeof entrySchema>;
 export type V6Document = z.infer<typeof documentSchema>;
-export type V6Change = { operation: "add" | "replace"; text: string; uncertain?: boolean; category: V6Entry["category"]; identity?: V6Entry["identity"]; source: V6Source; scope: V6Entry["scope"]; id?: string; expectedRevision?: number }
+export type V6Change = { operation: "add" | "replace"; text: string; uncertain?: boolean; category: V6Entry["category"]; identity?: V6Entry["identity"]; source: V6Source; id?: string; expectedRevision?: number }
   | { operation: "retract" | "undo"; id: string; expectedRevision: number; source: V6Source };
 export interface V6Commit { expectedProgress?: V6Document["progress"][number] | null; progress?: V6Document["progress"][number]; now?: Date; automatic?: boolean; reextract?: boolean; sourceOrder?: readonly string[]; initial?: { pinned: boolean; disabled: boolean } }
 const empty = (): V6Document => ({ version: 6, lastWrittenAt: null, entries: [], excludedSources: [], progress: [], suppressed: [], library: emptyMemoryLibrary(), importReceipts: [] });
 function fail(code: ConstructorParameters<typeof MemoryStoreError>[0], message: string): never { throw new MemoryStoreError(code, message); }
 const migration = (): never => fail("MEMORY_MIGRATION_REQUIRED", "需要迁移（第 7 步）");
-const removed = (): never => fail("MEMORY_OPERATION_REMOVED", "旧候选、审核与双时态写入口已停用");
 const importSnapshot = (document: V6Document) => createHash("sha256").update(JSON.stringify(document)).digest("hex");
-const memoryHash = (entry: Pick<V6Entry, "text">) => hashCanonicalJson({ text: entry.text });
 export function v6Projection(entry: V6Entry): MemoryEntry {
   return { id: entry.id, revision: entry.revision, text: entry.text, uncertain: entry.uncertain, kind: entry.category === "preference" ? "preference" : "note",
     enabled: entry.state === "active", status: entry.state === "active" ? "active" : "disabled", scope: entry.scope, pinned: entry.pinned,
@@ -61,13 +57,12 @@ export function v6Conflicts(entries: readonly V6Entry[]): string[][] {
   return [...groups.values()].filter(group => new Set(group.map(entry => entry.identity!.value)).size > 1).map(group => group.map(entry => entry.id));
 }
 
-/** The only Memory writer. LegacyMemoryReader is used exclusively for old-format reads. */
+/** Atomic v6 Memory storage. Older files require the explicit one-time migration. */
 export class V6MemoryStore {
   readonly #root: string;
-  readonly #legacy: LegacyMemoryReader;
   readonly #boundary: ((phase: "before-rename" | "after-rename") => void | Promise<void>) | undefined;
   constructor(workspace: string, boundary?: (phase: "before-rename" | "after-rename") => void | Promise<void>) {
-    this.#root = resolve(workspace); this.#legacy = new LegacyMemoryReader(workspace); this.#boundary = boundary;
+    this.#root = resolve(workspace); this.#boundary = boundary;
   }
   async #result<T>(signal: AbortSignal, body: () => Promise<T>): Promise<{ ok: true; value: T } | MemoryFailure> {
     try { signal.throwIfAborted(); return { ok: true, value: await body() }; }
@@ -77,7 +72,7 @@ export class V6MemoryStore {
       return { ok: false, error: { code: error instanceof z.ZodError ? "INVALID_INPUT" : "WRITE_FAILED", message: error instanceof z.ZodError ? "Invalid v6 Memory data" : "Memory operation failed" } };
     }
   }
-  async #read(): Promise<V6Document | null> {
+  async #read(): Promise<V6Document> {
     for (const path of [this.#root, join(this.#root, ".runloom"), join(this.#root, ".runloom/memory.json")]) {
       try { if ((await lstat(path)).isSymbolicLink()) fail("SYMLINK_NOT_ALLOWED", "Symbolic links are not allowed"); }
       catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return empty(); throw error; }
@@ -92,7 +87,7 @@ export class V6MemoryStore {
       if (size > MEMORY_FILE_MAX_BYTES) fail("MEMORY_LIMIT_EXCEEDED", "Memory exceeds 16 MiB");
       try { parsed = JSON.parse(buffer.subarray(0, size).toString("utf8")); } catch { fail("MEMORY_FILE_INVALID", "Invalid Memory JSON"); }
     } finally { await handle.close(); }
-    if ((parsed as { version?: unknown })?.version !== 6) { const read = await this.#legacy.list(); if (!read.ok) fail(read.error.code, read.error.message); return null; }
+    if (typeof parsed !== "object" || parsed === null || !("version" in parsed) || parsed.version !== 6) migration();
     const checked = documentSchema.safeParse(parsed);
     if (!checked.success) fail("MEMORY_FILE_INVALID", "Invalid v6 Memory file");
     const document = checked.data;
@@ -101,14 +96,14 @@ export class V6MemoryStore {
   }
   async #mutate<T>(signal: AbortSignal, body: (document: V6Document, stamp: string) => T, now?: Date): Promise<T> {
     assertExperimentalDataPaths([this.#root]);
-    if (await this.#read() === null) migration();
+    await this.#read();
     signal.throwIfAborted();
     const directory = join(this.#root, ".runloom"); await mkdir(directory, { recursive: true });
     const lock = await acquireFlock(join(directory, "memory.json.lock"), signal);
     let renamed = false;
     const temporary = join(directory, `.memory.json.runloom-${randomUUID()}.tmp`);
     try {
-      const document = await this.#read() ?? migration(); signal.throwIfAborted();
+      const document = await this.#read(); signal.throwIfAborted();
       const stamp = (now ?? new Date()).toISOString();
       if (document.lastWrittenAt && stamp < document.lastWrittenAt) fail("MEMORY_CLOCK_ROLLBACK", "Memory clock moved backwards");
       const before = JSON.stringify(document), value = body(document, stamp);
@@ -134,15 +129,15 @@ export class V6MemoryStore {
       finally { try { await lock.release(); } catch (error) { if (renamed) fail("MEMORY_COMMIT_UNCERTAIN", "Memory lock acknowledgement is unknown"); throw error; } }
     }
   }
-  readV6(signal = new AbortController().signal) { return this.#result(signal, async () => await this.#read() ?? migration()); }
+  readV6(signal = new AbortController().signal) { return this.#result(signal, async () => await this.#read()); }
   async list(signal = new AbortController().signal, options?: MemoryWriteOptions) {
     const result = await this.#result(signal, () => this.#read());
     if (!result.ok) return result;
-    return result.value === null ? this.#legacy.list(signal, options) : { ok: true as const, entries: result.value.entries.map(v6Projection) };
+    return { ok: true as const, entries: result.value.entries.map(v6Projection) };
   }
   async get(id: string, signal = new AbortController().signal, options?: MemoryWriteOptions) {
     const listed = await this.list(signal, options); if (!listed.ok) return listed;
-    const entry = listed.entries.find(entry => entry.id === id && (entry.scope?.kind !== "thread" || !options?.boundThreadId || entry.scope.threadId === options.boundThreadId));
+    const entry = listed.entries.find(entry => entry.id === id);
     return entry ? { ok: true as const, entry } : { ok: false as const, error: { code: "MEMORY_ENTRY_NOT_FOUND" as const, message: "Memory not found" } };
   }
   writeV6(changes: V6Change[], signal = new AbortController().signal, options: V6Commit = {}) {
@@ -154,23 +149,21 @@ export class V6MemoryStore {
         if (source.kind === "conversation" && !source.quote.trim()) fail("MEMORY_SOURCE_INVALID", "Conversation source quote is empty");
         if (source.kind === "conversation" && document.excludedSources.some(item => item.threadId === source.threadId && (item.messageId === source.messageId || item.messageId === source.proposal?.messageId))) fail("MEMORY_SOURCE_INVALID", "Excluded source");
         if ((raw.operation === "add" || raw.operation === "replace") && document.suppressed.some(item => source.kind === "conversation" && item.threadId === source.threadId && item.messageId === source.messageId &&
-          (item.identity && raw.identity ? item.identity.subject === raw.identity.subject && item.identity.attribute === raw.identity.attribute : item.memoryHash === memoryHash(raw)))) continue;
+          (raw.identity && item.identity.subject === raw.identity.subject && item.identity.attribute === raw.identity.attribute))) continue;
         let target = raw.operation === "add" ? undefined : document.entries.find(entry => entry.id === raw.id);
         if (raw.operation !== "add" && (!target || target.revision !== raw.expectedRevision)) fail("MEMORY_REVISION_CONFLICT", "Memory target changed or is missing");
         if (target?.privacyExcluded) fail("MEMORY_SOURCE_INVALID", "Excluded source cannot be restored or rewritten");
-        if (target?.scope.kind === "thread" && source.kind === "conversation" && target.scope.threadId !== source.threadId) fail("MEMORY_SOURCE_INVALID", "Foreign Thread");
         const order = options.sourceOrder;
         const position = source.kind === "conversation" ? order?.indexOf(source.messageId) ?? -1 : -1;
         const newer = (entry: V6Entry) => source.kind === "conversation" && position >= 0 && entry.sources.some(item => item.kind === "conversation" && item.threadId === source.threadId && (order?.indexOf(item.messageId) ?? -1) > position);
         if (options.automatic && target && (newer(target) || options.reextract) && raw.operation !== "replace") continue;
         if (raw.operation === "add" || raw.operation === "replace") {
           if (target && target.state !== "active") fail("MEMORY_DISABLED", "Replace requires an active target");
-          if (target && JSON.stringify(target.scope) !== JSON.stringify(raw.scope)) fail("MEMORY_SOURCE_INVALID", "Replacement cannot change scope");
-          const later = options.automatic ? document.entries.find(entry => entry.state === "active" && newer(entry) && (entry.id === target?.id || raw.identity && entry.identity && JSON.stringify(entry.scope) === JSON.stringify(raw.scope) && entry.identity.subject === raw.identity.subject && entry.identity.attribute === raw.identity.attribute)) : undefined;
+          const later = options.automatic ? document.entries.find(entry => entry.state === "active" && newer(entry) && (entry.id === target?.id || raw.identity && entry.identity && entry.identity.subject === raw.identity.subject && entry.identity.attribute === raw.identity.attribute)) : undefined;
           if (later || options.reextract) target = undefined;
 
           const entry: V6Entry = entrySchema.parse({ id: randomUUID(), revision: 1, text: raw.text, uncertain: raw.uncertain ?? false, category: raw.category, ...(raw.identity ? { identity: raw.identity } : {}),
-            scope: raw.scope, pinned: options.initial?.pinned ?? target?.pinned ?? false, state: options.initial?.disabled ? "disabled" : "active", createdAt: stamp, updatedAt: stamp, sources: [source], replaces: target ? [target.id] : [], supersededBy: later?.id ?? null, withdrawal: null });
+            scope: { kind: "workspace" }, pinned: options.initial?.pinned ?? target?.pinned ?? false, state: options.initial?.disabled ? "disabled" : "active", createdAt: stamp, updatedAt: stamp, sources: [source], replaces: target ? [target.id] : [], supersededBy: later?.id ?? null, withdrawal: null });
           if (later) entry.state = "superseded";
           if (document.entries.length >= MEMORY_MAX_ENTRIES) fail("MEMORY_LIMIT_EXCEEDED", "Memory 已满，未保存；请勿声称已记住");
           if (target) { target.state = "superseded"; target.supersededBy = entry.id; target.revision++; target.updatedAt = stamp; }
@@ -201,6 +194,32 @@ export class V6MemoryStore {
       return written;
     }, options.now));
   }
+  mergeV6(input: { members: Array<{ id: string; revision: number }>; text: string }, signal = new AbortController().signal) {
+    return this.#result(signal, () => this.#mutate(signal, (document, stamp) => {
+      const request = z.object({ members: z.array(z.object({ id: string, revision: z.number().int().positive() }).strict()).min(2), text: body }).strict().parse(input);
+      if (new Set(request.members.map(member => member.id)).size !== request.members.length) fail("INVALID_INPUT", "Merge members must be distinct");
+      const members = request.members.map(member => {
+        const entry = document.entries.find(entry => entry.id === member.id);
+        if (!entry || entry.revision !== member.revision || entry.state !== "active" || entry.privacyExcluded) fail("MEMORY_REVISION_CONFLICT", "Merge member changed or is not current");
+        return entry;
+      });
+      const first = members[0]!;
+      if (first.category === "document" || !first.identity || members.some(entry => entry.category !== first.category || hashCanonicalJson(entry.identity ?? null) !== hashCanonicalJson(first.identity!)) ||
+        document.library.documents.some(document => document.entryIds.some(id => request.members.some(member => member.id === id)))) fail("MEMORY_SOURCE_INVALID", "Merge requires the same literal fact and category");
+      const clauses = (text: string) => text.split(/[。！？；;，,\n]/u).map(clause => clause.trim()).filter(Boolean);
+      const originals = new Set(members.flatMap(entry => clauses(entry.text))), merged = new Set(clauses(request.text));
+      if (originals.size !== merged.size || [...originals].some(clause => !merged.has(clause))) fail("MEMORY_SOURCE_INVALID", "Merge must preserve every original literal clause without adding facts");
+      if (Buffer.byteLength(request.text) >= members.reduce((bytes, entry) => bytes + Buffer.byteLength(entry.text), 0)) fail("INVALID_INPUT", "Merge must reduce the current text");
+      if (document.entries.length >= MEMORY_MAX_ENTRIES) fail("MEMORY_LIMIT_EXCEEDED", "Memory 已满，合并未保存");
+      const sources = [...new Map(members.flatMap(entry => entry.sources).map(source => [JSON.stringify(source), source])).values()];
+      const entry: V6Entry = { id: randomUUID(), revision: 1, text: request.text, uncertain: members.some(entry => entry.uncertain), category: first.category,
+        identity: first.identity, scope: { kind: "workspace" }, pinned: members.some(entry => entry.pinned), state: "active", createdAt: stamp, updatedAt: stamp,
+        sources, replaces: members.map(entry => entry.id), supersededBy: null, withdrawal: null };
+      for (const member of members) { member.state = "superseded"; member.supersededBy = entry.id; member.revision++; member.updatedAt = stamp; }
+      document.entries.push(entry);
+      return v6Projection(entry);
+    }));
+  }
   excludeSources(threadId: string, messageIds: string[], signal = new AbortController().signal) {
     return this.#result(signal, () => this.#mutate(signal, (document, stamp) => {
       const additions = messageIds.filter(messageId => !document.excludedSources.some(item => item.threadId === threadId && item.messageId === messageId));
@@ -223,9 +242,8 @@ export class V6MemoryStore {
     }));
   }
   async add(input: MemoryAddInput, signal = new AbortController().signal, options?: MemoryWriteOptions) {
-    if (input.expiresAt || input.validTime || input.recallTerms?.length || input.factIdentity) return { ok: false as const, error: { code: "MEMORY_OPERATION_REMOVED" as const, message: "v6 不再写入旧时态与 identity 格式；请使用新记忆写入口" } };
     const source = input.source?.kind === "conversation" ? { ...input.source, sentAt: null } : { kind: "manual" as const };
-    const result = await this.writeV6([{ operation: "add", text: input.text, category: input.kind === "preference" ? "preference" : "note", scope: input.scope ?? { kind: "workspace" }, source }], signal, { ...(options?.now ? { now: options.now } : {}), initial: { pinned: input.pinned ?? false, disabled: input.enabled === false || input.status === "disabled" } });
+    const result = await this.writeV6([{ operation: "add", text: input.text, category: input.kind === "preference" ? "preference" : "note", source }], signal, { ...(options?.now ? { now: options.now } : {}), initial: { pinned: input.pinned ?? false, disabled: input.enabled === false || input.status === "disabled" } });
     return result.ok ? { ok: true as const, entry: result.value[0]! } : result;
   }
   async update(id: string, input: MemoryUpdateInput, signal = new AbortController().signal, options?: MemoryWriteOptions) {
@@ -233,13 +251,12 @@ export class V6MemoryStore {
     if (input.text !== undefined) {
       const current = await this.get(id, signal, options); if (!current.ok) return current;
       const result = await this.writeV6([{ operation: "replace", id, expectedRevision: input.expectedRevision, text: input.text,
-        category: current.entry.v6?.category ?? "note", scope: current.entry.scope ?? { kind: "workspace" }, source: { kind: "manual" } }], signal, { ...(options?.now ? { now: options.now } : {}), initial: { pinned: input.pinned ?? current.entry.pinned ?? false, disabled: input.enabled === false || input.status === "disabled" } });
+        category: current.entry.v6?.category ?? "note", ...(current.entry.v6?.identity ? { identity: { ...current.entry.v6.identity, value: input.text } } : {}), source: { kind: "manual" } }], signal, { ...(options?.now ? { now: options.now } : {}), initial: { pinned: input.pinned ?? current.entry.pinned ?? false, disabled: input.enabled === false || input.status === "disabled" } });
       return result.ok ? { ok: true as const, entry: result.value[0]! } : result;
     }
     const result = await this.#result(signal, () => this.#mutate(signal, (document, stamp) => {
       const entry = document.entries.find(entry => entry.id === id);
       if (!entry || entry.revision !== input.expectedRevision) fail("MEMORY_REVISION_CONFLICT", "Memory changed");
-      if (entry.scope.kind === "thread" && entry.scope.threadId !== options?.boundThreadId) fail("MEMORY_SOURCE_INVALID", "Foreign Thread");
       if (input.pinned !== undefined) entry.pinned = input.pinned;
       if (input.status === "disabled" || input.enabled === false) { if (entry.state !== "active" && entry.state !== "disabled") fail("MEMORY_DISABLED", "Only current memory can be disabled"); entry.state = "disabled"; }
       entry.revision++; entry.updatedAt = stamp; return v6Projection(entry);
@@ -250,9 +267,8 @@ export class V6MemoryStore {
     const result = await this.#result(signal, () => this.#mutate(signal, document => {
       const entry = document.entries.find(entry => entry.id === input.id);
       if (!entry || entry.revision !== input.expectedRevision) fail("MEMORY_REVISION_CONFLICT", "Memory changed");
-      if (entry.scope.kind === "thread" && entry.scope.threadId !== options?.boundThreadId) fail("MEMORY_SOURCE_INVALID", "Foreign Thread");
-      for (const source of entry.sources) if (source.kind === "conversation") document.suppressed.push({ threadId: source.threadId, messageId: source.messageId, memoryHash: memoryHash(entry),
-        ...(entry.identity ? { identity: { subject: entry.identity.subject, attribute: entry.identity.attribute } } : {}) });
+      if (!entry.privacyExcluded && !entry.identity && entry.sources.some(source => source.kind === "conversation")) fail("MEMORY_SOURCE_INVALID", "Conversation memory needs an identity before deletion");
+      for (const source of entry.sources) if (source.kind === "conversation" && entry.identity) document.suppressed.push({ threadId: source.threadId, messageId: source.messageId, identity: { subject: entry.identity.subject, attribute: entry.identity.attribute } });
       document.entries = document.entries.filter(item => item.id !== entry.id); return input.id;
     }, options?.now));
     return result.ok ? { ok: true as const, id: result.value } : result;
@@ -264,18 +280,18 @@ export class V6MemoryStore {
   }
   async readReferenceMaterial(signal: AbortSignal, now: Date) {
     const document = await this.#result(signal, () => this.#read()); if (!document.ok) return document;
-    return document.value ? { ok: true as const, value: { entries: document.value.entries.map(v6Projection), library: document.value.library } } : this.#legacy.readReferenceMaterial(signal, now);
+    return { ok: true as const, value: { entries: document.value.entries.map(v6Projection), library: document.value.library } };
   }
-  async getLibrary(threadId: string, signal = new AbortController().signal) {
+  async getLibrary(signal = new AbortController().signal) {
     const material = await this.readReferenceMaterial(signal, new Date());
-    return material.ok ? { ok: true as const, value: memoryLibraryView(material.value.library, material.value.entries, threadId) } : material;
+    return material.ok ? { ok: true as const, value: memoryLibraryView(material.value.library, material.value.entries) } : material;
   }
-  async readLibraryDocument(id: string, threadId: string, signal = new AbortController().signal) {
+  async readLibraryDocument(id: string, signal = new AbortController().signal) {
     const material = await this.readReferenceMaterial(signal, new Date()); if (!material.ok) return material;
-    const found = memoryLibraryDocuments(material.value.library, material.value.entries, threadId).find(item => item.id === id);
+    const found = memoryLibraryDocuments(material.value.library, material.value.entries).find(item => item.id === id);
     return found ? { ok: true as const, value: { ...found, libraryRevision: material.value.library.revision } } : { ok: false as const, error: { code: "MEMORY_ENTRY_NOT_FOUND", message: "Document not found" } };
   }
-  changeLibrary(input: MemoryLibraryAction, threadId: string, signal = new AbortController().signal) {
+  changeLibrary(input: MemoryLibraryAction, signal = new AbortController().signal) {
     return this.#result(signal, () => this.#mutate(signal, (document, stamp) => {
       const action = memoryLibraryActionSchema.parse(input), library = document.library;
       if (action.expectedRevision !== library.revision) fail("MEMORY_REVISION_CONFLICT", "Library changed");
@@ -285,74 +301,30 @@ export class V6MemoryStore {
       else {
         if (action.folderId !== null && !library.folders.some(item => item.id === action.folderId)) fail("MEMORY_ENTRY_NOT_FOUND", "Folder missing");
         let item = library.documents.find(item => item.id === action.id);
-        if (item?.scope.kind === "thread" && item.scope.threadId !== threadId) fail("MEMORY_SOURCE_INVALID", "Foreign Thread");
         if (action.operation === "save-document") {
           if (item?.entryIds.some(id => !document.entries.some(entry => entry.id === id))) fail("MEMORY_ENTRY_NOT_FOUND", "Document body missing");
-          for (const ref of action.entries) { const entry = document.entries.find(entry => entry.id === ref.id); if (!entry) fail("MEMORY_ENTRY_NOT_FOUND", "Document body missing"); if (entry.revision !== ref.revision || entry.scope.kind === "thread" && entry.scope.threadId !== threadId) fail("MEMORY_REVISION_CONFLICT", "Document body changed"); }
+          for (const ref of action.entries) { const entry = document.entries.find(entry => entry.id === ref.id); if (!entry) fail("MEMORY_ENTRY_NOT_FOUND", "Document body missing"); if (entry.revision !== ref.revision) fail("MEMORY_REVISION_CONFLICT", "Document body changed"); }
           if (!item && action.id.startsWith("memory:")) {
             const old = document.entries.find(entry => `memory:${entry.id}` === action.id);
-            if (!old || old.scope.kind === "thread" && old.scope.threadId !== threadId || action.entries.length !== 1 || action.entries[0]?.id !== old.id) fail("INVALID_INPUT", "Document ownership is invalid");
-            item = { id: action.id, title: action.title, folderId: action.folderId, entryIds: [old.id], scope: old.scope }; library.documents.push(item);
+            if (!old || action.entries.length !== 1 || action.entries[0]?.id !== old.id) fail("INVALID_INPUT", "Document ownership is invalid");
+            item = { id: action.id, title: action.title, folderId: action.folderId, entryIds: [old.id], scope: { kind: "workspace" } }; library.documents.push(item);
           }
           if (!item && (action.entries.length || !z.uuid().safeParse(action.id).success)) fail("INVALID_INPUT", "New document cannot claim existing entries");
           if (item && JSON.stringify(item.entryIds) !== JSON.stringify(action.entries.map(entry => entry.id))) fail("MEMORY_REVISION_CONFLICT", "Document references changed");
           let chunks: string[]; try { chunks = memoryDocumentChunks(action.text); } catch { fail("INVALID_INPUT", "文档包含过长的连续空白，请整理后再保存"); }
-          const ids = chunks.map(text => { const entry: V6Entry = { id: randomUUID(), revision: 1, text, uncertain: false, category: "document", scope: item?.scope ?? { kind: "workspace" }, pinned: false, state: "active", createdAt: stamp, updatedAt: stamp, sources: [{ kind: "manual" }], replaces: [], supersededBy: null, withdrawal: null }; document.entries.push(entry); return entry.id; });
+          const ids = chunks.map(text => { const entry: V6Entry = { id: randomUUID(), revision: 1, text, uncertain: false, category: "document", scope: { kind: "workspace" }, pinned: false, state: "active", createdAt: stamp, updatedAt: stamp, sources: [{ kind: "manual" }], replaces: [], supersededBy: null, withdrawal: null }; document.entries.push(entry); return entry.id; });
           for (const ref of action.entries) { const old = document.entries.find(entry => entry.id === ref.id)!; old.state = "superseded"; old.supersededBy = ids[0]!; old.revision++; old.updatedAt = stamp; }
           if (!item) { item = { id: action.id, title: action.title, folderId: action.folderId, entryIds: ids, scope: { kind: "workspace" } }; library.documents.push(item); } else item.entryIds = ids;
         }
         if (!item) fail("MEMORY_ENTRY_NOT_FOUND", "Document missing");
-        if (item.scope.kind === "thread" && item.scope.threadId !== threadId) fail("MEMORY_SOURCE_INVALID", "Foreign Thread");
         item.title = action.title; item.folderId = action.folderId;
       }
-      library.revision++; return memoryLibraryView(library, document.entries.map(v6Projection), threadId);
+      library.revision++; return memoryLibraryView(library, document.entries.map(v6Projection));
     }));
-  }
-  async inspectMemory(id: string, signal = new AbortController().signal, options?: MemoryWriteOptions): Promise<MemoryResult<MemoryRecord>> {
-    const document = await this.#result(signal, () => this.#read()); if (!document.ok) return document;
-    if (!document.value) return this.#legacy.inspectMemory(id, signal, options);
-    return this.#result(signal, async () => {
-      const entry = document.value!.entries.find(item => item.id === id); if (!entry) fail("MEMORY_ENTRY_NOT_FOUND", "Memory missing");
-      if (entry.scope.kind === "thread" && entry.scope.threadId !== options?.boundThreadId) fail("MEMORY_SOURCE_INVALID", "Foreign Thread");
-      const kind = entry.category === "preference" ? "preference" as const : "note" as const;
-      return { id, revision: entry.revision, scope: entry.scope, pinned: entry.pinned, status: entry.state === "active" ? "active" as const : "disabled" as const, expiresAt: null, createdAt: entry.createdAt, updatedAt: entry.updatedAt, historyCoverage: "complete" as const,
-        assertions: [{ assertionId: id, text: entry.text, kind, recallTerms: [], state: entry.state === "retracted" ? "retracted" as const : "asserted" as const, sources: entry.sources, validTime: { from: null, to: null, basis: "unknown" as const }, systemTime: { from: null, to: null } }], versions: [] };
-    });
-  }
-  async queryMemory(id: string, query: MemoryTemporalQuery = {}, signal = new AbortController().signal, options?: MemoryWriteOptions) {
-    const record = await this.inspectMemory(id, signal, options);
-    return record.ok ? { ok: true as const, value: { id, revision: record.value.revision, historyCoverage: record.value.historyCoverage, assertions: record.value.assertions, validTimeUncertain: true, systemTimeUncertain: true } } : record;
-  }
-  async reviseMemory(input: MemoryReviseInput, signal = new AbortController().signal, options?: MemoryWriteOptions) {
-    const writable = await this.readV6(signal); if (!writable.ok) return writable;
-    const bound = await this.get(input.id, signal, options); if (!bound.ok) return bound;
-    if (input.operation === "change" || input.validTime !== undefined || input.recallTerms !== undefined) return { ok: false as const, error: { code: "MEMORY_OPERATION_REMOVED" as const, message: "v6 不支持双时态写入；请编辑正文中的条件" } };
-    if (input.operation !== "retract") return this.update(input.id, { expectedRevision: input.expectedRevision, text: input.text! }, signal, options);
-    const result = await this.writeV6([{ operation: "retract", id: input.id, expectedRevision: input.expectedRevision, source: { kind: "manual" } }], signal);
-    return result.ok ? { ok: true as const, entry: result.value[0]! } : result;
-  }
-  async restoreMemory(input: MemoryRestoreInput, signal = new AbortController().signal, options?: MemoryWriteOptions) {
-    const writable = await this.readV6(signal); if (!writable.ok) return writable;
-    const bound = await this.get(input.id, signal, options); if (!bound.ok) return bound;
-    if (input.targetAssertionId !== input.id || input.status === "disabled" || input.expiresAt) return { ok: false as const, error: { code: "MEMORY_OPERATION_REMOVED" as const, message: "v6 只支持撤销当前取代或撤回" } };
-    const result = await this.writeV6([{ operation: "undo", id: input.id, expectedRevision: input.expectedRevision, source: { kind: "manual" } }], signal);
-    return result.ok ? { ok: true as const, entry: result.value[0]! } : result;
-  }
-  async previewMemoryMutation(input: MemoryStoreAction, signal = new AbortController().signal, options?: MemoryWriteOptions) {
-    const current = await this.get(input.id, signal, options); if (!current.ok) return current;
-    if (current.entry.revision !== input.expectedRevision) return { ok: false as const, error: { code: "MEMORY_REVISION_CONFLICT" as const, message: "Memory changed" } };
-    if (input.operation === "change" || "validTime" in input || "recallTerms" in input || input.operation === "restore" && (input.targetAssertionId !== input.id || input.status === "disabled" || input.expiresAt)) return { ok: false as const, error: { code: "MEMORY_OPERATION_REMOVED" as const, message: "v6 只支持编辑、撤回与撤销；不支持历史时间选择" } };
-    const record = await this.inspectMemory(input.id, signal, options); if (!record.ok) return record;
-    const proposed = input.operation === "correct" ? { ...record.value.assertions[0]!, text: input.text!, sources: [{ kind: "manual" as const }] } : null;
-    return { ok: true as const, value: { current: current.entry, proposedAssertion: proposed } };
-  }
-  async inspectMemoryMaintenance(signal = new AbortController().signal, options?: MemoryWriteOptions) {
-    const listed = await this.list(signal, options);
-    return listed.ok ? { ok: true as const, value: { stored: listed.entries.length, pending: 0, expired: 0, disabled: listed.entries.filter(entry => !entry.enabled).length, duplicateSuggestions: 0 } } : listed;
   }
   previewImport(input: MemoryImportEntry[], signal = new AbortController().signal): Promise<MemoryResult<MemoryImportPreview>> {
     return this.#result(signal, async () => {
-      const entries = memoryImportEntriesSchema.parse(input), document = await this.#read() ?? migration();
+      const entries = memoryImportEntriesSchema.parse(input), document = await this.#read();
       return { snapshot: importSnapshot(document), stored: document.entries.length, available: MEMORY_MAX_ENTRIES - document.entries.length,
         entries: entries.map(entry => ({ ...entry, existingId: document.entries.find(item => item.state === "active" && item.scope.kind === "workspace" && item.text === entry.text && item.category === (entry.kind === "preference" ? "preference" : "note"))?.id ?? null })) };
     });
@@ -380,14 +352,7 @@ export class V6MemoryStore {
     }));
   }
   importReceipt(operationId: string, threadId: string, signal = new AbortController().signal): Promise<MemoryResult<MemoryImportReceipt | null>> {
-    return this.#result(signal, async () => { const document = await this.#read(); if (document) return document.importReceipts.find(item => item.operationId === operationId && item.threadId === threadId) ?? null; const legacy = await this.#legacy.importReceipt(operationId, threadId, signal); if (!legacy.ok) fail("MEMORY_FILE_INVALID", legacy.error.message); return legacy.value; });
+    return this.#result(signal, async () => (await this.#read()).importReceipts.find(item => item.operationId === operationId && item.threadId === threadId) ?? null);
   }
-  async checkCandidateCapacity(signal = new AbortController().signal) { return this.#result(signal, async () => { await this.#read() ?? migration(); return { pendingCount: 0, canStart: false }; }); }
-  async listCandidates(_input?: unknown, _signal?: AbortSignal, _options?: MemoryWriteOptions): Promise<MemoryResult<CandidatePage>> { return { ok: true as const, value: { candidates: [], nextOffset: null, truncated: false } }; }
-  async getCandidate(_id: string, signal = new AbortController().signal, _options?: MemoryWriteOptions): Promise<MemoryResult<CandidatePreview>> { return this.#result(signal, async () => removed()); }
-  async resolveCandidate(_input: unknown, signal = new AbortController().signal, _options?: MemoryWriteOptions): Promise<MemoryResult<CandidateResolution>> { return this.#result(signal, async () => { await this.#read() ?? migration(); return removed(); }); }
-  async commitCandidateBatch(_input: unknown, signal = new AbortController().signal, _options?: MemoryWriteOptions): Promise<MemoryResult<CandidateBatchResult>> { return this.#result(signal, async () => { await this.#read() ?? migration(); return removed(); }); }
-  async getConsolidationCursor(_threadId: string, _signal?: AbortSignal): Promise<MemoryResult<ConsolidationCursor | null>> { return { ok: true as const, value: null }; }
-  async getConsolidationReceipt(_threadId: string, _signal?: AbortSignal): Promise<MemoryResult<ConsolidationReceipt | null>> { return { ok: true as const, value: null }; }
 }
-export function createMemoryStore(workspace: string): TemporalWorkspaceMemoryStore { return new V6MemoryStore(workspace); }
+export function createMemoryStore(workspace: string): WorkspaceMemoryStore { return new V6MemoryStore(workspace); }

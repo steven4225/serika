@@ -9,7 +9,7 @@ import { MockLanguageModelV3 } from "ai/test";
 import { ContextCompactor } from "./context-compactor.js";
 import { blockLimits, fitMessage } from "./context-blocks.js";
 import { availableInputTokens, defaultContextBudget, effectiveContextBudget, estimateContextBudget } from "./context-budget.js";
-import { createMemoryStore } from "./memory-store.js";
+import { createMemoryStore } from "./memory-v6-store.js";
 import { createTranscriptAccess } from "./transcript-access.js";
 import { createCompactionChecklist } from "./compaction-records.js";
 import { createExecutionRecordStore } from "./execution-record-store.js";
@@ -73,7 +73,7 @@ test("privacy exclusions survive restart, preserve original chat and redact memo
   try {
     const store = new JsonlAgentStore({ directory: join(root, "transcripts") }), memory = createMemoryStore(root);
     const text = "Secret preference alpha", source = msg("source", "user", text);
-    const saved = await memory.writeV6!([{ operation: "add", text, category: "preference", scope: { kind: "workspace" }, source: { kind: "conversation", threadId: "t", messageId: "source", quote: text, sentAt: null } }]); assert.ok(saved.ok);
+    const saved = await memory.writeV6!([{ operation: "add", text, category: "preference", source: { kind: "conversation", threadId: "t", messageId: "source", quote: text, sentAt: null } }]); assert.ok(saved.ok);
     await store.save("t", [source, { ...msg("later", "user", "Continue"), metadata: { contextSnapshot: [msg("stale", "assistant", text)] } }]);
     let invalidated = 0;
     const access = createTranscriptAccess({ store, threadId: "t", memory, invalidated: () => { invalidated++; } });

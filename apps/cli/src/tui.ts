@@ -9,16 +9,8 @@ import type {
   RunResult,
 } from "@serika/core";
 import {
-  AUTO_CONSOLIDATION_AGENT_ID,
-  automaticConsolidationMessage,
-  automaticConsolidationSkip,
   isAutoConsolidationRequest,
-  prepareConsolidationExtraction,
-  stageConsolidationExtraction,
   userMessageClock,
-  waitForConsolidationHandoff,
-  type MemoryConsolidation,
-  type MemoryResult,
   type ToolConfirmation,
   type TuiCommand,
   type TuiResume,
@@ -30,8 +22,7 @@ type Runtime = {
 
 type TuiState =
   | { kind: "idle" }
-  | { kind: "running"; handle: RunHandle; background?: true }
-  | { kind: "consolidating"; controller: AbortController }
+  | { kind: "running"; handle: RunHandle }
   | { kind: "resuming"; controller: AbortController };
 
 function write(output: Writable, text: string): void {
@@ -47,11 +38,7 @@ export interface RunTuiOptions {
   store: Pick<MessageStore, "getMessages">;
   threadId: string;
   agentId: string;
-  autoConsolidationAgentId?: string;
-  hostConsolidationExtraction?: true;
-  memoryConsolidation?: MemoryConsolidation;
   /** This Thread's eligible committed backlog only; no model or cursor mutation. */
-  getMemoryConsolidationBacklog?: () => Promise<MemoryResult<number>>;
   input?: Readable;
   output?: Writable;
   generateId?: () => string;
@@ -352,13 +339,11 @@ async function renderEvents(
 ): Promise<{
   renderedText: string;
   requestedMemoryTool: boolean;
-  consolidationAttempts: { prepare: number; stage: number };
   completedActions: CompletedAction[];
   unknownActions: UnknownToolAction[];
 }> {
   let renderedText = "";
   let requestedMemoryTool = false;
-  const consolidationAttempts = { prepare: 0, stage: 0 };
   const completedActions: CompletedAction[] = [];
   const unknownActions: UnknownToolAction[] = [];
   const requestedTools = new Map<string, { toolName: string; input: unknown }>();
@@ -378,8 +363,6 @@ async function renderEvents(
         write(output, `\n[step ${event.data.stepNumber}] `);
         break;
       case "tool.call.requested":
-        if (event.data.toolName === "memory_prepare_consolidation") consolidationAttempts.prepare++;
-        if (event.data.toolName === "memory_stage_candidates") consolidationAttempts.stage++;
         requestedMemoryTool ||= event.data.toolName.startsWith("memory_");
         requestedTools.set(event.data.toolCallId, {
           toolName: event.data.toolName,
@@ -419,7 +402,7 @@ async function renderEvents(
         break;
     }
   }
-  return { renderedText, requestedMemoryTool, consolidationAttempts, completedActions, unknownActions };
+  return { renderedText, requestedMemoryTool, completedActions, unknownActions };
 }
 
 function renderResult(
@@ -525,8 +508,6 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
   let stopRequestReason: string | undefined;
   let inputClosed = false;
   let dispatchingCommand = false;
-  let backgroundTask: Promise<void> | undefined;
-  let backgroundController: AbortController | undefined;
   const tasks = new Set<Promise<void>>();
   const getState = (): TuiState => state;
 
@@ -539,13 +520,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
   if (isTTY(input)) readline.prompt();
 
   const requestStop = (reason: string, announce: boolean): void => {
-    backgroundController?.abort(new DOMException(reason, "AbortError"));
     if (stopRequestReason === undefined) stopRequestReason = reason;
-    if (state.kind === "consolidating") {
-      state.controller.abort(new DOMException(reason, "AbortError"));
-      stopRequestReason = undefined;
-      return;
-    }
     if (state.kind === "running") {
       const handle = state.handle;
       if (cancelSentForRun !== handle.runId) {
@@ -572,17 +547,13 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
       agentId: string,
       message: UIMessage,
       signal?: AbortSignal,
-      background = false,
       started?: () => void,
     ): Promise<{
       result: RunResult;
       requestedMemoryTool: boolean;
     }> => {
       options.toolConfirmation?.beginRun();
-      options.memoryConsolidation?.begin(agentId);
       try {
-        const hostExtraction = options.hostConsolidationExtraction === true && agentId === AUTO_CONSOLIDATION_AGENT_ID && options.memoryConsolidation !== undefined;
-        if (hostExtraction) message = await prepareConsolidationExtraction(options.memoryConsolidation!, message, signal);
         const handle = await options.runtime.run({
           agentId,
           threadId: options.threadId,
@@ -590,7 +561,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
           context: { agentId },
           ...(signal ? { signal } : {}),
         });
-        state = { kind: "running", handle, ...(background ? { background: true as const } : {}) };
+        state = { kind: "running", handle };
         started?.();
         cancelSentForRun = undefined;
         const pendingStopReason = stopRequestReason;
@@ -602,94 +573,24 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
         const eventsDone = renderEvents(output, handle.events);
         const result = await handle.result;
         const rendered = await eventsDone;
-        if (options.memoryConsolidation) {
-          try {
-            const extracted = hostExtraction && result.status === "completed" ? await stageConsolidationExtraction(options.memoryConsolidation, result.text, signal) : undefined;
-            const finalized = extracted && !extracted.ok ? extracted : await options.memoryConsolidation.finalize({ status: result.status,
-              ...(hostExtraction && rendered.consolidationAttempts.prepare === 0 && rendered.consolidationAttempts.stage === 0 ? {} : { consolidationAttempts: rendered.consolidationAttempts }) }, signal);
-            if (!finalized.ok) write(output, `\n[memory] ${finalized.error.code === "MEMORY_COMMIT_UNCERTAIN" ? "写入确认不确定，请先读取当前记忆；不能据此判定未保存" : "整理未完成"}：${finalized.error.message}\n`);
-            else {
-              const pending = finalized.value.pendingCandidateIds ?? finalized.value.candidateIds;
-              if (pending.length > 0) write(output, `\n有 ${pending.length} 项记忆需要你确认，尚未写入有效记忆。\n`);
-              for (const receipt of finalized.value.accepted ?? []) write(output, `\n记忆${receipt.operation === "retract" ? "已撤回" : receipt.operation === "disable" ? "已停用" : receipt.operation === "add" ? "已保存" : "已更新"}，可查看或撤回。\n`);
-            }
-          } catch (error) {
-            write(output, `\n[memory] 整理确认失败，请先核对当前记忆：${String(error)}\n`);
-          }
-        }
-        const failedConsolidation =
-          agentId === AUTO_CONSOLIDATION_AGENT_ID &&
-          (result.status === "failed" || result.status === "timed_out");
-        if (!failedConsolidation) {
-          renderResult(
-            output,
-            result,
-            rendered.renderedText,
-            rendered.completedActions,
-            rendered.unknownActions,
-          );
-        }
+        renderResult(output, result, rendered.renderedText, rendered.completedActions, rendered.unknownActions);
         state = { kind: "idle" };
         return { result, requestedMemoryTool: rendered.requestedMemoryTool };
       } finally {
-        options.memoryConsolidation?.discard();
         options.toolConfirmation?.endRun();
       }
     };
 
-  const startAutomaticConsolidation = (): void => {
-    if (inputClosed || state.kind !== "idle" || runStarting || dispatchingCommand || backgroundTask || !options.autoConsolidationAgentId) return;
-    const agentId = options.autoConsolidationAgentId;
-    const background = new AbortController();
-    backgroundController = background;
-    state = { kind: "consolidating", controller: background };
-    const task = (async () => {
-      try {
-        const capacity = await options.memoryConsolidation?.canStart(background.signal);
-        if (background.signal.aborted) return;
-        if (capacity && (!capacity.ok || !capacity.value.canStart)) {
-          write(output, "\n[memory] 自动整理已跳过：候选队列已满或读取失败，请先审核候选。\n");
-          return;
-        }
-        write(output, "\n正在自动整理记忆（后台），新的对话优先。\n");
-        const consolidation = await executeRun(agentId, automaticConsolidationMessage(generateId()), background.signal, true);
-        if (consolidation.result.status === "failed" || consolidation.result.status === "timed_out") {
-          write(output, `\n\nAutomatic consolidation failed: ${consolidation.result.error?.message ?? consolidation.result.status}\n\n`);
-        }
-      } catch (error) {
-        if (!background.signal.aborted) write(output, `\n\nAutomatic consolidation failed: ${String(error)}\n\n`);
-      } finally {
-        if (backgroundController === background) backgroundController = undefined;
-        const current = getState();
-        if ((current.kind === "running" && current.background) || current.kind === "consolidating") state = { kind: "idle" };
-        if (isTTY(input) && !inputClosed && !runStarting) readline.prompt();
-      }
-    })();
-    backgroundTask = task;
-    tasks.add(task);
-    void task.finally(() => { tasks.delete(task); if (backgroundTask === task) backgroundTask = undefined; });
-  };
-
   const submit = async (text: string): Promise<void> => {
-    if ((state.kind !== "idle" && state.kind !== "consolidating" && !(state.kind === "running" && state.background)) || runStarting) {
+    if (state.kind !== "idle" || runStarting) {
       write(output, "\nBusy: wait for the current run to finish.\n");
       return;
     }
     if (text.trim() === "") return;
     runStarting = true;
-    let shouldConsolidate = false;
     let runStarted = false;
 
     try {
-      const previous = backgroundTask;
-      if (previous) {
-        backgroundController?.abort(new DOMException("Foreground chat has priority", "AbortError"));
-        if (state.kind === "running" && state.background) void state.handle.cancel("Foreground chat has priority");
-        if (!await waitForConsolidationHandoff(previous)) {
-          write(output, "\n后台整理尚未停止，本条消息未提交，请稍后重试。\n");
-          return;
-        }
-      }
       const userMessage: UIMessage = {
         id: generateId(),
         role: "user",
@@ -697,23 +598,18 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
         metadata: userMessageClock(),
       };
       options.resume?.beginRun();
-      let primary: Awaited<ReturnType<typeof executeRun>>;
       try {
-        primary = await executeRun(options.agentId, userMessage, undefined, false, () => { runStarted = true; });
+        await executeRun(options.agentId, userMessage, undefined, () => { runStarted = true; });
       } finally {
         options.resume?.endRun();
       }
-      shouldConsolidate = automaticConsolidationSkip({ enabled: options.autoConsolidationAgentId !== undefined,
-        status: primary.result.status, requestedMemoryTool: primary.requestedMemoryTool,
-        cancelled: stopRequestReason !== undefined || cancelSentForRun !== undefined }) === undefined;
     } catch (error) {
       write(output, `\n\n${runStarted ? "Run could not finish" : "Run could not start"}: ${String(error)}\n\n`);
     } finally {
-      if (!backgroundTask) state = { kind: "idle" };
+      state = { kind: "idle" };
       runStarting = false;
       cancelSentForRun = undefined;
       stopRequestReason = undefined;
-      if (shouldConsolidate) startAutomaticConsolidation();
       if (isTTY(input) && !inputClosed) readline.prompt();
     }
   };
@@ -785,21 +681,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
     }
   };
 
-  // Defer startup work until handlers exist; foreground input wins any race.
-  if (options.autoConsolidationAgentId && options.getMemoryConsolidationBacklog) {
-    const startup = (async () => {
-      try {
-        const backlog = await options.getMemoryConsolidationBacklog!();
-        if (!backlog.ok) write(output, `\n[memory] 自动整理不可用：${backlog.error.message}\n`);
-        else if (backlog.value > 0) startAutomaticConsolidation();
-      } catch (error) { write(output, `\n[memory] 自动整理不可用：${String(error)}\n`); }
-    })();
-    tasks.add(startup);
-    void startup.finally(() => tasks.delete(startup));
-  }
-
   readline.on("SIGINT", () => {
-    if (state.kind === "consolidating") { requestStop("user_interrupt", true); return; }
     if (state.kind === "running") {
       requestStop("user_interrupt", true);
       return;

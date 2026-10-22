@@ -3,9 +3,7 @@
 export { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 export { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
 export { EXECUTION_RECORD_FILE, createExecutionRecordStore } from "./execution-record-store.js";
-export type { CandidateDraft } from "./memory-candidates.js";
-export { createMemoryConsolidation } from "./memory-consolidation.js";
-export { createMemoryStore } from "./memory-store.js";
+export { createMemoryStore } from "./memory-v6-store.js";
 export { readDesktopFrontmost } from "./task-notification-presentation.js";
 export { taskResultLink } from "./task-result-link.js";
 export { RSS_DIGEST_TASK_PROMPT, TASK_FILE_NAME, TASK_WORKER_LOCK_FILE_NAME } from "./task-store.js";
@@ -28,8 +26,7 @@ export { createWriteFileTool } from "./write-file.js";
 
 import { createModuleHost as createHostForFacts, type ToolPermissionFacts } from "./module-host.js";
 import { createComputerModule as computerForFacts } from "./modules/computer-module.js";
-import { createMemoryConsolidation as consolidationForFacts } from "./memory-consolidation.js";
-import { createMemoryStore as memoryStoreForFacts } from "./memory-store.js";
+import { createMemoryStore as memoryStoreForFacts } from "./memory-v6-store.js";
 import { createMemoryModule as memoryForFacts } from "./modules/memory-module.js";
 import { createCheckpointModule as checkpointForFacts } from "./modules/checkpoint-module.js";
 import { createTodoistModule as todoistForFacts } from "./modules/todoist-module.js";
@@ -62,8 +59,7 @@ export function builtinToolPermissions(options: { shell?: "host" | "docker" } = 
       currentRun: () => undefined, shell }),
     webForFacts({ searchEnabled: true, feedEnabled: true }),
     computerForFacts({ enabled: true, executable: "/facts/cua-driver", allowedBundleIds: ["com.example.App"] }),
-    memoryForFacts(memoryStore, getMessages, { threadId: "facts", workspaceRoot: ".",
-      consolidation: consolidationForFacts({ store: memoryStore, getMessages, threadId: "facts" }) }),
+    memoryForFacts(memoryStore, getMessages, { threadId: "facts", workspaceRoot: "." }),
     checkpointForFacts(checkpointStoreForFacts("."), { threadId: "facts", workspaceRoot: "." }),
     todoistForFacts({ apiToken: "facts", timeZone: "UTC" }),
   ], { notify() {} });

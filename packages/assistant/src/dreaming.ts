@@ -4,7 +4,7 @@ import { lstat, mkdir, open, rename, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type { UIMessage } from "ai";
 import { acquireFlock } from "./flock.js";
-import { selectInjectableMemoryEntries, type WorkspaceMemoryStore } from "./memory-store.js";
+import { selectInjectableMemoryEntries, type WorkspaceMemoryStore } from "./memory-types.js";
 import { validateExecutionRunRecord, type ExecutionRecordStore, type ExecutionRunRecord } from "./execution-record-store.js";
 import { validateArchivedWorkTask, type WorkTask, type WorkTaskStore } from "./work-task-store.js";
 import { throwIfAborted } from "./workspace-path.js";
@@ -208,9 +208,9 @@ export function createDreamingService(options: { workspaceRoot: string; workTask
   async function validDependencies(s: Pick<LearnedSkill, "memoryDependencies">, threadId: string, signal: AbortSignal): Promise<boolean> {
     if (!s.memoryDependencies.length) return true; if (!options.memoryStore) return false;
     for (const dep of s.memoryDependencies) {
-      const m = await options.memoryStore.get(dep.id, signal, { boundThreadId: threadId });
+      const m = await options.memoryStore.get(dep.id, signal);
       if (!m.ok) { if (m.error.code === "MEMORY_ENTRY_NOT_FOUND") return false; fail(m.error.code, m.error.message); }
-      if (m.entry.scope?.kind === "thread" || m.entry.revision !== dep.revision || !selectInjectableMemoryEntries([m.entry], { threadId }).length) return false;
+      if (m.entry.revision !== dep.revision || !selectInjectableMemoryEntries([m.entry]).length) return false;
     }
     return true;
   }

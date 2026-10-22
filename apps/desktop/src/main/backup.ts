@@ -9,7 +9,7 @@ import type { ExecutionRunRecord } from "@serika/assistant";
 import type { UIMessage } from "ai";
 import type { TranscriptExclusion } from "@serika/core";
 import { restoreTaskDocument, validateTaskDocument } from "@serika/assistant";
-import { MEMORY_FILE_MAX_BYTES, validateMemoryDocument, validateV6MemoryDocument } from "@serika/assistant";
+import { MEMORY_FILE_MAX_BYTES, validateV6MemoryDocument } from "@serika/assistant";
 import { CHECKPOINT_FILE_MAX_BYTES, validateCheckpointDocument } from "@serika/assistant";
 import { WORK_TASK_FILE_MAX_BYTES, validateWorkTaskDocument } from "@serika/assistant";
 import { validateDreamingDocument } from "@serika/assistant";
@@ -22,7 +22,7 @@ import type { BackupResult, RestoreResult } from "../shared/backup.js";
 // Share the runtime's existing schema contracts; a valid hash is not proof
 // that these bytes can be opened by the corresponding Store after recovery.
 const STORES = {
-  "memory.json": { max: MEMORY_FILE_MAX_BYTES, validate: (value: unknown) => (value as { version?: unknown })?.version === 6 ? validateV6MemoryDocument(value) : validateMemoryDocument(value) },
+  "memory.json": { max: MEMORY_FILE_MAX_BYTES, validate: validateV6MemoryDocument },
   "checkpoint.json": { max: CHECKPOINT_FILE_MAX_BYTES, validate: validateCheckpointDocument },
   "work-tasks.json": { max: WORK_TASK_FILE_MAX_BYTES, validate: validateWorkTaskDocument },
   "dreaming.json": { max: 1024 * 1024, validate: validateDreamingDocument },

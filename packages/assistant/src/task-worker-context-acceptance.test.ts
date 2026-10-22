@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { it } from "node:test";
 import { JsonlAgentStore } from "@serika/core";
 import { createCheckpointStore } from "./checkpoint-store.js";
-import { createMemoryStore } from "./memory-store.js";
+import { createMemoryStore } from "./memory-v6-store.js";
 import { createTaskStore } from "./task-store.js";
 
 // Live opt-in only. The ordinary suite never contacts a model provider.
@@ -42,7 +42,6 @@ it("live scheduled workspace brief: Memory + checkpoint → worker → inbox →
   try {
     const memory = await createMemoryStore(root).add({
       text: "本项目当前优先事项是完成 Serika 的任务级验收。",
-      scope: { kind: "workspace" },
     });
     assert.ok(memory.ok, JSON.stringify(memory));
     const checkpoint = await createCheckpointStore(root).saveNextVersion({

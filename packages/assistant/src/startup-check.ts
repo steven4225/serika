@@ -2,7 +2,7 @@ import { lstat } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { AssistantAssembly } from "./assembly.js";
 import { CHECKPOINT_FILE_NAME } from "./checkpoint-store.js";
-import { MEMORY_FILE_NAME } from "./memory-store.js";
+import { MEMORY_FILE_NAME } from "./memory-types.js";
 import { inspectCliModelConfig } from "./model-config.js";
 import { TASK_FILE_NAME } from "./task-store.js";
 import { resolveTuiModuleConfig } from "./tui-module-config.js";

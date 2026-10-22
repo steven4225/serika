@@ -60,11 +60,6 @@ try {
       ...(app.toolConfirmation ? { toolConfirmation: app.toolConfirmation } : {}),
       ...(app.commands ? { commands: app.commands } : {}),
       ...(app.resume ? { resume: app.resume } : {}),
-      ...(app.memoryConsolidation ? { memoryConsolidation: app.memoryConsolidation } : {}),
-      ...(app.getMemoryConsolidationBacklog ? { getMemoryConsolidationBacklog: app.getMemoryConsolidationBacklog } : {}),
-      ...(app.autoConsolidationAgentId
-        ? { autoConsolidationAgentId: app.autoConsolidationAgentId, ...(app.hostConsolidationExtraction ? { hostConsolidationExtraction: true as const } : {}) }
-        : {}),
     });
   } else {
     await runMessage(app, "user-1", "What is 20 + 22?");

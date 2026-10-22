@@ -2,7 +2,7 @@ import {
   MEMORY_CONTEXT_MAX_BYTES,
   type MemoryEntry,
   type WorkspaceMemoryStore,
-} from "./memory-store.js";
+} from "./memory-types.js";
 import { memorySnapshot } from "./memory-snapshot.js";
 
 export type MemoryHealth =
@@ -21,8 +21,7 @@ export type MemoryHealth =
     };
 
 function exclusion(entry: MemoryEntry, now: Date): "thread" | "disabled" | "expired" | undefined {
-  if (entry.scope?.kind === "thread") return "thread";
-  if (entry.enabled !== true || (entry.status !== undefined && entry.status !== "active") || entry.temporalState === "retracted" || entry.temporalState === "not_applicable") return "disabled";
+  if (entry.enabled !== true || (entry.status !== undefined && entry.status !== "active")) return "disabled";
   if (entry.expiresAt !== undefined && entry.expiresAt !== null) {
     const expiry = Date.parse(entry.expiresAt);
     if (!Number.isFinite(expiry) || expiry <= now.getTime()) return "expired";

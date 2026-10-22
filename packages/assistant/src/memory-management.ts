@@ -1,27 +1,24 @@
-import type { MemoryEntry } from "./memory-store.js";
-import type { MemoryResult } from "./memory-candidates.js";
+import type { MemoryEntry } from "./memory-types.js";
+import type { MemoryResult } from "./memory-types.js";
 
-export type FormalMemory = Omit<MemoryEntry, "history" | "v6">;
+export type FormalMemory = Omit<MemoryEntry, "v6">;
 export interface MemoryListInput { offset?: number; limit?: number }
-export interface MemoryPage { entries: Array<Omit<FormalMemory, "text" | "source"> & { preview: string; truncated: boolean }>; nextOffset: number | null }
+export interface MemoryPage { entries: Array<Omit<FormalMemory, "text" | "source"> & { preview: string; truncated: boolean; sourceKinds: Array<{ kind: "manual" | "conversation" }> }>; nextOffset: number | null }
 export interface MemoryEditInput { id: string; expectedRevision: number; text?: string; pinned?: boolean; status?: "disabled" }
 
-export function visibleMemory(entry: MemoryEntry, threadId: string): boolean {
-  return entry.scope?.kind !== "thread" || entry.scope.threadId === threadId;
-}
 export function formalMemory(entry: MemoryEntry): FormalMemory {
-  const { history: _history, v6: _v6, ...current } = entry;
+  const { v6: _v6, ...current } = entry;
   return current;
 }
-export function memoryPage(entries: MemoryEntry[], threadId: string, input: MemoryListInput = {}): MemoryResult<MemoryPage> {
+export function memoryPage(entries: MemoryEntry[], input: MemoryListInput = {}): MemoryResult<MemoryPage> {
   if (typeof input !== "object" || input === null || Array.isArray(input)) return { ok: false, error: { code: "INVALID_INPUT", message: "Invalid Memory page" } };
   const { offset = 0, limit = 20 } = input;
   if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 50) return { ok: false, error: { code: "INVALID_INPUT", message: "Memory page requires offset >=0 and limit 1..50" } };
-  const visible = entries.filter(entry => visibleMemory(entry, threadId));
+  const visible = entries;
   const page: MemoryPage["entries"] = [];
   for (const entry of visible.slice(offset, offset + limit)) {
     const { text, source: _source, ...current } = formalMemory(entry);
-    const item = { ...current, preview: Array.from(text).slice(0, 120).join(""), truncated: Array.from(text).length > 120 };
+    const item = { ...current, sourceKinds: (entry.v6?.sources ?? (entry.source ? [entry.source] : [])).map(source => ({ kind: source.kind })), preview: Array.from(text).slice(0, 120).join(""), truncated: Array.from(text).length > 120 };
     if (Buffer.byteLength(JSON.stringify([...page, item])) > 16 * 1024) break;
     page.push(item);
   }

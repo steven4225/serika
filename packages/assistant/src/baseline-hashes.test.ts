@@ -9,15 +9,12 @@ import { encodeTranscriptUpdate, hashCanonicalJson, JsonlAgentStore } from "@ser
 import { dreamingThreadIdFor } from "./assistant-controller.js";
 import { compactPrefixHash } from "./context-compaction.js";
 import { creationReceipt } from "./creation-idempotency.js";
-import { candidateFingerprint, type CandidateDraft } from "./memory-candidates.js";
-import { consolidationPrefixHash } from "./memory-consolidation.js";
 import { createHash } from "node:crypto";
 import { recipeHash } from "./recipe-store.js";
 import { rssItemKey } from "./rss-subscriptions.js";
 import { createBuiltinSkill } from "./skill-catalog.js";
 import { createDreamingService } from "./dreaming.js";
-import type { CandidateBatchInput } from "./memory-candidates.js";
-import { createMemoryStore, WorkspaceMemoryStoreImpl } from "./memory-store.js";
+import { createMemoryStore } from "./memory-v6-store.js";
 import type { WorkTask, WorkTaskStore } from "./work-task-store.js";
 import type { ExecutionRecordStore, ExecutionRunRecord } from "./execution-record-store.js";
 import { taskResultLink, taskResultWorkspaceKey } from "./task-result-link.js";
@@ -38,15 +35,6 @@ const messages = [
   { id: "a1", role: "assistant", parts: [{ type: "text", text: "记下了。" }] },
   { id: "u2", role: "user", parts: [{ type: "text", text: "second" }] },
 ] as UIMessage[];
-
-const source = { kind: "conversation" as const, threadId: "thread-a", messageId: "u1", quote: "我喝咖啡不加糖。" };
-const v1Draft = { reason: "r", source,
-  change: { operation: "add", text: "用户喝咖啡不加糖。", scope: { kind: "workspace" }, expiresAt: null } } as unknown as CandidateDraft;
-const v2Draft = { reason: "r", source, sources: [source],
-  change: { operation: "add", text: "用户喝咖啡不加糖。", scope: { kind: "thread", threadId: "thread-a" }, expiresAt: null, kind: "preference" } } as unknown as CandidateDraft;
-const v3Draft = { reason: "r", source,
-  change: { operation: "add", text: "用户喝咖啡不加糖。", scope: { kind: "workspace" }, expiresAt: null,
-    factIdentity: { attribute: "coffee", scenario: "general", value: "unsweetened" } } } as unknown as CandidateDraft;
 
 async function withRoot<T>(run: (root: string) => Promise<T>): Promise<T> {
   const root = await mkdtemp(join(tmpdir(), "serika-baseline-hash-"));
@@ -69,19 +57,6 @@ function dreamingSources(root: string) {
   return createDreamingService({ workspaceRoot: root, workTasks, executionRecords });
 }
 
-/** One incremental, automatically accepted batch with coverage: the store writes a consolidation receipt for it. */
-const batchThread = "baseline-thread", batchNow = new Date("2026-10-04T00:00:00Z");
-const coverageBatch: CandidateBatchInput = {
-  incremental: true,
-  outcomes: [{ messageId: "u1", status: "extracted" }],
-  sourcePrefix: { throughMessageId: "u1", prefixHash: "a".repeat(64) },
-  batchId: "batch-1", originThreadId: batchThread, expectedCursor: null,
-  nextCursor: { threadId: batchThread, throughMessageId: "u1", prefixHash: "a".repeat(64), lastBatchId: "batch-1", updatedAt: batchNow.toISOString() },
-  candidates: [{ change: { operation: "add", text: "用户喝咖啡不加糖。", kind: "preference", scope: { kind: "workspace" }, expiresAt: null },
-    source: { kind: "conversation", threadId: batchThread, messageId: "u1", quote: "我喝咖啡不加糖。" }, reason: "explicit lasting self statement" }],
-  autoAcceptIndexes: [0],
-} as CandidateBatchInput;
-
 async function samples(): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   out["core hashCanonicalJson"] = hashCanonicalJson({ b: [1, "é", null, true], a: { z: 1.5, y: "x" } });
@@ -92,10 +67,6 @@ async function samples(): Promise<Record<string, string>> {
   });
   out["context compaction prefix"] = compactPrefixHash(messages, 2);
   out["creation receipt requestHash"] = creationReceipt("op-1", { b: 2, a: { d: undefined, c: [1, { y: 1, x: 2 }] } })!.requestHash;
-  out["memory candidate fingerprint v1"] = candidateFingerprint("thread-a", v1Draft);
-  out["memory candidate fingerprint v2"] = candidateFingerprint("thread-a", v2Draft);
-  out["memory candidate fingerprint v3"] = candidateFingerprint("thread-a", v3Draft);
-  out["memory consolidation prefix"] = consolidationPrefixHash(messages, "u2") ?? "undefined";
   out["memory semantic text hash"] = createHash("sha256").update("咖啡偏好", "utf8").digest("hex");
   out["recipe hash"] = recipeHash({ id: "test", description: "Run tests", command: "pnpm test", cwd: "." } as Parameters<typeof recipeHash>[0]);
   out["rss item key (id)"] = rssItemKey({ id: "guid-1", url: "https://example.com/a", title: "T" } as Parameters<typeof rssItemKey>[0]);
@@ -141,7 +112,7 @@ describe("v2 pilot baseline: persisted hash golden samples", () => {
     const actual = JSON.stringify(await samples(), null, 2) + "\n";
     const file = fileURLToPath(new URL("../src/__baseline__/hashes.json", import.meta.url));
     if (process.env.SERIKA_UPDATE_BASELINE_SNAPSHOT === "1") await writeFile(file, actual);
-    const retired = ["memory import snapshot (empty memory)", "memory import receipt requestHash", "memory consolidation receipt payloadHash"];
+    const retired = ["memory candidate fingerprint v1", "memory candidate fingerprint v2", "memory candidate fingerprint v3", "memory consolidation prefix", "memory import snapshot (empty memory)", "memory import receipt requestHash", "memory consolidation receipt payloadHash"];
     const expected = JSON.parse(await readFile(file, "utf8"));
     for (const key of retired) delete expected[key];
     assert.deepEqual(JSON.parse(actual), expected);

@@ -16,11 +16,11 @@ function entry(partial: Partial<MemoryCardEntry> & Pick<MemoryCardEntry, "id" | 
 
 it("groups saved memories into 偏好、项目 and 工作 without a health folder", () => {
   const entries = [
-    entry({ id: "pref", preview: "复盘先给结论", assertion: { kind: "preference", sourceIds: [{ kind: "conversation" }] } }),
-    entry({ id: "coffee", preview: "咖啡不加糖", assertion: { kind: "fact", factIdentity: { attribute: "coffee", scenario: "personal" }, sourceIds: [{ kind: "manual" }] } }),
-    entry({ id: "note", preview: "## 背景\n在做桌面助手", assertion: { kind: "note", sourceIds: [{ kind: "conversation" }, { kind: "legacy" }] } }),
-    entry({ id: "work", preview: "工作区在 Serika", assertion: { kind: "fact", factIdentity: { scenario: "work" }, sourceIds: [{ kind: "conversation" }] } }),
-    entry({ id: "event", preview: "上周交付了一版", assertion: { kind: "event" } }),
+    entry({ id: "pref", preview: "复盘先给结论", kind: "preference", sourceKinds: [{ kind: "conversation" }] }),
+    entry({ id: "coffee", preview: "咖啡不加糖", kind: "preference", sourceKinds: [{ kind: "manual" }] }),
+    entry({ id: "note", preview: "## 背景\n在做桌面助手", kind: "note", sourceKinds: [{ kind: "conversation" }, { kind: "manual" }] }),
+    entry({ id: "work", preview: "工作区在 Serika", kind: "fact", sourceKinds: [{ kind: "conversation" }] }),
+    entry({ id: "event", preview: "上周交付了一版", kind: "event" }),
   ];
   assert.equal(memoryCategory(entries[0]!), "preference");
   assert.equal(memoryCategory(entries[1]!), "preference");
@@ -39,12 +39,12 @@ it("uses Chinese source copy with markdown sections in the full text", () => {
   assert.equal(memorySourcePhrase([]), "来源未附带");
   assert.equal(memorySourcePhrase([{ kind: "conversation" }]), "来自对话");
   assert.equal(memorySourcePhrase([{ kind: "manual" }]), "来自手动记录");
-  assert.equal(memorySourcePhrase([{ kind: "conversation" }, { kind: "legacy" }]), "多条来源：对话、旧记录");
+  assert.equal(memorySourcePhrase([{ kind: "conversation" }, { kind: "manual" }]), "多条来源：对话、手动记录");
   const project = entry({
     id: "background",
     preview: "## 教育背景\n宁波大学",
     updatedAt: localIso(9),
-    assertion: { kind: "note", sourceIds: [{ kind: "conversation" }, { kind: "manual" }] },
+    kind: "note", sourceKinds: [{ kind: "conversation" }, { kind: "manual" }],
   });
   assert.equal(memoryItemTitle(project.preview), "教育背景");
   assert.equal(memoryUpdatedLabel(project.updatedAt, now), "更新于 3 天前");
@@ -81,12 +81,10 @@ it("shows separate saved entries and an explicit full-list link instead of a joi
 });
 
 it("understanding and category counts show only currently effective memories", () => {
-  const live = entry({ id: "live", preview: "当前偏好", temporalState: "applicable", assertion: { kind: "preference" } });
+  const live = entry({ id: "live", preview: "当前偏好", kind: "preference" });
   const inactive: MemoryCardEntry[] = [
-    { id: "disabled", preview: "停用偏好", temporalState: "applicable", enabled: false, status: "disabled" },
-    { id: "expired", preview: "过期事实", temporalState: "applicable", expiresAt: localIso(10) },
-    { id: "retracted", preview: "", temporalState: "retracted" },
-    { id: "future", preview: "未来偏好", temporalState: "not_applicable" },
+    { id: "disabled", preview: "停用偏好", enabled: false, status: "disabled" },
+    { id: "expired", preview: "过期事实", expiresAt: localIso(10) },
   ];
   const entries = [live, ...inactive];
   assert.equal(memoryUnderstanding(entries, now).narrative, "当前偏好");

@@ -117,7 +117,6 @@ describe("createRuntimeApp", () => {
         assert.deepEqual(names.filter(name => name.startsWith("memory_")).sort(), ["memory_read", "memory_write"]);
         assert.equal(names.includes("memory_revise"), false);
         assert.ok(app.memoryExtraction, "tool-free background lifecycle must be registered");
-        assert.equal(app.memoryConsolidation, undefined);
         assert.ok(app.memoryStore, "desktop administrative operations retain their original store");
 
       } finally { await app.dispose(); await rm(root, { recursive: true, force: true }); }
@@ -246,7 +245,7 @@ describe("createRuntimeApp", () => {
           assert.equal((await handle.result).status, "completed");
         };
         await run("first", "reports before saving");
-        assert.ok((await app.memoryStore!.add({ text: "reports use three steps", scope: { kind: "workspace" } })).ok);
+        assert.ok((await app.memoryStore!.add({ text: "reports use three steps" })).ok);
         await run("next", "reports after saving");
         const prompt = prompts[1]!;
         const old = prompt.findIndex(message => message.includes("Earlier selected entries: []"));
@@ -329,7 +328,6 @@ describe("createRuntimeApp", () => {
       assert.equal(app.toolConfirmation, undefined);
       assert.equal(app.commands, undefined);
       assert.equal(app.resume, undefined);
-      assert.equal(app.autoConsolidationAgentId, undefined);
 
       const handle = await app.runtime.run({
         agentId: app.agentId,

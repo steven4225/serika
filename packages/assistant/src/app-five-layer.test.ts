@@ -8,7 +8,7 @@ import { PassThrough } from "node:stream";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp } from "./app.js";
-import { createMemoryStore } from "./memory-store.js";
+import { createMemoryStore } from "./memory-v6-store.js";
 import { createAssistantController } from "./assistant-controller.js";
 import { memorySnapshot } from "./memory-snapshot.js";
 import { memoryReadTools } from "./memory-read-tools.js";
@@ -20,9 +20,8 @@ test("production five-layer runtime persists references, reopens the same prefix
   await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, writePolicy: "automatic", autoConsolidate: true } },
     automation: { dreaming: { enabled: true } }, desktopAutonomy: { workspaceRoot: workspace } }));
   const store = createMemoryStore(workspace), documentId = randomUUID();
-  assert.ok((await store.changeLibrary!({ operation: "save-document", id: documentId, title: "reference document", text: "DOCUMENT_BODY_ONLY_ON_READ", folderId: null, expectedRevision: 0, entries: [] }, "thread")).ok);
+  assert.ok((await store.changeLibrary!({ operation: "save-document", id: documentId, title: "reference document", text: "DOCUMENT_BODY_ONLY_ON_READ", folderId: null, expectedRevision: 0, entries: [] })).ok);
   for (let i = 0; i < 3; i++) assert.ok((await store.add({ text: `overflow_marker_${i} ` + "x".repeat(1800) })).ok);
-  assert.ok((await store.add({ text: "PRIVATE_THREAD", scope: { kind: "thread", threadId: "foreign" } })).ok);
   assert.ok((await store.add({ text: "DISABLED_SECRET", enabled: false })).ok);
   const prompts: Array<Parameters<MockLanguageModelV3["doStream"]>[0]> = [];
   const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } };
@@ -70,20 +69,19 @@ test("production five-layer runtime persists references, reopens the same prefix
 
 test("snapshot budgets include whole serialized entries, pin priority and temporal scope, without deleting overflow", () => {
   const entries = [{ id: "large", text: "x".repeat(4096), enabled: true }, { id: "pin", text: "pinned", pinned: true, enabled: true },
-    { id: "thread", text: "private", enabled: true, scope: { kind: "thread" as const, threadId: "thread" } },
-    { id: "old", text: "retracted", enabled: true, temporalState: "retracted" as const }];
+    { id: "old", text: "retracted", enabled: false }];
   const selected = memorySnapshot(entries, { now: new Date() });
   assert.deepEqual(selected.entries.map(entry => entry.id), ["pin"]); assert.equal(selected.truncated, true);
-  assert.equal(entries.length, 4); assert.ok(selected.bytes < 4096);
+  assert.equal(entries.length, 3); assert.ok(selected.bytes < 4096);
 });
 
 test("memory reads recheck disabled documents and retracted overflow instead of returning stale bodies", async () => {
   const root = await mkdtemp(join(tmpdir(), "serika-read-recheck-")), store = createMemoryStore(root);
   try {
     const added = await store.add({ text: "RETRACTED_READ_SECRET" }); assert.ok(added.ok);
-    assert.ok((await store.reviseMemory({ id: added.entry.id, expectedRevision: added.entry.revision!, operation: "retract", sources: [{ kind: "manual" }] })).ok);
+    assert.ok((await store.writeV6!([{ id: added.entry.id, expectedRevision: added.entry.revision!, operation: "retract", source: { kind: "manual" } }])).ok);
     const id = randomUUID();
-    assert.ok((await store.changeLibrary!({ operation: "save-document", id, title: "document", text: "DISABLED_READ_SECRET", folderId: null, expectedRevision: 0, entries: [] }, "thread")).ok);
+    assert.ok((await store.changeLibrary!({ operation: "save-document", id, title: "document", text: "DISABLED_READ_SECRET", folderId: null, expectedRevision: 0, entries: [] })).ok);
     const material = await store.readReferenceMaterial!(new AbortController().signal, new Date()); assert.ok(material.ok);
     const entry = material.value.entries.find(item => item.text === "DISABLED_READ_SECRET")!;
     assert.ok((await store.update(entry.id, { expectedRevision: entry.revision!, enabled: false })).ok);

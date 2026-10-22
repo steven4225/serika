@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import type { MemoryReferenceSnapshot } from "@serika/assistant";
-import { memoryKindLabel } from "../../shared/memory-labels.js";
 
 type RunMemoryReference = MemoryReferenceSnapshot & { runId: string };
 const MATCH_REASONS = { pinned: "显式固定", snapshot: "固定快照" } as const;
@@ -15,13 +14,7 @@ export function MemoryReferenceDetails({ reference, hideEmpty = false }: { refer
     {reference.selected.map(entry => <div className="memory-reference-item" key={entry.id}>
       <div className="hint">记忆 {entry.id} · revision {entry.revision} · {MATCH_REASONS[entry.reason]}</div>
       <pre className="memory-text">{entry.text}</pre>
-      {entry.assertion ? <details>
-        <summary className="hint">类型与来源</summary>
-        <div className="hint">断言 {entry.assertion.assertionId} · {memoryKindLabel(entry.assertion.kind)} · {entry.assertion.state === "retracted" ? "已撤回" : "认可"}</div>
-        {entry.assertion.sourceIds.map((source, index) => <div className="hint" key={index}>
-          来源 {index + 1}：{source.kind === "conversation" ? `Thread ${source.threadId} · 消息 ${source.messageId}` : source.kind === "manual" ? "人工录入" : "旧版迁入"}
-        </div>)}
-      </details> : <div className="hint">此版本未提供来源信息。</div>}
+
     </div>)}
     {reference.selected.length === 0 ? <p className="hint">本轮没有选中记忆；不代表记忆库为空。</p> : null}
     {reference.truncated ? <p className="hint">固定快照达到注入预算；其余条目可按需读取。</p> : null}

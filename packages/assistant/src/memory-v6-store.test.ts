@@ -5,17 +5,17 @@ import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
 import { V6MemoryStore, v6Conflicts, type V6Change, type V6Document } from "./memory-v6-store.js";
 import { assertExperimentalDataPaths } from "./experimental-data.js";
-const change = (value = "北京", attribute = "住址"): Extract<V6Change, { text: string }> => ({ operation: "add", text: `我住在${value}`, category: "note", scope: { kind: "workspace" },
+const change = (value = "北京", attribute = "住址"): Extract<V6Change, { text: string }> => ({ operation: "add", text: `我住在${value}`, category: "note",
   identity: { subject: "user", attribute, value }, source: { kind: "conversation", threadId: "t", messageId: value, quote: `我住在${value}`, sentAt: "2026-10-21T01:00:00Z" } });
 
-test("v5 remains readable; every write refuses migration without creating locks, siblings or backups", async () => {
+test("v5 requires migration for reads and writes without creating locks, siblings or backups", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm4-v5-"));
   try {
     await mkdir(join(root, ".runloom"));
     const file = join(root, ".runloom/memory.json"), original = JSON.stringify({ version: 5, lastWrittenAt: null, entries: [], candidates: [], consolidationCursors: [], library: { revision: 0, folders: [], documents: [] } });
     await writeFile(file, original);
-    const store = new V6MemoryStore(root); assert.ok((await store.list()).ok);
-    for (const result of [await store.add({ text: "test" }), await store.update("missing", { text: "test", expectedRevision: 1 }), await store.delete("missing"), await store.writeV6([change()]), await store.commitCandidateBatch({}), await store.resolveCandidate({})]) {
+    const store = new V6MemoryStore(root); assert.equal((await store.list()).ok, false);
+    for (const result of [await store.add({ text: "test" }), await store.update("missing", { text: "test", expectedRevision: 1 }), await store.delete("missing"), await store.writeV6([change()])]) {
       assert.equal(result.ok, false); if (!result.ok) assert.equal(result.error.code, "MEMORY_MIGRATION_REQUIRED");
     }
     assert.equal(await readFile(file, "utf8"), original);
@@ -52,9 +52,6 @@ test("v6 replacement/undo, withdrawal/undo, conflict diagnostics and source-spec
     const independent = change("北京", "办公习惯"); independent.text = "我工作时先列结论"; independent.source = { kind: "conversation", threadId: "t", messageId: "北京", quote: independent.text, sentAt: null };
     assert.ok((await store.writeV6([independent])).ok);
     const sameSource = await store.readV6(); assert.ok(sameSource.ok); assert.ok(sameSource.value.entries.some(entry => entry.text === independent.text));
-    const privateEntry = await store.writeV6([{ ...change("其他对话"), scope: { kind: "thread", threadId: "private" }, source: { kind: "manual" } }]); assert.ok(privateEntry.ok);
-    const crossScope = await store.writeV6([{ ...change("越界"), operation: "replace", id: privateEntry.value[0]!.id, expectedRevision: 1 }]); assert.equal(crossScope.ok, false);
-    if (!crossScope.ok) assert.equal(crossScope.error.code, "MEMORY_SOURCE_INVALID");
     const persisted = JSON.parse(await readFile(join(root, ".runloom/memory.json"), "utf8"));
     assert.equal(persisted.version, 6); assert.equal("candidates" in persisted, false);
     assert.doesNotMatch(JSON.stringify(persisted), /systemTime|validTime|assertions|versions|operationLog/);

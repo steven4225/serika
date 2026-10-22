@@ -9,7 +9,7 @@ import { createRuntimeApp } from "./app.js";
 import { CHECKPOINT_FILE_NAME, CHECKPOINT_LOCK_FILE_NAME } from "./checkpoint-store.js";
 import { createDemoModel } from "./demo-model.js";
 import { EXECUTION_RECORD_FILE } from "./execution-record-store.js";
-import { MEMORY_FILE_NAME, MEMORY_LOCK_FILE_NAME } from "./memory-store.js";
+import { MEMORY_FILE_NAME, MEMORY_LOCK_FILE_NAME } from "./memory-types.js";
 import { DESKTOP_FRONTMOST_FILE } from "./task-notification-presentation.js";
 import { TASK_FILE_NAME, TASK_LOCK_FILE_NAME, TASK_WORKER_LOCK_FILE_NAME } from "./task-store.js";
 import { TASK_WORKER_HEALTH_FILE } from "./task-worker-health.js";

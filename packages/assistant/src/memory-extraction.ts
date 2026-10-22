@@ -1,11 +1,12 @@
 import { generateText, type LanguageModel, type UIMessage } from "ai";
 import { z } from "zod";
 import { originalBlock } from "./context-source.js";
+import { mergeMemory } from "./memory-merge.js";
 import { hashCanonicalJson } from "@serika/core";
 import { availableInputTokens, defaultContextBudget, type ContextBudgetConfig } from "./context-budget.js";
 import { findCommittedUserMessage, withoutConsolidationTurns } from "./consolidation.js";
 import { bindMemoryWrite, memoryText, memoryWriteSchema, MEMORY_WRITE_RULES, MemoryWriteValidationError, type MemoryWriteValidationFailure } from "./memory-write.js";
-import type { WorkspaceMemoryStore } from "./memory-store.js";
+import type { WorkspaceMemoryStore } from "./memory-types.js";
 import type { V6Change, V6Document } from "./memory-v6-store.js";
 
 const responseSchema = z.object({ proposals: z.array(memoryWriteSchema.safeExtend({ sourceMessageId: z.string().min(1) })),
@@ -39,7 +40,7 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
   const diagnostics: ExtractionDiagnostics = { running: false, calls: 0, completed: 0, failed: 0, cancelled: 0, durationMs: 0, pendingSegments: 0 };
   const listeners = new Set<() => void>();
   let timer: ReturnType<typeof setTimeout> | undefined, task: Promise<void> | undefined, abort: AbortController | undefined;
-  let urgentThrough: string | undefined;
+  let urgentThrough: string | undefined, mergeFingerprint: string | undefined;
   let generation = 0, closed = false, uncertain = false, lastActivity = now();
   const load = async () => {
     const read = await options.store.readV6!(); if (!read.ok) throw new Error(`${read.error.code}: ${read.error.message}`);
@@ -59,7 +60,24 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
     const replay = pending.find(item => item.offset !== undefined) ?? (idle ? pending[0] : undefined);
     if (replay) { const index = messages.findIndex(message => message.id === replay.messageId); backlog = messages.slice(index, index + 1); }
     diagnostics.pendingSegments = pending.length + ((saved?.retry?.failures ?? 0) >= 2 ? 1 : 0);
-    if (!backlog.length) return;
+    if (!backlog.length) {
+      const fingerprint = JSON.stringify([document.entries, document.library]);
+      if (mergeFingerprint === fingerprint) return;
+      mergeFingerprint = fingerprint;
+      const signal = new AbortController(); abort = signal;
+      try {
+        const merged = await mergeMemory({ store: options.store, document, model: options.model, budget: options.budget, signal: signal.signal });
+        delete diagnostics.error;
+        if (merged) { try { options.updated(); for (const listener of listeners) listener(); } catch {} }
+      }
+      catch (error) {
+        if (!signal.signal.aborted) {
+          diagnostics.error = error instanceof Error ? error.message : "记忆合并失败";
+          uncertain = diagnostics.error.includes("MEMORY_COMMIT_UNCERTAIN");
+        }
+      } finally { if (signal.signal.aborted) mergeFingerprint = undefined; if (abort === signal) abort = undefined; }
+      return;
+    }
     if (saved?.retry && (saved.retry.failures >= 3 || saved.retry.failures >= 2 && !idle)) return;
     if (!idle && !urgentThrough && !replay && initial.tokens < threshold) return;
     if (saved?.retry && prefixHash(messages, saved.retry.throughMessageId) !== saved.retry.prefixHash) throw new Error("MEMORY_CURSOR_MISMATCH");

@@ -261,7 +261,7 @@ it("export filters excluded message, snapshot and receipt payloads while preserv
     await rm(join(f.workspace, ".runloom/memory.json"));
     const memory = createMemoryStore(f.workspace);
     const secret = "PRIVATE-EXCLUDED-PAYLOAD";
-    const saved = await memory.writeV6!([{ operation: "add", text: secret, category: "note", scope: { kind: "workspace" }, source: { kind: "conversation", threadId: "daily", messageId: "user", quote: secret, sentAt: null } }]); assert.ok(saved.ok);
+    const saved = await memory.writeV6!([{ operation: "add", text: secret, category: "note", source: { kind: "conversation", threadId: "daily", messageId: "user", quote: secret, sentAt: null } }]); assert.ok(saved.ok);
     const store = new JsonlAgentStore({ directory: f.transcripts });
     await store.save("daily", [{ id: "user", role: "user", parts: [{ type: "text", text: secret }] },
       { id: "tool", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "write_file", toolCallId: "private-call", state: "output-error", input: { path: "private.txt", content: secret }, errorText: "TOOL_OUTCOME_UNKNOWN" }] }]);

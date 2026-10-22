@@ -8,12 +8,11 @@ import { setTimeout as delay } from "node:timers/promises";
 import { it } from "node:test";
 import { simulateReadableStream, type UIMessage } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import { JsonlAgentStore, type ThreadContextCompactionRecord } from "@serika/core";
+import { hashCanonicalJson, JsonlAgentStore, type ThreadContextCompactionRecord } from "@serika/core";
 import { acquireFlock } from "./flock.js";
 import { createRuntimeApp } from "./app.js";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
-import { consolidationPrefixHash, createMemoryConsolidation, memoryConsolidationBacklog } from "./memory-consolidation.js";
-import { createMemoryStore } from "./memory-store.js";
+import { createMemoryStore } from "./memory-v6-store.js";
 import { compactPrefixHash, type ContextCompactionRecord } from "./context-compaction.js";
 import { readContextDiagnostics } from "./context-compactor.js";
 import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
@@ -48,8 +47,8 @@ it("physical compact preserves memory cursor, exact quotes and valid summary; re
   try {
     const before = (await stat(file)).size; assert.ok(before > 16 * 1024 * 1024);
     const memory = createMemoryStore(workspace);
-    const prefixHash = consolidationPrefixHash(messages, "u2")!;
-    assert.ok((await memory.writeV6!([{ operation: "add", text: preference, category: "preference", scope: { kind: "workspace" }, source: { kind: "conversation", threadId, messageId: "u1", quote: preference, sentAt: null } }], undefined, { expectedProgress: null, progress: { threadId, throughMessageId: "u2", prefixHash, pending: [], retry: null } })).ok);
+    const prefixHash = hashCanonicalJson(JSON.parse(JSON.stringify(messages)));
+    assert.ok((await memory.writeV6!([{ operation: "add", text: preference, category: "preference", source: { kind: "conversation", threadId, messageId: "u1", quote: preference, sentAt: null } }], undefined, { expectedProgress: null, progress: { threadId, throughMessageId: "u2", prefixHash, pending: [], retry: null } })).ok);
     const memoryFile = join(workspace, ".runloom/memory.json"), originalMemory = await readFile(memoryFile);
     const read = await memory.readV6!(); assert.ok(read.ok); const cursor = read.value.progress[0]!;
     const budget = { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true };
@@ -62,7 +61,7 @@ it("physical compact preserves memory cursor, exact quotes and valid summary; re
     const reopened = new JsonlAgentStore({ directory });
     assert.deepEqual(await reopened.getMessages(threadId), messages);
     assert.deepEqual(await readFile(memoryFile), originalMemory, "physical cleanup never edits memory or its cursor");
-    assert.equal(consolidationPrefixHash(await reopened.getMessages(threadId), cursor.throughMessageId!), cursor.prefixHash);
+    assert.equal(hashCanonicalJson(JSON.parse(JSON.stringify(await reopened.getMessages(threadId)))), cursor.prefixHash);
     assert.deepEqual((await memory.readV6!()), read);
     const afterSummary = await readContextDiagnostics(reopened, threadId, budget); assert(afterSummary.ok);
     assert.equal(afterSummary.value.latestValidCompaction?.id, summary.id, "missing summary.version remains invalid after cleanup");
@@ -107,14 +106,11 @@ it("physical compact preserves memory cursor, exact quotes and valid summary; re
     await assert.rejects(readFile(join(workspace, "old.md")), { code: "ENOENT" });
     const continued = await new JsonlAgentStore({ directory }).getMessages(threadId);
     assert.deepEqual(continued.slice(0, messages.length), messages);
-    assert.deepEqual(memoryConsolidationBacklog(continued, { threadId, throughMessageId: cursor.throughMessageId!, prefixHash: cursor.prefixHash!, lastBatchId: "unused", updatedAt: "2026-10-10T00:00:00.000Z" }), { ok: true, value: 1 });
     console.log(JSON.stringify({ historyBeforeBytes: before, historyAfterBytes: after, cursorPreserved: true,
       summaryPreserved: true, freshApprovalRequired: true, oldToolsReplayed: 0, model: "scripted", electron: "not_run" }));
 
     const changed = structuredClone(continued); changed[0]!.parts = [{ type: "text", text: "改过的来源" }];
     await store.save(threadId, changed);
-    const mismatch = memoryConsolidationBacklog(await store.getMessages(threadId), { threadId, throughMessageId: cursor.throughMessageId!, prefixHash: cursor.prefixHash!, lastBatchId: "unused", updatedAt: "2026-10-10T00:00:00.000Z" });
-    assert.equal(mismatch.ok, false);
     const invalidSummary = await readContextDiagnostics(store, threadId, budget); assert(invalidSummary.ok);
     assert.equal(invalidSummary.value.latestValidCompaction, null, "source mismatch does not become valid after physical cleanup");
   } finally { app?.dispose(); await rm(root, { recursive: true, force: true }); }

@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
 for (const [entry, optIn] of [
-  ["memory-native-acceptance", "RUNLOOM_MEMORY_ACCEPTANCE"],
   ["context-continuity-acceptance", "RUNLOOM_CONTEXT_CONTINUITY"],
 ] as const) {
   test(`${entry} rejects implicit live calls and mock opt-in before provider access`, () => {

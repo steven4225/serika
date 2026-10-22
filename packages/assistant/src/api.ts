@@ -30,16 +30,13 @@ export { EXECUTION_RECORD_MAX_TOOLS, ExecutionRecordStore, validateExecutionRunR
 export type { AssistantSteerRecord, ExecutionRunRecord } from "./execution-record-store.js";
 export { acquireFlock, tryAcquireFlock } from "./flock.js";
 export type { FlockHandle } from "./flock.js";
-export type { CandidateListInput, CandidatePage, CandidatePreview, CandidateResolution, CandidateResolveInput, MemoryCandidate, MemoryResult } from "./memory-candidates.js";
-export type { MemoryAction, MemoryActionPreview, MemoryHistoryInput, MemoryHistoryPage, MemoryMaintenance } from "./memory-controls.js";
+export type { MemoryAction, MemoryMaintenance } from "./memory-controls.js";
 export type { MemoryFactReceipt } from "./memory-factual-receipts.js";
 export { memoryConsolidationFailureText } from "./memory-failure.js";
 export type { MemoryLibraryAction, MemoryLibraryDocument, MemoryLibraryView } from "./memory-library.js";
 export type { FormalMemory, MemoryEditInput, MemoryListInput, MemoryPage } from "./memory-management.js";
 export type { MemoryReferenceSnapshot } from "./memory-snapshot.js";
-export { MEMORY_FILE_MAX_BYTES, validateMemoryDocument } from "./memory-store.js";
-export type { MemoryAssertion, MemoryKind, MemorySource } from "./memory-store.js";
-export type { MemoryValidTime } from "./memory-temporal.js";
+export { MEMORY_FILE_MAX_BYTES } from "./memory-types.js";
 export { configureCliModel, inspectCliModelConfig } from "./model-config.js";
 export { MODEL_PURPOSE_LABELS, estimatedModelCost } from "./model-usage.js";
 export type { ModelCallRecord, ModelPurpose, ModelUsagePage } from "./model-usage.js";
@@ -76,9 +73,7 @@ export type { ReadinessCheck, ReadinessSnapshot, StartupAssembly } from "./start
 export type { TuiCommand, TuiResume } from "./host-commands.js";
 export type { ToolConfirmation } from "./tool-confirmation.js";
 export { AUTO_CONSOLIDATION_AGENT_ID, isAutoConsolidationRequest } from "./consolidation.js";
-export { automaticConsolidationMessage, automaticConsolidationSkip, waitForConsolidationHandoff } from "./consolidation-lifecycle.js";
-export { prepareConsolidationExtraction, stageConsolidationExtraction } from "./memory-consolidation.js";
-export type { MemoryConsolidation } from "./memory-consolidation.js";
+export { automaticConsolidationMessage, waitForConsolidationHandoff } from "./consolidation-lifecycle.js";
 export { userMessageClock } from "./memory-observation-policy.js";
 
 export { assertExperimentalDataPaths } from "./experimental-data.js";
@@ -86,3 +81,5 @@ export { assertExperimentalDataPaths } from "./experimental-data.js";
 export { validateV6MemoryDocument } from "./memory-v6-store.js";
 
 export { excludedRunView } from "./transcript-access.js";
+
+export type { MemoryResult, MemoryKind, MemorySource } from "./memory-types.js";

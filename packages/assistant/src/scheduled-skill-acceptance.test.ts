@@ -14,7 +14,7 @@ import { JsonlAgentStore } from "@serika/core";
 import { createRuntimeApp } from "./app.js";
 import { createAssistantController, type AssistantController } from "./assistant-controller.js";
 import { createCheckpointStore } from "./checkpoint-store.js";
-import { createMemoryStore } from "./memory-store.js";
+import { createMemoryStore } from "./memory-v6-store.js";
 import { loadScheduledSkillAutomation, prepareScheduledSkillTask } from "./scheduled-skill.js";
 import { createTaskStore } from "./task-store.js";
 import { createTaskWorkerAgent } from "./task-worker-entry.js";
