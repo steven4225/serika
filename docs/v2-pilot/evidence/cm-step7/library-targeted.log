@@ -1,0 +1,17 @@
+✔ reads legacy memory as unfiled documents without creating files or guessing folders (57.471416ms)
+✔ persists folder names, titles and exact Unicode document bodies through import, edit and reopen (202.323542ms)
+✔ rejects stale folder and body revisions atomically; ordinary writes preserve document ownership (276.174792ms)
+✔ excludes disabled documents from active counts and rejects forged ownership (167.785041ms)
+✔ rejects nonempty folder removal, missing content and oversized input without partial writes (284.843917ms)
+✔ document body and folder metadata share the before-rename failure boundary (86.153667ms)
+✔ document body and folder metadata share the after-rename failure boundary (92.822917ms)
+✔ v6 background writes preserve folders and document titles while old candidate writes stay disabled (87.002625ms)
+✔ projects v6 unfiled source text and uncertainty without changing the saved body (46.913875ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1372.58

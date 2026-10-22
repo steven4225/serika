@@ -1,0 +1,49 @@
+{
+  "runId": "06e4d6bf-f161-4e98-bfbf-9cfdfa47de0f",
+  "checkedAt": "2026-10-22T13:52:37.752493+00:00",
+  "sourceCommit": "52636cd1074a4cd19b0ea3d931c8dca2466769f0",
+  "status": "passed",
+  "diffCheckExitCode": 0,
+  "frozenSha256": {
+    "examples/eval/cm-step6-live.mjs": "f45f10aa5f644fdc450d9e8ffef81d45d48f53f38d7455cca00c611b4e43c46a",
+    "apps/desktop/scripts/cm-step6-open-fault.mjs": "665c1b4a8eb125c0fe9b4e95465fd69405efa6e7095a45f082f9c2a62c700eff",
+    "apps/desktop/scripts/electron-smoke.mjs": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f"
+  },
+  "textFilesScanned": 132,
+  "credentialPatterns": [
+    "openai_key",
+    "github_token",
+    "private_key",
+    "assigned_credential"
+  ],
+  "credentialHits": [],
+  "reviewedTestPlaceholders": [
+    {
+      "file": "examples/eval/memory-everyday-acceptance.test.mjs",
+      "pattern": "assigned_credential",
+      "disposition": "literal offline test placeholder"
+    },
+    {
+      "file": "examples/eval/memory-sequence-acceptance.test.mjs",
+      "pattern": "assigned_credential",
+      "disposition": "literal offline test placeholder"
+    },
+    {
+      "file": "examples/eval/memory-transition-acceptance.test.mjs",
+      "pattern": "assigned_credential",
+      "disposition": "literal offline test placeholder"
+    },
+    {
+      "file": "packages/assistant/src/modules/computer-module.test.ts",
+      "pattern": "assigned_credential",
+      "disposition": "literal offline test placeholder"
+    }
+  ],
+  "screenshotsHashChecked": 8,
+  "privateBackupHashMatches": true,
+  "privateMigratedMemoryHashMatches": true,
+  "rollbackComparisonsAllTrue": true,
+  "unifiedRunId": "88794d3b-5b02-4800-85c1-06b6248ac8bd",
+  "unifiedExitCodesAllZero": true,
+  "containsPrivateArchiveOrEnvironmentFile": false
+}

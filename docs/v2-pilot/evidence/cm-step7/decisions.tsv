@@ -1,0 +1,7 @@
+loggedAt	phase	decision	why	evidence	result
+2026-10-22T12:40:04.719Z	history	Retain failed unknown transcript at existing save barrier	Original completed-only contract loses user restrictions; no evidence this served retries	265d8677; loop/runtime regression tests	failed outcome; TOOL_OUTCOME_UNKNOWN; tool executes once
+2026-10-22T12:40:04.719Z	migration	Migrate a complete independent copy of real data	User clarified daily source must remain untouched	migration result d1ce257e-b408-4bfd-9538-b09148afdaae	backup and rollback matched; independent v6-review only
+2026-10-22T12:40:04.719Z	storage	Move current callers then delete candidate and temporal storage	Plan Step 7 requires one v6 write path and workspace scope	c8fade7..52636cd	old product APIs removed; old-format read/write require migration
+2026-10-22T12:40:04.719Z	merge	Only deduplicate clauses within an identical literal fact	Automatic conflict resolution and condition loss are outside scope	memory-merge.test.ts; memory-v6-store.ts mergeV6	sources and pin inherited; undo restores originals
+2026-10-22T12:40:04.719Z	verification	Keep failed gate evidence and repair remaining callers	Failure must remain visible; deleting old structures exposes stale tests and tools	verification-first/second/third-failed.json	full unified verification rerun from 52636cd
+2026-10-22T12:40:04.719Z	eval	Retain historical pure Oracle while deleting retired runners	Past scores must not be redefined using current v6 values	historical-oracle-hashes.json; eval-targeted.log	101 eval checks retained; frozen checker unchanged

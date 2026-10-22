@@ -1,0 +1,132 @@
+$ pnpm build:runtime && pnpm --filter @serika/eval test
+$ tsc -b
+$ node --test *.test.mjs
+✔ M1 extraction and persisted source/conflict evidence at 32K and daily windows (scripted, no semantic score) (1106.293833ms)
+✔ M1 usage-unknown provider failure stops the quoted batch after one dispatch (57.132167ms)
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE03","generation":0,"records":5,"realModelCalls":0,"preparation":{"at":"2026-10-22T12:36:50.456Z","outcome":"reused","compactionId":"43b2f552-9702-42c6-b989-880733b81902","estimatedInputTokens":962,"error":null,"summaryLayer":{"tokens":857,"checklistTokens":352,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1606,"requiredTokens":506,"budget":896,"reducedSegments":4,"compacted":true,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":335,"sectionBudget":208,"maskedThroughMessageId":null,"emergencyMasking":[]}}}
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE03","generation":1,"records":9,"realModelCalls":0,"preparation":{"at":"2026-10-22T12:36:50.532Z","outcome":"reused","compactionId":"f1b38415-4813-470f-925d-5f15b3a4c1c9","estimatedInputTokens":3857,"error":null,"summaryLayer":{"tokens":857,"checklistTokens":352,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1607,"requiredTokens":506,"budget":896,"reducedSegments":4,"compacted":true,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":335,"sectionBudget":208,"maskedThroughMessageId":null,"emergencyMasking":[]}}}
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE03","generation":2,"records":14,"realModelCalls":0,"preparation":{"at":"2026-10-22T12:36:50.670Z","outcome":"reused","compactionId":"41735355-f7fe-4d47-b6ce-ab9c8d9f959d","estimatedInputTokens":962,"error":null,"summaryLayer":{"tokens":857,"checklistTokens":352,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1606,"requiredTokens":506,"budget":896,"reducedSegments":4,"compacted":true,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":335,"sectionBudget":208,"maskedThroughMessageId":null,"emergencyMasking":[]}}}
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE05","generation":0,"records":5,"realModelCalls":0,"preparation":{"at":"2026-10-22T12:36:50.705Z","outcome":"reused","compactionId":"3c44dd36-de56-4232-bd53-45cbfcfa410d","estimatedInputTokens":962,"error":null,"summaryLayer":{"tokens":857,"checklistTokens":352,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1606,"requiredTokens":506,"budget":896,"reducedSegments":4,"compacted":true,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":335,"sectionBudget":208,"maskedThroughMessageId":null,"emergencyMasking":[]}}}
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE05","generation":1,"records":9,"realModelCalls":0,"preparation":{"at":"2026-10-22T12:36:50.768Z","outcome":"reused","compactionId":"14a6deb8-6adf-4035-a6a7-36cf5b915f52","estimatedInputTokens":3857,"error":null,"summaryLayer":{"tokens":857,"checklistTokens":352,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1607,"requiredTokens":506,"budget":896,"reducedSegments":4,"compacted":true,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":335,"sectionBudget":208,"maskedThroughMessageId":null,"emergencyMasking":[]}}}
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE05","generation":2,"records":14,"realModelCalls":0,"preparation":{"at":"2026-10-22T12:36:50.891Z","outcome":"reused","compactionId":"deabaa93-1acf-4911-8962-46425c0a214c","estimatedInputTokens":962,"error":null,"summaryLayer":{"tokens":857,"checklistTokens":352,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1606,"requiredTokens":506,"budget":896,"reducedSegments":4,"compacted":true,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":335,"sectionBudget":208,"maskedThroughMessageId":null,"emergencyMasking":[]}}}
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE05","generation":3,"records":18,"realModelCalls":0,"preparation":{"at":"2026-10-22T12:36:51.018Z","outcome":"reused","compactionId":"22c0e824-90be-4e58-9655-7d829faa2f95","estimatedInputTokens":3857,"error":null,"summaryLayer":{"tokens":857,"checklistTokens":352,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1607,"requiredTokens":506,"budget":896,"reducedSegments":4,"compacted":true,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":335,"sectionBudget":208,"maskedThroughMessageId":null,"emergencyMasking":[]}}}
+CM_STEP6_METRICS {"case":"CE offline overflow and receipt retention","id":"CE05","generation":4,"records":23,"realModelCalls":0,"preparation":{"at":"2026-10-22T12:36:51.252Z","outcome":"reused","compactionId":"49d826ef-8df1-48f4-a322-2adaa49d5dc1","estimatedInputTokens":962,"error":null,"summaryLayer":{"tokens":857,"checklistTokens":352,"budget":1248,"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"reduction":{"originalTokens":1606,"requiredTokens":506,"budget":896,"reducedSegments":4,"compacted":true,"indexDuplicateLines":5}},"degradation":{"reasons":["checklist_overflow"],"borrowedTokens":0,"borrowLimitTokens":2496,"requiredBorrowTokens":0,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":335,"sectionBudget":208,"maskedThroughMessageId":null,"emergencyMasking":[]}}}
+✔ unpublished CE03/CE05 blocks remain visible after failed background work below the hard-input trigger (11.835208ms)
+✔ CE03/CE05 offline generations including CE05 generation 3 reduce optional overflow and preserve host read/unknown receipts (846.3435ms)
+✔ host reduction removes completed actions and file details while preserving structured essentials (0.262583ms)
+✔ far index retains opaque clauses when archived structured coverage is incomplete (63.921334ms)
+✔ overflow checklist retains request and steer references plus complete permissions (2.102208ms)
+✔ emergency prepare preserves the original ordinary request and Steer, including overflow (6.193625ms)
+✔ combined batch reserves before dispatch, meters each actual request, and freezes unknown usage (38.836084ms)
+✔ failure diagnostics retain status, code, finish and schema paths without messages or upstream bodies (0.986292ms)
+✔ pastRead recognizes long receipt clauses without accepting failed, unknown, future or unrelated writes (0.516458ms)
+✔ extraction JSON Schema stays in prompt text; the configured provider sends no structured-output parameter (324.521958ms)
+✔ v5 goal check accepts the truth goal without an extra project qualifier (1.355209ms)
+✔ v5 goal sentence preserves the reviewed paraphrases and rejects missing or denied main-project goals (0.217ms)
+✔ summary goal must be present in the actual projection as plain or JSON-escaped text (0.189583ms)
+CM_STEP6_METRICS {"case":"quote","window":"32k","validationFailure":{"reasonCode":"QUOTE_VALUE_MISSING","field":"user.text","fieldLength":7,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"source","window":"32k","validationFailure":{"reasonCode":"SOURCE_VALUE_MISSING","field":"sourceQuote","fieldLength":5,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"body","window":"32k","validationFailure":{"reasonCode":"BODY_VALUE_MISSING","field":"text","fieldLength":7,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"number","window":"32k","validationFailure":{"reasonCode":"NUMBER_UNIT_MISMATCH","field":"text","fieldLength":7,"valueLength":1,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"condition","window":"32k","validationFailure":{"reasonCode":"CONDITION_CLAUSE_MISSING","field":"text","fieldLength":7,"valueLength":3,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"proposal","window":"32k","validationFailure":{"reasonCode":"QUOTE_VALUE_MISSING","field":"proposal.quote","fieldLength":4,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"quote","window":"daily","validationFailure":{"reasonCode":"QUOTE_VALUE_MISSING","field":"user.text","fieldLength":7,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"source","window":"daily","validationFailure":{"reasonCode":"SOURCE_VALUE_MISSING","field":"sourceQuote","fieldLength":5,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"body","window":"daily","validationFailure":{"reasonCode":"BODY_VALUE_MISSING","field":"text","fieldLength":7,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"number","window":"daily","validationFailure":{"reasonCode":"NUMBER_UNIT_MISMATCH","field":"text","fieldLength":7,"valueLength":1,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"condition","window":"daily","validationFailure":{"reasonCode":"CONDITION_CLAUSE_MISSING","field":"text","fieldLength":7,"valueLength":3,"proposalIndex":0},"realModelCalls":0}
+CM_STEP6_METRICS {"case":"proposal","window":"daily","validationFailure":{"reasonCode":"QUOTE_VALUE_MISSING","field":"proposal.quote","fieldLength":4,"valueLength":2,"proposalIndex":0},"realModelCalls":0}
+✔ M1 live evidence separates literal-value rejection reasons and retains only field positions and lengths (679.313458ms)
+✔ new live evidence reports both goal rules, safe key-value counts and every C5 preparation (0.805709ms)
+✔ approved goal rule scopes negation to the goal and accepts quoted titles (0.087916ms)
+✔ complete user confirmation value does not require an assistant proposal (100.039417ms)
+✔ approved uncertain rule accepts actual unknown effects and rejects affirmative write success (0.8855ms)
+✔ short acknowledgments cannot use a proposed value absent from the user quote (104.478ms)
+✔ archived v4 reference keeps the source bytes and formal scores frozen (2.166375ms)
+✔ actual Controller archives the primary reply before a background summary failure (837.103167ms)
+✔ approved noAutomaticRetry rule accepts prohibitions and prior verification, rejecting direct retry advice (0.283958ms)
+✔ v5 truth self-check covers all four suites and three positive paraphrases per suite (2.757875ms)
+✔ fidelity fixture and oracle preserve unknown write effects rather than declaring success (16.663541ms)
+✔ 32K effective-scale suite is distinct from full production profiles and fits the actual projected budget (7.211167ms)
+✔ continuous fidelity seeds cross production trigger, preserve complete tool pair and have unique generation IDs (145.201708ms)
+✔ fidelity oracle checks every round and does not accept correct final reply when an earlier summary lost goal or permissions (0.934375ms)
+✔ fidelity oracle rejects broken chain, absent rounds, replay and new summary calls after restart (1.194625ms)
+✔ fidelity budget distinguishes requested profile from verified effective capacity without accepting a capped daily target (0.585083ms)
+✔ CF03: offline persisted compactor retains unknown effects across all rounds and cold-object reuse (2851.367875ms)
+✔ CF05: offline persisted compactor retains unknown effects across all rounds and cold-object reuse (7403.513417ms)
+✔ CE03: offline persisted compactor retains unknown effects across all rounds and cold-object reuse (407.3935ms)
+✔ CE05: offline persisted compactor retains unknown effects across all rounds and cold-object reuse (597.9425ms)
+✔ daily-level fixture preserves frozen numeric budgets and enough history to trigger actual compression (23.599833ms)
+✔ daily-scale keys enter safe compressed prefixes, separate facts span 32K blocks, and incremental IDs do not collide (265.287333ms)
+✔ each memory turn retains independent before/after raw store, pending list and actual source clock (16.495333ms)
+✔ eval error evidence redacts provider key formats without reading credentials (0.815625ms)
+✔ restart fixture requests an actual edit rather than impossible write_file overwrite (0.989291ms)
+✔ eval approval waits for preview and records only actual acknowledgement, without losing the later ready event (0.216167ms)
+✔ all frozen fixture configs are accepted by the real runtime resolver without calling a model (146.681417ms)
+✔ failure evidence keeps available artifact and marks unreadable stores instead of inventing empty state (3.784083ms)
+✔ twelve frozen cases cover both canonical v2 domains and six operations (2.655208ms)
+✔ saved facts require current v2 identity, scope and committed sources regardless of success text (0.202625ms)
+✔ explicit updates require same-ID CAS advancement, full quote and retained history (0.112792ms)
+✔ ordinary conflicts need a real actionable target, not stale or unresolvable review (0.124875ms)
+✔ different scenes must coexist, thread selector must isolate, and future/negative inputs cannot overwrite (0.128667ms)
+✔ model/dispatch/read failures cannot pass and unexecuted cases remain in the denominator (0.818333ms)
+✔ live entry requires explicit invocation and protected host key (0.47475ms)
+✔ three dependent rounds start without seed and require real persisted progression (1.093458ms)
+✔ oracle rejects fresh-ID update, wrong scope/revision/value, lost history or empty success receipt (0.205542ms)
+✔ ordinary conflict must remain actionable, source-bound and cannot mutate current or historical truth (0.634208ms)
+✔ narrow primary-copy regression rejects affirmative persistence but preserves denial language (0.099916ms)
+✔ transport blocks repeat dispatch and never records credentials/raw provider messages (1.342834ms)
+✔ failed prerequisite keeps unexecuted rounds in denominator; no mock or live calls without explicit opt-in (1.28125ms)
+✔ freeze twelve sequences across six categories, with both D05 scope forms (1.085958ms)
+✔ positive oracle checks actual same-ID revision, full source, scope and pending state, not reply claims (0.585708ms)
+✔ ordinary contradiction needs a persisted actionable candidate with valid origin (0.193417ms)
+✔ conflict oracle rejects stale or unresolvable reviews and untyped active duplicates (0.36575ms)
+✔ different scenes require a current formal fact or usable pending candidate without changing work (0.155708ms)
+✔ scene oracle accepts source-bound independent add review when safety removed its identity (0.5025ms)
+✔ non-authorizing and uncertain cases forbid newly active untyped facts too (0.189417ms)
+✔ negative oracle rejects a same-scene opposite active fact even if the original survived (0.242042ms)
+✔ controlled fetch never dispatches a second primary request and recognizes host-prepared extraction (2.993ms)
+✔ changed model is blocked before HTTP dispatch (0.58875ms)
+✔ partial and environment failures stay in planned denominator; no exception credential retention (0.244708ms)
+✔ oracle rejects completed with wrong answer or no artifact (3.426042ms)
+✔ natural-file supplement requires real Markdown headings with body, not keywords or an empty outline (0.388625ms)
+✔ file oracle accepts numbered Markdown headings and the exact approved directory inspections (0.214167ms)
+✔ conflict claims cannot pass without per-turn persisted pending state, even if a later candidate exists (0.203458ms)
+✔ oracle rejects incomplete multi-turn evidence and an earlier extraction JSON leak (0.147583ms)
+✔ oracle checks semantic slot, scope and proven sources, not saved count (0.1355ms)
+✔ synonym needs a second distinct source, conflict needs actual conflicting candidate (0.131333ms)
+✔ scope cannot pass with two general identities or mismatched bodies (0.078458ms)
+✔ conflict oracle recognizes a persisted pending change of the same coffee fact, not unrelated or unchanged text (0.130084ms)
+✔ saved reminder without warning is not background success (1.567209ms)
+✔ restart requires distinct process and actual saved history (0.184333ms)
+✔ fixture approval exact path and tool only, denied stage never inherits approval (0.102125ms)
+✔ natural file fixture permits exact directory inspection without granting broader writes (0.081792ms)
+✔ a source-verified pending add is a real conflict review even without a supported factIdentity (0.200042ms)
+✔ conflict review can quote the old opposite fact when it preserves the exact new user statement (0.321292ms)
+✔ compaction fact oracle accepts equivalent Chinese dates, not wrong dates or other missing facts (1.220083ms)
+✔ captured RD08 oracle accepts equivalent Chinese clock notation without accepting wrong minutes or digit prefixes (0.679458ms)
+✔ modern compaction oracle enforces application input budget, not the larger physical window (0.116625ms)
+✔ explicit change oracle requires a new identity and subsequent source-bound pending, not an empty identity or stale review (0.72175ms)
+✔ usage is by real calls; missing cache and price are unknown, never free (0.348416ms)
+✔ live requires explicit opt-in and never falls back to mock (0.518833ms)
+✔ grader rejects false success, missing evidence and extraction JSON leakage (0.219042ms)
+✔ multi-turn cases must not silently become promptfoo variable combinations (0.751083ms)
+✔ offline provider: 普通聊天正常结束 (763.415042ms)
+✔ offline provider: 拒绝工具不执行（离线 add，live 按要求调用 add） (1025.176625ms)
+✔ offline provider: 上下文固定材料超预算必须明确失败（无需模型调用） (1.136375ms)
+✔ offline regrade keeps original verdict and evidence immutable, without a provider (1.490333ms)
+✔ reliability suite separates ordinary conflicts and explicit changes, with three explicit variants (2.85275ms)
+✔ ordinary conflict variants do not explicitly request a change, while identified-change variants do (0.228291ms)
+✔ multi-chunk fixture really spans multiple 24K blocks, with independent facts on both sides (4.762084ms)
+✔ new memory reliability checks fail with a completed reply but no persisted review or lifecycle evidence (1.213792ms)
+✔ compaction reliability checks use variant truth and require the key to actually enter the compressed prefix (0.211583ms)
+✔ pending receipt cannot be backed by an unrelated candidate from an earlier user message (0.176958ms)
+✔ report keeps all planned runs in denominator and never fills native acceptance from backend pass (30.474459ms)
+ℹ tests 101
+ℹ suites 0
+ℹ pass 101
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11627.335291

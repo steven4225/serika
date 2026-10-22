@@ -1,0 +1,32 @@
+✔ twelve frozen cases cover both canonical v2 domains and six operations (1.261584ms)
+✔ saved facts require current v2 identity, scope and committed sources regardless of success text (0.167542ms)
+✔ explicit updates require same-ID CAS advancement, full quote and retained history (0.10025ms)
+✔ ordinary conflicts need a real actionable target, not stale or unresolvable review (0.113833ms)
+✔ different scenes must coexist, thread selector must isolate, and future/negative inputs cannot overwrite (0.11275ms)
+✔ model/dispatch/read failures cannot pass and unexecuted cases remain in the denominator (0.189041ms)
+✔ live entry requires explicit invocation and protected host key (0.578875ms)
+✔ three dependent rounds start without seed and require real persisted progression (1.659125ms)
+✔ oracle rejects fresh-ID update, wrong scope/revision/value, lost history or empty success receipt (0.250417ms)
+✔ ordinary conflict must remain actionable, source-bound and cannot mutate current or historical truth (0.819333ms)
+✔ narrow primary-copy regression rejects affirmative persistence but preserves denial language (0.065333ms)
+✔ transport blocks repeat dispatch and never records credentials/raw provider messages (1.14725ms)
+✔ failed prerequisite keeps unexecuted rounds in denominator; no mock or live calls without explicit opt-in (0.248875ms)
+✔ freeze twelve sequences across six categories, with both D05 scope forms (0.458625ms)
+✔ positive oracle checks actual same-ID revision, full source, scope and pending state, not reply claims (0.389292ms)
+✔ ordinary contradiction needs a persisted actionable candidate with valid origin (0.12575ms)
+✔ conflict oracle rejects stale or unresolvable reviews and untyped active duplicates (0.54375ms)
+✔ different scenes require a current formal fact or usable pending candidate without changing work (0.115709ms)
+✔ scene oracle accepts source-bound independent add review when safety removed its identity (0.293375ms)
+✔ non-authorizing and uncertain cases forbid newly active untyped facts too (0.084375ms)
+✔ negative oracle rejects a same-scene opposite active fact even if the original survived (0.0545ms)
+✔ controlled fetch never dispatches a second primary request and recognizes host-prepared extraction (1.808333ms)
+✔ changed model is blocked before HTTP dispatch (0.362292ms)
+✔ partial and environment failures stay in planned denominator; no exception credential retention (0.76225ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 58.584917

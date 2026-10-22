@@ -1,0 +1,876 @@
+{
+  "runId": "d1ce257e-b408-4bfd-9538-b09148afdaae",
+  "scriptSha256": "e5f3ce97a505d3f86847b4004263e13fd895eb594cc5ac25c8b4a42de72c017f",
+  "status": "passed",
+  "realModelCalls": 0,
+  "dailySourceWritten": false,
+  "sourceVersion": 4,
+  "backup": {
+    "file": "backup.tar",
+    "sha256": "826b9b809b7ea9fafc5446f477f28860968877aa4a6b3e1b51f63e405437e677",
+    "manifest": "backup-manifest.json",
+    "manifestSha256": "889df3298c8e64a95a76c25e956a2ced41a99462f92b99f5cacce2d3f0f6949f",
+    "files": 222,
+    "entries": 267,
+    "counts": {
+      "version": 4,
+      "entries": 14,
+      "assertions": 20,
+      "candidates": 25,
+      "cursors": 14,
+      "receipts": 13,
+      "libraryFolders": 0,
+      "libraryDocuments": 0,
+      "transcriptFiles": 164
+    }
+  },
+  "rehearsal": {
+    "migratedAt": "2026-10-22T12:15:31.867Z",
+    "oldSha256": "0a3b46794629c9b2ca9437f2d79321321c3bad2548d57a35271da5f97df629a8",
+    "newSha256": "e638ff3ca37b95ea242501d4e94b924313a0910c363a8d2a7608a089a7b8a4db",
+    "rows": [
+      {
+        "number": 1,
+        "id": "978a1257-96f3-43e4-9991-7468dab39116",
+        "disposition": "preference",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "58acd02f5a108531350d36a6084bbc89d6ab63ca4cd962302e6f17363d0df19f",
+        "textSha256": "58acd02f5a108531350d36a6084bbc89d6ab63ca4cd962302e6f17363d0df19f",
+        "category": "preference",
+        "sourceCount": 1,
+        "identity": {
+          "subject": "user",
+          "attribute": "复盘格式"
+        },
+        "pinned": false
+      },
+      {
+        "number": 2,
+        "id": "0113bb19-413c-49e0-9ac1-a6dec65d87ff",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "eeb8891dedec2f7caae5107a3c33788f187f755cb152784d6c90143fcf1027b2"
+      },
+      {
+        "number": 3,
+        "id": "ac6798c5-7975-4edf-9b09-61beff4bd234",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "bdcaff24076af46490b8c7fb293e7ecdec9a6e0b852939f26f6d0a4b7248738b"
+      },
+      {
+        "number": 4,
+        "id": "7436ddc8-9a0b-441b-a795-bbb574c87e07",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "0f2faf2145feb331d5beeecbab7b3c31eed2e13cb4873be6355292376511c339"
+      },
+      {
+        "number": 5,
+        "id": "9f80adf7-393a-4459-a3e8-30b569e10242",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "thread",
+          "threadId": "03e407b8-e766-4db6-a52c-74ae28bbe0a0"
+        },
+        "originalTextSha256": "803edf8eace351339467ca4dc0f9fda412709715096abd4446629a59cf6be5ef"
+      },
+      {
+        "number": 6,
+        "id": "04df6c43-2157-4102-ae00-ce29fa3c15c8",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "thread",
+          "threadId": "b6074d8b-87cf-45bb-974e-a8ab511e6d19"
+        },
+        "originalTextSha256": "e5fa8d6fb41a97304db7d6a17cae8673c79e8d86574c9ee179cb28fb532eb1f0"
+      },
+      {
+        "number": 7,
+        "id": "e8087dd4-e494-4cca-b6d2-fb1580074154",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "thread",
+          "threadId": "8bb44ece-9c2f-446c-9954-7c14bf362da0"
+        },
+        "originalTextSha256": "761d41468aa205bc9ff3b5b6efae89fdc48cfb806ee3b5e524b7dabc01e5f612"
+      },
+      {
+        "number": 8,
+        "id": "c3b19d9b-fcd3-4c76-ac1d-f05497941a6f",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "thread",
+          "threadId": "8bb44ece-9c2f-446c-9954-7c14bf362da0"
+        },
+        "originalTextSha256": "c76de8a9a61d1fde0e215783b11d434c987242b6e4e7166a9f34be56fb96652a"
+      },
+      {
+        "number": 9,
+        "id": "41f1d455-ef45-4a87-9f4f-d47435067e35",
+        "disposition": "preference",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "d261c123684fe2260208fe4aaf99b92b8105daadb3ae021e7013487c212309bf",
+        "textSha256": "e905b79a8b3e996c2b733d4d3f9421abee844b0f35e4b506a6daf2a92017858d",
+        "category": "preference",
+        "sourceCount": 2,
+        "identity": {
+          "subject": "user",
+          "attribute": "只读代码时运行测试"
+        },
+        "pinned": false
+      },
+      {
+        "number": 10,
+        "id": "671b1ca0-e533-4ae7-9fdb-f655af8b39eb",
+        "disposition": "document",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "ad53ffe6d44a322b41ba4088c7799186cc0f8160323473993ff4f5fa6a348c3e",
+        "textSha256": "416e4313ab297784aae371d424bbc7cf0c59f7e88fa9109776f9a0fff51e592c",
+        "category": "document",
+        "sourceCount": 3,
+        "identity": {
+          "subject": "user",
+          "attribute": "项目记录:671b1ca0-e533-4ae7-9fdb-f655af8b39eb"
+        },
+        "pinned": false
+      },
+      {
+        "number": 11,
+        "id": "0a0f2df1-6496-4e69-ab94-8b6fc2e54dd7",
+        "disposition": "document",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "7e9ec8cc8fd0d7c342981137087a5402ef5fe82ee5ff8894c9ff66264392d433",
+        "textSha256": "a9e96bfa722afcfdc4c17a3a6ad9a950e45422643ce52462d6b5a32ca3db5618",
+        "category": "document",
+        "sourceCount": 2,
+        "identity": {
+          "subject": "user",
+          "attribute": "项目记录:0a0f2df1-6496-4e69-ab94-8b6fc2e54dd7"
+        },
+        "pinned": false
+      },
+      {
+        "number": 12,
+        "id": "f6e52e58-8fb2-4d03-aabc-70482681be29",
+        "disposition": "preference",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "6a76ba81e45bca90d683e21d1bf6b95fae520a9af617058eddaa2842e81ef392",
+        "textSha256": "6a76ba81e45bca90d683e21d1bf6b95fae520a9af617058eddaa2842e81ef392",
+        "category": "preference",
+        "sourceCount": 1,
+        "identity": {
+          "subject": "user",
+          "attribute": "产品操作与配置"
+        },
+        "pinned": false
+      },
+      {
+        "number": 13,
+        "id": "8291bb0f-cbf3-4d8a-83fd-802c45db1293",
+        "disposition": "document",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "42751c367ae6022dee194a22efbce843bc008449f2b4fb625d3fd6f6dbfb3a6a",
+        "textSha256": "42751c367ae6022dee194a22efbce843bc008449f2b4fb625d3fd6f6dbfb3a6a",
+        "category": "document",
+        "sourceCount": 1,
+        "identity": {
+          "subject": "user",
+          "attribute": "项目记录:8291bb0f-cbf3-4d8a-83fd-802c45db1293"
+        },
+        "pinned": false
+      },
+      {
+        "number": 14,
+        "id": "ba71d2c9-5f7d-42af-a9bc-ae9586882c7c",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "b484420f3e68ca3a282a01210c85852226bdb7639dac6b94f33a381de103bf4f"
+      }
+    ],
+    "legacy": {
+      "version": 4,
+      "entries": 14,
+      "assertions": 20,
+      "candidates": 25,
+      "pendingCandidates": 7,
+      "cursors": 14,
+      "receipts": 13
+    },
+    "archivedOnly": [
+      "assertion history",
+      "administrative versions",
+      "legacy candidates",
+      "legacy coverage receipts"
+    ],
+    "entries": 6,
+    "preferences": 3,
+    "projectDocuments": 3,
+    "originalLibrary": null,
+    "threads": [
+      {
+        "threadId": "03c92d5d-6256-4af9-96f2-bbd37de85899",
+        "messages": 12,
+        "compactions": 0
+      },
+      {
+        "threadId": "03e407b8-e766-4db6-a52c-74ae28bbe0a0",
+        "messages": 20,
+        "compactions": 0
+      },
+      {
+        "threadId": "0b5a23aa-3470-414c-9202-7088054e2545",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "0de800a7-0bc1-4b6b-8299-ffe070563399",
+        "messages": 1213,
+        "compactions": 48
+      },
+      {
+        "threadId": "0eb7bb45-76fc-47c4-80c0-d86bfe28f958",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "1a07e312-6aa8-499c-a9a2-3d7a6379c683",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "1bedc181-edf2-4362-bc06-926827f877e2",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "1c1e1ef4-8159-4e4c-a113-f47e25dbf367",
+        "messages": 34,
+        "compactions": 0
+      },
+      {
+        "threadId": "22ded8b8-5795-45d2-847c-4f816affb755",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "2854a552-4277-4fb0-be55-e25e2c4ce709",
+        "messages": 4,
+        "compactions": 0
+      },
+      {
+        "threadId": "2ac6cb33-8a0a-422f-8be1-f2451e4f903f",
+        "messages": 4,
+        "compactions": 0
+      },
+      {
+        "threadId": "2c80d23d-a22d-4e5e-8597-5e52aae3fe21",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "31d8928b-af1b-46e4-88e7-f23dc0f6555f",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "393f0507-650c-43e6-84ae-4336e62bc29b",
+        "messages": 5,
+        "compactions": 0
+      },
+      {
+        "threadId": "3a782be9-e9f1-4caf-8b7f-acf80a4f6484",
+        "messages": 3,
+        "compactions": 0
+      },
+      {
+        "threadId": "442270ba-4d83-4fad-bc6e-d34678913a8b",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "5a79ce84-3398-40a5-8317-9bec25a7b612",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "614f9a90-6fbd-4cdb-8c14-b4b4880229f9",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "72aaf806-209b-4f01-a754-cf10b32d664b",
+        "messages": 15,
+        "compactions": 0
+      },
+      {
+        "threadId": "7390de98-dc89-47c8-a83f-5c8b38559554",
+        "messages": 8,
+        "compactions": 0
+      },
+      {
+        "threadId": "744871b3-09b8-4b19-b7ff-8e5dded86685",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "75e91e59-6dfb-47fb-b8dc-a2294fa855e7",
+        "messages": 14,
+        "compactions": 0
+      },
+      {
+        "threadId": "7a9ade88-49d5-4a57-90a4-e27da3102f5d",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "8bb44ece-9c2f-446c-9954-7c14bf362da0",
+        "messages": 16,
+        "compactions": 0
+      },
+      {
+        "threadId": "8dbb379d-3b4c-43bf-97e3-4e1f3ca5fcff",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "931afeef-967b-47e7-8403-319e2d4b2800",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "9b123bfc-0603-470c-aea1-3f78717067cd",
+        "messages": 17,
+        "compactions": 0
+      },
+      {
+        "threadId": "af8a7337-e425-4d4f-aa5e-5e5c2989b500",
+        "messages": 20,
+        "compactions": 16
+      },
+      {
+        "threadId": "b2e04cdd-e19a-452a-befe-7668c639792c",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "b6074d8b-87cf-45bb-974e-a8ab511e6d19",
+        "messages": 30,
+        "compactions": 0
+      },
+      {
+        "threadId": "ba8e1c2e-8904-44c0-b487-7ce3cb3ac34e",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "bece7af3-2433-4a62-af7f-6a7bb7a86905",
+        "messages": 4,
+        "compactions": 0
+      },
+      {
+        "threadId": "cbe820cf-81dc-4a60-ba5e-18f29fd09cbb",
+        "messages": 8,
+        "compactions": 0
+      },
+      {
+        "threadId": "d6a0adf5-897e-481d-9093-25f17e85065b",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "d7233ea6-d735-460c-a94c-93c478a200a7",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "de7b607f-8f01-4ebc-b036-c21a340f43f6",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "e1e64dbc-30ee-4d02-a3d6-badadef7d218",
+        "messages": 3,
+        "compactions": 0
+      },
+      {
+        "threadId": "e3d1d78a-5db3-4319-93cb-06a62da9f210",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "edb8f89c-53e2-4d7e-bb6b-1aaa5f8c6ffe",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "eebb8c0c-5702-435f-95d7-1e2a82eb52ac",
+        "messages": 6,
+        "compactions": 1
+      },
+      {
+        "threadId": "fbc580b9-25c4-483d-82eb-fe4d77c206ee",
+        "messages": 0,
+        "compactions": 0
+      }
+    ],
+    "beforeManifestSha256": "4fa0553bd1a1cd2d953244f8517ee5d20caafd94d73396ed6a3565c1d7c4bcfa",
+    "afterManifestSha256": "877615f6a71af8e085678746404dbb3f43ea7a34afef9fe9fc8c40983b20c95c"
+  },
+  "rollback": {
+    "fileSetEqual": true,
+    "sha256Equal": true,
+    "modesEqual": true,
+    "logicalCountsEqual": true,
+    "counts": {
+      "version": 4,
+      "entries": 14,
+      "assertions": 20,
+      "candidates": 25,
+      "cursors": 14,
+      "receipts": 13,
+      "libraryFolders": 0,
+      "libraryDocuments": 0,
+      "transcriptFiles": 164
+    }
+  },
+  "realData": {
+    "migratedAt": "2026-10-22T12:15:34.826Z",
+    "oldSha256": "0a3b46794629c9b2ca9437f2d79321321c3bad2548d57a35271da5f97df629a8",
+    "newSha256": "441123427458995bbfabbed6b36cb9da781a8d51cce5ba5b41b8f3f50304b0da",
+    "rows": [
+      {
+        "number": 1,
+        "id": "978a1257-96f3-43e4-9991-7468dab39116",
+        "disposition": "preference",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "58acd02f5a108531350d36a6084bbc89d6ab63ca4cd962302e6f17363d0df19f",
+        "textSha256": "58acd02f5a108531350d36a6084bbc89d6ab63ca4cd962302e6f17363d0df19f",
+        "category": "preference",
+        "sourceCount": 1,
+        "identity": {
+          "subject": "user",
+          "attribute": "复盘格式"
+        },
+        "pinned": false
+      },
+      {
+        "number": 2,
+        "id": "0113bb19-413c-49e0-9ac1-a6dec65d87ff",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "eeb8891dedec2f7caae5107a3c33788f187f755cb152784d6c90143fcf1027b2"
+      },
+      {
+        "number": 3,
+        "id": "ac6798c5-7975-4edf-9b09-61beff4bd234",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "bdcaff24076af46490b8c7fb293e7ecdec9a6e0b852939f26f6d0a4b7248738b"
+      },
+      {
+        "number": 4,
+        "id": "7436ddc8-9a0b-441b-a795-bbb574c87e07",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "0f2faf2145feb331d5beeecbab7b3c31eed2e13cb4873be6355292376511c339"
+      },
+      {
+        "number": 5,
+        "id": "9f80adf7-393a-4459-a3e8-30b569e10242",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "thread",
+          "threadId": "03e407b8-e766-4db6-a52c-74ae28bbe0a0"
+        },
+        "originalTextSha256": "803edf8eace351339467ca4dc0f9fda412709715096abd4446629a59cf6be5ef"
+      },
+      {
+        "number": 6,
+        "id": "04df6c43-2157-4102-ae00-ce29fa3c15c8",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "thread",
+          "threadId": "b6074d8b-87cf-45bb-974e-a8ab511e6d19"
+        },
+        "originalTextSha256": "e5fa8d6fb41a97304db7d6a17cae8673c79e8d86574c9ee179cb28fb532eb1f0"
+      },
+      {
+        "number": 7,
+        "id": "e8087dd4-e494-4cca-b6d2-fb1580074154",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "thread",
+          "threadId": "8bb44ece-9c2f-446c-9954-7c14bf362da0"
+        },
+        "originalTextSha256": "761d41468aa205bc9ff3b5b6efae89fdc48cfb806ee3b5e524b7dabc01e5f612"
+      },
+      {
+        "number": 8,
+        "id": "c3b19d9b-fcd3-4c76-ac1d-f05497941a6f",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "thread",
+          "threadId": "8bb44ece-9c2f-446c-9954-7c14bf362da0"
+        },
+        "originalTextSha256": "c76de8a9a61d1fde0e215783b11d434c987242b6e4e7166a9f34be56fb96652a"
+      },
+      {
+        "number": 9,
+        "id": "41f1d455-ef45-4a87-9f4f-d47435067e35",
+        "disposition": "preference",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "d261c123684fe2260208fe4aaf99b92b8105daadb3ae021e7013487c212309bf",
+        "textSha256": "e905b79a8b3e996c2b733d4d3f9421abee844b0f35e4b506a6daf2a92017858d",
+        "category": "preference",
+        "sourceCount": 2,
+        "identity": {
+          "subject": "user",
+          "attribute": "只读代码时运行测试"
+        },
+        "pinned": false
+      },
+      {
+        "number": 10,
+        "id": "671b1ca0-e533-4ae7-9fdb-f655af8b39eb",
+        "disposition": "document",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "ad53ffe6d44a322b41ba4088c7799186cc0f8160323473993ff4f5fa6a348c3e",
+        "textSha256": "416e4313ab297784aae371d424bbc7cf0c59f7e88fa9109776f9a0fff51e592c",
+        "category": "document",
+        "sourceCount": 3,
+        "identity": {
+          "subject": "user",
+          "attribute": "项目记录:671b1ca0-e533-4ae7-9fdb-f655af8b39eb"
+        },
+        "pinned": false
+      },
+      {
+        "number": 11,
+        "id": "0a0f2df1-6496-4e69-ab94-8b6fc2e54dd7",
+        "disposition": "document",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "7e9ec8cc8fd0d7c342981137087a5402ef5fe82ee5ff8894c9ff66264392d433",
+        "textSha256": "a9e96bfa722afcfdc4c17a3a6ad9a950e45422643ce52462d6b5a32ca3db5618",
+        "category": "document",
+        "sourceCount": 2,
+        "identity": {
+          "subject": "user",
+          "attribute": "项目记录:0a0f2df1-6496-4e69-ab94-8b6fc2e54dd7"
+        },
+        "pinned": false
+      },
+      {
+        "number": 12,
+        "id": "f6e52e58-8fb2-4d03-aabc-70482681be29",
+        "disposition": "preference",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "6a76ba81e45bca90d683e21d1bf6b95fae520a9af617058eddaa2842e81ef392",
+        "textSha256": "6a76ba81e45bca90d683e21d1bf6b95fae520a9af617058eddaa2842e81ef392",
+        "category": "preference",
+        "sourceCount": 1,
+        "identity": {
+          "subject": "user",
+          "attribute": "产品操作与配置"
+        },
+        "pinned": false
+      },
+      {
+        "number": 13,
+        "id": "8291bb0f-cbf3-4d8a-83fd-802c45db1293",
+        "disposition": "document",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "42751c367ae6022dee194a22efbce843bc008449f2b4fb625d3fd6f6dbfb3a6a",
+        "textSha256": "42751c367ae6022dee194a22efbce843bc008449f2b4fb625d3fd6f6dbfb3a6a",
+        "category": "document",
+        "sourceCount": 1,
+        "identity": {
+          "subject": "user",
+          "attribute": "项目记录:8291bb0f-cbf3-4d8a-83fd-802c45db1293"
+        },
+        "pinned": false
+      },
+      {
+        "number": 14,
+        "id": "ba71d2c9-5f7d-42af-a9bc-ae9586882c7c",
+        "disposition": "discard",
+        "originalScope": {
+          "kind": "workspace"
+        },
+        "originalTextSha256": "b484420f3e68ca3a282a01210c85852226bdb7639dac6b94f33a381de103bf4f"
+      }
+    ],
+    "legacy": {
+      "version": 4,
+      "entries": 14,
+      "assertions": 20,
+      "candidates": 25,
+      "pendingCandidates": 7,
+      "cursors": 14,
+      "receipts": 13
+    },
+    "archivedOnly": [
+      "assertion history",
+      "administrative versions",
+      "legacy candidates",
+      "legacy coverage receipts"
+    ],
+    "entries": 6,
+    "preferences": 3,
+    "projectDocuments": 3,
+    "originalLibrary": null,
+    "threads": [
+      {
+        "threadId": "03c92d5d-6256-4af9-96f2-bbd37de85899",
+        "messages": 12,
+        "compactions": 0
+      },
+      {
+        "threadId": "03e407b8-e766-4db6-a52c-74ae28bbe0a0",
+        "messages": 20,
+        "compactions": 0
+      },
+      {
+        "threadId": "0b5a23aa-3470-414c-9202-7088054e2545",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "0de800a7-0bc1-4b6b-8299-ffe070563399",
+        "messages": 1213,
+        "compactions": 48
+      },
+      {
+        "threadId": "0eb7bb45-76fc-47c4-80c0-d86bfe28f958",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "1a07e312-6aa8-499c-a9a2-3d7a6379c683",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "1bedc181-edf2-4362-bc06-926827f877e2",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "1c1e1ef4-8159-4e4c-a113-f47e25dbf367",
+        "messages": 34,
+        "compactions": 0
+      },
+      {
+        "threadId": "22ded8b8-5795-45d2-847c-4f816affb755",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "2854a552-4277-4fb0-be55-e25e2c4ce709",
+        "messages": 4,
+        "compactions": 0
+      },
+      {
+        "threadId": "2ac6cb33-8a0a-422f-8be1-f2451e4f903f",
+        "messages": 4,
+        "compactions": 0
+      },
+      {
+        "threadId": "2c80d23d-a22d-4e5e-8597-5e52aae3fe21",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "31d8928b-af1b-46e4-88e7-f23dc0f6555f",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "393f0507-650c-43e6-84ae-4336e62bc29b",
+        "messages": 5,
+        "compactions": 0
+      },
+      {
+        "threadId": "3a782be9-e9f1-4caf-8b7f-acf80a4f6484",
+        "messages": 3,
+        "compactions": 0
+      },
+      {
+        "threadId": "442270ba-4d83-4fad-bc6e-d34678913a8b",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "5a79ce84-3398-40a5-8317-9bec25a7b612",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "614f9a90-6fbd-4cdb-8c14-b4b4880229f9",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "72aaf806-209b-4f01-a754-cf10b32d664b",
+        "messages": 15,
+        "compactions": 0
+      },
+      {
+        "threadId": "7390de98-dc89-47c8-a83f-5c8b38559554",
+        "messages": 8,
+        "compactions": 0
+      },
+      {
+        "threadId": "744871b3-09b8-4b19-b7ff-8e5dded86685",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "75e91e59-6dfb-47fb-b8dc-a2294fa855e7",
+        "messages": 14,
+        "compactions": 0
+      },
+      {
+        "threadId": "7a9ade88-49d5-4a57-90a4-e27da3102f5d",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "8bb44ece-9c2f-446c-9954-7c14bf362da0",
+        "messages": 16,
+        "compactions": 0
+      },
+      {
+        "threadId": "8dbb379d-3b4c-43bf-97e3-4e1f3ca5fcff",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "931afeef-967b-47e7-8403-319e2d4b2800",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "9b123bfc-0603-470c-aea1-3f78717067cd",
+        "messages": 17,
+        "compactions": 0
+      },
+      {
+        "threadId": "af8a7337-e425-4d4f-aa5e-5e5c2989b500",
+        "messages": 20,
+        "compactions": 16
+      },
+      {
+        "threadId": "b2e04cdd-e19a-452a-befe-7668c639792c",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "b6074d8b-87cf-45bb-974e-a8ab511e6d19",
+        "messages": 30,
+        "compactions": 0
+      },
+      {
+        "threadId": "ba8e1c2e-8904-44c0-b487-7ce3cb3ac34e",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "bece7af3-2433-4a62-af7f-6a7bb7a86905",
+        "messages": 4,
+        "compactions": 0
+      },
+      {
+        "threadId": "cbe820cf-81dc-4a60-ba5e-18f29fd09cbb",
+        "messages": 8,
+        "compactions": 0
+      },
+      {
+        "threadId": "d6a0adf5-897e-481d-9093-25f17e85065b",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "d7233ea6-d735-460c-a94c-93c478a200a7",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "de7b607f-8f01-4ebc-b036-c21a340f43f6",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "e1e64dbc-30ee-4d02-a3d6-badadef7d218",
+        "messages": 3,
+        "compactions": 0
+      },
+      {
+        "threadId": "e3d1d78a-5db3-4319-93cb-06a62da9f210",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "edb8f89c-53e2-4d7e-bb6b-1aaa5f8c6ffe",
+        "messages": 0,
+        "compactions": 0
+      },
+      {
+        "threadId": "eebb8c0c-5702-435f-95d7-1e2a82eb52ac",
+        "messages": 6,
+        "compactions": 1
+      },
+      {
+        "threadId": "fbc580b9-25c4-483d-82eb-fe4d77c206ee",
+        "messages": 0,
+        "compactions": 0
+      }
+    ],
+    "beforeManifestSha256": "4fa0553bd1a1cd2d953244f8517ee5d20caafd94d73396ed6a3565c1d7c4bcfa",
+    "afterManifestSha256": "02ac2d0c1e844064c3fcabe800488bb94aa3d8077258447df5bed986fa82b5b4"
+  },
+  "sourceChangesDuringRehearsal": [
+    "workspace/.runloom/task-worker-health.json"
+  ],
+  "migratedWorkspace": "v6-review/workspace",
+  "applicationStarted": false,
+  "configurationActivated": false
+}

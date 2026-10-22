@@ -1,0 +1,32 @@
+✔ backup only registered assistant data; restoration is an offline copy with schedules and notifications disabled (868.294083ms)
+✔ backup lock placeholders stay empty and reusable, never enter the archive, and are not unlinked (997.265791ms)
+✔ export rejects existing destinations, symlinked data, inside-workspace ..names, and known credentials in text (3063.03875ms)
+✔ export rejects a legacy invalid v1 compaction instead of creating an unrestorable backup (525.066916ms)
+✔ bad hashes, path traversal and mismatched transcript ownership fail before a recovery directory exists (551.798458ms)
+✔ rejects invalid memory.json even with a matching hash before preview or recovery writes (722.708667ms)
+✔ rejects invalid checkpoint.json even with a matching hash before preview or recovery writes (527.911125ms)
+✔ rejects invalid work-tasks.json even with a matching hash before preview or recovery writes (511.827208ms)
+✔ rejects invalid dreaming.json even with a matching hash before preview or recovery writes (511.126458ms)
+✔ rejects invalid tasks.json even with a matching hash before preview or recovery writes (464.749791ms)
+✔ rejects invalid rss.json even with a matching hash before preview or recovery writes (482.086125ms)
+✔ rejects invalid receipt even with a matching hash before preview or recovery writes (456.011875ms)
+✔ rejects invalid messages even with a matching hash before preview or recovery writes (574.957125ms)
+✔ rejects invalid date even with a matching hash before preview or recovery writes (472.765542ms)
+✔ refuses corrupt sources instead of exporting a backup that only fails when opened (414.071ms)
+✔ uses the same complete archive validation at export, including legacy messages and duplicate Thread identities (823.149792ms)
+✔ rejects valid JSON that exceeds the original Store read limit before preview or recovery writes (426.837417ms)
+✔ rejects short configured credentials in assistant text rather than silently exporting them (497.17575ms)
+✔ refuses a busy writer without partial export; preview is read-only and a changed archive cannot be restored (704.00025ms)
+✔ exports a v3 delta chain as a self-contained backup and continues it after restore (493.643208ms)
+✔ export filters excluded message, snapshot and receipt payloads while preserving unknown effect status (992.601125ms)
+▶ v2 pilot baseline: desktop persisted hash golden samples
+  ✔ matches __baseline__/desktop-hashes.json (8379.865917ms)
+✔ v2 pilot baseline: desktop persisted hash golden samples (8380.41975ms)
+ℹ tests 22
+ℹ suites 1
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15417.925542

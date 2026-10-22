@@ -1,0 +1,50 @@
+{
+  "runId": "e65dc429-95f9-4d20-bd41-84a851a9a80a",
+  "checkedAt": "2026-10-22T12:41:55.507Z",
+  "base": "c8fade7",
+  "source": "52636cd1074a4cd19b0ea3d931c8dca2466769f0",
+  "blocks": [
+    {
+      "path": "examples/eval/memory-transition-acceptance.mjs",
+      "name": "scoreTransition",
+      "beforeSha256": "0ff058b426762b925454812eb09177f7bd39f1357e53549ca79edbae3642196c",
+      "afterSha256": "0ff058b426762b925454812eb09177f7bd39f1357e53549ca79edbae3642196c",
+      "equal": true
+    },
+    {
+      "path": "examples/eval/memory-transition-acceptance.mjs",
+      "name": "summarizeTransitions",
+      "beforeSha256": "ec4920d926871699a7566aa54452acf106804bd42e57c6bcc7125336204e1a9b",
+      "afterSha256": "ec4920d926871699a7566aa54452acf106804bd42e57c6bcc7125336204e1a9b",
+      "equal": true
+    },
+    {
+      "path": "examples/eval/memory-everyday-acceptance.mjs",
+      "name": "scoreEveryday",
+      "beforeSha256": "ddc1292a318dd0255f147bdccc7a4384789e760c8e2440103aa0eb475baac620",
+      "afterSha256": "ddc1292a318dd0255f147bdccc7a4384789e760c8e2440103aa0eb475baac620",
+      "equal": true
+    },
+    {
+      "path": "examples/eval/memory-everyday-acceptance.mjs",
+      "name": "summarizeEveryday",
+      "beforeSha256": "a13ae595f6de774a27761d4e038778081df47b71e5fbd972d02bac1941ead936",
+      "afterSha256": "a13ae595f6de774a27761d4e038778081df47b71e5fbd972d02bac1941ead936",
+      "equal": true
+    },
+    {
+      "path": "examples/eval/memory-sequence-acceptance.mjs",
+      "name": "scoreSequenceRound",
+      "beforeSha256": "db3a9aa2b89b04db708a7ec5fc898c6dc50b0e43d2a9216bd3ef226622c98b28",
+      "afterSha256": "db3a9aa2b89b04db708a7ec5fc898c6dc50b0e43d2a9216bd3ef226622c98b28",
+      "equal": true
+    },
+    {
+      "path": "examples/eval/memory-sequence-acceptance.mjs",
+      "name": "summarizeSequence",
+      "beforeSha256": "c1c1fb836eef1b36b27cae5c06ded6d5862a5bcd4139ca35c6b4239c6a81e5bc",
+      "afterSha256": "c1c1fb836eef1b36b27cae5c06ded6d5862a5bcd4139ca35c6b4239c6a81e5bc",
+      "equal": true
+    }
+  ]
+}
