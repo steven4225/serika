@@ -37,7 +37,7 @@ function inputObject(input: unknown): Record<string, unknown> | undefined {
  */
 function filePermission(extra: Pick<ToolPermissionFacts, "confirmation"> & { remember?: "scope" } = {}): ToolPermissionFacts {
   return {
-    scope: { kind: "workspacePath", argument: "path" },
+    scope: { kind: "directoryPath", argument: "path" },
     defaults: { runAuthorization: "scope", autonomy: "allow", ...(extra.remember ? { remember: extra.remember } : {}) },
     ...(extra.confirmation ? { confirmation: extra.confirmation } : {}),
   };
@@ -127,30 +127,30 @@ const editFileMetadata: RegisteredTool["metadata"] = {
   idempotent: false,
 };
 
-export function createReadFileModule(workspaceRoot: string): AgentModule {
+export function createReadFileModule(directory: string): AgentModule {
   return {
     id: "read-file",
     instructionPlacement: { section: "body", rank: 100 },
     setup(ctx) {
       ctx.registerTool({
         metadata: readFileMetadata,
-        tool: createReadFileTool(workspaceRoot),
+        tool: createReadFileTool(directory),
       }, readFilePermission);
       ctx.registerTool({
         metadata: listDirectoryMetadata,
-        tool: createListDirectoryTool(workspaceRoot),
+        tool: createListDirectoryTool(directory),
       }, filePermission());
       ctx.registerTool({
         metadata: searchFilesMetadata,
-        tool: createSearchFilesTool(workspaceRoot),
+        tool: createSearchFilesTool(directory),
       }, filePermission());
       ctx.registerTool({
         metadata: writeFileMetadata,
-        tool: createWriteFileTool(workspaceRoot),
+        tool: createWriteFileTool(directory),
       }, writeFilePermission);
       ctx.registerTool({
         metadata: editFileMetadata,
-        tool: createEditFileTool(workspaceRoot),
+        tool: createEditFileTool(directory),
       }, editFilePermission);
       // In an autonomous Run, local Shell follows the Run's host authorization.
       ctx.addInstructions(({ autonomous }) => autonomous
@@ -159,7 +159,7 @@ export function createReadFileModule(workspaceRoot: string): AgentModule {
       ctx.registerCommand({
         name: "workspace",
         execute(args) {
-          ctx.notify(args === "" ? workspaceRoot : "Usage: /workspace");
+          ctx.notify(args === "" ? directory : "Usage: /workspace");
         },
       });
     },

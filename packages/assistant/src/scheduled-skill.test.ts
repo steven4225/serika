@@ -22,7 +22,7 @@ async function fixture() {
 it("desktop scheduling operation ID survives real scheduling validation and Store reopen", async () => {
   const f = await fixture();
   try {
-    const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, workspaceRoot: f.workspace });
+    const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, directory: f.workspace });
     const skill = automation.getSkill("brief")!;
     const input = { id: skill.id, expectedHash: skill.hash, input: "review", runAt: "2099-01-01T00:00:00Z", operationId: "schedule-replay" };
     const first = await scheduleRegisteredSkill({ automation, store: createTaskStore(join(f.workspace, ".runloom/tasks.json")), input, signal: new AbortController().signal });
@@ -35,7 +35,7 @@ it("desktop scheduling operation ID survives real scheduling validation and Stor
 it("scheduled Skill declaration pins exact id/hash, survives recurring/list projection, and rejects forged privileges", async () => {
   const f = await fixture();
   try {
-    const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, workspaceRoot: f.workspace });
+    const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, directory: f.workspace });
     const skill = automation.getSkill("brief")!;
     const arrangement = { kind: "skill", source: "none", notification: "always", declarationVersion: 1, skillId: skill.id, skillHash: skill.hash } as const;
     assert.deepEqual(validateTaskArrangement(arrangement), arrangement);
@@ -65,7 +65,7 @@ it("scheduled Skill declaration pins exact id/hash, survives recurring/list proj
 it("worker shares pinned preparation, rejects changed packages, config mismatch and unconfigured invocation without a Run", async () => {
   const f = await fixture();
   try {
-    const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, workspaceRoot: f.workspace });
+    const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, directory: f.workspace });
     const skill = automation.getSkill("brief")!;
     const task = { prompt: "Input only", arrangement: { kind: "skill", source: "none", notification: "always", declarationVersion: 1, skillId: skill.id, skillHash: skill.hash } } as TaskRecord;
     const prepared = await prepareScheduledSkillTask(automation, task);
@@ -75,9 +75,9 @@ it("worker shares pinned preparation, rejects changed packages, config mismatch 
     await writeFile(join(f.directory, "SKILL.md"), "A different instruction");
     await assert.rejects(prepareScheduledSkillTask(automation, task), { code: "SKILL_CHANGED" });
     const other = join(f.root, "other"); await mkdir(other);
-    await assert.rejects(loadScheduledSkillAutomation({ configPath: f.configPath, workspaceRoot: other }), /exactly match/);
+    await assert.rejects(loadScheduledSkillAutomation({ configPath: f.configPath, directory: other }), /exactly match/);
     const insideConfig = join(f.workspace, "config.json"); await writeFile(insideConfig, await readFile(f.configPath));
-    await assert.rejects(loadScheduledSkillAutomation({ configPath: insideConfig, workspaceRoot: f.workspace }), /outside workspace/);
+    await assert.rejects(loadScheduledSkillAutomation({ configPath: insideConfig, directory: f.workspace }), /outside workspace/);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 
@@ -85,7 +85,7 @@ it("shared memory packages are not exposed to scheduled invocation", async () =>
   const f = await fixture();
   try {
     await writeFile(join(f.directory, "skill.json"), JSON.stringify({ version: 1, id: "brief", kind: "memory-consolidate", description: "Memory" }));
-    const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, workspaceRoot: f.workspace });
+    const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, directory: f.workspace });
     assert.equal(automation.getSkill("brief"), undefined);
     await assert.rejects(prepareScheduledSkillTask(automation, { prompt: "save", arrangement: { kind: "skill", source: "none", notification: "always", declarationVersion: 1, skillId: "brief", skillHash: "a".repeat(64) } } as TaskRecord), { code: "SKILL_UNAVAILABLE" });
   } finally { await rm(f.root, { recursive: true, force: true }); }
@@ -97,12 +97,12 @@ it("worker resolves relative workspace from config directory without opening unr
     await writeFile(f.configPath, JSON.stringify({ version: 1, workspace: "workspace", modules: {
       computer: { enabled: true, executable: "/not-installed/cua-driver", allowedBundleIds: ["com.apple.TextEdit"] },
     }, automation: { skills: [{ id: "brief", directory: f.directory }], hooks: [] } }));
-    const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, workspaceRoot: f.workspace });
+    const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, directory: f.workspace });
     assert.equal(automation.skills[0]?.id, "brief");
     const aliasDirectory = join(f.root, "alias"); await mkdir(aliasDirectory);
     const aliasWorkspace = join(aliasDirectory, "workspace"); await mkdir(aliasWorkspace);
     const aliasConfig = join(aliasDirectory, "config.json"); await symlink(f.configPath, aliasConfig);
-    const viaAlias = await loadScheduledSkillAutomation({ configPath: aliasConfig, workspaceRoot: aliasWorkspace });
+    const viaAlias = await loadScheduledSkillAutomation({ configPath: aliasConfig, directory: aliasWorkspace });
     assert.equal(viaAlias.skills[0]?.id, "brief", "workspace base matches the foreground explicit config path, not the symlink target directory");
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });

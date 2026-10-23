@@ -65,7 +65,7 @@ async function fixture(model: MockLanguageModelV3) {
   } };
 }
 async function worker(f: Awaited<ReturnType<typeof fixture>>, model: MockLanguageModelV3, now: number, stopAfterTask = true) {
-  const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, workspaceRoot: f.workspace });
+  const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, directory: f.workspace });
   const store = createTaskStore(join(f.root, "data/tasks.json"), { now: () => now });
   const transcripts = new JsonlAgentStore({ directory: join(f.root, "transcripts", "tasks") });
   const agent = createTaskWorkerAgent({ modelAlias: "scripted", model, store: transcripts, skills: automation.skills, workspaceContext: true });

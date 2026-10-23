@@ -28,7 +28,7 @@ const risk: ToolRiskLookup = (name) => ({
 } as Record<string, "read" | "write">)[name];
 
 function setup(output = sink()) {
-  return createToolConfirmation(output, { prompt: () => "preview\nAllow this call? [y/n] ", workspaceRoot: "/tmp/ws", toolRisk: risk, toolPermissions: modulePermissions });
+  return createToolConfirmation(output, { prompt: () => "preview\nAllow this call? [y/n] ", directory: "/tmp/ws", toolRisk: risk, toolPermissions: modulePermissions });
 }
 
 /** Starts a call, checks whether it waits, and answers it when it does. */
@@ -144,9 +144,9 @@ describe("remembered conversation grants", () => {
   it("lists and forgets single grants through /permissions", async () => {
     const output = sink();
     const permission = createPermissionExtension(output, {
-      workspaceRoot: "/tmp/ws", fileAuthorizations: [],
+      directory: "/tmp/ws", fileAuthorizations: [],
       shell: { enabled: false, sandbox: undefined }, web: { enabled: true, searchEnabled: false }, toolPermissions: modulePermissions,
-      report: { configPath: null, workspaceRoot: "/tmp/ws" }, autoApprove: [], toolRisk: risk,
+      report: { configPath: null, directory: "/tmp/ws" }, autoApprove: [], toolRisk: risk,
     });
     const confirmation = permission.confirmation;
     for (const input of [call("read_file", { path: "a" }), call("web_fetch", { url: "https://example.com/" })]) {

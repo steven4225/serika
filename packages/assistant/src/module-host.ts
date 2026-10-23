@@ -19,7 +19,7 @@ export interface ToolPermissionFacts {
    * Where a grant's scope comes from: the web origin of a URL argument, or a
    * workspace-relative path argument.
    */
-  readonly scope?: { readonly kind: "origin" | "workspacePath"; readonly argument: string };
+  readonly scope?: { readonly kind: "origin" | "directoryPath"; readonly argument: string };
   readonly defaults?: {
     /** `auto`: calls run without y/n confirmation, for every agent. */
     readonly approval?: "auto";

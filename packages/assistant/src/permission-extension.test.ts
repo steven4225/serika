@@ -22,7 +22,7 @@ function call(toolName: string, signal = new AbortController().signal): BeforeTo
 }
 
 const base: PermissionOptions = {
-  workspaceRoot: undefined,
+  directory: undefined,
   fileAuthorizations: [],
   shell: { enabled: false, sandbox: undefined },
   web: { enabled: false, searchEnabled: false },
@@ -59,13 +59,13 @@ describe("permission extension", () => {
       (createPermissionExtension(sink(), { ...base, ...options }).commands ?? []).map(command => command.name);
     assert.deepEqual(names({}), []);
     assert.deepEqual(names({ toolPermissions: fileFacts }), [], "file grants need a workspace");
-    assert.deepEqual(names({ workspaceRoot: "/tmp/ws", shell: { enabled: true, sandbox: undefined },
-      web: { enabled: true, searchEnabled: false }, toolPermissions: builtinToolPermissions(), report: { configPath: null, workspaceRoot: "/tmp/ws" } }),
+    assert.deepEqual(names({ directory: "/tmp/ws", shell: { enabled: true, sandbox: undefined },
+      web: { enabled: true, searchEnabled: false }, toolPermissions: builtinToolPermissions(), report: { configPath: null, directory: "/tmp/ws" } }),
     ["authorize", "authorize-shell", "authorize-web", "permissions"]);
   });
   it("lists the tools that declared path authorization when /authorize names another tool", async () => {
     const output = sink();
-    const permission = createPermissionExtension(output, { ...base, workspaceRoot: "/tmp/ws", toolPermissions: fileFacts });
+    const permission = createPermissionExtension(output, { ...base, directory: "/tmp/ws", toolPermissions: fileFacts });
     await permission.commands!.find(command => command.name === "authorize")!.execute("shell_exec src");
     assert.equal(output.text,
       "\n[authorize] Only these tools can be authorized for one Run: read_file, list_directory, search_files, write_file, edit_file\n");

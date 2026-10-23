@@ -22,7 +22,7 @@ export interface PermissionExtension extends RuntimeExtension {
 }
 
 export function createPermissionExtension(output: Writable, options: {
-  workspaceRoot: string | undefined;
+  directory: string | undefined;
   /** Explicit `fileAuthorizations` from the trusted config; they load once. */
   fileAuthorizations: readonly FileAuthorizationRule[];
   shell: { enabled: boolean; sandbox: DockerShellSandboxConfig | undefined };
@@ -31,7 +31,7 @@ export function createPermissionExtension(output: Writable, options: {
   /** Permission facts declared by the assembled modules, by tool name. */
   toolPermissions?: ReadonlyMap<string, ToolPermissionFacts>;
   /** Present when a module configuration was resolved; enables `/permissions`. */
-  report: { configPath: string | null; workspaceRoot: string | null } | undefined;
+  report: { configPath: string | null; directory: string | null } | undefined;
   /**
    * Host-owned calls that never ask, checked in order before confirmation
    * (for example a skill's own declared read tools).
@@ -40,10 +40,10 @@ export function createPermissionExtension(output: Writable, options: {
   /** Declared risk of registered tools; read-risk tools may be remembered by name. */
   toolRisk?: ToolRiskLookup;
 }): PermissionExtension {
-  const { workspaceRoot, fileAuthorizations, report } = options;
+  const { directory, fileAuthorizations, report } = options;
   const shellSandbox = options.shell.sandbox;
   const confirmation = createToolConfirmation(output, {
-    ...(workspaceRoot !== undefined ? { workspaceRoot } : {}),
+    ...(directory !== undefined ? { directory } : {}),
     ...(options.toolRisk ? { toolRisk: options.toolRisk } : {}),
     ...(options.toolPermissions ? { toolPermissions: options.toolPermissions } : {}),
     ...(fileAuthorizations.length > 0
@@ -66,11 +66,11 @@ export function createPermissionExtension(output: Writable, options: {
 
   const commands: ModuleCommand[] = [];
   const declared = [...(options.toolPermissions ?? new Map<string, ToolPermissionFacts>())];
-  const scopeAuthorizable = (kind: "origin" | "workspacePath") => declared.flatMap(([name, facts]) =>
+  const scopeAuthorizable = (kind: "origin" | "directoryPath") => declared.flatMap(([name, facts]) =>
     facts.defaults?.runAuthorization === "scope" && facts.scope?.kind === kind ? [name] : []);
-  // `/authorize` exists only when an assembled tool declares workspace path authorization.
-  const pathTools = scopeAuthorizable("workspacePath");
-  if (pathTools.length > 0 && workspaceRoot !== undefined) {
+  // `/authorize` exists only when an assembled tool declares directory path authorization.
+  const pathTools = scopeAuthorizable("directoryPath");
+  if (pathTools.length > 0 && directory !== undefined) {
     commands.push({
       name: "authorize",
       execute(args) {
@@ -174,9 +174,9 @@ export function createPermissionExtension(output: Writable, options: {
             ? "CLI 参数/默认值"
             : JSON.stringify(report.configPath);
         const workspace =
-          report.workspaceRoot === null
+          report.directory === null
             ? "未配置"
-            : JSON.stringify(report.workspaceRoot);
+            : JSON.stringify(report.directory);
         output.write(
           `\n[permissions]\n配置来源: ${source}\nWorkspace: ${workspace}\n`,
         );

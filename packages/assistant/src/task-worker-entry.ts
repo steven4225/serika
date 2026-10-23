@@ -411,7 +411,7 @@ export async function startTaskWorker(args: readonly string[]): Promise<void> {
     const config = await readTuiModuleConfig(configPath);
     if (config.workspace !== undefined || (config.automation?.skills?.length ?? 0) > 0) throw new Error("Worker project and Skills require explicit --workspace");
   }
-  const automation = configPath === undefined || workspaceRoot === undefined ? undefined : await loadScheduledSkillAutomation({ configPath, workspaceRoot });
+  const automation = configPath === undefined || workspaceRoot === undefined ? undefined : await loadScheduledSkillAutomation({ configPath, directory: workspaceRoot });
   let notificationHelper: string | undefined;
   if (notificationHelperPath !== undefined) {
     notificationHelper = await realpath(notificationHelperPath);

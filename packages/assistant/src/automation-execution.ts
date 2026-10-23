@@ -28,7 +28,7 @@ const invocationSchema = z.object({
 export function createRuntimeAutomation(options: {
   skills: readonly SkillDescriptor[];
   registrations: readonly SkillPackageRegistration[];
-  workspaceRoot: string | undefined;
+  directory: string | undefined;
   hooks?: readonly HookRule[];
 }) {
   const byId = new Map<string, SkillDescriptor>();
@@ -66,7 +66,7 @@ export function createRuntimeAutomation(options: {
       const registration = registrations.get(skill.id);
       if (registration) {
         try {
-          await loadSkillPackages([{ ...registration, expectedHash: skill.hash }], options.workspaceRoot!);
+          await loadSkillPackages([{ ...registration, expectedHash: skill.hash }], options.directory!);
         } catch (error) {
           return { ok: false, error: { code: "SKILL_CHANGED", message: `Skill source changed or is unavailable; reload before running: ${String(error)}` } };
         }

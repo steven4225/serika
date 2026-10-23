@@ -96,7 +96,7 @@ describe("createReadFileModule", () => {
     const facts = host.toolPermissions;
     assert.deepEqual([...facts.keys()].sort(), [...RUN_AUTHORIZED_FILE_TOOLS].sort());
     for (const name of RUN_AUTHORIZED_FILE_TOOLS) {
-      assert.deepEqual(facts.get(name)?.scope, { kind: "workspacePath", argument: "path" });
+      assert.deepEqual(facts.get(name)?.scope, { kind: "directoryPath", argument: "path" });
       assert.equal(facts.get(name)?.defaults?.runAuthorization, "scope");
       assert.equal(facts.get(name)?.defaults?.autonomy, "allow");
     }

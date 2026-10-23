@@ -98,7 +98,7 @@ function moduleToolPermissions(shell: Shell) {
 function extension(shell: Shell, fileAuthorizations: readonly FileAuthorizationRule[] = []) {
   const sink = new Writable({ write(_chunk, _encoding, done) { done(); } });
   return createPermissionExtension(sink, {
-    workspaceRoot: WORKSPACE,
+    directory: WORKSPACE,
     fileAuthorizations,
     shell: { enabled: true, sandbox: shell === "docker" ? { backend: "docker", image: "img", readablePaths: [], writablePaths: [] } : undefined },
     web: { enabled: true, searchEnabled: true },
@@ -220,13 +220,13 @@ async function buildTable(): Promise<Record<string, string>> {
   const sink = new Writable({ write(_chunk, _encoding, done) { done(); } });
   for (const files of [false, true]) for (const shell of [false, true]) for (const web of [false, true]) for (const report of [false, true]) {
     const ext = createPermissionExtension(sink, {
-      workspaceRoot: WORKSPACE, fileAuthorizations: [],
+      directory: WORKSPACE, fileAuthorizations: [],
       shell: { enabled: shell, sandbox: undefined }, web: { enabled: web, searchEnabled: web },
       toolPermissions: createModuleHost([
         ...(files ? [createReadFileModule(WORKSPACE)] : []),
         ...(web ? [createWebModule({ searchEnabled: true, feedEnabled: true })] : []),
       ], { notify() {} }).toolPermissions,
-      report: report ? { configPath: null, workspaceRoot: WORKSPACE } : undefined, autoApprove: [],
+      report: report ? { configPath: null, directory: WORKSPACE } : undefined, autoApprove: [],
     });
     record("commands", `files=${files} shell=${shell} web=${web} report=${report}`, (ext.commands ?? []).map(command => `/${command.name}`).join(" ") || "(none)");
   }

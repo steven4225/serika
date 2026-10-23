@@ -138,7 +138,7 @@ async function readBoundedFile(directory: string, name: string, maxBytes: number
  */
 export async function loadSkillPackages(
   registrations: readonly SkillPackageRegistration[],
-  workspaceRoot: string,
+  authorizedDirectory: string,
 ): Promise<SkillDescriptor[]> {
   const parsed = skillPackageRegistrationsSchema.parse(registrations);
   const ids = new Set<string>();
@@ -147,12 +147,12 @@ export async function loadSkillPackages(
     ids.add(registration.id);
   }
   if (parsed.length === 0) return [];
-  const workspace = await realpath(workspaceRoot);
+  const workspace = await realpath(authorizedDirectory);
   const skills: SkillDescriptor[] = [];
   for (const registration of parsed) {
     try {
       const requestedDirectory = resolve(registration.directory);
-      if (inside(resolve(workspaceRoot), requestedDirectory)) throw new Error("Skill packages must be outside the workspace");
+      if (inside(resolve(authorizedDirectory), requestedDirectory)) throw new Error("Skill packages must be outside the workspace");
       const info = await lstat(requestedDirectory);
       if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("Skill directory must be a non-symlink directory");
       const directory = await realpath(requestedDirectory);

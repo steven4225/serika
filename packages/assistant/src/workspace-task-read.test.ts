@@ -11,14 +11,14 @@ import { createRuntimeApp } from "./app.js";
 import { createTaskStore} from "./task-store.js";
 import { createTaskModule } from "./modules/task-module.js";
 import { createModuleHost } from "./module-host.js";
-import { createWorkspaceTaskReadApproval } from "./workspace-task-read-policy.js";
+import { createDirectoryTaskReadApproval } from "./directory-task-read-policy.js";
 
 const usage = {
   inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
   outputTokens: { total: 1, text: 1, reasoning: undefined },
 };
 
-async function fixture(allowWorkspaceTaskReads: boolean) {
+async function fixture(allowDirectoryTaskReads: boolean) {
   const root = await mkdtemp(join(tmpdir(), "serika-task-read-policy-"));
   const workspace = join(root, "workspace"), foreignWorkspace = join(root, "foreign");
   await mkdir(workspace); await mkdir(foreignWorkspace);
@@ -46,7 +46,7 @@ async function fixture(allowWorkspaceTaskReads: boolean) {
   } });
   const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "daily-read", configPath },
     modelAlias: "scripted", model, output: new PassThrough(), env: {}, cwd: root,
-    ...(allowWorkspaceTaskReads ? { allowWorkspaceTaskReads: true as const } : {}),
+    ...(allowDirectoryTaskReads ? { allowDirectoryTaskReads: true as const } : {}),
   });
   const prompted: string[] = [];
   const unsubscribe = app.toolConfirmation!.subscribePending(pending => {
@@ -107,15 +107,15 @@ it("workspace task read Demo: symlinked task directory cannot expose another wor
 
 it("workspace task read policy trusts built-in object identity, primary agent and exact workspace, never risk/name alone", () => {
   const workspace = "/trusted/workspace", primaryAgentId = "personal";
-  const policy = createWorkspaceTaskReadApproval(workspace, primaryAgentId);
+  const policy = createDirectoryTaskReadApproval(workspace, primaryAgentId);
   const host = createModuleHost([policy.captureBuiltinModule(createTaskModule(createTaskStore(join(workspace, ".runloom/tasks.json"))))], { notify() {} });
   try {
     for (const name of ["task_list", "task_get"]) {
       const builtin = host.tools.find(registration => registration.metadata.name === name)!;
-      const input = { agentId: primaryAgentId, workspaceRoot: workspace, toolName: name, registeredTool: builtin };
+      const input = { agentId: primaryAgentId, directory: workspace, toolName: name, registeredTool: builtin };
       assert.equal(policy.allows(input), true);
       assert.equal(policy.allows({ ...input, agentId: "external-skill" }), false);
-      assert.equal(policy.allows({ ...input, workspaceRoot: "/other/workspace" }), false);
+      assert.equal(policy.allows({ ...input, directory: "/other/workspace" }), false);
       assert.equal(policy.allows({ ...input, registeredTool: { ...builtin } }), false, "same-name copied registration is not trusted");
       assert.equal(policy.allows({ ...input, registeredTool: {
         metadata: { ...builtin.metadata, risk: "read" },
@@ -123,7 +123,7 @@ it("workspace task read policy trusts built-in object identity, primary agent an
       } }), false, "custom same-name read tool is not trusted");
     }
     for (const registration of host.tools.filter(registration => !["task_list", "task_get"].includes(registration.metadata.name))) {
-      assert.equal(policy.allows({ agentId: primaryAgentId, workspaceRoot: workspace,
+      assert.equal(policy.allows({ agentId: primaryAgentId, directory: workspace,
         toolName: registration.metadata.name, registeredTool: registration }), false);
     }
   } finally { host.dispose(); }

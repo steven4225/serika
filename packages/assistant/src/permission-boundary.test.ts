@@ -48,7 +48,7 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
       } });
       const app = await createRuntimeApp({ directory: join(root, mode, "transcripts"),
         assistant: { dataDirectory: join(root, mode, "data"), threadId, configPath }, modelAlias: "scripted", model,
-        output: new PassThrough(), env: {}, cwd: root, ...(mode !== "tui" && mode !== "plain" ? { allowDesktopAutonomy: true } : {}), ...(mode !== "tui" ? { allowWorkspaceTaskReads: true } : {}),
+        output: new PassThrough(), env: {}, cwd: root, ...(mode !== "tui" && mode !== "plain" ? { allowDesktopAutonomy: true } : {}), ...(mode !== "tui" ? { allowDirectoryTaskReads: true } : {}),
         authorizeTelegramAutonomy: grant => grant.botId === 1 && grant.userId === 2 && grant.chatId === 3 });
       const controller = createAssistantController(app);
       const approvals: { tool: string; preview: string; remember: string | null }[] = [];

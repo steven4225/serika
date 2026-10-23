@@ -2270,7 +2270,7 @@ describe("createToolConfirmation", () => {
   it("keeps checkpoint reads and writes on normal y/n confirmation even with file authorization", async () => {
     const output = outputBuffer();
     const confirmation = moduleConfirmation(output, {
-      workspaceRoot: "/workspace",
+      directory: "/workspace",
       persistentAuthorizations: [{
         tools: ["read_file", "write_file"],
         allowedPaths: ["."],
@@ -3218,7 +3218,7 @@ describe("runTui checkpoint confirmation", () => {
 });
 
 describe("createToolConfirmation run-scoped authorization", () => {
-  const workspaceRoot = "/tmp/runloom-r2a-workspace";
+  const directory = "/tmp/runloom-r2a-workspace";
 
   function authorizeFileScope(
     confirmation: ReturnType<typeof createToolConfirmation>,
@@ -3237,7 +3237,7 @@ describe("createToolConfirmation run-scoped authorization", () => {
 
   it("allows normalized in-scope paths for explicitly authorized tools", async () => {
     const output = outputBuffer();
-    const confirmation = moduleConfirmation(output, { workspaceRoot });
+    const confirmation = moduleConfirmation(output, { directory });
     authorizeFileScope(confirmation, {
       tools: ["read_file"],
       allowedPaths: ["docs/"],
@@ -3263,7 +3263,7 @@ describe("createToolConfirmation run-scoped authorization", () => {
 
   it("does not widen authorization to tools outside the explicit whitelist", async () => {
     const output = outputBuffer();
-    const confirmation = moduleConfirmation(output, { workspaceRoot });
+    const confirmation = moduleConfirmation(output, { directory });
     authorizeFileScope(confirmation, {
       tools: ["read_file"],
       allowedPaths: ["docs/"],
@@ -3286,7 +3286,7 @@ describe("createToolConfirmation run-scoped authorization", () => {
 
   it("asks again for an out-of-scope normalized path and never executes it after denial", async () => {
     const output = outputBuffer();
-    const confirmation = moduleConfirmation(output, { workspaceRoot });
+    const confirmation = moduleConfirmation(output, { directory });
     authorizeFileScope(confirmation, {
       tools: ["read_file"],
       allowedPaths: ["docs/"],
@@ -3330,7 +3330,7 @@ describe("createToolConfirmation run-scoped authorization", () => {
 
   it("clears authorization when the Run ends and does not reuse it on the next Run", async () => {
     const output = outputBuffer();
-    const confirmation = moduleConfirmation(output, { workspaceRoot });
+    const confirmation = moduleConfirmation(output, { directory });
     authorizeFileScope(confirmation, {
       tools: ["read_file"],
       allowedPaths: ["docs/"],
@@ -3360,7 +3360,7 @@ describe("createToolConfirmation run-scoped authorization", () => {
 
   it("does not let an aborted Run leave an authorization active", async () => {
     const output = outputBuffer();
-    const confirmation = moduleConfirmation(output, { workspaceRoot });
+    const confirmation = moduleConfirmation(output, { directory });
     authorizeFileScope(confirmation, {
       tools: ["read_file"],
       allowedPaths: ["docs/"],
@@ -3381,7 +3381,7 @@ describe("createToolConfirmation run-scoped authorization", () => {
 });
 
 describe("createToolConfirmation persistent authorization", () => {
-  const workspaceRoot = "/tmp/runloom-r2b-workspace";
+  const directory = "/tmp/runloom-r2b-workspace";
 
   function persistentFileScope(
     options: {
@@ -3390,7 +3390,7 @@ describe("createToolConfirmation persistent authorization", () => {
     } = {},
   ): RunAuthorization {
     return {
-      workspaceRoot,
+      directory,
       tools: options.tools ?? ["read_file"],
       allowedPaths: options.allowedPaths ?? ["docs"],
       lifetime: "run",
@@ -3400,7 +3400,7 @@ describe("createToolConfirmation persistent authorization", () => {
   it("allows every listed file tool under a persisted path scope", async () => {
     const output = outputBuffer();
     const confirmation = moduleConfirmation(output, {
-      workspaceRoot,
+      directory,
       persistentAuthorizations: [
         persistentFileScope({
           tools: ["read_file", "search_files", "list_directory", "write_file", "edit_file"],
@@ -3427,7 +3427,7 @@ describe("createToolConfirmation persistent authorization", () => {
   it("keeps path and tool boundaries under persisted authorization", async () => {
     const output = outputBuffer();
     const confirmation = moduleConfirmation(output, {
-      workspaceRoot,
+      directory,
       persistentAuthorizations: [persistentFileScope()],
     });
 
@@ -3472,7 +3472,7 @@ describe("createToolConfirmation persistent authorization", () => {
   it("does not clear persisted authorization when a Run ends", async () => {
     const output = outputBuffer();
     const confirmation = moduleConfirmation(output, {
-      workspaceRoot,
+      directory,
       persistentAuthorizations: [persistentFileScope()],
     });
 
@@ -3495,7 +3495,7 @@ describe("createToolConfirmation persistent authorization", () => {
   it("restores y/n after persisted rules are removed and the TUI is restarted", async () => {
     const firstOutput = outputBuffer();
     const first = moduleConfirmation(firstOutput, {
-      workspaceRoot,
+      directory,
       persistentAuthorizations: [persistentFileScope()],
     });
     const allowed = first.beforeToolExecute(
@@ -3504,7 +3504,7 @@ describe("createToolConfirmation persistent authorization", () => {
     assert.deepEqual(await allowed, { allow: true });
 
     const secondOutput = outputBuffer();
-    const restarted = moduleConfirmation(secondOutput, { workspaceRoot });
+    const restarted = moduleConfirmation(secondOutput, { directory });
     const prompted = restarted.beforeToolExecute(
       toolInput("read_file", new AbortController().signal, { path: "docs/guide.md" }),
     );
@@ -3519,7 +3519,7 @@ describe("createToolConfirmation persistent authorization", () => {
 
   it("does not restore next-Run /authorize after a new confirmation is created", async () => {
     const firstOutput = outputBuffer();
-    const first = moduleConfirmation(firstOutput, { workspaceRoot });
+    const first = moduleConfirmation(firstOutput, { directory });
     first.setPendingAuthorization({
       tools: ["write_file"],
       allowedPaths: ["docs/"],
@@ -3527,7 +3527,7 @@ describe("createToolConfirmation persistent authorization", () => {
     });
 
     const secondOutput = outputBuffer();
-    const restarted = moduleConfirmation(secondOutput, { workspaceRoot });
+    const restarted = moduleConfirmation(secondOutput, { directory });
     const prompted = restarted.beforeToolExecute(
       toolInput("write_file", new AbortController().signal, { path: "docs/report.md" }),
     );

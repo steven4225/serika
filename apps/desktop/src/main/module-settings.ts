@@ -106,18 +106,18 @@ export async function changeModuleSetting(configPath: string, input: ModuleSetti
   return result.rollback ?? (async () => {});
 }
 
-/** Workspace binding is captured from the host identity, never a renderer path. */
-export async function changeAutonomySetting(configPath: string, input: AutonomySettingInput, cwd: string, workspaceRoot: string | null): Promise<() => Promise<void>> {
+/** Directory binding is captured from the host, never a renderer path. */
+export async function changeAutonomySetting(configPath: string, input: AutonomySettingInput, cwd: string, directory: string | null): Promise<() => Promise<void>> {
   if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some(key => !["enabled", "expectedEnabled"].includes(key)) || typeof input.enabled !== "boolean" || typeof input.expectedEnabled !== "boolean") throw new Error("自主执行开关参数无效");
   return changeConfig(configPath, cwd, async (before, path) => {
     const current = await resolveTuiModuleConfig({ configPath: path }, { cwd });
-    if (!workspaceRoot || current.workspaceRoot !== workspaceRoot) throw new Error("工作区已变化，请重新连接后核对授权");
+    if (!directory || current.authorizedDirectory !== directory) throw new Error("工作区已变化，请重新连接后核对授权");
     const enabled = !!current.desktopAutonomy && !current.shellSandbox;
     if (enabled !== input.expectedEnabled) throw new Error("自主执行配置已变化，请刷新后再操作");
     if (input.enabled && current.shellSandbox) throw new Error("本机自主执行需要本机 Shell 模式；不会替换 Docker 配置");
     const config = JSON.parse(before);
     delete config.desktopAutonomy;
-    if (input.enabled) config.desktopAutonomy = { workspaceRoot };
+    if (input.enabled) config.desktopAutonomy = { workspaceRoot: directory };
     return JSON.stringify(config, null, 2) + "\n";
   });
 }
@@ -129,14 +129,14 @@ export async function changeTelegramAutonomySetting(configPath: string, input: i
       input.expectedOwner.userId !== binding.userId || input.expectedOwner.chatId !== binding.chatId || input.expectedOwner.threadId !== binding.threadId) throw new Error("Telegram 绑定已变化或授权参数无效，请刷新后核对");
   return changeConfig(configPath, cwd, async (before, path) => {
     const current = await resolveTuiModuleConfig({ configPath: path }, { cwd });
-    if (current.workspaceRoot !== binding.workspaceRoot) throw new Error("工作区已变化，请重新连接后核对授权");
+    if (current.authorizedDirectory !== binding.directory) throw new Error("工作区已变化，请重新连接后核对授权");
     const saved = current.telegramAutonomy;
     const enabled = !!saved && !current.shellSandbox && Object.keys(binding).every(key => saved[key as keyof typeof saved] === binding[key as keyof typeof binding]);
     if (enabled !== input.expectedEnabled || expectedEnabled !== input.expectedEnabled) throw new Error("Telegram 自主执行配置已变化，请刷新后再操作");
     if (input.enabled && current.shellSandbox) throw new Error("本机自主执行需要本机 Shell 模式；不会替换 Docker 配置");
     const config = JSON.parse(before);
     delete config.telegramAutonomy;
-    if (input.enabled) config.telegramAutonomy = binding;
+    if (input.enabled) config.telegramAutonomy = { workspaceRoot: binding.directory, botId: binding.botId, userId: binding.userId, chatId: binding.chatId, threadId: binding.threadId };
     return JSON.stringify(config, null, 2) + "\n";
   });
 }

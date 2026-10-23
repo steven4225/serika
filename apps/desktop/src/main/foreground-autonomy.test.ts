@@ -189,7 +189,7 @@ it("validates explicit setting CAS, workspace binding and external config; ignor
     await assert.rejects(changeAutonomySetting(f.configPath, { enabled: true, expectedEnabled: false, workspace: f.workspace } as never, f.root, f.workspace), /参数无效/);
     const undo = await changeAutonomySetting(f.configPath, { enabled: true, expectedEnabled: false }, f.root, f.workspace);
     await assert.rejects(changeAutonomySetting(f.configPath, { enabled: false, expectedEnabled: false }, f.root, f.workspace), /配置已变化/);
-    assert.equal((await resolveTuiModuleConfig({ configPath: f.configPath }, { cwd: f.root })).desktopAutonomy?.workspaceRoot, f.workspace);
+    assert.equal((await resolveTuiModuleConfig({ configPath: f.configPath }, { cwd: f.root })).desktopAutonomy?.directory, f.workspace);
     const config = JSON.parse(await readFile(f.configPath, "utf8"));
     const other = join(f.root, "other"); await mkdir(other); config.workspace = other;
     await writeFile(f.configPath, JSON.stringify(config));

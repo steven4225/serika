@@ -79,6 +79,7 @@ function appWith(overrides: Partial<RuntimeApp> = {}): RuntimeApp {
     threadId: "controller-thread",
     directory: "/private/tmp/controller-transcripts",
     workspaceRoot: undefined,
+    authorizedDirectory: undefined,
     moduleConfig: undefined,
     toolConfirmation: undefined,
     commands: undefined,

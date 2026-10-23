@@ -79,7 +79,7 @@ export interface AppInfo {
   memoryLibrary?: true;
   attachments?: true;
   pomodoroControls?: true;
-  autonomy?: { enabled: boolean; workspaceRoot: string | null };
+  autonomy?: { enabled: boolean; directory: string | null };
   recoveryWorkspace?: { originalWorkspace: string };
   runtimeRecovery?: { state: "failed"; message: string };
   /** Actual loaded main-process identity; optional for preview/older bridges. */
@@ -101,6 +101,7 @@ export interface AppInfo {
   /** The transcript directory was created for this process only. */
   temporaryDirectory: boolean;
   workspaceRoot: string | null;
+  authorizedDirectory: string | null;
   tuiMode: boolean;
   /** Registered idle commands, without the leading slash. */
   commands: string[];

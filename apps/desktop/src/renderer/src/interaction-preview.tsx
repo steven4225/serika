@@ -18,7 +18,7 @@ const threads = [
   { threadId, title: "周末想把搜索做成聚光灯", transcriptDirectory: "/fixture/transcripts", messageCount: 2, preview: "周末想把搜索做成聚光灯，按消息找回以前聊过的话。" },
   { threadId: "preview-b", title: "明天早上提醒喝水", transcriptDirectory: "/fixture/transcripts", messageCount: 1, preview: "明天早上提醒我喝水。" },
 ];
-const info = (): AppInfo => ({ entryMode: "test", configPath: "/fixture/config.json", threadId, directory: "/fixture/transcripts", workspaceRoot: "/fixture/workspace",
+const info = (): AppInfo => ({ entryMode: "test", configPath: "/fixture/config.json", threadId, directory: "/fixture/transcripts", workspaceRoot: "/fixture/workspace", authorizedDirectory: "/fixture/workspace",
   modelAlias: "mock", modelId: "UI fixture", temporaryThread: false, temporaryDirectory: false, identitySource: "saved",
   computer: { enabled: false, allowedBundleIds: [] }, tuiMode: true, commands: [], hasResume: false,
   totalTimeoutMs: 600000, shellTimeoutMs: 300000, memory: { enabled: memoryEnabled, autoConsolidate: memoryEnabled }, workTasks: true,

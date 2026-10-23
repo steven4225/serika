@@ -102,7 +102,7 @@ test("opt-in real model: manual and scheduled registered Skill use the productio
     const id = saved.value.task.id;
     assert.equal(saved.value.service.enabled, false, "Acceptance must not install a daily background service");
     await delay(Math.max(0, due - Date.now() + 5), undefined, { signal: context.signal });
-    const automation = await loadScheduledSkillAutomation({ configPath, workspaceRoot: workspace });
+    const automation = await loadScheduledSkillAutomation({ configPath, directory: workspace });
     const taskStore = createTaskStore(join(workspace, ".runloom/tasks.json"));
     const transcripts = new JsonlAgentStore({ directory: join(workspace, ".runloom", "task-transcripts") });
     agent = createTaskWorkerAgent({ ...configured, store: transcripts, skills: automation.skills });

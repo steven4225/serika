@@ -78,7 +78,7 @@ export class DesktopRuntime {
     let undo: (() => Promise<void>) | undefined;
     await this.#replace(async () => {
       const binding = this.#telegram?.autonomyBinding();
-      if (!binding || binding.workspaceRoot !== this.#identity.workspaceRoot) throw new Error("请先连接并核对当前工作区的 Telegram 私聊绑定");
+      if (!binding || binding.directory !== this.#bridge.info().authorizedDirectory) throw new Error("请先连接并核对当前工作区的 Telegram 私聊绑定");
       undo = await changeTelegramAutonomySetting(this.#identity.configPath, input, this.#options.cwd, binding, this.#bridge.telegramAutonomyEnabled());
       return this.#identity;
     }, false, { rollback: async () => { await undo?.(); } });
@@ -154,7 +154,7 @@ export class DesktopRuntime {
       directory: identity.transcriptDirectory, assistant: { threadId: identity.threadId, configPath: identity.configPath, dataDirectory: join(this.#options.applicationHome, "data") },
       modelAlias: this.#options.modelAlias, model: this.#options.model, output, env: this.#options.env, cwd: this.#options.cwd,
       pomodoroService: this.#pomodoroService,
-      allowWorkspaceTaskReads: true,
+      allowDirectoryTaskReads: true,
       allowDesktopAutonomy: true,
       onHomeSnapshot: snapshot => output.homeSnapshot(snapshot),
       onModuleNotification: notification => output.moduleNotification(notification),
@@ -317,7 +317,7 @@ export class DesktopRuntime {
   setAutonomyEnabled(input: AutonomySettingInput) {
     let undo: (() => Promise<void>) | undefined;
     return this.#replace(async () => {
-      undo = await changeAutonomySetting(this.#identity.configPath, input, this.#options.cwd, this.#identity.workspaceRoot);
+      undo = await changeAutonomySetting(this.#identity.configPath, input, this.#options.cwd, this.#bridge.info().authorizedDirectory);
       return this.#identity;
     }, false, { rollback: async () => { await undo?.(); } });
   }

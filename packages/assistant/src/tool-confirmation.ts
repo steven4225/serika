@@ -71,14 +71,14 @@ export interface PendingToolApproval {
 
 /** A non-persistent file-tool rule that applies to one subsequent Run. */
 export interface RunAuthorization {
-  workspaceRoot: string;
+  directory: string;
   allowedPaths: readonly string[];
   tools: readonly string[];
   lifetime: "run";
 }
 
-export type RunAuthorizationInput = Omit<RunAuthorization, "workspaceRoot"> & {
-  workspaceRoot?: string;
+export type RunAuthorizationInput = Omit<RunAuthorization, "directory"> & {
+  directory?: string;
 };
 
 /** A non-persistent web origin allow-list that applies to one subsequent Run. */
@@ -108,30 +108,30 @@ function stringArgument(input: unknown, argument: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-/** A tool's declared workspace path argument, or `.` when it is missing or empty. */
+/** A tool's declared directory path argument, or `.` when it is missing or empty. */
 function scopedPath(facts: ToolPermissionFacts | undefined, input: unknown): string {
-  const path = facts?.scope?.kind === "workspacePath" ? stringArgument(input, facts.scope.argument) : undefined;
+  const path = facts?.scope?.kind === "directoryPath" ? stringArgument(input, facts.scope.argument) : undefined;
   return path !== undefined && path.length > 0 ? path : ".";
 }
 
-/** Whether a tool's facts make it eligible for a one-Run workspace path rule. */
+/** Whether a tool's facts make it eligible for a one-Run directory path rule. */
 function pathAuthorizable(facts: ToolPermissionFacts | undefined): boolean {
-  return facts?.defaults?.runAuthorization === "scope" && facts.scope?.kind === "workspacePath";
+  return facts?.defaults?.runAuthorization === "scope" && facts.scope?.kind === "directoryPath";
 }
 
 function normalizeAuthorization(
   rule: RunAuthorizationInput,
-  defaultWorkspaceRoot: string | undefined,
+  defaultDirectory: string | undefined,
   facts: (toolName: string) => ToolPermissionFacts | undefined,
 ): RunAuthorization {
   if (rule.lifetime !== "run") {
     throw new Error('Only lifetime "run" is supported');
   }
-  const workspaceRootValue = rule.workspaceRoot ?? defaultWorkspaceRoot;
-  if (workspaceRootValue === undefined) {
+  const directoryValue = rule.directory ?? defaultDirectory;
+  if (directoryValue === undefined) {
     throw new Error("A workspace root is required for run authorization");
   }
-  const workspaceRoot = resolve(workspaceRootValue);
+  const directory = resolve(directoryValue);
   const tools = [...new Set(rule.tools)];
   if (tools.length === 0) throw new Error("At least one file tool is required");
   for (const toolName of tools) {
@@ -140,7 +140,7 @@ function normalizeAuthorization(
     }
   }
   const allowedPaths = rule.allowedPaths.map((path) => {
-    const validated = validateWorkspacePath(workspaceRoot, path);
+    const validated = validateWorkspacePath(directory, path);
     if (!validated.ok) {
       throw new Error(`Invalid authorization path ${JSON.stringify(path)}: ${validated.message}`);
     }
@@ -148,7 +148,7 @@ function normalizeAuthorization(
   });
   if (allowedPaths.length === 0) throw new Error("At least one workspace path is required");
   return {
-    workspaceRoot,
+    directory,
     allowedPaths: [...new Set(allowedPaths)],
     tools,
     lifetime: "run",
@@ -167,7 +167,7 @@ function authorizationAllows(
   if (authorization === undefined) return false;
   if (!(authorization.tools as readonly string[]).includes(input.toolName)) return false;
   const requested = validateWorkspacePath(
-    authorization.workspaceRoot,
+    authorization.directory,
     scopedPath(facts, input.input),
   );
   if (!requested.ok) return false;
@@ -236,8 +236,8 @@ const MAX_REMEMBERED_GRANTS = 64;
 
 type GrantCandidate = Omit<RememberedGrant, "id">;
 
-function fileDirectory(workspaceRoot: string, path: string | undefined): string | undefined {
-  const validated = validateWorkspacePath(workspaceRoot, path);
+function fileDirectory(root: string, path: string | undefined): string | undefined {
+  const validated = validateWorkspacePath(root, path);
   if (!validated.ok || validated.relativePath === "") return undefined;
   const directory = dirname(validated.relativePath);
   return directory === "." ? "" : directory;
@@ -245,16 +245,16 @@ function fileDirectory(workspaceRoot: string, path: string | undefined): string 
 
 function grantCandidate(
   input: BeforeToolExecuteInput,
-  workspaceRoot: string | undefined,
+  directory: string | undefined,
   toolRisk: ToolRiskLookup | undefined,
   facts: ToolPermissionFacts | undefined,
 ): GrantCandidate | undefined {
   const { toolName } = input;
   const agentId = input.definition.id;
   if (facts?.defaults?.remember === "never") return undefined;
-  if (facts?.defaults?.remember === "scope" && facts.scope?.kind === "workspacePath") {
-    if (workspaceRoot === undefined) return undefined;
-    const scope = fileDirectory(workspaceRoot, stringArgument(input.input, facts.scope.argument));
+  if (facts?.defaults?.remember === "scope" && facts.scope?.kind === "directoryPath") {
+    if (directory === undefined) return undefined;
+    const scope = fileDirectory(directory, stringArgument(input.input, facts.scope.argument));
     if (scope === undefined) return undefined;
     const place = scope === "" ? "工作区根目录" : `${scope}${sep}`;
     return { agentId, toolName, kind: "directory", scope,
@@ -292,7 +292,7 @@ export function createToolConfirmation(
     prompt?: ToolConfirmationPrompt;
     onPendingChange?: (pending: PendingToolApproval | undefined) => void;
     generateId?: () => string;
-    workspaceRoot?: string;
+    directory?: string;
     persistentAuthorizations?: readonly RunAuthorizationInput[];
     /** Declared tool risk; only read-risk tools can be remembered by name. */
     toolRisk?: ToolRiskLookup;
@@ -319,7 +319,7 @@ export function createToolConfirmation(
   const remembered: RememberedGrant[] = [];
   const pendingListeners = new Set<(pending: PendingToolApproval | undefined) => void>();
   const persistentAuthorizations = (options.persistentAuthorizations ?? []).map(
-    (rule) => normalizeAuthorization(rule, options.workspaceRoot, facts),
+    (rule) => normalizeAuthorization(rule, options.directory, facts),
   );
 
   const getPending = (): PendingToolApproval | undefined =>
@@ -390,7 +390,7 @@ export function createToolConfirmation(
       return Promise.resolve({ allow: true });
     }
     const candidate = rememberedActive
-      ? grantCandidate(input, options.workspaceRoot, options.toolRisk, facts(input.toolName))
+      ? grantCandidate(input, options.directory, options.toolRisk, facts(input.toolName))
       : undefined;
     if (candidate !== undefined && remembered.some((grant) => sameGrant(grant, candidate))) {
       return Promise.resolve({ allow: true });
@@ -534,7 +534,7 @@ export function createToolConfirmation(
   };
 
   const setPendingAuthorization = (rule: RunAuthorizationInput): void => {
-    nextRunAuthorization = normalizeAuthorization(rule, options.workspaceRoot, facts);
+    nextRunAuthorization = normalizeAuthorization(rule, options.directory, facts);
   };
 
   const setPendingShellAuthorization = (): void => {

@@ -60,13 +60,14 @@ export const TUI_MAX_CONFIGURABLE_STEPS = 32;
 export const TUI_DEFAULT_TOTAL_TIMEOUT_MS = 120_000;
 export const TUI_MAX_TOTAL_TIMEOUT_MS = 30 * 60_000;
 
-export interface TelegramAutonomyGrant { workspaceRoot: string; botId: number; userId: number; chatId: number; threadId: string }
+export interface TelegramAutonomyGrant { directory: string; botId: number; userId: number; chatId: number; threadId: string }
 
 export interface ResolvedTuiModuleConfig {
   telegramAutonomy?: TelegramAutonomyGrant;
-  desktopAutonomy?: { workspaceRoot: string };
+  desktopAutonomy?: { directory: string };
   configPath: string | null;
   workspaceRoot: string | null;
+  authorizedDirectory: string | null;
   enabled: Record<BuiltinModuleId, boolean>;
   webSearchEnabled: boolean;
   webFeedEnabled: boolean;
@@ -231,7 +232,7 @@ export interface TuiModuleConfigV1 {
         }
       | undefined;
   };
-  telegramAutonomy?: TelegramAutonomyGrant | undefined;
+  telegramAutonomy?: Omit<TelegramAutonomyGrant, "directory"> & { workspaceRoot: string } | undefined;
   desktopAutonomy?: { workspaceRoot: string } | undefined;
   fileAuthorizations?: FileAuthorizationRule[] | undefined;
   contextCompaction?: ContextBudgetConfig | undefined;
@@ -291,14 +292,14 @@ function isPathWithin(root: string, target: string): boolean {
 
 function normalizeFileAuthorizations(
   rules: readonly FileAuthorizationRule[] | undefined,
-  workspaceRoot: string | null,
+  directory: string | null,
   enabled: Record<BuiltinModuleId, boolean>,
 ): readonly FileAuthorizationRule[] {
   if (rules === undefined || rules.length === 0) return [];
   if (!enabled["read-file"]) {
     throw new Error("fileAuthorizations requires read-file.enabled to be true");
   }
-  if (workspaceRoot === null) {
+  if (directory === null) {
     throw new Error("fileAuthorizations requires a workspace");
   }
   return rules.map((rule) => {
@@ -307,7 +308,7 @@ function normalizeFileAuthorizations(
       throw new Error("fileAuthorizations tools must not contain duplicates");
     }
     const allowedPaths = rule.allowedPaths.map((path) => {
-      const validated = validateWorkspacePath(workspaceRoot, path);
+      const validated = validateWorkspacePath(directory, path);
       if (!validated.ok) {
         throw new Error(
           `Invalid file authorization path ${JSON.stringify(path)}: ${validated.message}`,
@@ -351,11 +352,11 @@ async function resolveSandboxWorkspace(
 }
 
 async function normalizeSandboxPath(
-  workspaceRoot: string,
+  directory: string,
   requestedPath: string,
   writable: boolean,
 ): Promise<string> {
-  const validated = validateWorkspacePath(workspaceRoot, requestedPath);
+  const validated = validateWorkspacePath(directory, requestedPath);
   if (!validated.ok) {
     throw new Error(
       `Invalid sandbox mount path ${JSON.stringify(requestedPath)}: ${validated.message}`,
@@ -379,7 +380,7 @@ async function normalizeSandboxPath(
       `Writable sandbox path must be a directory: ${JSON.stringify(requestedPath)}`,
     );
   }
-  if (await rejectSymlinkComponents(workspaceRoot, validated.relativePath, neverAborted)) {
+  if (await rejectSymlinkComponents(directory, validated.relativePath, neverAborted)) {
     throw new Error(
       `Sandbox mount path must not pass through a symlink: ${JSON.stringify(requestedPath)}`,
     );
@@ -391,19 +392,19 @@ async function normalizeShellSandbox(
   sandbox: DockerShellSandboxConfig | undefined,
   workspace: string | undefined,
   configDirectory: string,
-): Promise<{ workspaceRoot: string | null; shellSandbox: DockerShellSandboxConfig | null }> {
+): Promise<{ directory: string | null; shellSandbox: DockerShellSandboxConfig | null }> {
   if (sandbox === undefined) {
-    return { workspaceRoot: null, shellSandbox: null };
+    return { directory: null, shellSandbox: null };
   }
-  const workspaceRoot = await resolveSandboxWorkspace(workspace, configDirectory);
+  const directory = await resolveSandboxWorkspace(workspace, configDirectory);
   const readablePaths = await Promise.all(
-    sandbox.readablePaths.map((path) => normalizeSandboxPath(workspaceRoot, path, false)),
+    sandbox.readablePaths.map((path) => normalizeSandboxPath(directory, path, false)),
   );
   const writablePaths = await Promise.all(
-    sandbox.writablePaths.map((path) => normalizeSandboxPath(workspaceRoot, path, true)),
+    sandbox.writablePaths.map((path) => normalizeSandboxPath(directory, path, true)),
   );
   return {
-    workspaceRoot,
+    directory,
     shellSandbox: {
       backend: "docker",
       image: sandbox.image,
@@ -510,8 +511,8 @@ async function resolveConfiguredMode(
           config.workspace,
           dirname(absoluteConfigPath),
         );
-  const workspaceRoot =
-    sandboxResolution?.workspaceRoot ??
+  const authorizedDirectory =
+    sandboxResolution?.directory ??
     (config.workspace === undefined
       ? null
       : await resolveWorkspace(config.workspace, dirname(absoluteConfigPath)));
@@ -519,19 +520,19 @@ async function resolveConfiguredMode(
   let computer: ComputerConfig | undefined;
   if (enabled.computer) {
     const executable = await realpath(config.modules.computer!.executable!);
-    if (workspaceRoot !== null && isPathWithin(workspaceRoot, executable)) {
+    if (authorizedDirectory !== null && isPathWithin(authorizedDirectory, executable)) {
       throw new Error("Computer driver executable must be outside the workspace");
     }
     computer = { ...config.modules.computer!, executable };
   }
   const fileAuthorizations = normalizeFileAuthorizations(
     config.fileAuthorizations,
-    workspaceRoot,
+    authorizedDirectory,
     enabled,
   );
   if (config.telegramAutonomy || config.desktopAutonomy || fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || memoryWritePolicy === "automatic" || config.automation !== undefined) {
     const configRealPath = await realpath(absoluteConfigPath);
-    if (workspaceRoot !== null && isPathWithin(workspaceRoot, configRealPath)) {
+    if (authorizedDirectory !== null && isPathWithin(authorizedDirectory, configRealPath)) {
       throw new Error(
         "TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace",
       );
@@ -540,17 +541,18 @@ async function resolveConfiguredMode(
   // v2: automatic writes are the default when consolidation is on, but only for a
   // config outside the workspace (same trust boundary as an explicit "automatic").
   if (explicitWritePolicy === undefined && enabled.memory && autoConsolidate &&
-    (workspaceRoot === null || !isPathWithin(workspaceRoot, await realpath(absoluteConfigPath)))) {
+    (authorizedDirectory === null || !isPathWithin(authorizedDirectory, await realpath(absoluteConfigPath)))) {
     memoryWritePolicy = "automatic";
   }
   const todoistTimeZone = resolveConfiguredTodoistTimeZone(enabled.todoist, config.modules.todoist);
 
   return {
-    ...(config.telegramAutonomy?.workspaceRoot === workspaceRoot ? { telegramAutonomy: config.telegramAutonomy } : {}),
-    ...(config.desktopAutonomy && config.desktopAutonomy.workspaceRoot === workspaceRoot
-      ? { desktopAutonomy: { workspaceRoot } } : {}),
+    ...(config.telegramAutonomy?.workspaceRoot === authorizedDirectory ? { telegramAutonomy: { directory: authorizedDirectory, botId: config.telegramAutonomy.botId, userId: config.telegramAutonomy.userId, chatId: config.telegramAutonomy.chatId, threadId: config.telegramAutonomy.threadId } } : {}),
+    ...(config.desktopAutonomy && config.desktopAutonomy.workspaceRoot === authorizedDirectory
+      ? { desktopAutonomy: { directory: authorizedDirectory } } : {}),
     configPath: absoluteConfigPath,
-    workspaceRoot,
+    workspaceRoot: authorizedDirectory,
+    authorizedDirectory,
     enabled,
     webSearchEnabled,
     webFeedEnabled,
@@ -602,6 +604,7 @@ async function resolveLegacyMode(
   return {
     configPath: null,
     workspaceRoot,
+    authorizedDirectory: workspaceRoot,
     enabled,
     webSearchEnabled: false,
     webFeedEnabled: false,

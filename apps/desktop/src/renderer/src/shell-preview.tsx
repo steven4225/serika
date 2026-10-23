@@ -38,7 +38,7 @@ const snapshot: UiSnapshot = { state: { kind: "idle" }, canSubmit: true, canStee
   toolActivity: [], lastPrimaryResult: null, resultTextTruncated: false, shellProgress: [] };
 let infoPatch: Partial<AppInfo> = {};
 const info = (): AppInfo => ({ entryMode: "test", configPath: "/preview/config.json", threadId,
-  directory: "/preview/transcripts", workspaceRoot: "/preview/Serika", modelAlias: "mock", modelId: "界面示例（不调用模型）",
+  directory: "/preview/transcripts", workspaceRoot: "/preview/Serika", authorizedDirectory: "/preview/Serika", modelAlias: "mock", modelId: "界面示例（不调用模型）",
   temporaryThread: false, temporaryDirectory: false, identitySource: "saved", computer: { enabled: false, allowedBundleIds: [] },
   tuiMode: true, commands: [], hasResume: false, totalTimeoutMs: 600000, shellTimeoutMs: 300000,
   memory: { enabled: true, autoConsolidate: true }, workTasks: false,

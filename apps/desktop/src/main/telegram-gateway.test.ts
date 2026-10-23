@@ -1251,7 +1251,7 @@ it("TG grant survives host restart but never authorizes a changed bot/user/chat/
     await f.bind(); const owner = f.store.snapshot().owner!;
     await f.host.setTelegramAutonomyEnabled({ enabled: true, expectedEnabled: false, expectedOwner: { userId: owner.userId, chatId: owner.chatId, threadId: owner.threadId } });
     const binding = f.gateway.autonomyBinding()!;
-    for (const key of ["botId", "userId", "chatId", "threadId", "workspaceRoot"] as const) {
+    for (const key of ["botId", "userId", "chatId", "threadId", "directory"] as const) {
       assert.equal(f.gateway.matchesAutonomyGrant({ ...binding, [key]: typeof binding[key] === "number" ? 99 : "foreign" }), false);
     }
     await f.gateway.receive(update(2, "执行长命令"));
