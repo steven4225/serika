@@ -364,6 +364,7 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
     },
     receive: message => update(receiveMessage(current, message)),
     applySnapshot(snapshot) {
+      const sameRun = snapshot.state.kind === "running" && snapshot.state.phase === "primary" && snapshot.state.runId !== null && snapshot.state.runId === latestPrimaryId;
       shellBuffer.clear();
       for (const chunk of snapshot.shellProgress) shellBuffer.apply(chunk);
       const activePrimary = snapshot.state.kind === "running" && snapshot.state.phase === "primary";
@@ -378,7 +379,7 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
         canSteer: snapshot.canSteer,
         steers: snapshot.steers,
         lastResult: !activePrimary && snapshot.lastPrimaryResult ? resultRow(snapshot.lastPrimaryResult) : null,
-        live: !activePrimary ? emptyLiveRun : {
+        live: !activePrimary ? emptyLiveRun : sameRun ? current.live : {
           rows: overlayShellProgress(rowsFromToolActivity(snapshot.toolActivity, latestPrimaryId ?? undefined), shellBuffer),
           streaming: "",
         },
@@ -505,7 +506,36 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
         host.openTaskResult(route);
       };
 
+      let generation = 0;
+      let readyToRefresh = false;
+      let pending: Promise<UiSnapshot | null> | undefined;
+      const refreshSnapshot = (recover = false): Promise<UiSnapshot | null> => {
+        if (pending) return pending;
+        const expected = generation;
+        pending = (async () => {
+          const snapshot = await bridge().snapshot();
+          if (cancelled() || generation !== expected) return null;
+          const recoveredIdle = recover && snapshot.state.kind === "idle" &&
+            (current.state.kind !== "idle" || snapshot.lastPrimaryResult?.runId !== (latestPrimaryId ?? undefined));
+          store.applySnapshot(snapshot);
+          if (recoveredIdle) {
+            patch({ memoryRefresh: current.memoryRefresh + 1, contextRefresh: current.contextRefresh + 1, taskRefresh: current.taskRefresh + 1 });
+            await Promise.all([store.reloadHistory(), store.reloadOpenRecords(), ...(snapshot.lastPrimaryResult ? [store.loadFinalRun(snapshot.lastPrimaryResult.runId)] : [])]);
+          }
+          return snapshot;
+        })().finally(() => { pending = undefined; });
+        return pending;
+      };
+      const refreshVisible = () => {
+        if (readyToRefresh && document.visibilityState === "visible") void refreshSnapshot(true).catch(cause => { if (!cancelled()) onError(`助手状态同步失败：${String(cause)}`); });
+      };
+      if (typeof window !== "undefined") {
+        window.addEventListener("focus", refreshVisible);
+        document.addEventListener("visibilitychange", refreshVisible);
+      }
+      const refreshTimer = typeof window === "undefined" ? undefined : setInterval(() => { if (current.state.kind !== "idle") refreshVisible(); }, 1000);
       const onMessage = (message: MainToRenderer): void => {
+        generation += 1;
         store.receive(message);
         switch (message.type) {
           case "task-result-available":
@@ -514,7 +544,10 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
           case "identity-changed":
             return; // The outer App remounts this view for the new controller.
           case "state":
-            store.onRunState(message.state, cancelled);
+            {
+              const observed = generation;
+              store.onRunState(message.state, () => cancelled() || generation !== observed);
+            }
             if (message.state.kind === "idle") {
               void store.reloadHistory().catch((cause: unknown) => onError(String(cause)));
               void store.reloadOpenRecords().catch((cause: unknown) => onError(String(cause)));
@@ -567,7 +600,15 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
 
       void (async () => {
         try {
-          stopMessages = bridge().onMessage(onMessage);
+          const unsubscribe = bridge().onMessage(onMessage);
+          stopMessages = () => {
+            unsubscribe();
+            if (refreshTimer !== undefined) clearInterval(refreshTimer);
+            if (typeof window !== "undefined") {
+              window.removeEventListener("focus", refreshVisible);
+              document.removeEventListener("visibilitychange", refreshVisible);
+            }
+          };
           const nextInfo = await bridge().info();
           if (cancelled()) return;
           store.setInfo(nextInfo);
@@ -581,21 +622,18 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
           }
           if (nextInfo.runtimeRecovery) { onError(nextInfo.runtimeRecovery.message); return; }
           await openNotificationResult();
-          const first = await bridge().snapshot();
+          readyToRefresh = true;
+          await refreshSnapshot();
           if (cancelled()) return;
-          store.applySnapshot(first);
-          const second = await bridge().snapshot();
+          const second = await refreshSnapshot();
           if (cancelled()) return;
-          store.applySnapshot(second);
-          if (second.lastPrimaryResult && !(second.state.kind === "running" && second.state.phase === "primary")) {
+          if (second?.lastPrimaryResult && !(second.state.kind === "running" && second.state.phase === "primary")) {
             await store.loadFinalRun(second.lastPrimaryResult.runId);
           }
           await store.reloadHistory();
           // History waits for receipt recovery; only now is the restart Steer state authoritative.
-          const recovered = await bridge().snapshot();
+          await refreshSnapshot();
           if (cancelled()) return;
-          store.replaceSteers(recovered.steers);
-          store.setCanSteer(recovered.canSteer);
           await store.loadRecords();
           const homeResult = await bridge().home();
           if (!homeResult.ok && homeResult.reason !== "busy" && !cancelled()) onError(commandError(homeResult));

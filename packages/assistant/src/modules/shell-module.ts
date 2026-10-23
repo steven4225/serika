@@ -493,7 +493,7 @@ export function createShellModule(
         tool: createShellExecTool(workspaceRoot, options),
       }, shellPermission(options.sandbox));
       context.addInstructions(options.sandbox !== undefined ? SHELL_DOCKER_INSTRUCTIONS
-        : options.seatbelt ? run => run.autonomous && run.entry === "desktop" ? SEATBELT_INSTRUCTIONS + " " : SHELL_HOST_INSTRUCTIONS : SHELL_HOST_INSTRUCTIONS);
+        : options.seatbelt ? run => run.autonomous && (run.entry === "desktop" || run.entry === "telegram") ? SEATBELT_INSTRUCTIONS + " " : SHELL_HOST_INSTRUCTIONS : SHELL_HOST_INSTRUCTIONS);
     },
   };
 }

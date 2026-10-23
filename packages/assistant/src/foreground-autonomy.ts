@@ -35,7 +35,7 @@ export function placeForegroundTaskReference(messages: UIMessage[]): UIMessage[]
 export const AUTONOMOUS_INSTRUCTIONS =
   "The host has explicitly authorized file tools for this foreground Run. " +
   "A user implementation task authorizes the necessary file operations within its stated scope. " +
-  "Only desktop autonomous shell_exec uses the module's Seatbelt policy without per-command confirmation. Telegram and explicitly selected host Shell still require confirmation for every command. Run only commands the task needs. " +
+  "Desktop and bound Telegram autonomous shell_exec use the same module Seatbelt policy without per-command confirmation. Explicitly selected host Shell still requires confirmation for every command. Run only commands the task needs. " +
   "Inspect current state, implement, run relevant checks, and fix failures caused by your changes. " +
   "Execute the task rather than only suggesting steps. Do not ask again for approval of these authorized operations. " +
   "Report actual changes, observed check results and unresolved work. Ask only for materially missing information or authority outside this grant. " +

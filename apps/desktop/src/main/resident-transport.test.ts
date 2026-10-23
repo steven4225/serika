@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { chmod, lstat, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { createConnection } from "node:net";
+import { createConnection, createServer } from "node:net";
 import { join } from "node:path";
 import { it, mock } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { DesktopRuntime } from "./desktop-runtime.js";
-import { ResidentClient, createResidentPaths, readResidentCredentials, startResidentServer } from "./resident-transport.js";
+import { ResidentClient, createResidentPaths, prepareResidentCredentials, readResidentCredentials, startResidentServer } from "./resident-transport.js";
 import { historyPage, type HistoryPageInput } from "../shared/history.js";
 
 it("history larger than one frame crosses the real socket without disconnecting, and page reads are bounded", async t => {
@@ -221,4 +221,37 @@ it("memory folder and document operations cross the real resident socket and sur
     const forged = await client.current.changeMemoryLibrary({ operation: "save-document", id: randomUUID(), title: "forged", folderId: null, text: "no scope authority", entries: [], expectedRevision: view.value.revision, scope: { kind: "workspace" } } as Parameters<typeof client.current.changeMemoryLibrary>[0]);
     assert.equal(forged.ok ? null : forged.error.code, "INVALID_INPUT");
   } finally { client.detach(); await f.cleanup(); }
+});
+
+it("a stale resident response cannot replace a newer event, while its request still resolves", async () => {
+  const f = await fixture();
+  const paths = createResidentPaths(join(f.root, "race"));
+  await prepareResidentCredentials(paths);
+  const state = { revision: 0, info: f.server.runtime.info(), snapshot: f.server.runtime.current.snapshot() };
+  const received: string[] = [];
+  const server = createServer(socket => {
+    socket.on("error", () => {});
+    let buffered = "";
+    socket.on("data", data => {
+      buffered += data.toString();
+      let end: number;
+      while ((end = buffered.indexOf("\n")) >= 0) {
+        const request = JSON.parse(buffered.slice(0, end)); buffered = buffered.slice(end + 1);
+        if (request.type === "hello") socket.write(JSON.stringify({ type: "ready", state }) + "\n");
+        else {
+          const newer = { ...state, revision: 2, snapshot: { ...state.snapshot, recentOutput: "new stream" } };
+          socket.write(JSON.stringify({ type: "event", state: newer, message: { type: "output", text: "new stream" } }) + "\n");
+          socket.write(JSON.stringify({ type: "response", id: request.id, ok: true, value: null, state: { ...state, revision: 1 } }) + "\n");
+          socket.write(JSON.stringify({ type: "event", state: { ...state, revision: 1 }, message: { type: "output", text: "stale" } }) + "\n");
+        }
+      }
+    });
+  });
+  await new Promise<void>(done => server.listen(paths.socket, done));
+  const client = await ResidentClient.connect({ paths, scope: f.scope, send: message => { if (message.type === "output") received.push(message.text); } });
+  try {
+    await client.refresh();
+    assert.equal(client.snapshot().recentOutput, "new stream");
+    assert.deepEqual(received, ["new stream"]);
+  } finally { client.detach(); await new Promise<void>((done, reject) => server.close(error => error ? reject(error) : done())); await f.cleanup(); }
 });

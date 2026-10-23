@@ -497,19 +497,13 @@
     ]
   },
   "telegram/shell_exec": {
-    "approvals": [
-      {
-        "tool": "shell_exec",
-        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
-        "remember": null
-      }
-    ],
+    "approvals": [],
     "status": "completed",
     "events": [
       {
-        "type": "tool.call.failed",
-        "ok": null,
-        "code": "TOOL_DENIED"
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
       }
     ]
   },

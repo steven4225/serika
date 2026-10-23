@@ -79,9 +79,10 @@ export class DesktopRuntime {
     await this.#replace(async () => {
       const binding = this.#telegram?.autonomyBinding();
       if (!binding || binding.directory !== this.#bridge.info().authorizedDirectory) throw new Error("请先连接并核对当前工作区的 Telegram 私聊绑定");
-      undo = await changeTelegramAutonomySetting(this.#identity.configPath, input, this.#options.cwd, binding, this.#bridge.telegramAutonomyEnabled());
+      undo = await changeTelegramAutonomySetting({ configPath: this.#identity.configPath, input, cwd: this.#options.cwd, binding, state: { enabled: this.#bridge.telegramAutonomyEnabled(), paused: this.#telegram?.autonomyPaused === true } });
       return this.#identity;
     }, false, { rollback: async () => { await undo?.(); } });
+    if (input.enabled) await this.#telegram?.setAutonomyPaused(false);
     return this.telegramStatus();
   }
   setTelegramEnabled(enabled: boolean) { if (!this.#telegram) throw new Error("请先启用常驻助手"); return this.#telegram.setEnabled(enabled); }

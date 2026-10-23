@@ -679,7 +679,7 @@ const startupHarness = (overrides: Partial<Record<string, unknown>> = {}) => {
     onMessage: (listener: (message: MainToRenderer) => void) => { calls.push("onMessage"); listeners.add(listener); return () => { calls.push("unsubscribe"); listeners.delete(listener); }; },
     info: answer("info"), loadConversationDraft: answer("loadConversationDraft"), takeTaskResultOpen: answer("takeTaskResultOpen"),
     snapshot: answer("snapshot"), historyPage: answer("historyPage"), listRuns: answer("listRuns"), home: answer("home"),
-    getRun: async (runId: string) => { calls.push(`getRun:${runId}`); return { ok: true, run: null }; },
+    getRun: async (runId: string) => { calls.push(`getRun:${runId}`); return answers.getRun ?? { ok: true, run: null }; },
   } as unknown as RuntimeBridge;
   const store = createRuntimeStore({ bridge: () => bridge });
   recordErrors(store, errors);
@@ -691,7 +691,7 @@ const startupHarness = (overrides: Partial<Record<string, unknown>> = {}) => {
     settleSentAttachments: (result: RunResult) => { host.push(`settle:${result.runId}`); },
   };
   const send = (message: MainToRenderer) => { for (const listener of [...listeners]) listener(message); };
-  return { store, calls, errors, host, hostApi, send, listeners };
+  return { store, calls, errors, host, hostApi, send, listeners, answers };
 };
 const settle = async () => { for (let index = 0; index < 20; index += 1) await flush(); };
 
@@ -808,4 +808,55 @@ test("refreshAutomation: each call bumps automationRefresh once and notifies onc
   store.receive({ type: "state", state: { kind: "idle" } });
   store.receive({ type: "work-task-updated" } as MainToRenderer);
   assert.equal(store.getState().automationRefresh, 2);
+});
+
+test("startup snapshots cannot overwrite a Run that began while the read was pending, or erase its stream", async () => {
+  let release!: (snapshot: UiSnapshot) => void;
+  const delayed = new Promise<UiSnapshot>(done => { release = done; });
+  const f = startupHarness({ snapshot: delayed });
+  f.store.start(f.hostApi);
+  await settle();
+  f.answers.snapshot = snapshotOf({ state: running, canSteer: true });
+  f.send({ type: "state", state: running });
+  f.send({ type: "event", phase: "primary", event: { type: "message.delta", runId: "run-1", sequence: 1, occurredAt: "2026-01-01T00:00:00Z", data: { text: "实时回复" } } });
+  release(snapshotOf({ recentOutput: "old idle" }));
+  await settle();
+  assert.deepEqual(f.store.getState().state, running);
+  assert.equal(f.store.getState().live.streaming, "实时回复");
+  assert.notEqual(f.store.getState().output, "old idle");
+  assert.deepEqual(f.errors, []);
+  f.store.dispose();
+});
+
+test("focus recovers a missed idle result and visibility refreshes the same resident snapshot", async () => {
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  const windowEvents = new EventTarget();
+  const documentEvents = Object.assign(new EventTarget(), { visibilityState: "visible" });
+  Object.defineProperty(globalThis, "window", { configurable: true, value: windowEvents });
+  Object.defineProperty(globalThis, "document", { configurable: true, value: documentEvents });
+  const f = startupHarness({ snapshot: snapshotOf({ state: running }), getRun: { ok: true, run: record("run-1") } });
+  try {
+    f.store.start(f.hostApi);
+    await settle();
+    f.answers.snapshot = snapshotOf({ lastPrimaryResult: result("run-1") });
+    windowEvents.dispatchEvent(new Event("focus"));
+    await settle();
+    assert.equal(f.store.getState().state.kind, "idle");
+    assert.equal(f.store.latestCompletedPrimaryId(), "run-1");
+    assert.equal(f.calls.filter(call => call === "historyPage").length, 2);
+    const reads = f.calls.filter(call => call === "snapshot").length;
+    documentEvents.dispatchEvent(new Event("visibilitychange"));
+    await settle();
+    assert.equal(f.calls.filter(call => call === "snapshot").length, reads + 1);
+    assert.deepEqual(f.errors, []);
+    f.store.dispose();
+    windowEvents.dispatchEvent(new Event("focus"));
+    await settle();
+    assert.equal(f.calls.filter(call => call === "snapshot").length, reads + 1);
+  } finally {
+    f.store.dispose();
+    if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow); else Reflect.deleteProperty(globalThis, "window");
+    if (previousDocument) Object.defineProperty(globalThis, "document", previousDocument); else Reflect.deleteProperty(globalThis, "document");
+  }
 });

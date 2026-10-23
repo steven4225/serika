@@ -12,6 +12,8 @@ export interface TelegramInbound {
   key: string; updateId: number; text: string;
   /** Host receipt clock. Legacy records may omit it; never invent it on read. */
   receivedAt?: string;
+  /** Persisted before dispatch; execution receipts own the correction outcome. */
+  steerId?: string;
   /** Button identity, persisted before control dispatch. Never restored as authorization. */
   callback?: { id: string; messageId: number };
   /** Program-generated reminder receipts, not model success claims. */
@@ -39,7 +41,8 @@ export interface TelegramTaskRoute {
   scanBefore?: { createdAt: string; id: string };
 }
 export interface TelegramData {
-  version: 1 | 2; workspace: string; enabled: boolean; botId: number | null; offset: number;
+  version: 1 | 2 | 3; workspace: string; enabled: boolean; botId: number | null; offset: number;
+  autonomyPaused?: boolean;
   owner: TelegramStatus["owner"]; inputs: TelegramInbound[]; deliveries: TelegramDelivery[];
   routes: TelegramTaskRoute[];
 }
@@ -53,12 +56,14 @@ export function telegramCapacity(data: TelegramData): NonNullable<TelegramStatus
 }
 function valid(data: TelegramData, workspace: string) {
   const positive = (n: unknown) => Number.isSafeInteger(n) && (n as number) > 0;
-  return [1, 2].includes(data?.version) && data.workspace === workspace && typeof data.enabled === "boolean" &&
+  return [1, 2, 3].includes(data?.version) && data.workspace === workspace && typeof data.enabled === "boolean" &&
+    (data.autonomyPaused === undefined || data.version === 3 && typeof data.autonomyPaused === "boolean") &&
     (data.botId === null || positive(data.botId)) && Number.isSafeInteger(data.offset) && data.offset >= 0 &&
     (data.owner === null || (positive(data.owner.userId) && positive(data.owner.chatId) && typeof data.owner.name === "string" && typeof data.owner.threadId === "string" && !!data.owner.threadId)) &&
     Array.isArray(data.inputs) && data.inputs.length <= TELEGRAM_INPUT_LIMIT && new Set(data.inputs.map(x => x.key)).size === data.inputs.length && data.inputs.every(x =>
       typeof x.key === "string" && typeof x.text === "string" && x.text.length <= 16_384 && positive(x.updateId + 1) &&
       (x.receivedAt === undefined || typeof x.receivedAt === "string" && /\+08:00$/.test(x.receivedAt) && Number.isFinite(Date.parse(x.receivedAt))) &&
+      (x.steerId === undefined || data.version === 3 && x.steerId === `tg:${x.key}` && typeof x.runId === "string" && !!x.runId) &&
       (x.callback === undefined || typeof x.callback.id === "string" && x.callback.id.length > 0 && x.callback.id.length <= 256 && positive(x.callback.messageId)) &&
       (x.reminderReceipts === undefined || Array.isArray(x.reminderReceipts) && x.reminderReceipts.length <= EXECUTION_RECORD_MAX_TOOLS &&
         new Set(x.reminderReceipts.map(receipt => receipt.toolCallId)).size === x.reminderReceipts.length &&
@@ -72,7 +77,7 @@ function valid(data: TelegramData, workspace: string) {
       (x.keyboard === undefined || x.key.startsWith("approval:") && Array.isArray(x.keyboard.inline_keyboard) && x.keyboard.inline_keyboard.length === 1 &&
         x.keyboard.inline_keyboard.every(row => Array.isArray(row) && row.length === 2 && row.every(button => typeof button.text === "string" && button.text.length > 0 && button.text.length <= 32 &&
           typeof button.callback_data === "string" && /^(allow|deny):[A-F0-9]{10}$/.test(button.callback_data)))) &&
-      (x.parts === undefined || data.version === 2 && Array.isArray(x.parts) && x.parts.length > 0 && x.parts.length <= 128 &&
+      (x.parts === undefined || data.version >= 2 && Array.isArray(x.parts) && x.parts.length > 0 && x.parts.length <= 128 &&
         x.parts.every((part, i) => typeof part.text === "string" && part.text.length > 0 && part.text.length <= 4096 &&
           ["pending", "sending", "submitted", "failed", "unknown"].includes(part.state) &&
           (part.state === "submitted" ? positive(part.messageId) : part.messageId === null) &&
@@ -201,7 +206,8 @@ export class TelegramStore {
       if (this.#failed) throw new Error("Telegram 保存未确认，已停止接收；请重启后核对，不会自动重做任务。");
       const next = this.snapshot(); change(next);
       // Old binaries must reject multipart journals, not resend a partly delivered body as one message.
-      if (next.deliveries.some(x => x.parts)) next.version = 2;
+      if (next.autonomyPaused !== undefined || next.inputs.some(x => x.steerId)) next.version = 3;
+      else if (next.deliveries.some(x => x.parts)) next.version = 2;
       try { await this.#retain(next); }
       catch { this.#failed = true; throw new Error("Telegram 归档保存未确认，已停止接收；既有活动记录与接收位置未改变，请重启后核对。"); }
       if (!valid(next, this.workspace)) throw new Error("Telegram 记录无效或已满；未丢弃既有记录。");

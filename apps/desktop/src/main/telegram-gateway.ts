@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import type { DesktopRuntime } from "./desktop-runtime.js";
 import { TelegramApiError, type TelegramApi, type TelegramUpdate, type TelegramKeyboard } from "./telegram-api.js";
@@ -32,6 +32,13 @@ export class TelegramGateway {
   #remove: () => void;
   #activeKey: string | undefined;
   #settings = false;
+  #pausing = false;
+  get autonomyPaused() { return this.#pausing || this.store.snapshot().autonomyPaused === true; }
+  async setAutonomyPaused(paused: boolean) {
+    if (paused) this.#pausing = true;
+    await this.store.update(data => { data.autonomyPaused = paused; });
+    this.#pausing = false;
+  }
   constructor(private host: Host, readonly store: TelegramStore, private api: TelegramApi | undefined, private now = Date.now) {
     this.#remove = host.channelSubscribe(message => {
       // Capture association now, before a later Thread switch changes the selected runtime.
@@ -45,6 +52,10 @@ export class TelegramGateway {
       if (!source?.runId) return;
       if (message.type === "event" && message.phase === "primary" && message.event.runId === source.runId) {
         const event = message.event;
+        if (event.type === "run.steer.not_applied") {
+          const correction = this.store.snapshot().inputs.find(item => item.runId === source.runId && item.steerId === event.data.id);
+          if (correction) this.#queue(async () => { await this.#reply(`input:${correction.key}`, this.store.snapshot().owner!.chatId, "本轮未应用这条补充；请查看桌面执行记录。"); });
+        }
         if (event.type === "tool.call.requested" && ["task_create", "task_repeat_create"].includes(event.data.toolName)) {
           const input = event.data.input as { arrangement?: { kind?: unknown } } | null;
           if (input?.arrangement?.kind === "reminder") this.#queue(() => this.#reminderReceipt(source, event.data.toolCallId));
@@ -87,11 +98,11 @@ export class TelegramGateway {
   }
   matchesAutonomyGrant(grant: import("@serika/assistant").TelegramAutonomyGrant) {
     const binding = this.autonomyBinding();
-    return !!binding && Object.keys(binding).every(key => binding[key as keyof typeof binding] === grant[key as keyof typeof grant]);
+    return !this.autonomyPaused && !!binding && Object.keys(binding).every(key => binding[key as keyof typeof binding] === grant[key as keyof typeof grant]);
   }
   status(): TelegramStatus {
     const data = this.store.snapshot();
-    return { autonomyEnabled: this.host.channelTelegramAutonomyEnabled(), available: true, tokenConfigured: !!this.api, enabled: data.enabled, connection: this.#connection, botUsername: this.#botUsername,
+    return { autonomyEnabled: this.host.channelTelegramAutonomyEnabled(), autonomyPaused: this.autonomyPaused, available: true, tokenConfigured: !!this.api, enabled: data.enabled, connection: this.#connection, botUsername: this.#botUsername,
       owner: data.owner, pairing: this.#pairing && Date.parse(this.#pairing.expiresAt) > this.now() ? structuredClone(this.#pairing) : null,
       lastError: this.#error ?? this.#deliveryError, awaitingReview: data.inputs.filter(x => x.state === "unknown").length,
       failedDeliveries: data.deliveries.filter(x => x.state === "failed").length, unknownDeliveries: data.deliveries.filter(x => x.state === "unknown" && !x.reviewReport).length,
@@ -285,7 +296,7 @@ export class TelegramGateway {
         data.owner = { ...pairing.proposed!, threadId: thread.threadId };
       });
       this.#pairing = null;
-      await this.#reply(`binding:${thread.threadId}`, pairing.proposed.chatId, "已绑定当前工作区。直接发消息提问；任务用“任务：目标”，工具仍逐次确认。调整：新方向；停止。需要核对未知效果时回桌面处理。");
+      await this.#reply(`binding:${thread.threadId}`, pairing.proposed.chatId, "已绑定当前工作区。直接发消息提问；任务用“任务：目标”，工具仍逐次确认。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。");
       return this.status();
     } finally { this.#settings = false; }
   }
@@ -440,16 +451,27 @@ export class TelegramGateway {
       return reject(accepted ? "已处理这一次确认，不适用于后续操作。" : "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。");
     }
     if (/^(允许|拒绝)(?:[\s:：A-Za-z0-9]|$)/.test(text)) return reject("请点当前确认下的按钮，或完整发送“允许 短码 / 拒绝 短码”；发送 /confirm 可刷新确认。");
-    if (text === "停止") {
-      if (!this.#ownedRunning()) return reject("没有属于 Telegram 的当前执行；未停止其他对话。");
-      await this.host.current.cancel();
-      return reject("已请求停止。已经发生的操作不会撤销；实际结果见回执。");
+    if (text === "停止" || text === "/stop") {
+      const running = this.#ownedRunning();
+      this.#pausing = true;
+      const cancellation = running ? this.host.current.cancel() : Promise.resolve();
+      await Promise.all([this.setAutonomyPaused(true), cancellation]);
+      return reject("已暂停这个私聊的免确认，并请求停止当前执行。已经发生的操作不会撤销；实际结果见回执。发送“恢复自主执行”可恢复原有授权。");
+    }
+    if (text === "恢复自主执行" || text === "/autonomy_resume") {
+      if (this.host.channelSnapshot().snapshot.state.kind !== "idle") return reject("请等待当前执行结束后再恢复自主执行。");
+      await this.setAutonomyPaused(false);
+      return reject(this.host.channelTelegramAutonomyEnabled()
+        ? "已恢复这个私聊的原有自主授权：文件和 Seatbelt 内命令免逐条确认，其他操作仍需确认。"
+        : "已解除暂停，但当前绑定没有有效自主授权；请在桌面明确授权。工具仍需确认。");
+    }
+    if (this.#ownedRunning()?.current.snapshot.pendingApproval && /^(?:可以|好|好的|行|同意|确认|yes|y|ok)[。.!！]?$/i.test(text)) {
+      return reject("请点当前确认卡的按钮，或发送“允许 短码 / 拒绝 短码”；本条没有批准或调整任何操作。");
     }
     if (/^调整[:：]/.test(text)) {
       const running = this.#ownedRunning();
       if (!running) return reject("没有可调整的 Telegram 执行；未改动其他对话。");
-      const result = await this.host.current.steer({ id: randomUUID(), expectedRunId: running.source.runId!, text: text.replace(/^调整[:：]/, "").trim() });
-      return reject(result.ok ? "调整已收到，会在安全边界应用；不是新增授权。" : "当前调整未接收，请在桌面查看执行状态。");
+      return this.#acceptCorrection({ input, source: running.source, text: text.replace(/^调整[:：]/, "").trim() });
     }
     if (text === "/capabilities") {
       const info = this.host.channelSnapshot().info;
@@ -457,16 +479,16 @@ export class TelegramGateway {
       const status = info.capabilities;
       const enabled = this.host.channelTelegramAutonomyEnabled();
       const channelStatus = status ? { ...status, shell: { ...status.shell, authority: enabled ? "explicit_workspace_telegram_primary; no background inheritance" : "current_run_only",
-        warning: enabled ? "当前绑定私聊已授权文件操作连续执行；本机命令和其他工具仍需确认。Shell 使用进程本机权限，工作区不是系统沙箱。" : status.shell.mode === "docker" ? "沿用配置的挂载与网络限制；工具仍需确认。" : "当前私聊未授权自主执行，文件和本机命令仍需确认。" } } : undefined;
+        warning: enabled ? "当前绑定私聊的文件操作及 Seatbelt 内命令免逐条确认；默认断网、不可用时拒绝执行。本机联网命令及其他工具仍逐条确认。" : status.shell.mode === "docker" ? "沿用配置的挂载与网络限制；工具仍需确认。" : "当前私聊未授权自主执行，文件和本机命令仍需确认。" } } : undefined;
       return reject(channelStatus ? formatCapabilityStatus(channelStatus) : "当前连接未提供能力状态；无法据此判断已注册或可用。");
     }
-    if (text === "/start" || text === "/help") return reject("直接提问或说“几分钟后提醒我…”；点确认卡下的按钮即可批准或取消。备用：允许 短码 / 拒绝 短码。/confirm 刷新当前确认，/details 查看详情，/capabilities 查看真实能力状态。调整：新方向；停止。工作任务用“任务：目标 → 开始 短码”。");
+    if (text === "/start" || text === "/help") return reject("直接提问或说“几分钟后提醒我…”；点确认卡下的按钮即可批准或取消。备用：允许 短码 / 拒绝 短码。/confirm 刷新当前确认，/details 查看详情，/capabilities 查看真实能力状态。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。工作任务用“任务：目标 → 开始 短码”。");
     if (/^(?:任务[:：]|\/task\s)/.test(text)) {
       const goal = text.replace(/^(?:任务[:：]|\/task\s)/, "").trim();
       if (!goal || goal.length > 8000) return reject("请用 1–8000 字说明任务目标。");
       if (this.#activeKey || this.host.channelSnapshot().snapshot.state.kind !== "idle") return reject("助手正在处理，请结束后再交办；没有排队或启动任务。");
       this.#taskProposal = { goal, code: code(), expires: this.now() + 5 * 60_000 };
-      return reject(`任务目标：${goal}\n验收由你确认，不会让模型给自己通过。\n发送“开始 ${this.#taskProposal.code}”创建并执行；${this.host.channelTelegramAutonomyEnabled() ? "文件操作已授权连续执行，随时发送“停止”。本机命令和其他工具仍需批准。" : "工具操作需另行批准，可在桌面 Telegram 设置中开启独立自主执行授权。"}`);
+      return reject(`任务目标：${goal}\n验收由你确认，不会让模型给自己通过。\n发送“开始 ${this.#taskProposal.code}”创建并执行；${this.host.channelTelegramAutonomyEnabled() ? "文件和 Seatbelt 内命令已授权连续执行，默认断网。发送“停止”会取消执行并暂停免确认；“恢复自主执行”恢复原授权。其他工具仍需批准。" : "工具操作需另行批准，可在桌面 Telegram 设置中开启独立自主执行授权。"}`);
     }
     let task = false, goal = text;
     const begin = /^开始 ([A-F0-9]{10})$/.exec(text);
@@ -476,7 +498,11 @@ export class TelegramGateway {
       if (!proposal || proposal.code !== begin[1] || proposal.expires <= this.now()) return reject("任务预览已过期或已使用，请重新发送任务目标。");
       task = true; goal = proposal.goal;
     } else if (/^(?:开始\s|\/)/.test(text)) return reject("未识别的控制指令，未提交给模型。发送 /help 查看用法。");
-    if (this.#activeKey || this.host.channelSnapshot().snapshot.state.kind !== "idle") return reject("助手正在处理其他消息，请稍后再发；本条未排队、未调用模型。");
+    if (this.#activeKey || this.host.channelSnapshot().snapshot.state.kind !== "idle") {
+      const running = this.#ownedRunning();
+      if (running && !task) return this.#acceptCorrection({ input, source: running.source, text });
+      return reject("助手正在启动、收尾或处理其他消息；本条补充未接收、未排队，也未启动新一轮。");
+    }
     if (this.store.snapshot().inputs.some(x => x.state === "unknown")) return reject("此前 Telegram 执行效果待核对。请先回桌面检查；不会自动重做旧操作。");
     await this.store.update(data => { data.inputs.find(x => x.key === input.key)!.state = "reserved"; });
     this.#activeKey = input.key;
@@ -502,6 +528,29 @@ export class TelegramGateway {
       this.#activeKey = undefined;
     }
   }
+  async #acceptCorrection({ input, source, text }: { input: TelegramInbound; source: TelegramInbound; text: string }) {
+    const steerId = `tg:${input.key}`;
+    await this.store.update(data => {
+      const saved = data.inputs.find(item => item.key === input.key)!;
+      saved.state = "reserved"; saved.steerId = steerId; saved.runId = source.runId; saved.taskId = source.taskId;
+    });
+    let state: TelegramInbound["state"] = "unknown", notice: string | undefined;
+    try {
+      const result = await this.host.current.steer({ id: steerId, expectedRunId: source.runId!, text });
+      if (result.ok) {
+        state = "finished";
+        if (result.steer.status === "not_applied") notice = "本轮未应用这条补充；请查看桌面执行记录。";
+      } else {
+        state = result.reason === "failed" ? "unknown" : "rejected";
+        notice = result.reason === "failed" ? "补充接收结果未知；请查看桌面回执，不会自动重发。"
+          : result.reason === "limit" ? "本轮补充次数已到上限，本条未接收。"
+          : result.reason === "invalid" ? "补充为空或超过现有长度限制，本条未接收。"
+          : "当前执行未接收补充；请稍后重发。";
+      }
+    } catch { notice = "补充接收结果未知；请查看桌面回执，不会自动重发。"; }
+    await this.store.update(data => { data.inputs.find(item => item.key === input.key)!.state = state; });
+    if (notice) await this.#reply(`input:${input.key}`, this.store.snapshot().owner!.chatId, notice);
+  }
   async #publishApproval(source: TelegramInbound, approval: PendingApproval) {
     const running = this.#ownedRunning(), owner = this.store.snapshot().owner;
     if (!owner || running?.source.runId !== source.runId || running.current.snapshot.pendingApproval?.approvalId !== approval.approvalId) return;
@@ -522,6 +571,14 @@ export class TelegramGateway {
     if (!source.runId || !owner) return;
     await this.#discardStaleApprovals();
     const run = await this.host.channelReceipt(owner.threadId, source.runId);
+    if (source.steerId) {
+      const correction = run?.threadId === owner.threadId && run.runId === source.runId && run.phase === "primary" &&
+        (!source.taskId || run.workTaskId === source.taskId) ? run.steers?.find(item => item.id === source.steerId) : undefined;
+      if (!correction) return;
+      await this.store.update(data => { data.inputs.find(item => item.key === source.key)!.state = "finished"; });
+      if (correction.status === "not_applied") await this.#reply(`input:${source.key}`, owner.chatId, "本轮未应用这条补充；请查看桌面执行记录。");
+      return;
+    }
     if (!run || run.threadId !== owner.threadId || run.phase !== "primary" || run.runId !== source.runId || (source.taskId && run.workTaskId !== source.taskId) || run.status === "running") {
       await this.store.update(data => { data.inputs.find(x => x.key === source.key)!.state = "unknown"; });
       if (this.#activeKey === source.key) this.#activeKey = undefined;

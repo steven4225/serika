@@ -122,16 +122,18 @@ export async function startResidentServer(options: {
   let stopping = false, requestsInFlight = 0;
   let runtime: DesktopRuntime | undefined;
   let cached: ResidentState | undefined;
+  let revision = 0;
   const state = (): ResidentState => {
     if (!runtime) throw new Error("助手正在启动");
     if (stopping && cached) return cached;
     const info = runtime.info();
-    try { cached = { info, snapshot: runtime.current.snapshot() }; }
-    catch { if (cached) cached = { ...cached, info }; else throw new Error("助手尚未连接"); }
+    try { cached = { revision, info, snapshot: runtime.current.snapshot() }; }
+    catch { if (cached) cached = { ...cached, revision, info }; else throw new Error("助手尚未连接"); }
     return cached!;
   };
   const send: Send = message => {
     if (!runtime) return; // Initial assembly is recovered through the handshake snapshot.
+    revision += 1;
     const current = state();
     if (message.type === "state") current.snapshot = { ...current.snapshot, state: message.state };
     const safeMessage = message.type === "error" ? { ...message, message: safeError(new Error(message.message)) } : message;
@@ -171,7 +173,7 @@ export async function startResidentServer(options: {
           socket.write(JSON.stringify(response) + "\n", () => options.onStop?.());
         }, () => {
           const message = "助手服务未能正常停止，连接已不可用；正在退出以恢复服务，不会重做任务";
-          cached = { info: { ...cached!.info, runtimeRecovery: { state: "failed", message } }, snapshot: { ...cached!.snapshot, canSubmit: false, canSteer: false } };
+          cached = { revision, info: { ...cached!.info, runtimeRecovery: { state: "failed", message } }, snapshot: { ...cached!.snapshot, canSubmit: false, canSteer: false } };
           const response: ResidentServerFrame = { type: "response", id: request.id, ok: false, error: message, state: cached };
           // A partly disposed runtime must not receive new work or survive forever.
           socket.write(JSON.stringify(response) + "\n", () => options.onStop?.());
@@ -309,15 +311,22 @@ export class ResidentClient {
           }
           return;
         }
-        if (frame.type === "event") { this.#state = frame.state; this.#options.send(frame.message); }
+        if (frame.type === "event") {
+          if (this.#acceptState(frame.state)) this.#options.send(frame.message);
+        }
         else if (frame.type === "response") {
-          this.#state = frame.state;
+          this.#acceptState(frame.state);
           const request = this.#pending.get(frame.id); this.#pending.delete(frame.id);
           if (frame.ok) request?.resolve(frame.value); else request?.reject(new Error(frame.error));
         }
       };
       readFrames(socket, acceptFrame);
     });
+  }
+  #acceptState(next: ResidentState): boolean {
+    if (next.revision < this.#state.revision) return false;
+    this.#state = next;
+    return true;
   }
   #request(target: "host" | "current" | "state", method: string, args: unknown[]): Promise<unknown> {
     if (!this.#connected || this.#socket.destroyed) return Promise.reject(new Error("助手连接已断开，请先重新连接"));

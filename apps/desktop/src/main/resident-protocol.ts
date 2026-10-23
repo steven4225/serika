@@ -2,7 +2,7 @@ import type { AppInfo, MainToRenderer, UiSnapshot } from "../shared/ui-contract.
 import type { DesktopRuntime } from "./desktop-runtime.js";
 import type { RuntimeBridge } from "./runtime-bridge.js";
 
-export const RESIDENT_VERSION = 1;
+export const RESIDENT_VERSION = 2;
 export const MAX_RESIDENT_FRAME_BYTES = 16 * 1024 * 1024;
 export const MAX_RESIDENT_PENDING = 32;
 
@@ -25,7 +25,7 @@ type AsyncMethod<T> = T extends (...args: infer A) => infer R ? (...args: A) => 
 export type RemoteRuntimeBridge = { [K in typeof RESIDENT_BRIDGE_METHODS[number]]: AsyncMethod<RuntimeBridge[K]> } & { snapshot(): UiSnapshot };
 export type RemoteRuntimeMethods = { [K in typeof RESIDENT_HOST_METHODS[number]]: AsyncMethod<DesktopRuntime[K]> };
 export interface ResidentScope { applicationHome: string; configPath: string }
-export interface ResidentState { info: AppInfo; snapshot: UiSnapshot }
+export interface ResidentState { revision: number; info: AppInfo; snapshot: UiSnapshot }
 export type ResidentClientFrame =
   | { type: "hello"; version: number; token: string; scope: ResidentScope }
   | { type: "request"; id: string; target: "host" | "current" | "state"; method: string; args: unknown[] };

@@ -263,7 +263,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   // sets and clears only its own part, at the same points as before.
   const currentRun: RunState = { foreground: undefined, workTaskMessage: undefined, workTask: undefined, memorySource: undefined, resume: undefined };
   const autonomousRun = () => currentRun.foreground?.autonomous === true;
-  const seatbeltRun = () => currentRun.foreground?.entry === "desktop" && autonomousRun();
+  const seatbeltRun = () => autonomousRun() && seatbeltRunner !== undefined;
   const memoryEnabled = moduleConfig?.enabled.memory ?? false;
   const checkpointEnabled = moduleConfig?.enabled.checkpoint ?? false;
   const taskEnabled = moduleConfig?.enabled.task ?? false;
@@ -394,7 +394,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
 
   const taskReadApproval = options.allowDirectoryTaskReads === true && authorizedDirectory !== undefined
     ? createDirectoryTaskReadApproval(authorizedDirectory, PRIMARY_AGENT_ID) : undefined;
-  const seatbeltRunner = desktopAutonomyEnabled ? new SeatbeltShellRunner({
+  const seatbeltRunner = options.desktopAutonomyHost && !moduleConfig?.shellSandbox &&
+    (desktopAutonomyEnabled || moduleConfig?.telegramAutonomy && options.authorizeTelegramAutonomy) ? new SeatbeltShellRunner({
     home: resolve(cwd, options.desktopAutonomyHost!.home),
     protectedPaths: [resolve(cwd, assembly!.dataDirectory!), ...(options.directory ? [resolve(options.directory)] : [])],
     ...(moduleConfig!.configPath ? { configPath: moduleConfig!.configPath } : {}),

@@ -6,6 +6,7 @@ export interface TelegramStatus {
   tokenConfigured: boolean;
   enabled: boolean;
   autonomyEnabled?: boolean;
+  autonomyPaused?: boolean;
   connection: "disabled" | "connecting" | "online" | "failed";
   botUsername: string | null;
   owner: { userId: number; chatId: number; name: string; threadId: string } | null;

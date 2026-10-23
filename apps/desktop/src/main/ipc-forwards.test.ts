@@ -46,9 +46,9 @@ it("reads host.current on every call and drops arguments beyond the declared ari
 
   const snapshot = ipc.handlers.get(forwardChannel("current", "snapshot"))!;
   assert.equal(IPC_FORWARDS.current.snapshot, 0);
-  assert.equal(await snapshot({}, "ignored"), "first:snapshot");
+  assert.equal(await snapshot({}, "ignored"), "host:snapshot");
   (host as unknown as { current: unknown }).current = recorder("second", calls);
-  assert.equal(await snapshot({}), "second:snapshot");
+  assert.equal(await snapshot({}), "host:snapshot");
 
   const run = ipc.handlers.get(forwardChannel("current", "run"))!;
   await run({}, "a", "b", "extra");

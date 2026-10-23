@@ -1159,7 +1159,7 @@ it("independent TG authorization runs chat and WorkTasks through real file/Shell
   const shell = (command: string): Call => ({ name: "shell_exec", input: { command, cwd: "." } });
   const reset = (calls: Call[]) => { step = 0; plan = calls; prompts.length = 0; };
   const idle = () => f.host.current.snapshot().state.kind === "idle";
-  // D2: host shell_exec still needs phone confirmation inside an authorized Run; approve each via "允许 <code>".
+  // Count unexpected phone approvals while testing the approved S02 path.
   const used = new Set<string>();
   const approveOnPhone = async (key: string, firstUpdate: number) => {
     let next = firstUpdate, approved = 0; const deadline = Date.now() + 60_000;
@@ -1208,25 +1208,25 @@ it("independent TG authorization runs chat and WorkTasks through real file/Shell
       ...Array.from({ length: 6 }, () => shell('test "$(cat answer.txt)" = right')),
     ]);
     await f.gateway.receive(update(6, "修复并运行多条检查"));
-    assert.equal(await approveOnPhone("42:6", 1000), 7);
+    assert.equal(await approveOnPhone("42:6", 1000), 0);
     const input = f.store.snapshot().inputs.find(x => x.key === "42:6")!;
     const run = await f.host.channelReceipt(owner.threadId, input.runId!);
     assert.equal(run?.status, "completed"); assert.equal(run?.tools.length, 10);
     assert.equal(run?.tools[1]?.shell?.exitCode, 1); assert.equal(run?.tools.at(-1)?.shell?.exitCode, 0);
-    assert.ok(run?.tools.every(tool => !!tool.approvalRequestedAt === (tool.toolName === "shell_exec")));
+    assert.ok(run?.tools.every(tool => !!tool.approvalRequestedAt === false));
     assert.equal(await readFile(join(f.workspace, "answer.txt"), "utf8"), "right");
     assert.ok(prompts[0]?.includes("host has explicitly authorized"));
     reset([shell("test -f answer.txt"), { name: "read_file", input: { path: "answer.txt" } }]);
     await f.gateway.receive(update(2007, "任务：检查交付"));
     const proposal = [...f.sent].reverse().find(text => text.includes("任务目标："))!;
-    assert.match(proposal, /文件操作已授权连续执行，随时发送“停止”。本机命令和其他工具仍需批准。/);
+    assert.match(proposal, /文件和 Seatbelt 内命令已授权连续执行，默认断网/);
     const code = /开始 ([A-F0-9]{10})/.exec(proposal)![1]!;
     await f.gateway.receive(update(2008, `开始 ${code}`));
-    assert.equal(await approveOnPhone("42:2008", 2100), 1);
+    assert.equal(await approveOnPhone("42:2008", 2100), 0);
     const taskInput = f.store.snapshot().inputs.find(x => x.key === "42:2008")!;
     assert.ok(taskInput.taskId);
     const taskRun = await f.host.channelReceipt(owner.threadId, taskInput.runId!);
-    assert.ok(taskRun?.tools.every(tool => !!tool.approvalRequestedAt === (tool.toolName === "shell_exec")));
+    assert.ok(taskRun?.tools.every(tool => !!tool.approvalRequestedAt === false));
     const task = await f.host.current.getWorkTask(taskInput.taskId!); assert.ok(task.ok); assert.equal(task.value.status, "paused"); // TG creates human-only criteria: no automatic completion evidence was declared.
     assert.equal(taskRun?.completion?.reason, "needs_information");
     // Other tools keep their existing per-call approval.
@@ -1235,7 +1235,7 @@ it("independent TG authorization runs chat and WorkTasks through real file/Shell
     assert.equal(f.host.current.snapshot().pendingApproval?.toolName, "recipe_list");
     await f.gateway.receive(update(3010, "停止")); await until(idle);
     await until(() => f.store.snapshot().inputs.find(x => x.key === "42:3009")?.state === "finished");
-    await f.host.setTelegramAutonomyEnabled(setting(false, true));
+    await f.host.setTelegramAutonomyEnabled(setting(false, false));
     reset([shell("touch after-disable")]);
     await f.gateway.receive(update(3011, "执行命令")); await until(() => !!f.host.current.snapshot().pendingApproval);
     await f.gateway.receive(update(3012, "停止")); await until(idle);
@@ -1255,9 +1255,7 @@ it("TG grant survives host restart but never authorizes a changed bot/user/chat/
       assert.equal(f.gateway.matchesAutonomyGrant({ ...binding, [key]: typeof binding[key] === "number" ? 99 : "foreign" }), false);
     }
     await f.gateway.receive(update(2, "执行长命令"));
-    // D2: the host command is confirmed once on the phone, then runs and is cancelled without replay.
-    await until(() => f.sent.some(x => x.includes("需要你确认 · 执行命令")));
-    await f.gateway.receive(update(3, `允许 ${/允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 执行命令"))!)![1]!}`));
+    // S02: the same Seatbelt runner executes without a phone approval.
     await until(async () => { try { return await readFile(join(f.workspace, "marker"), "utf8") === "started"; } catch { return false; } });
     assert.equal(f.host.current.snapshot().pendingApproval, null);
     await f.gateway.receive(update(4, "停止"));
@@ -1270,7 +1268,7 @@ it("TG grant survives host restart but never authorizes a changed bot/user/chat/
     restarted = await DesktopRuntime.create({ applicationHome: join(f.root, "profile"), cwd: f.root, env: { RUNLOOM_CONFIG: join(f.root, "config.json") }, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => { modelCalls++; return response({ name: "shell_exec", input: { command: "touch desktop-must-not-run", cwd: "." } }); } }), send: () => {} });
     const store = new TelegramStore(f.store.path, f.store.workspace); await store.load();
     const gateway = new TelegramGateway(restarted, store, f.api, f.now); restarted.attachTelegram(gateway); await gateway.initialize(); await gateway.start();
-    assert.equal(gateway.status().autonomyEnabled, true); assert.equal(modelCalls, 0);
+    assert.equal(gateway.status().autonomyEnabled, false); assert.equal(gateway.status().autonomyPaused, true); assert.equal(modelCalls, 0);
     assert.equal((await restarted.channelReceipt(owner.threadId, input.runId!))?.tools[0]?.status, "unknown");
     await gateway.receive(update(5, "继续执行")); assert.equal(modelCalls, 0); // unknown channel input blocks admission
     await restarted.current.run("桌面没有独立授权", { source: "telegram", desktopEntry: true } as never);
@@ -1307,4 +1305,82 @@ it("TG independent authority crosses the resident socket with identity CAS, with
     assert.equal((await client.setTelegramAutonomyEnabled({ ...input, enabled: false, expectedEnabled: true })).autonomyEnabled, false);
     assert.equal(f.calls(), 1);
   } finally { client?.detach(); await server?.close(); await f.cleanup(); }
+});
+
+it("ordinary TG supplements bind before Steer, stay silent, and recover a lost acknowledgement without replay", async t => {
+  const f = await fixture(async n => response(n === 1 ? { name: "write_file", input: { path: "old-plan", content: "never" } } : undefined));
+  let recovered: TelegramGateway | undefined;
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "开始原任务"));
+    await until(() => !!f.host.current.snapshot().pendingApproval?.preview);
+    const parent = f.store.snapshot().inputs.find(item => item.key === "42:2")!;
+    await f.gateway.receive(update(3, "好的"));
+    assert.equal(f.store.snapshot().inputs.find(item => item.key === "42:3")?.state, "rejected");
+    assert.ok(f.host.current.snapshot().pendingApproval);
+    const bridge = f.host.current, original = bridge.steer.bind(bridge);
+    let dispatched = 0;
+    t.mock.method(bridge, "steer", async (input: Parameters<typeof bridge.steer>[0]) => {
+      dispatched++;
+      const saved = JSON.parse(await readFile(f.store.path, "utf8")).inputs.find((item: { key: string }) => item.key === "42:4");
+      assert.equal(saved.runId, parent.runId); assert.equal(saved.steerId, input.id); assert.equal(saved.state, "reserved");
+      const accepted = await original(input); assert.ok(accepted.ok);
+      throw new Error("lost acknowledgement after accepted receipt");
+    });
+    await f.gateway.receive(update(4, "不要写文件，只解释下一步"));
+    await until(() => f.store.snapshot().inputs.find(item => item.key === "42:2")?.state === "finished");
+    await until(() => f.store.snapshot().deliveries.find(item => item.key === "result:42:2")?.state === "submitted");
+    assert.equal(f.store.snapshot().inputs.find(item => item.key === "42:4")?.state, "unknown");
+    assert.ok(f.sent.some(text => text.includes("补充接收结果未知")));
+    assert.equal(dispatched, 1);
+    await f.gateway.close();
+    const store = new TelegramStore(f.store.path, f.store.workspace); await store.load();
+    const sends = f.sends(), calls = f.calls();
+    recovered = new TelegramGateway(f.host, store, f.api, f.now); await recovered.initialize(); await recovered.start();
+    assert.equal(store.snapshot().inputs.find(item => item.key === "42:4")?.state, "finished");
+    assert.equal(f.sends(), sends, "accepted recovery is silent"); assert.equal(f.calls(), calls); assert.equal(dispatched, 1);
+    assert.equal(store.snapshot().deliveries.some(item => item.key === "result:42:4"), false);
+    await recovered.receive(update(4, "不要写文件，只解释下一步")); assert.equal(dispatched, 1);
+    const receipt = await f.host.channelReceipt(f.store.snapshot().owner!.threadId, parent.runId!);
+    assert.equal(receipt?.steers?.find(item => item.id === "tg:42:4")?.status, "applied");
+    await assert.rejects(readFile(join(f.workspace, "old-plan")), { code: "ENOENT" });
+  } finally { t.mock.restoreAll(); await recovered?.close(); await f.cleanup(); }
+});
+
+it("successful ordinary TG Steer sends only the parent result and keeps an exact original Run association", async () => {
+  const f = await fixture(async n => response(n === 1 ? { name: "write_file", input: { path: "superseded", content: "never" } } : undefined));
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "原计划"));
+    await until(() => !!f.host.current.snapshot().pendingApproval?.preview);
+    await until(() => f.store.snapshot().deliveries.some(item => item.key.startsWith("approval:") && item.state === "submitted"));
+    const before = f.sends();
+    await f.gateway.receive(update(3, "不用写文件，直接说明结果"));
+    await until(() => f.store.snapshot().deliveries.find(item => item.key === "result:42:2")?.state === "submitted");
+    assert.equal(f.sends(), before + 1);
+    const input = f.store.snapshot().inputs.find(item => item.key === "42:3")!;
+    assert.equal(input.runId, f.store.snapshot().inputs.find(item => item.key === "42:2")!.runId);
+    assert.equal(input.steerId, "tg:42:3"); assert.equal(input.state, "finished");
+    assert.equal(f.store.snapshot().deliveries.some(item => item.key === "input:42:3" || item.key === "result:42:3"), false);
+    assert.equal((await f.host.current.listRuns()).ok, true);
+    await assert.rejects(readFile(join(f.workspace, "superseded")), { code: "ENOENT" });
+  } finally { await f.cleanup(); }
+});
+
+it("stop pauses even an idle bound private chat across reload; only explicit resume restores its existing grant", async () => {
+  const f = await fixture();
+  try {
+    await f.bind(); const owner = f.store.snapshot().owner!;
+    const input = { enabled: true, expectedEnabled: false, expectedOwner: { userId: owner.userId, chatId: owner.chatId, threadId: owner.threadId } };
+    await f.host.setTelegramAutonomyEnabled(input);
+    await f.gateway.receive(update(2, "停止"));
+    assert.equal(f.gateway.status().autonomyEnabled, false); assert.equal(f.gateway.status().autonomyPaused, true);
+    const loaded = new TelegramStore(f.store.path, f.store.workspace); await loaded.load(); assert.equal(loaded.snapshot().autonomyPaused, true); assert.equal(loaded.snapshot().version, 3);
+    await f.gateway.receive(update(3, "恢复自主执行", 99)); assert.equal(f.gateway.status().autonomyEnabled, false);
+    await f.gateway.receive(update(4, "继续"));
+    await until(() => f.store.snapshot().inputs.find(item => item.key === "42:4")?.state === "finished");
+    assert.equal(f.gateway.status().autonomyEnabled, false);
+    await f.gateway.receive(update(5, "恢复自主执行")); assert.equal(f.gateway.status().autonomyEnabled, true);
+    await f.gateway.receive(update(6, "/stop")); assert.equal(f.gateway.status().autonomyEnabled, false);
+    await f.host.setTelegramAutonomyEnabled(input); assert.equal(f.gateway.status().autonomyEnabled, true);
+    assert.equal(f.gateway.status().autonomyPaused, false);
+  } finally { await f.cleanup(); }
 });

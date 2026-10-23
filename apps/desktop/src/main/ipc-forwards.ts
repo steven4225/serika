@@ -12,7 +12,7 @@ const hostMethods: readonly (keyof RuntimeOwnership)[] = Object.keys(IPC_FORWARD
 export function registerForwardedIpc(ipc: Pick<IpcMain, "handle">, host: RuntimeOwnership): void {
   for (const method of currentMethods) {
     const arity: number = IPC_FORWARDS.current[method as keyof typeof IPC_FORWARDS.current];
-    ipc.handle(forwardChannel("current", method), (_event, ...args: unknown[]) => (host.current as unknown as Callable)[method]!(...args.slice(0, arity)));
+    ipc.handle(forwardChannel("current", method), (_event, ...args: unknown[]) => method === "snapshot" ? host.snapshot() : (host.current as unknown as Callable)[method]!(...args.slice(0, arity)));
   }
   for (const method of hostMethods) {
     const arity: number = IPC_FORWARDS.host[method as keyof typeof IPC_FORWARDS.host];

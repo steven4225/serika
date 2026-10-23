@@ -50,13 +50,13 @@ export function TelegramPanel({ busy }: { busy: boolean }) {
     <p className="hint">在手机私聊中交办事项。Mac 与常驻助手需保持运行、联网。</p>
     {status?.owner ? <div><strong>已绑定：{status.owner.name}</strong><button className="ghost" disabled={busy || working} onClick={() => void act(async () => { await window.runloom.selectThread(status.owner!.threadId); return window.runloom.telegramStatus!(); })}>打开 Telegram 对话</button></div> : null}
     {status?.owner && window.runloom.setTelegramAutonomyEnabled ? <div className="telegram-autonomy">
-      <p><strong>私聊自主执行：{status.autonomyEnabled ? "已开启" : "未开启"}</strong></p>
-      <p className="hint">仅当前绑定私聊的聊天和工作任务；与桌面授权独立。更改在新执行中生效，执行中请用“停止”。</p>
+      <p><strong>私聊自主执行：{status.autonomyPaused ? "已暂停" : status.autonomyEnabled ? "已开启" : "未开启"}</strong></p>
+      <p className="hint">仅当前绑定私聊的聊天和工作任务；与桌面授权独立。更改在新执行中生效。“停止”取消当前执行并暂停免确认；手机发送“恢复自主执行”，或在这里重新明确授权，可恢复。</p>
       <button className="ghost" disabled={busy || working} onClick={() => status.autonomyEnabled
         ? void act(() => window.runloom.setTelegramAutonomyEnabled!({ enabled: false, expectedEnabled: true, expectedOwner: { userId: status.owner!.userId, chatId: status.owner!.chatId, threadId: status.owner!.threadId } }))
         : setAutonomyPreview(true)}>{status.autonomyEnabled ? "关闭私聊自主执行" : "开启私聊自主执行…"}</button>
       {autonomyPreview ? <div className="memory-setup-preview"><strong>允许 {status.owner.name} 从当前绑定私聊自主执行？</strong>
-        <p>该私聊可连续读取和修改文件；本机命令仍需在手机上逐条确认。本机 Shell 使用 Serika 进程的权限，可以访问工作区外；工作区不是系统沙箱。后台和定时任务不继承此授权。</p>
+        <p>该私聊可连续读取和修改授权目录内的文件，Shell 复用桌面 Seatbelt，默认断网、不可用时拒绝执行。联网的本机 Shell、Computer、浏览器和终端控制仍需逐次确认。后台和定时任务不继承此授权。</p>
         <button disabled={busy || working} onClick={() => void act(async () => { const next = await window.runloom.setTelegramAutonomyEnabled!({ enabled: true, expectedEnabled: false, expectedOwner: { userId: status.owner!.userId, chatId: status.owner!.chatId, threadId: status.owner!.threadId } }); setAutonomyPreview(false); return next; })}>确认授权当前私聊</button>
         <button className="ghost" onClick={() => setAutonomyPreview(false)}>取消</button>
       </div> : null}

@@ -123,7 +123,10 @@ export async function changeAutonomySetting(configPath: string, input: AutonomyS
 }
 
 /** Identity comes from the resident gateway, never from renderer-supplied destinations. */
-export async function changeTelegramAutonomySetting(configPath: string, input: import("../shared/telegram.js").TelegramAutonomySettingInput, cwd: string, binding: import("@serika/assistant").TelegramAutonomyGrant, expectedEnabled: boolean): Promise<() => Promise<void>> {
+export async function changeTelegramAutonomySetting({ configPath, input, cwd, binding, state }: {
+  configPath: string; input: import("../shared/telegram.js").TelegramAutonomySettingInput; cwd: string;
+  binding: import("@serika/assistant").TelegramAutonomyGrant; state: { enabled: boolean; paused: boolean };
+}): Promise<() => Promise<void>> {
   if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some(key => !["enabled", "expectedEnabled", "expectedOwner"].includes(key)) || typeof input.enabled !== "boolean" || typeof input.expectedEnabled !== "boolean" || !input.expectedOwner ||
       Object.keys(input.expectedOwner).some(key => !["userId", "chatId", "threadId"].includes(key)) ||
       input.expectedOwner.userId !== binding.userId || input.expectedOwner.chatId !== binding.chatId || input.expectedOwner.threadId !== binding.threadId) throw new Error("Telegram 绑定已变化或授权参数无效，请刷新后核对");
@@ -131,8 +134,8 @@ export async function changeTelegramAutonomySetting(configPath: string, input: i
     const current = await resolveTuiModuleConfig({ configPath: path }, { cwd });
     if (current.authorizedDirectory !== binding.directory) throw new Error("工作区已变化，请重新连接后核对授权");
     const saved = current.telegramAutonomy;
-    const enabled = !!saved && !current.shellSandbox && Object.keys(binding).every(key => saved[key as keyof typeof saved] === binding[key as keyof typeof binding]);
-    if (enabled !== input.expectedEnabled || expectedEnabled !== input.expectedEnabled) throw new Error("Telegram 自主执行配置已变化，请刷新后再操作");
+    const enabled = !state.paused && !!saved && !current.shellSandbox && Object.keys(binding).every(key => saved[key as keyof typeof saved] === binding[key as keyof typeof binding]);
+    if (enabled !== input.expectedEnabled || state.enabled !== input.expectedEnabled) throw new Error("Telegram 自主执行配置已变化，请刷新后再操作");
     if (input.enabled && current.shellSandbox) throw new Error("本机自主执行需要本机 Shell 模式；不会替换 Docker 配置");
     const config = JSON.parse(before);
     delete config.telegramAutonomy;
