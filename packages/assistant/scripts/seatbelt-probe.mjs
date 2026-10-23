@@ -159,6 +159,51 @@ if (args.includes('--child')) {
     for (const mode of ['filesystem', 'environment', 'network', 'descendant', 'detached', 'runtime', 'descriptor-clean']) {
       const result = await invoke(mode); report.checks[mode] = result.value; assert.equal(result.run.status, 0, `${mode} probe failed`);
     }
+    const nativeSource = join(runtime, 'process-env.c'), nativeBinary = join(runtime, 'process-env');
+    await writeFile(nativeSource, `#include <sys/types.h>
+#include <sys/sysctl.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int main(int argc, char **argv) {
+  if (argc != 5 || strcmp(argv[1], "--pid") || strcmp(argv[3], "--home")) return 2;
+  int mib[] = { CTL_KERN, KERN_PROCARGS2, atoi(argv[2]) }, found = 0;
+  size_t size = 0;
+  int result = sysctl(mib, 3, NULL, &size, NULL, 0);
+  if (result == 0 && size > 0 && size < 8 * 1024 * 1024) {
+    char *buffer = calloc(1, size);
+    if (!buffer) return 3;
+    result = sysctl(mib, 3, buffer, &size, NULL, 0);
+    const char *name = "PROBE_CREDENTIAL_CANARY=";
+    if (result == 0) for (size_t i = 0; i + strlen(name) <= size; i++) if (!memcmp(buffer + i, name, strlen(name))) found = 1;
+    int saved = errno;
+    memset(buffer, 0, size); free(buffer); errno = saved;
+  }
+  printf("{\\"name\\":\\"PROBE_CREDENTIAL_CANARY\\",\\"blocked\\":%s,\\"errno\\":%d}\\n", found ? "false" : "true", result == -1 ? errno : 0);
+  return 0;
+}
+`, { mode: 0o600 });
+    const compile = spawnSync('/bin/sh', ['-c', 'exec /usr/bin/clang "$3" -o "$4"', 'probe', '--home', home, nativeSource, nativeBinary],
+      { env, cwd: temp, encoding: 'utf8', timeout: 30_000 });
+    report.commands.push({ mode: 'compile-process-environment-control', exitCode: compile.status, signal: compile.signal, stderrBytes: Buffer.byteLength(compile.stderr ?? '') });
+    assert.equal(compile.status, 0, 'Native process environment control did not compile');
+    const canary = spawn(node, ['-e', 'setInterval(() => {}, 1000)', '--', '--home', home],
+      { env: { ...env, PROBE_CREDENTIAL_CANARY: randomUUID() }, stdio: 'ignore' });
+    const canarySettled = new Promise(done => canary.once('exit', done));
+    try {
+      await wait(100);
+      const probeArgs = ['--pid', String(canary.pid), '--home', home];
+      report.checks.processEnvironment = {};
+      for (const sandbox of [false, true]) {
+        const run = spawnSync(sandbox ? '/usr/bin/sandbox-exec' : nativeBinary, sandbox ? ['-f', profilePath, nativeBinary, ...probeArgs] : probeArgs,
+          { env, encoding: 'utf8', timeout: 30_000 });
+        report.commands.push({ mode: sandbox ? 'process-environment-sandbox' : 'process-environment-host-control', exitCode: run.status, signal: run.signal });
+        assert.equal(run.status, 0, 'Process environment control failed to observe');
+        report.checks.processEnvironment[sandbox ? 'sandbox' : 'hostControl'] = JSON.parse(run.stdout);
+      }
+      assert.equal(report.checks.processEnvironment.hostControl.blocked, false, 'Synthetic parent environment must be visible to the host control');
+    } finally { canary.kill('SIGKILL'); await canarySettled; }
     const server = createServer();
     await new Promise((done, fail) => { server.once('error', fail); server.listen(0, '127.0.0.1', done); }); servers.push(server);
     const accepted = new Promise(done => server.once('connection', done));
