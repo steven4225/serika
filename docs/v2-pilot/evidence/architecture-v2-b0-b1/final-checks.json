@@ -1,0 +1,1293 @@
+{
+  "runId": "8b4f5ca1-086b-4bc8-9810-df178d00a767",
+  "recordedAt": "2026-10-23T02:52:07.619Z",
+  "platform": "darwin",
+  "sourceCommit": "9680896894e31c9722c7b6126b924335ebf575f6",
+  "baseCommit": "613d33e587e99ff292d3c48d4d58c9946ad2c70c",
+  "validation": [
+    {
+      "name": "a2",
+      "sourceCommit": "75c6d9ab1bd7a468e51057c19a87cb940e2d7893",
+      "runId": "634d6cc5-2ffa-44e0-b036-96e0b809cad5",
+      "reportSha256": "72d1a5c4cde9c65304af4b52a2c88d5991d85e84f527936eec9dbe932f2eaedf",
+      "commands": [
+        {
+          "command": [
+            "pnpm",
+            "typecheck"
+          ],
+          "exitCode": 0,
+          "counts": []
+        },
+        {
+          "command": [
+            "env",
+            "TZ=UTC",
+            "pnpm",
+            "test"
+          ],
+          "exitCode": 0,
+          "counts": [
+            [
+              "tests",
+              1132
+            ],
+            [
+              "pass",
+              1125
+            ],
+            [
+              "fail",
+              0
+            ],
+            [
+              "cancelled",
+              0
+            ],
+            [
+              "skipped",
+              7
+            ],
+            [
+              "tests",
+              624
+            ],
+            [
+              "pass",
+              624
+            ],
+            [
+              "fail",
+              0
+            ],
+            [
+              "cancelled",
+              0
+            ],
+            [
+              "skipped",
+              0
+            ],
+            [
+              "tests",
+              12
+            ],
+            [
+              "pass",
+              12
+            ],
+            [
+              "fail",
+              0
+            ],
+            [
+              "cancelled",
+              0
+            ],
+            [
+              "skipped",
+              0
+            ]
+          ]
+        },
+        {
+          "command": [
+            "env",
+            "TZ=Asia/Shanghai",
+            "pnpm",
+            "test"
+          ],
+          "exitCode": 0,
+          "counts": [
+            [
+              "tests",
+              1132
+            ],
+            [
+              "pass",
+              1125
+            ],
+            [
+              "fail",
+              0
+            ],
+            [
+              "cancelled",
+              0
+            ],
+            [
+              "skipped",
+              7
+            ],
+            [
+              "tests",
+              624
+            ],
+            [
+              "pass",
+              624
+            ],
+            [
+              "fail",
+              0
+            ],
+            [
+              "cancelled",
+              0
+            ],
+            [
+              "skipped",
+              0
+            ],
+            [
+              "tests",
+              12
+            ],
+            [
+              "pass",
+              12
+            ],
+            [
+              "fail",
+              0
+            ],
+            [
+              "cancelled",
+              0
+            ],
+            [
+              "skipped",
+              0
+            ]
+          ]
+        },
+        {
+          "command": [
+            "pnpm",
+            "eval:test"
+          ],
+          "exitCode": 0,
+          "counts": [
+            [
+              "tests",
+              101
+            ],
+            [
+              "pass",
+              101
+            ],
+            [
+              "fail",
+              0
+            ],
+            [
+              "cancelled",
+              0
+            ],
+            [
+              "skipped",
+              0
+            ]
+          ]
+        },
+        {
+          "command": [
+            "git",
+            "clone",
+            "--shared",
+            "--no-checkout",
+            ".",
+            "<temporary>/smoke-source"
+          ],
+          "exitCode": 0,
+          "counts": []
+        },
+        {
+          "command": [
+            "git",
+            "checkout",
+            "--detach",
+            "75c6d9ab1bd7a468e51057c19a87cb940e2d7893"
+          ],
+          "exitCode": 0,
+          "counts": []
+        },
+        {
+          "command": [
+            "pnpm",
+            "--filter",
+            "@serika/desktop",
+            "smoke"
+          ],
+          "exitCode": 0,
+          "counts": []
+        },
+        {
+          "command": [
+            "node",
+            "examples/eval/cm-step6-offline-audit.mjs"
+          ],
+          "exitCode": 0,
+          "counts": []
+        }
+      ],
+      "realModelCalls": 0,
+      "costUsd": 0,
+      "smokeSha256": "1d78bc502d9f6540198b23f0bfe5f11cc9562e0ae5d4ac912fed1a19c3ab9cc6"
+    },
+    {
+      "name": "b0-b1",
+      "sourceCommit": "9680896894e31c9722c7b6126b924335ebf575f6",
+      "runId": "1f382e6f-822e-4eb4-ab38-63f156bc484d",
+      "reportSha256": "f348b07b9f1c061d8526cb3832a41ff00e26c2728215dd3bcd32b290aafef6ce",
+      "commands": [
+        {
+          "command": [
+            "pnpm",
+            "typecheck"
+          ],
+          "exitCode": 0,
+          "counts": []
+        },
+        {
+          "command": [
+            "env",
+            "TZ=UTC",
+            "pnpm",
+            "test"
+          ],
+          "exitCode": 0,
+          "counts": [
+            [
+              "tests",
+              1134
+            ],
+            [
+              "pass",
+              1127
+            ],
+            [
+              "fail",
+              0
+            ],
+            [
+              "cancelled",
+              0
+            ],
+            [
+              "skipped",
+              7
+            ],
+            [
+              "tests",
+              624
+            ],
+            [
+              "pass",
+              624
+            ],
+            [
+              "fail",
+              0
+            ],
+            [
+              "cancelled",
+              0
+            ],
+            [
+              "skipped",
+              0
+            ],
+            [
+              "tests",
+              12
+            ],
+            [
+              "pass",
+              12
+            ],
+            [
+              "fail",
+              0
+            ],
+            [
+              "cancelled",
+              0
+            ],
+            [
+              "skipped",
+              0
+            ]
+          ]
+        },
+        {
+          "command": [
+            "env",
+            "TZ=Asia/Shanghai",
+            "pnpm",
+            "test"
+          ],
+          "exitCode": 0,
+          "counts": [
+            [
+              "tests",
+              1134
+            ],
+            [
+              "pass",
+              1127
+            ],
+            [
+              "fail",
+              0
+            ],
+            [
+              "cancelled",
+              0
+            ],
+            [
+              "skipped",
+              7
+            ],
+            [
+              "tests",
+              624
+            ],
+            [
+              "pass",
+              624
+            ],
+            [
+              "fail",
+              0
+            ],
+            [
+              "cancelled",
+              0
+            ],
+            [
+              "skipped",
+              0
+            ],
+            [
+              "tests",
+              12
+            ],
+            [
+              "pass",
+              12
+            ],
+            [
+              "fail",
+              0
+            ],
+            [
+              "cancelled",
+              0
+            ],
+            [
+              "skipped",
+              0
+            ]
+          ]
+        },
+        {
+          "command": [
+            "pnpm",
+            "eval:test"
+          ],
+          "exitCode": 0,
+          "counts": [
+            [
+              "tests",
+              101
+            ],
+            [
+              "pass",
+              101
+            ],
+            [
+              "fail",
+              0
+            ],
+            [
+              "cancelled",
+              0
+            ],
+            [
+              "skipped",
+              0
+            ]
+          ]
+        },
+        {
+          "command": [
+            "git",
+            "clone",
+            "--shared",
+            "--no-checkout",
+            ".",
+            "<temporary>/smoke-source"
+          ],
+          "exitCode": 0,
+          "counts": []
+        },
+        {
+          "command": [
+            "git",
+            "checkout",
+            "--detach",
+            "9680896894e31c9722c7b6126b924335ebf575f6"
+          ],
+          "exitCode": 0,
+          "counts": []
+        },
+        {
+          "command": [
+            "pnpm",
+            "--filter",
+            "@serika/desktop",
+            "smoke"
+          ],
+          "exitCode": 0,
+          "counts": []
+        },
+        {
+          "command": [
+            "node",
+            "examples/eval/cm-step6-offline-audit.mjs"
+          ],
+          "exitCode": 0,
+          "counts": []
+        }
+      ],
+      "realModelCalls": 0,
+      "costUsd": 0,
+      "smokeSha256": "bd8db7efcaea473282f8482b715dce37cf9143d1d1a80bf1581af88fcdf395c7"
+    }
+  ],
+  "lineChanges": [
+    {
+      "name": "a2",
+      "base": "613d33e587e99ff292d3c48d4d58c9946ad2c70c",
+      "head": "75c6d9ab1bd7a468e51057c19a87cb940e2d7893",
+      "sums": {
+        "docs": {
+          "added": 76,
+          "deleted": 15,
+          "net": 61
+        },
+        "tests": {
+          "added": 33,
+          "deleted": 11,
+          "net": 22
+        },
+        "product": {
+          "added": 3,
+          "deleted": 2,
+          "net": 1
+        },
+        "migration": {
+          "added": 0,
+          "deleted": 0,
+          "net": 0
+        }
+      },
+      "files": [
+        {
+          "path": "docs/architecture-v2-step4.5-plan.md",
+          "category": "docs",
+          "added": 23,
+          "deleted": 15
+        },
+        {
+          "path": "docs/v2-pilot/architecture-v2-a2-correction.md",
+          "category": "docs",
+          "added": 30,
+          "deleted": 0
+        },
+        {
+          "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/default-data-metadata.json",
+          "category": "docs",
+          "added": 23,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/rss-digest.test.ts",
+          "category": "tests",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "packages/assistant/src/task-worker-entry.test.ts",
+          "category": "tests",
+          "added": 31,
+          "deleted": 9
+        },
+        {
+          "path": "packages/assistant/src/task-worker-entry.ts",
+          "category": "product",
+          "added": 3,
+          "deleted": 2
+        }
+      ]
+    },
+    {
+      "name": "b0",
+      "base": "75c6d9ab1bd7a468e51057c19a87cb940e2d7893",
+      "head": "cac308ffd3bd8e78e1a9921724bf4c504f58688c",
+      "sums": {
+        "docs": {
+          "added": 54,
+          "deleted": 0,
+          "net": 54
+        },
+        "tests": {
+          "added": 1137,
+          "deleted": 0,
+          "net": 1137
+        },
+        "migration": {
+          "added": 0,
+          "deleted": 0,
+          "net": 0
+        }
+      },
+      "files": [
+        {
+          "path": "docs/v2-pilot/evidence/architecture-v2-b0/freeze.json",
+          "category": "docs",
+          "added": 54,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/permission-boundary.snapshot.json",
+          "category": "tests",
+          "added": 1021,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/permission-boundary.test.ts",
+          "category": "tests",
+          "added": 116,
+          "deleted": 0
+        }
+      ]
+    },
+    {
+      "name": "b1",
+      "base": "cac308ffd3bd8e78e1a9921724bf4c504f58688c",
+      "head": "9680896894e31c9722c7b6126b924335ebf575f6",
+      "sums": {
+        "tests": {
+          "added": 82,
+          "deleted": 47,
+          "net": 35
+        },
+        "product": {
+          "added": 132,
+          "deleted": 124,
+          "net": 8
+        },
+        "migration": {
+          "added": 0,
+          "deleted": 0,
+          "net": 0
+        }
+      },
+      "files": [
+        {
+          "path": "apps/cli/src/tui.test.ts",
+          "category": "tests",
+          "added": 16,
+          "deleted": 16
+        },
+        {
+          "path": "apps/desktop/src/main/desktop-runtime.ts",
+          "category": "product",
+          "added": 3,
+          "deleted": 3
+        },
+        {
+          "path": "apps/desktop/src/main/foreground-autonomy.test.ts",
+          "category": "tests",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/main/module-settings.ts",
+          "category": "product",
+          "added": 6,
+          "deleted": 6
+        },
+        {
+          "path": "apps/desktop/src/main/runtime-bridge.ts",
+          "category": "product",
+          "added": 2,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/main/telegram-gateway.test.ts",
+          "category": "tests",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/main/telegram-gateway.ts",
+          "category": "product",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "apps/desktop/src/renderer/src/capabilities.tsx",
+          "category": "product",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "apps/desktop/src/renderer/src/interaction-preview.tsx",
+          "category": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/renderer/src/shell-preview.tsx",
+          "category": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/shared/ui-contract.ts",
+          "category": "product",
+          "added": 2,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/app.ts",
+          "category": "product",
+          "added": 25,
+          "deleted": 22
+        },
+        {
+          "path": "packages/assistant/src/assistant-controller.test.ts",
+          "category": "tests",
+          "added": 1,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/assistant-controller.ts",
+          "category": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/automation-execution.ts",
+          "category": "product",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "packages/assistant/src/directory-authorization.test.ts",
+          "category": "tests",
+          "added": 34,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/{workspace-task-read-policy.ts => directory-task-read-policy.ts}",
+          "category": "product",
+          "added": 4,
+          "deleted": 4
+        },
+        {
+          "path": "packages/assistant/src/module-host.ts",
+          "category": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/modules/read-file-module.test.ts",
+          "category": "tests",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/modules/read-file-module.ts",
+          "category": "product",
+          "added": 8,
+          "deleted": 8
+        },
+        {
+          "path": "packages/assistant/src/permission-boundary.test.ts",
+          "category": "tests",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/permission-decisions.test.ts",
+          "category": "tests",
+          "added": 3,
+          "deleted": 3
+        },
+        {
+          "path": "packages/assistant/src/permission-extension.test.ts",
+          "category": "tests",
+          "added": 4,
+          "deleted": 4
+        },
+        {
+          "path": "packages/assistant/src/permission-extension.ts",
+          "category": "product",
+          "added": 10,
+          "deleted": 10
+        },
+        {
+          "path": "packages/assistant/src/scheduled-skill-acceptance.test.ts",
+          "category": "tests",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/scheduled-skill-real-acceptance.test.ts",
+          "category": "tests",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/scheduled-skill.test.ts",
+          "category": "tests",
+          "added": 8,
+          "deleted": 8
+        },
+        {
+          "path": "packages/assistant/src/scheduled-skill.ts",
+          "category": "product",
+          "added": 6,
+          "deleted": 6
+        },
+        {
+          "path": "packages/assistant/src/skill-catalog.ts",
+          "category": "product",
+          "added": 3,
+          "deleted": 3
+        },
+        {
+          "path": "packages/assistant/src/task-worker-entry.ts",
+          "category": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/tool-confirmation-remember.test.ts",
+          "category": "tests",
+          "added": 3,
+          "deleted": 3
+        },
+        {
+          "path": "packages/assistant/src/tool-confirmation.ts",
+          "category": "product",
+          "added": 24,
+          "deleted": 24
+        },
+        {
+          "path": "packages/assistant/src/tui-module-config.ts",
+          "category": "product",
+          "added": 28,
+          "deleted": 25
+        },
+        {
+          "path": "packages/assistant/src/workspace-task-read.test.ts",
+          "category": "tests",
+          "added": 7,
+          "deleted": 7
+        }
+      ]
+    },
+    {
+      "name": "total",
+      "base": "613d33e587e99ff292d3c48d4d58c9946ad2c70c",
+      "head": "9680896894e31c9722c7b6126b924335ebf575f6",
+      "sums": {
+        "tests": {
+          "added": 1251,
+          "deleted": 57,
+          "net": 1194
+        },
+        "product": {
+          "added": 135,
+          "deleted": 126,
+          "net": 9
+        },
+        "docs": {
+          "added": 130,
+          "deleted": 15,
+          "net": 115
+        },
+        "migration": {
+          "added": 0,
+          "deleted": 0,
+          "net": 0
+        }
+      },
+      "files": [
+        {
+          "path": "apps/cli/src/tui.test.ts",
+          "category": "tests",
+          "added": 16,
+          "deleted": 16
+        },
+        {
+          "path": "apps/desktop/src/main/desktop-runtime.ts",
+          "category": "product",
+          "added": 3,
+          "deleted": 3
+        },
+        {
+          "path": "apps/desktop/src/main/foreground-autonomy.test.ts",
+          "category": "tests",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/main/module-settings.ts",
+          "category": "product",
+          "added": 6,
+          "deleted": 6
+        },
+        {
+          "path": "apps/desktop/src/main/runtime-bridge.ts",
+          "category": "product",
+          "added": 2,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/main/telegram-gateway.test.ts",
+          "category": "tests",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/main/telegram-gateway.ts",
+          "category": "product",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "apps/desktop/src/renderer/src/capabilities.tsx",
+          "category": "product",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "apps/desktop/src/renderer/src/interaction-preview.tsx",
+          "category": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/renderer/src/shell-preview.tsx",
+          "category": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/shared/ui-contract.ts",
+          "category": "product",
+          "added": 2,
+          "deleted": 1
+        },
+        {
+          "path": "docs/architecture-v2-step4.5-plan.md",
+          "category": "docs",
+          "added": 23,
+          "deleted": 15
+        },
+        {
+          "path": "docs/v2-pilot/architecture-v2-a2-correction.md",
+          "category": "docs",
+          "added": 30,
+          "deleted": 0
+        },
+        {
+          "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/default-data-metadata.json",
+          "category": "docs",
+          "added": 23,
+          "deleted": 0
+        },
+        {
+          "path": "docs/v2-pilot/evidence/architecture-v2-b0/freeze.json",
+          "category": "docs",
+          "added": 54,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/app.ts",
+          "category": "product",
+          "added": 25,
+          "deleted": 22
+        },
+        {
+          "path": "packages/assistant/src/assistant-controller.test.ts",
+          "category": "tests",
+          "added": 1,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/assistant-controller.ts",
+          "category": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/automation-execution.ts",
+          "category": "product",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "packages/assistant/src/directory-authorization.test.ts",
+          "category": "tests",
+          "added": 34,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/{workspace-task-read-policy.ts => directory-task-read-policy.ts}",
+          "category": "product",
+          "added": 4,
+          "deleted": 4
+        },
+        {
+          "path": "packages/assistant/src/module-host.ts",
+          "category": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/modules/read-file-module.test.ts",
+          "category": "tests",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/modules/read-file-module.ts",
+          "category": "product",
+          "added": 8,
+          "deleted": 8
+        },
+        {
+          "path": "packages/assistant/src/permission-boundary.snapshot.json",
+          "category": "tests",
+          "added": 1021,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/permission-boundary.test.ts",
+          "category": "tests",
+          "added": 116,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/permission-decisions.test.ts",
+          "category": "tests",
+          "added": 3,
+          "deleted": 3
+        },
+        {
+          "path": "packages/assistant/src/permission-extension.test.ts",
+          "category": "tests",
+          "added": 4,
+          "deleted": 4
+        },
+        {
+          "path": "packages/assistant/src/permission-extension.ts",
+          "category": "product",
+          "added": 10,
+          "deleted": 10
+        },
+        {
+          "path": "packages/assistant/src/rss-digest.test.ts",
+          "category": "tests",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "packages/assistant/src/scheduled-skill-acceptance.test.ts",
+          "category": "tests",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/scheduled-skill-real-acceptance.test.ts",
+          "category": "tests",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/scheduled-skill.test.ts",
+          "category": "tests",
+          "added": 8,
+          "deleted": 8
+        },
+        {
+          "path": "packages/assistant/src/scheduled-skill.ts",
+          "category": "product",
+          "added": 6,
+          "deleted": 6
+        },
+        {
+          "path": "packages/assistant/src/skill-catalog.ts",
+          "category": "product",
+          "added": 3,
+          "deleted": 3
+        },
+        {
+          "path": "packages/assistant/src/task-worker-entry.test.ts",
+          "category": "tests",
+          "added": 31,
+          "deleted": 9
+        },
+        {
+          "path": "packages/assistant/src/task-worker-entry.ts",
+          "category": "product",
+          "added": 4,
+          "deleted": 3
+        },
+        {
+          "path": "packages/assistant/src/tool-confirmation-remember.test.ts",
+          "category": "tests",
+          "added": 3,
+          "deleted": 3
+        },
+        {
+          "path": "packages/assistant/src/tool-confirmation.ts",
+          "category": "product",
+          "added": 24,
+          "deleted": 24
+        },
+        {
+          "path": "packages/assistant/src/tui-module-config.ts",
+          "category": "product",
+          "added": 28,
+          "deleted": 25
+        },
+        {
+          "path": "packages/assistant/src/workspace-task-read.test.ts",
+          "category": "tests",
+          "added": 7,
+          "deleted": 7
+        }
+      ]
+    }
+  ],
+  "permissions": {
+    "existingRows": 521,
+    "supplementalRows": 87,
+    "snapshotSha256": "b988e469ca6c830690358de82db65b67a316e9c0256bfa993b3199f8c2e68670",
+    "identicalAcrossThreeCaptures": true,
+    "hostInputChange": "allowWorkspaceTaskReads → allowDirectoryTaskReads only",
+    "rulesChanged": 0
+  },
+  "smokeScriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
+  "credentialPatternScan": "no matches",
+  "files": [
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/default-data-metadata.json",
+      "bytes": 553,
+      "sha256": "d1b34c2a1d44266b3a9b165217e03bbc44e080ae303cac470a20c88073516d72"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/chat-reply.png",
+      "bytes": 114965,
+      "sha256": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/cleanup.json",
+      "bytes": 1849,
+      "sha256": "c62da29d9d3f7b865db18d50028c9750559bc2f569a6e8d730086ec1a6cfaf04"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/cm-step4-original-result.json",
+      "bytes": 9592,
+      "sha256": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/cm-step5-run.json",
+      "bytes": 2397,
+      "sha256": "b56c7d1cfcdfc0126d3ffb7ab90956296c6f941a699eb0352c3374b578c2760c"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/cm-step6-run.json",
+      "bytes": 2397,
+      "sha256": "7dd0ee57b2a6c85e7e013325e2227dcfcc29b741b00a15ff5360aac9afb9e0f0"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/daily-config-retired-fields.png",
+      "bytes": 96471,
+      "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/daily-path-refuses-writes.png",
+      "bytes": 102059,
+      "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/home-fixture.json",
+      "bytes": 534,
+      "sha256": "8b0685ff6fa426ec33381abcb3954ca360771dec3b2feccda5a7f27c1517af36"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/README.md",
+      "bytes": 2178,
+      "sha256": "1ec7dad9eb4e8e9edf8c5b1452c28544550fca2e24e861c28e26ae92d1b8e14e"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/remember-on-memory-page.png",
+      "bytes": 105789,
+      "sha256": "31b517b32a4f509e5023a6cc8feb971a4dd12a4a5d61e066910b9e2a6074a315"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/remember-success-receipt.png",
+      "bytes": 135642,
+      "sha256": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/restart-persistence.png",
+      "bytes": 105759,
+      "sha256": "b466e2b5a3e7cde18f77e372838dc5f94f69bee9332f0e89ae5884a512cbba2f"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/result.json",
+      "bytes": 9748,
+      "sha256": "1d78bc502d9f6540198b23f0bfe5f11cc9562e0ae5d4ac912fed1a19c3ab9cc6"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/startup.png",
+      "bytes": 121246,
+      "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/undo-disappears.png",
+      "bytes": 91821,
+      "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/electron-smoke/verification.json",
+      "bytes": 4146,
+      "sha256": "830bdc6e00782763fcca10f68f0cb7fc43da28d74725109bbdb894de72b233c2"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/unified/live.json",
+      "bytes": 588880,
+      "sha256": "9c66bb1c3b34ad2c786b99a194e5e721844b9bef9e64ac72fc017bbf780cd622"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/unified/offline-audit.json",
+      "bytes": 11799,
+      "sha256": "0629116b98ad93083f41da5b77d7881d9930cac0ee414734020233835844fc54"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-a2-correction/unified/verification.json",
+      "bytes": 258548,
+      "sha256": "72d1a5c4cde9c65304af4b52a2c88d5991d85e84f527936eec9dbe932f2eaedf"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0/freeze.json",
+      "bytes": 2039,
+      "sha256": "2ede51bf75a8ae73cc154ba914bc22b747bf0133cc52516cd0cfe0950231e4be"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/chat-reply.png",
+      "bytes": 114971,
+      "sha256": "b2493ee5909ef5061eef9dc83a23ea5e9b68c3fa0dc1361522e53282a2d7c890"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/cleanup.json",
+      "bytes": 1849,
+      "sha256": "c62da29d9d3f7b865db18d50028c9750559bc2f569a6e8d730086ec1a6cfaf04"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/cm-step4-original-result.json",
+      "bytes": 9592,
+      "sha256": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/cm-step5-run.json",
+      "bytes": 2397,
+      "sha256": "b56c7d1cfcdfc0126d3ffb7ab90956296c6f941a699eb0352c3374b578c2760c"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/cm-step6-run.json",
+      "bytes": 2397,
+      "sha256": "475ea3117ff31cfa1481ac99be9e275e622126841dd2816bdccdbf96c1203a18"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/daily-config-retired-fields.png",
+      "bytes": 96471,
+      "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/daily-path-refuses-writes.png",
+      "bytes": 102059,
+      "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/home-fixture.json",
+      "bytes": 534,
+      "sha256": "353a3523e42bfccee71f2c1efef72998809da53e6c0ee119323b8db0aadc4e25"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/README.md",
+      "bytes": 2178,
+      "sha256": "1ec7dad9eb4e8e9edf8c5b1452c28544550fca2e24e861c28e26ae92d1b8e14e"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/remember-on-memory-page.png",
+      "bytes": 105700,
+      "sha256": "bdca73884e4d47abb305498293f3ec809af95d0326b985a0f0d39c5ce4986a12"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/remember-success-receipt.png",
+      "bytes": 135642,
+      "sha256": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/restart-persistence.png",
+      "bytes": 105709,
+      "sha256": "24e92d84f9e395d587c0462f19c09a555250c5f99c31068bceb9fceccf08da7f"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/result.json",
+      "bytes": 9748,
+      "sha256": "bd8db7efcaea473282f8482b715dce37cf9143d1d1a80bf1581af88fcdf395c7"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/startup.png",
+      "bytes": 121246,
+      "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/undo-disappears.png",
+      "bytes": 91821,
+      "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/electron-smoke/verification.json",
+      "bytes": 4146,
+      "sha256": "830bdc6e00782763fcca10f68f0cb7fc43da28d74725109bbdb894de72b233c2"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/unified/live.json",
+      "bytes": 588880,
+      "sha256": "a91cf10742157b1315c80226b46483b15cd851767e8a4d3536e1c664437b46e6"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/unified/offline-audit.json",
+      "bytes": 11799,
+      "sha256": "59a3deeb6bcf52ddad93d7cf28b138bbcd943ba389a3582def76bbe740de04d8"
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-b0-b1/unified/verification.json",
+      "bytes": 262674,
+      "sha256": "f348b07b9f1c061d8526cb3832a41ff00e26c2728215dd3bcd32b290aafef6ce"
+    }
+  ]
+}

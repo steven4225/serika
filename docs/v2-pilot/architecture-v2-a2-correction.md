@@ -23,7 +23,7 @@ worker 参数解析要求显式 `--home`，类型改为必填；共享 home 解�
 
 ## 4. 命令与退出码
 
-`pnpm typecheck`：0；`pnpm build:runtime && node --test packages/assistant/dist/task-worker-entry.test.js`：0，12/0/0；补齐 RSS 参数夹具后两文件合跑 16/0/0。首次统一验证 UTC 因 RSS 旧夹具缺 --home 失败，已修复并保留原断言。统一验证结果在后续联合报告中归档，验证退出 0 前不开始 b0+b1。
+`pnpm typecheck`：0；`pnpm build:runtime && node --test packages/assistant/dist/task-worker-entry.test.js`：0，12/0/0；补齐 RSS 参数夹具后两文件合跑 22/0/0。首次统一验证 UTC 因 RSS 旧夹具缺 --home 失败，已修复并保留原断言。最终统一验证退出 0：两时区各 1761/0/7（总 1768），eval 101/101，真实 Electron + 假模型冒烟 8/8。证据与 SHA 见 [联合报告](architecture-v2-b0-b1.md)，退出 0 后才开始 b0+b1。
 
 ## 5. 差异与边界
 

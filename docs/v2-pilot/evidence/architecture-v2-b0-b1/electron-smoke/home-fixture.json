@@ -1,0 +1,11 @@
+{
+  "runId": "949ff955-9812-401a-b2a8-630f8004f769",
+  "aliases": [
+    {
+      "alias": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-AkyIu6/primary/workspace/.runloom",
+      "target": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-AkyIu6/home/.serika/data",
+      "realpath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-AkyIu6/home/.serika/data"
+    }
+  ],
+  "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f"
+}
