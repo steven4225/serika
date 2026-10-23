@@ -1,0 +1,261 @@
+{
+  "runId": "f83b4f4a-ce84-4317-9013-def661b59319",
+  "startedAt": "2026-10-23T08:41:05.498Z",
+  "platform": "darwin",
+  "arch": "arm64",
+  "node": "v26.4.0",
+  "sourceCommit": "bb5c6e6c1674b0a2bdb3b71f331abf6b33467ced",
+  "sourceWorktreeDirty": true,
+  "scriptSha256": "4a225fba92416134df077e6d5418b3e141218a41b85c63c2dbb2a6f7b5235743",
+  "realModelCalls": 0,
+  "status": "failed",
+  "commands": [
+    {
+      "name": "compile-process",
+      "exitCode": 0,
+      "signal": null,
+      "sourceSha256": "9aafcd5cda24ea7790b838361ebff4b2ef1dea58d6e203d8275f1c41cb606db5",
+      "stderr": ""
+    },
+    {
+      "name": "compile-cancel",
+      "exitCode": 0,
+      "signal": null,
+      "sourceSha256": "efc7e289b1ab9307808a5b1fabc28c5c104f7e0ea249186d23df13b1a0f14850",
+      "stderr": ""
+    },
+    {
+      "name": "cross-process-host-control",
+      "exitCode": 0,
+      "result": {
+        "numericProcargs2": {
+          "name": "PROBE_CREDENTIAL_CANARY",
+          "blocked": false,
+          "errno": 0
+        },
+        "processInfo": {
+          "blocked": false,
+          "errno": 0
+        },
+        "processPath": {
+          "blocked": false,
+          "errno": 0
+        },
+        "taskPort": {
+          "blocked": true,
+          "result": 5
+        },
+        "taskReadPort": {
+          "blocked": true,
+          "result": -1
+        },
+        "taskInspectPort": {
+          "blocked": true,
+          "result": -1
+        },
+        "taskNamePort": {
+          "blocked": false,
+          "result": 0
+        },
+        "numericProcInfo": {
+          "blocked": false,
+          "errno": 0
+        },
+        "numericProcargs": {
+          "blocked": false,
+          "errno": 0
+        },
+        "runtimeSysctl": {
+          "blocked": false,
+          "errno": 0
+        },
+        "externalSignal": {
+          "blocked": false,
+          "errno": 0
+        },
+        "machServices": [
+          {
+            "name": "com.apple.cfprefsd.agent",
+            "blocked": false,
+            "result": 0
+          },
+          {
+            "name": "com.apple.coreservices.appleevents",
+            "blocked": false,
+            "result": 0
+          }
+        ],
+        "descriptors": {
+          "extraOpen": 0,
+          "sockets": 0
+        }
+      }
+    },
+    {
+      "name": "S10-inherited-socket-positive-control",
+      "exitCode": 0,
+      "result": {
+        "numericProcargs2": {
+          "name": "PROBE_CREDENTIAL_CANARY",
+          "blocked": false,
+          "errno": 0
+        },
+        "processInfo": {
+          "blocked": false,
+          "errno": 0
+        },
+        "processPath": {
+          "blocked": false,
+          "errno": 0
+        },
+        "taskPort": {
+          "blocked": true,
+          "result": 5
+        },
+        "taskReadPort": {
+          "blocked": true,
+          "result": -1
+        },
+        "taskInspectPort": {
+          "blocked": true,
+          "result": -1
+        },
+        "taskNamePort": {
+          "blocked": false,
+          "result": 0
+        },
+        "numericProcInfo": {
+          "blocked": false,
+          "errno": 0
+        },
+        "numericProcargs": {
+          "blocked": false,
+          "errno": 0
+        },
+        "runtimeSysctl": {
+          "blocked": false,
+          "errno": 0
+        },
+        "externalSignal": {
+          "blocked": false,
+          "errno": 0
+        },
+        "machServices": [
+          {
+            "name": "com.apple.cfprefsd.agent",
+            "blocked": false,
+            "result": 0
+          },
+          {
+            "name": "com.apple.coreservices.appleevents",
+            "blocked": false,
+            "result": 0
+          }
+        ],
+        "descriptors": {
+          "extraOpen": 1,
+          "sockets": 1
+        }
+      }
+    },
+    {
+      "name": "S15",
+      "command": "/private/tmp/serika-s1-native-joq0Hw/A/process --pid 44167 --home /private/tmp/serika-s1-native-joq0Hw/H",
+      "result": {
+        "ok": true,
+        "exitCode": 0,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\n{\"numericProcargs2\":{\"name\":\"PROBE_CREDENTIAL_CANARY\",\"blocked\":true,\"errno\":1},\"processInfo\":{\"blocked\":true,\"errno\":1},\"processPath\":{\"blocked\":true,\"errno\":1},\"taskPort\":{\"blocked\":true,\"result\":5},\"taskReadPort\":{\"blocked\":true,\"result\":-1},\"taskInspectPort\":{\"blocked\":true,\"result\":-1},\"taskNamePort\":{\"blocked\":true,\"result\":5},\"numericProcInfo\":{\"blocked\":true,\"errno\":1},\"numericProcargs\":{\"blocked\":true,\"errno\":1},\"runtimeSysctl\":{\"blocked\":false,\"errno\":0},\"externalSignal\":{\"blocked\":true,\"errno\":1},\"machServices\":[{\"name\":\"com.apple.cfprefsd.agent\",\"blocked\":true,\"result\":1100},{\"name\":\"com.apple.coreservices.appleevents\",\"blocked\":true,\"result\":1100}],\"descriptors\":{\"extraOpen\":0,\"sockets\":0}}\n",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S04-S09",
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node /private/tmp/serika-s1-native-joq0Hw/A/checks.mjs --child checks --plan /private/tmp/serika-s1-native-joq0Hw/A/plan.json --home /private/tmp/serika-s1-native-joq0Hw/H",
+      "result": {
+        "ok": true,
+        "exitCode": null,
+        "signal": "SIGTRAP",
+        "termination": "signalled",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\n",
+        "truncated": false
+      }
+    }
+  ],
+  "checks": {
+    "S15": {
+      "numericProcargs2": {
+        "name": "PROBE_CREDENTIAL_CANARY",
+        "blocked": true,
+        "errno": 1
+      },
+      "processInfo": {
+        "blocked": true,
+        "errno": 1
+      },
+      "processPath": {
+        "blocked": true,
+        "errno": 1
+      },
+      "taskPort": {
+        "blocked": true,
+        "result": 5
+      },
+      "taskReadPort": {
+        "blocked": true,
+        "result": -1
+      },
+      "taskInspectPort": {
+        "blocked": true,
+        "result": -1
+      },
+      "taskNamePort": {
+        "blocked": true,
+        "result": 5
+      },
+      "numericProcInfo": {
+        "blocked": true,
+        "errno": 1
+      },
+      "numericProcargs": {
+        "blocked": true,
+        "errno": 1
+      },
+      "runtimeSysctl": {
+        "blocked": false,
+        "errno": 0
+      },
+      "externalSignal": {
+        "blocked": true,
+        "errno": 1
+      },
+      "machServices": [
+        {
+          "name": "com.apple.cfprefsd.agent",
+          "blocked": true,
+          "result": 1100
+        },
+        {
+          "name": "com.apple.coreservices.appleevents",
+          "blocked": true,
+          "result": 1100
+        }
+      ],
+      "descriptors": {
+        "extraOpen": 0,
+        "sockets": 0
+      }
+    }
+  },
+  "failure": {
+    "name": "AssertionError",
+    "message": "Expected values to be strictly equal:\n\nnull !== 0\n"
+  },
+  "finishedAt": "2026-10-23T08:41:06.745Z",
+  "targetStopped": true
+}

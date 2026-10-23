@@ -1,0 +1,34 @@
+▶ v2 pilot baseline: assembled tools, instructions and capability report
+  ✔ minimal assembly matches __baseline__/assembly-minimal.txt (85.031042ms)
+  ✔ full assembly matches __baseline__/assembly-full.txt (59.034291ms)
+  ✔ full-without-todoist assembly matches __baseline__/assembly-full-without-todoist.txt (60.264208ms)
+  ✔ full assembly in the autonomous desktop foreground matches __baseline__/assembly-full-desktop-autonomous.txt (55.425875ms)
+  ✔ the two full assemblies differ only by Todoist-owned content (0.49225ms)
+✔ v2 pilot baseline: assembled tools, instructions and capability report (260.898875ms)
+▶ createShellModule
+  ✔ registers shell_exec and runs from a workspace-relative cwd (46.758625ms)
+  ✔ gives Docker sandbox execute a timeout budget that outlasts cleanup (0.261459ms)
+  ✔ uses a configured command timeout for host execution and tool metadata (54.888625ms)
+  ✔ emits bounded live output with tool call identity without changing the final result (71.77175ms)
+  ✔ keeps the configured Docker deadline ahead of cleanup and kill grace (0.23175ms)
+  ✔ returns a non-zero exit code and combined command output (40.412417ms)
+✔ createShellModule (215.080792ms)
+▶ executeShellCommand
+  ✔ keeps split UTF-8 characters intact in live progress (55.160333ms)
+  ✔ reports output truncation without buffering beyond the configured limit (38.5405ms)
+  ✔ terminates a command that exceeds the timeout (54.708625ms)
+  ✔ terminates a running command when its AbortSignal is cancelled (53.574875ms)
+  ✔ returns a timed-out command result before a later tool-layer abort (53.353208ms)
+  ✔ does not pass application API keys into the command environment (39.571167ms)
+  ✔ rejects a cwd outside the workspace (0.528333ms)
+  ✔ declares never-remembered shell calls, sandbox-only Run authorization, cards and instructions (0.409292ms)
+✔ executeShellCommand (296.225625ms)
+✔ b0 locks full host decisions, current Memory, configuration and filesystem boundaries (41887.172291ms)
+ℹ tests 20
+ℹ suites 3
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 42170.701208

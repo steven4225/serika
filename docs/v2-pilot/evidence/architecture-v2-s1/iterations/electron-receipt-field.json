@@ -1,0 +1,205 @@
+{
+  "runId": "4fb2cce3-c9c8-412f-b40e-e06015c26164",
+  "startedAt": "2026-10-23T08:51:11.344Z",
+  "verification": "real-macos-electron-fake-model-real-shell",
+  "sourceCommit": "bb5c6e6c1674b0a2bdb3b71f331abf6b33467ced",
+  "sourceWorktreeDirty": true,
+  "scriptSha256": "cc9e4e5f98d69855ac4ef73add322532925751b5ac700dabfa34883dbfcd9df6",
+  "status": "failed",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "checks": [
+    {
+      "name": "S15-Electron-host-positive-control",
+      "exitCode": 0,
+      "result": {
+        "numericProcargs2": {
+          "name": "PROBE_CREDENTIAL_CANARY",
+          "variableNameObserved": true,
+          "blocked": false,
+          "errno": 0
+        },
+        "processInfo": {
+          "blocked": false,
+          "errno": 0
+        },
+        "processPath": {
+          "blocked": false,
+          "errno": 0
+        },
+        "taskPort": {
+          "blocked": true,
+          "result": 5
+        },
+        "taskReadPort": {
+          "blocked": true,
+          "result": -1
+        },
+        "taskInspectPort": {
+          "blocked": true,
+          "result": -1
+        },
+        "taskNamePort": {
+          "blocked": false,
+          "result": 0
+        },
+        "numericProcInfo": {
+          "blocked": false,
+          "errno": 0
+        },
+        "numericProcargs": {
+          "blocked": false,
+          "errno": 0
+        },
+        "runtimeSysctl": {
+          "blocked": false,
+          "errno": 0
+        },
+        "externalSignal": {
+          "blocked": false,
+          "errno": 0
+        },
+        "machServices": [
+          {
+            "name": "com.apple.cfprefsd.agent",
+            "blocked": false,
+            "result": 0
+          },
+          {
+            "name": "com.apple.coreservices.appleevents",
+            "blocked": false,
+            "result": 0
+          }
+        ],
+        "descriptors": {
+          "extraOpen": 0,
+          "sockets": 0
+        }
+      }
+    },
+    {
+      "name": "S01-S10-S11-S15",
+      "record": {
+        "runId": "2a36ea69-a949-4040-ba56-cc953cc64f87",
+        "threadId": "s1-electron",
+        "phase": "primary",
+        "status": "completed",
+        "startedAt": "2026-10-23T08:51:15.958Z",
+        "finishedAt": "2026-10-23T08:51:17.220Z",
+        "resultTextPreview": "离线冒烟回复完成。",
+        "resultTextTruncated": false,
+        "errorPreview": null,
+        "tools": [
+          {
+            "toolCallId": "s1-shell",
+            "toolName": "shell_exec",
+            "status": "completed",
+            "requestedAt": "2026-10-23T08:51:16.316Z",
+            "startedAt": "2026-10-23T08:51:16.557Z",
+            "finishedAt": "2026-10-23T08:51:16.748Z",
+            "inputPreview": "{\"command\":\"/private/tmp/serika-s1-electron-kQw0Mx/A/process --pid 51194 --home /private/tmp/serika-s1-electron-kQw0Mx/H\"}",
+            "inputTruncated": false,
+            "resultPreview": "{\"ok\":true,\"exitCode\":0,\"signal\":null,\"termination\":\"exited\",\"cancelled\":false,\"timedOut\":false,\"output\":\"Error opening /private/var/select/sh: Operation not permitted\\n{\\\"numericProcargs2\\\":{\\\"name\\\":\\\"PROBE_CREDENTIAL_CANARY\\\",\\\"variableNameObserved\\\":false,\\\"blocked\\\":true,\\\"errno\\\":1},\\\"processInfo\\\":{\\\"blocked\\\":true,\\\"errno\\\":1},\\\"processPath\\\":{\\\"blocked\\\":true,\\\"errno\\\":1},\\\"taskPort\\\":{\\\"blocked\\\":true,\\\"result\\\":5},\\\"taskReadPort\\\":{\\\"blocked\\\":true,\\\"result\\\":-1},\\\"taskInspectPort\\\":{\\\"blocked\\\":true,\\\"result\\\":-1},\\\"taskNamePort\\\":{\\\"blocked\\\":true,\\\"result\\\":5},\\\"numericProcInfo\\\":{\\\"blocked\\\":true,\\\"errno\\\":1},\\\"numericProcargs\\\":{\\\"blocked\\\":true,\\\"errno\\\":1},\\\"runtimeSysctl\\\":{\\\"blocked\\\":false,\\\"errno\\\":0},\\\"externalSignal\\\":{\\\"blocked\\\":true,\\\"errno\\\":1},\\\"machServices\\\":[{\\\"name\\\":\\\"com.apple.cfprefsd.agent\\\",\\\"blocked\\\":true,\\\"result\\\":1100},{\\\"name\\\":\\\"com.apple.coreservices.appleevents\\\",\\\"blocked\\\":true,\\\"result\\\":1100}],\\\"descriptors\\\":{\\\"extraOpen\\\":0,\\\"sockets\\\":0}}\\n\",\"truncated\":false}",
+            "resultTruncated": false,
+            "errorPreview": null,
+            "shell": {
+              "exitCode": 0,
+              "timedOut": false,
+              "cancelled": false
+            }
+          }
+        ],
+        "trace": {
+          "version": 1,
+          "events": [
+            {
+              "sequence": 2,
+              "occurredAt": "2026-10-23T08:51:16.092Z",
+              "type": "step.started",
+              "stepNumber": 1
+            },
+            {
+              "sequence": 4,
+              "occurredAt": "2026-10-23T08:51:16.497Z",
+              "type": "step.completed",
+              "stepNumber": 1,
+              "finishReason": "tool-calls",
+              "usage": {
+                "inputTokens": 10,
+                "outputTokens": 5,
+                "totalTokens": 15
+              }
+            },
+            {
+              "sequence": 8,
+              "occurredAt": "2026-10-23T08:51:16.809Z",
+              "type": "step.started",
+              "stepNumber": 2
+            },
+            {
+              "sequence": 10,
+              "occurredAt": "2026-10-23T08:51:17.104Z",
+              "type": "step.completed",
+              "stepNumber": 2,
+              "finishReason": "stop",
+              "usage": {
+                "inputTokens": 10,
+                "outputTokens": 5,
+                "totalTokens": 15
+              }
+            }
+          ],
+          "truncated": false,
+          "incomplete": false,
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          },
+          "steps": 2
+        },
+        "memoryReferences": [],
+        "memoryReferencesTruncated": false
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "failure.png",
+      "sha256": "bc55159d0361cd3daa9c52c9bbd96b3ad7a7d31ebdda6e00ad15c9e0a2074334"
+    }
+  ],
+  "commands": [
+    {
+      "name": "native-fixture",
+      "exitCode": 0,
+      "stdout": "{\"runId\":\"1f5fc0ec-70f7-48bd-ac47-aa8d0eaa9942\",\"status\":\"passed\",\"output\":\"/private/tmp/serika-s1-electron-kQw0Mx/evidence\"}\n",
+      "stderr": ""
+    }
+  ],
+  "main": {
+    "electron": "44.4.5",
+    "pid": 51194,
+    "userData": "/private/tmp/serika-s1-electron-kQw0Mx/profile",
+    "home": "/private/tmp/serika-s1-electron-kQw0Mx/userhome"
+  },
+  "renderer": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+    "url": "file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/apps/desktop/out/renderer/index.html"
+  },
+  "artifactHashes": {
+    "out/main/index.js": "e8aca13f2027bd957e00c879ad74658269c89b89a62e8a6e85629835d770568f",
+    "out/preload/index.cjs": "e95eb5c1150249b1799b345032280c51994c84636a2f1715af321a88c6ab6199",
+    "out/renderer/index.html": "f83dfa044b12ab8a984d013a05e8cce339963393c8c44f4c53c8602b8ef66945"
+  },
+  "failure": {
+    "name": "AssertionError",
+    "message": "Expected values to be strictly equal:\n+ actual - expected\n\n+ undefined\n- null\n"
+  },
+  "electronExit": {
+    "pid": 51194,
+    "exitCode": 0,
+    "signal": null
+  },
+  "finishedAt": "2026-10-23T08:51:17.500Z"
+}

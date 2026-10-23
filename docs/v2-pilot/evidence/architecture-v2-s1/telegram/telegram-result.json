@@ -1,0 +1,193 @@
+{
+  "runId": "cc4e4906-fe46-4232-b5cb-041f07399b9d",
+  "sourceCommit": "1ad23a6f847d1723331a431628188fcf92550c46",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "753b960f2a0d42f23f36b3dd9ca1a2471661dbc8a38a3dc15d7ba12ce07d0052",
+  "verification": "real-Mac-Controller-with-validated-test-Telegram-binding-no-transport",
+  "realModelCalls": 0,
+  "telegramOutbound": 0,
+  "status": "passed",
+  "approvals": [
+    {
+      "tool": "shell_exec",
+      "preview": "\nTool: shell_exec\nCommand: \"printf call-0 > ../B/call-0.txt\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+      "decision": "allow",
+      "remember": null,
+      "markerAbsentBeforeApproval": true
+    },
+    {
+      "tool": "shell_exec",
+      "preview": "\nTool: shell_exec\nCommand: \"printf call-1 > ../B/call-1.txt\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+      "decision": "allow",
+      "remember": null,
+      "markerAbsentBeforeApproval": true
+    }
+  ],
+  "events": [
+    {
+      "id": "015d213b-01ca-4229-8b20-485610e92a57",
+      "type": "tool.call.completed",
+      "occurredAt": "2026-10-23T09:05:41.519Z",
+      "runId": "5d4bc6cb-5b4b-46c5-add0-8dfa417664ae",
+      "threadId": "s1-telegram",
+      "sequence": 7,
+      "data": {
+        "toolCallId": "shell-0",
+        "toolName": "shell_exec",
+        "output": {
+          "ok": true,
+          "exitCode": 0,
+          "termination": "exited",
+          "signal": null,
+          "cancelled": false,
+          "timedOut": false,
+          "output": "",
+          "truncated": false
+        }
+      }
+    },
+    {
+      "id": "492ef97f-c6b1-4dd3-8bfb-5c643d6fb585",
+      "type": "tool.call.completed",
+      "occurredAt": "2026-10-23T09:05:41.968Z",
+      "runId": "5d4bc6cb-5b4b-46c5-add0-8dfa417664ae",
+      "threadId": "s1-telegram",
+      "sequence": 13,
+      "data": {
+        "toolCallId": "shell-1",
+        "toolName": "shell_exec",
+        "output": {
+          "ok": true,
+          "exitCode": 0,
+          "termination": "exited",
+          "signal": null,
+          "cancelled": false,
+          "timedOut": false,
+          "output": "",
+          "truncated": false
+        }
+      }
+    }
+  ],
+  "hostConfirmationInstructions": true,
+  "run": {
+    "runId": "5d4bc6cb-5b4b-46c5-add0-8dfa417664ae",
+    "threadId": "s1-telegram",
+    "phase": "primary",
+    "status": "completed",
+    "startedAt": "2026-10-23T09:05:41.040Z",
+    "finishedAt": "2026-10-23T09:05:42.372Z",
+    "resultTextPreview": "",
+    "resultTextTruncated": false,
+    "errorPreview": null,
+    "tools": [
+      {
+        "toolCallId": "shell-0",
+        "toolName": "shell_exec",
+        "status": "completed",
+        "requestedAt": "2026-10-23T09:05:41.255Z",
+        "startedAt": "2026-10-23T09:05:41.428Z",
+        "finishedAt": "2026-10-23T09:05:41.519Z",
+        "inputPreview": "{\"command\":\"printf call-0 > ../B/call-0.txt\"}",
+        "inputTruncated": false,
+        "resultPreview": "{\"ok\":true,\"exitCode\":0,\"termination\":\"exited\",\"signal\":null,\"cancelled\":false,\"timedOut\":false,\"output\":\"\",\"truncated\":false}",
+        "resultTruncated": false,
+        "errorPreview": null,
+        "shell": {
+          "exitCode": 0,
+          "timedOut": false,
+          "cancelled": false
+        },
+        "approvalRequestedAt": "2026-10-23T09:05:41.428Z"
+      },
+      {
+        "toolCallId": "shell-1",
+        "toolName": "shell_exec",
+        "status": "completed",
+        "requestedAt": "2026-10-23T09:05:41.709Z",
+        "startedAt": "2026-10-23T09:05:41.880Z",
+        "finishedAt": "2026-10-23T09:05:41.968Z",
+        "inputPreview": "{\"command\":\"printf call-1 > ../B/call-1.txt\"}",
+        "inputTruncated": false,
+        "resultPreview": "{\"ok\":true,\"exitCode\":0,\"termination\":\"exited\",\"signal\":null,\"cancelled\":false,\"timedOut\":false,\"output\":\"\",\"truncated\":false}",
+        "resultTruncated": false,
+        "errorPreview": null,
+        "shell": {
+          "exitCode": 0,
+          "timedOut": false,
+          "cancelled": false
+        },
+        "approvalRequestedAt": "2026-10-23T09:05:41.879Z"
+      }
+    ],
+    "trace": {
+      "version": 1,
+      "events": [
+        {
+          "sequence": 2,
+          "occurredAt": "2026-10-23T09:05:41.120Z",
+          "type": "step.started",
+          "stepNumber": 1
+        },
+        {
+          "sequence": 4,
+          "occurredAt": "2026-10-23T09:05:41.383Z",
+          "type": "step.completed",
+          "stepNumber": 1,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 1,
+            "outputTokens": 1,
+            "totalTokens": 2
+          }
+        },
+        {
+          "sequence": 8,
+          "occurredAt": "2026-10-23T09:05:41.564Z",
+          "type": "step.started",
+          "stepNumber": 2
+        },
+        {
+          "sequence": 10,
+          "occurredAt": "2026-10-23T09:05:41.835Z",
+          "type": "step.completed",
+          "stepNumber": 2,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 1,
+            "outputTokens": 1,
+            "totalTokens": 2
+          }
+        },
+        {
+          "sequence": 14,
+          "occurredAt": "2026-10-23T09:05:42.010Z",
+          "type": "step.started",
+          "stepNumber": 3
+        },
+        {
+          "sequence": 15,
+          "occurredAt": "2026-10-23T09:05:42.273Z",
+          "type": "step.completed",
+          "stepNumber": 3,
+          "finishReason": "stop",
+          "usage": {
+            "inputTokens": 1,
+            "outputTokens": 1,
+            "totalTokens": 2
+          }
+        }
+      ],
+      "truncated": false,
+      "incomplete": false,
+      "usage": {
+        "inputTokens": 3,
+        "outputTokens": 3,
+        "totalTokens": 6
+      },
+      "steps": 3
+    },
+    "memoryReferences": [],
+    "memoryReferencesTruncated": false
+  }
+}

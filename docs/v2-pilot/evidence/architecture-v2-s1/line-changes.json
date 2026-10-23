@@ -1,0 +1,187 @@
+{
+  "generatedAt": "2026-10-23T09:20:53.389Z",
+  "runId": "c57352c3-130b-4092-8201-8255b1809cbf",
+  "baselineCommit": "bb5c6e6c1674b0a2bdb3b71f331abf6b33467ced",
+  "sourceCommit": "1ad23a6f847d1723331a431628188fcf92550c46",
+  "method": "git diff --numstat bb5c6e6 1ad23a6 plus 23-line boundary and 26-line real Electron pwd evidence scripts; docs/JSON/images excluded",
+  "categories": {
+    "product": {
+      "added": 239,
+      "removed": 24,
+      "net": 215,
+      "files": [
+        {
+          "path": "apps/desktop/src/main/desktop-runtime.ts",
+          "added": 1,
+          "removed": 1,
+          "kind": "product"
+        },
+        {
+          "path": "apps/desktop/src/renderer/src/capabilities.tsx",
+          "added": 2,
+          "removed": 2,
+          "kind": "product"
+        },
+        {
+          "path": "packages/assistant/src/app.ts",
+          "added": 15,
+          "removed": 6,
+          "kind": "product"
+        },
+        {
+          "path": "packages/assistant/src/assistant-controller.ts",
+          "added": 1,
+          "removed": 1,
+          "kind": "product"
+        },
+        {
+          "path": "packages/assistant/src/foreground-autonomy.ts",
+          "added": 2,
+          "removed": 2,
+          "kind": "product"
+        },
+        {
+          "path": "packages/assistant/src/module-host.ts",
+          "added": 1,
+          "removed": 0,
+          "kind": "product"
+        },
+        {
+          "path": "packages/assistant/src/modules/seatbelt-policy.ts",
+          "added": 82,
+          "removed": 0,
+          "kind": "product"
+        },
+        {
+          "path": "packages/assistant/src/modules/seatbelt-shell-runner.ts",
+          "added": 121,
+          "removed": 0,
+          "kind": "product"
+        },
+        {
+          "path": "packages/assistant/src/modules/shell-module.ts",
+          "added": 14,
+          "removed": 12,
+          "kind": "product"
+        }
+      ]
+    },
+    "migration-tools": {
+      "added": 0,
+      "removed": 0,
+      "net": 0,
+      "files": []
+    },
+    "tests-verification": {
+      "added": 620,
+      "removed": 22,
+      "net": 598,
+      "files": [
+        {
+          "path": "apps/desktop/scripts/seatbelt-s1-electron.mjs",
+          "added": 113,
+          "removed": 0,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "apps/desktop/src/main/foreground-autonomy.test.ts",
+          "added": 8,
+          "removed": 10,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "apps/desktop/src/main/smoke-model.ts",
+          "added": 3,
+          "removed": 1,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/scripts/seatbelt-s1-audit.mjs",
+          "added": 37,
+          "removed": 0,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/scripts/seatbelt-s1-cancel.c",
+          "added": 30,
+          "removed": 0,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/scripts/seatbelt-s1-check.mjs",
+          "added": 205,
+          "removed": 0,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/scripts/seatbelt-s1-network.c",
+          "added": 24,
+          "removed": 0,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/scripts/seatbelt-s1-process.c",
+          "added": 86,
+          "removed": 0,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/scripts/seatbelt-s1-telegram.mjs",
+          "added": 48,
+          "removed": 0,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/src/app-five-layer.test.ts",
+          "added": 2,
+          "removed": 2,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/src/baseline-assembly.test.ts",
+          "added": 10,
+          "removed": 4,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/src/directory-authorization.test.ts",
+          "added": 1,
+          "removed": 1,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/src/memory-m1-acceptance.test.ts",
+          "added": 2,
+          "removed": 2,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/src/modules/shell-module.test.ts",
+          "added": 1,
+          "removed": 1,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/src/permission-boundary.test.ts",
+          "added": 1,
+          "removed": 1,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "docs/v2-pilot/evidence/architecture-v2-s1/supplement/probe.mjs",
+          "added": 23,
+          "removed": 0,
+          "kind": "tests-verification",
+          "evidenceScript": true
+        },
+        {
+          "path": "docs/v2-pilot/evidence/architecture-v2-s1/pwd/pwd.mjs",
+          "added": 26,
+          "removed": 0,
+          "kind": "tests-verification",
+          "evidenceScript": true
+        }
+      ]
+    }
+  }
+}

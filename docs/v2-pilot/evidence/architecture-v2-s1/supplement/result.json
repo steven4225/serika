@@ -1,0 +1,62 @@
+{
+  "runId": "452921e8-906c-4757-9307-6f58b3ea1272",
+  "sourceCommit": "1ad23a6f847d1723331a431628188fcf92550c46",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "ea5b01c3bc637ff9dcc4f696d64c5b1867307bd5cee3167f31b0eb8681006ed2",
+  "status": "passed",
+  "checks": [
+    {
+      "name": "S04-root",
+      "result": {
+        "ok": false,
+        "error": {
+          "code": "SANDBOX_UNAVAILABLE",
+          "message": "Seatbelt unavailable or directory/runtime outside the approved policy. No host fallback."
+        }
+      }
+    },
+    {
+      "name": "S07-A-symlink",
+      "result": {
+        "ok": false,
+        "error": {
+          "code": "SANDBOX_UNAVAILABLE",
+          "message": "Seatbelt unavailable or directory/runtime outside the approved policy. No host fallback."
+        }
+      }
+    },
+    {
+      "name": "S07-cwd-symlink",
+      "result": {
+        "ok": false,
+        "error": {
+          "code": "SANDBOX_UNAVAILABLE",
+          "message": "Seatbelt unavailable or directory/runtime outside the approved policy. No host fallback."
+        }
+      }
+    },
+    {
+      "name": "S07-cwd-escape",
+      "result": {
+        "ok": false,
+        "error": {
+          "code": "SANDBOX_UNAVAILABLE",
+          "message": "Seatbelt unavailable or directory/runtime outside the approved policy. No host fallback."
+        }
+      }
+    },
+    {
+      "name": "S07-canonical-cwd-control",
+      "result": {
+        "ok": true,
+        "exitCode": 0,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\n",
+        "truncated": false
+      }
+    }
+  ]
+}

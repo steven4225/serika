@@ -1,0 +1,858 @@
+{
+  "runId": "17312166-50db-4ad0-8b9b-1325d42992c0",
+  "startedAt": "2026-10-23T08:54:03.437Z",
+  "verification": "real-macos-electron-fake-model-real-shell",
+  "sourceCommit": "bb5c6e6c1674b0a2bdb3b71f331abf6b33467ced",
+  "sourceWorktreeDirty": true,
+  "scriptSha256": "7976d81843e51f08da91ab58468d6318dcc27b6389f0c873cdf172fde7118a9f",
+  "status": "failed",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "checks": [
+    {
+      "name": "S15-Electron-host-positive-control",
+      "signalControlSkipped": true,
+      "exitCode": 0,
+      "result": {
+        "numericProcargs2": {
+          "name": "PROBE_CREDENTIAL_CANARY",
+          "variableNameObserved": true,
+          "blocked": false,
+          "errno": 0
+        },
+        "processInfo": {
+          "blocked": false,
+          "errno": 0
+        },
+        "processPath": {
+          "blocked": false,
+          "errno": 0
+        },
+        "taskPort": {
+          "blocked": true,
+          "result": 5
+        },
+        "taskReadPort": {
+          "blocked": true,
+          "result": -1
+        },
+        "taskInspectPort": {
+          "blocked": true,
+          "result": -1
+        },
+        "taskNamePort": {
+          "blocked": false,
+          "result": 0
+        },
+        "numericProcInfo": {
+          "blocked": false,
+          "errno": 0
+        },
+        "numericProcargs": {
+          "blocked": false,
+          "errno": 0
+        },
+        "runtimeSysctl": {
+          "blocked": false,
+          "errno": 0
+        },
+        "externalSignal": {
+          "blocked": false,
+          "errno": 0
+        },
+        "machServices": [
+          {
+            "name": "com.apple.cfprefsd.agent",
+            "blocked": false,
+            "result": 0
+          },
+          {
+            "name": "com.apple.coreservices.appleevents",
+            "blocked": false,
+            "result": 0
+          }
+        ],
+        "descriptors": {
+          "extraOpen": 0,
+          "sockets": 0
+        }
+      }
+    },
+    {
+      "name": "S01-S10-S11-S15",
+      "record": {
+        "runId": "39270e87-b289-4eae-b6ee-9bfb0574d290",
+        "threadId": "s1-electron",
+        "phase": "primary",
+        "status": "completed",
+        "startedAt": "2026-10-23T08:54:07.527Z",
+        "finishedAt": "2026-10-23T08:54:08.863Z",
+        "resultTextPreview": "离线冒烟回复完成。",
+        "resultTextTruncated": false,
+        "errorPreview": null,
+        "tools": [
+          {
+            "toolCallId": "s1-shell",
+            "toolName": "shell_exec",
+            "status": "completed",
+            "requestedAt": "2026-10-23T08:54:07.940Z",
+            "startedAt": "2026-10-23T08:54:08.182Z",
+            "finishedAt": "2026-10-23T08:54:08.375Z",
+            "inputPreview": "{\"command\":\"/private/tmp/serika-s1-electron-g60kGW/A/process --pid 53080 --home /private/tmp/serika-s1-electron-g60kGW/H\"}",
+            "inputTruncated": false,
+            "resultPreview": "{\"ok\":true,\"exitCode\":0,\"signal\":null,\"termination\":\"exited\",\"cancelled\":false,\"timedOut\":false,\"output\":\"Error opening /private/var/select/sh: Operation not permitted\\n{\\\"numericProcargs2\\\":{\\\"name\\\":\\\"PROBE_CREDENTIAL_CANARY\\\",\\\"variableNameObserved\\\":false,\\\"blocked\\\":true,\\\"errno\\\":1},\\\"processInfo\\\":{\\\"blocked\\\":true,\\\"errno\\\":1},\\\"processPath\\\":{\\\"blocked\\\":true,\\\"errno\\\":1},\\\"taskPort\\\":{\\\"blocked\\\":true,\\\"result\\\":5},\\\"taskReadPort\\\":{\\\"blocked\\\":true,\\\"result\\\":-1},\\\"taskInspectPort\\\":{\\\"blocked\\\":true,\\\"result\\\":-1},\\\"taskNamePort\\\":{\\\"blocked\\\":true,\\\"result\\\":5},\\\"numericProcInfo\\\":{\\\"blocked\\\":true,\\\"errno\\\":1},\\\"numericProcargs\\\":{\\\"blocked\\\":true,\\\"errno\\\":1},\\\"runtimeSysctl\\\":{\\\"blocked\\\":false,\\\"errno\\\":0},\\\"externalSignal\\\":{\\\"blocked\\\":true,\\\"errno\\\":1},\\\"machServices\\\":[{\\\"name\\\":\\\"com.apple.cfprefsd.agent\\\",\\\"blocked\\\":true,\\\"result\\\":1100},{\\\"name\\\":\\\"com.apple.coreservices.appleevents\\\",\\\"blocked\\\":true,\\\"result\\\":1100}],\\\"descriptors\\\":{\\\"extraOpen\\\":0,\\\"sockets\\\":0}}\\n\",\"truncated\":false}",
+            "resultTruncated": false,
+            "errorPreview": null,
+            "shell": {
+              "exitCode": 0,
+              "timedOut": false,
+              "cancelled": false
+            }
+          }
+        ],
+        "trace": {
+          "version": 1,
+          "events": [
+            {
+              "sequence": 2,
+              "occurredAt": "2026-10-23T08:54:07.704Z",
+              "type": "step.started",
+              "stepNumber": 1
+            },
+            {
+              "sequence": 4,
+              "occurredAt": "2026-10-23T08:54:08.120Z",
+              "type": "step.completed",
+              "stepNumber": 1,
+              "finishReason": "tool-calls",
+              "usage": {
+                "inputTokens": 10,
+                "outputTokens": 5,
+                "totalTokens": 15
+              }
+            },
+            {
+              "sequence": 8,
+              "occurredAt": "2026-10-23T08:54:08.435Z",
+              "type": "step.started",
+              "stepNumber": 2
+            },
+            {
+              "sequence": 10,
+              "occurredAt": "2026-10-23T08:54:08.740Z",
+              "type": "step.completed",
+              "stepNumber": 2,
+              "finishReason": "stop",
+              "usage": {
+                "inputTokens": 10,
+                "outputTokens": 5,
+                "totalTokens": 15
+              }
+            }
+          ],
+          "truncated": false,
+          "incomplete": false,
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          },
+          "steps": 2
+        },
+        "memoryReferences": [],
+        "memoryReferencesTruncated": false
+      }
+    },
+    {
+      "name": "S04-S09",
+      "record": {
+        "runId": "278513a4-4df0-4db6-a74f-d5e9a20c0b8d",
+        "threadId": "s1-electron",
+        "phase": "primary",
+        "status": "completed",
+        "startedAt": "2026-10-23T08:54:09.028Z",
+        "finishedAt": "2026-10-23T08:54:10.174Z",
+        "resultTextPreview": "离线冒烟回复完成。",
+        "resultTextTruncated": false,
+        "errorPreview": null,
+        "tools": [
+          {
+            "toolCallId": "s1-shell",
+            "toolName": "shell_exec",
+            "status": "completed",
+            "requestedAt": "2026-10-23T08:54:09.332Z",
+            "startedAt": "2026-10-23T08:54:09.568Z",
+            "finishedAt": "2026-10-23T08:54:09.690Z",
+            "inputPreview": "{\"command\":\"node /private/tmp/serika-s1-electron-g60kGW/A/checks.mjs --child checks --plan /private/tmp/serika-s1-electron-g60kGW/A/plan.json --result-file /private/tmp/serika-s1-electron-g60kGW/A/electron-observed.json --home /private/tmp/serika-s1-electron-g60kGW/H\"}",
+            "inputTruncated": false,
+            "resultPreview": "{\"ok\":true,\"exitCode\":0,\"signal\":null,\"termination\":\"exited\",\"cancelled\":false,\"timedOut\":false,\"output\":\"Error opening /private/var/select/sh: Operation not permitted\\n{\\\"authorizedWrite\\\":true,\\\"privateTempWrite\\\":true,\\\"outsideWrite\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"homeRead\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"envRead\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"nestedEnvRead\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.netrc\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.netrc\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.npmrc\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.npmrc\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.pypirc\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.pypirc\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.git-credentials\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.git-credentials\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.docker/config.json\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.docker/config.json\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.aws/credentials\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.aws/credentials\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.gnupg/private\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.gnupg/private\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.ssh/credential\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.ssh/credential\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"protected:/private/tmp/serika-s1-electron-g60kGW/H/config.json\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"protected:/private/tmp/serika-s1-electron-g60kGW/H/config.json.lock\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"protected:/private/tmp/serika-s1-electron-g60kGW/H/data/canary\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"symlinkWrite\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"symlinkRead\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"runtimeWri",
+            "resultTruncated": true,
+            "errorPreview": null,
+            "shell": {
+              "exitCode": 0,
+              "timedOut": false,
+              "cancelled": false
+            }
+          }
+        ],
+        "trace": {
+          "version": 1,
+          "events": [
+            {
+              "sequence": 2,
+              "occurredAt": "2026-10-23T08:54:09.147Z",
+              "type": "step.started",
+              "stepNumber": 1
+            },
+            {
+              "sequence": 4,
+              "occurredAt": "2026-10-23T08:54:09.508Z",
+              "type": "step.completed",
+              "stepNumber": 1,
+              "finishReason": "tool-calls",
+              "usage": {
+                "inputTokens": 10,
+                "outputTokens": 5,
+                "totalTokens": 15
+              }
+            },
+            {
+              "sequence": 8,
+              "occurredAt": "2026-10-23T08:54:09.751Z",
+              "type": "step.started",
+              "stepNumber": 2
+            },
+            {
+              "sequence": 10,
+              "occurredAt": "2026-10-23T08:54:10.056Z",
+              "type": "step.completed",
+              "stepNumber": 2,
+              "finishReason": "stop",
+              "usage": {
+                "inputTokens": 10,
+                "outputTokens": 5,
+                "totalTokens": 15
+              }
+            }
+          ],
+          "truncated": false,
+          "incomplete": false,
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          },
+          "steps": 2
+        },
+        "memoryReferences": [],
+        "memoryReferencesTruncated": false
+      }
+    },
+    {
+      "name": "S09-raw-TCP-UDP-DNS-listen",
+      "record": {
+        "runId": "b530c81e-bcc1-4dac-a7f9-b238d3e951f0",
+        "threadId": "s1-electron",
+        "phase": "primary",
+        "status": "completed",
+        "startedAt": "2026-10-23T08:54:10.299Z",
+        "finishedAt": "2026-10-23T08:54:11.394Z",
+        "resultTextPreview": "离线冒烟回复完成。",
+        "resultTextTruncated": false,
+        "errorPreview": null,
+        "tools": [
+          {
+            "toolCallId": "s1-shell",
+            "toolName": "shell_exec",
+            "status": "completed",
+            "requestedAt": "2026-10-23T08:54:10.605Z",
+            "startedAt": "2026-10-23T08:54:10.839Z",
+            "finishedAt": "2026-10-23T08:54:10.917Z",
+            "inputPreview": "{\"command\":\"/private/tmp/serika-s1-electron-g60kGW/A/network 60825 --home /private/tmp/serika-s1-electron-g60kGW/H\"}",
+            "inputTruncated": false,
+            "resultPreview": "{\"ok\":true,\"exitCode\":0,\"signal\":null,\"termination\":\"exited\",\"cancelled\":false,\"timedOut\":false,\"output\":\"Error opening /private/var/select/sh: Operation not permitted\\n{\\\"TCP4\\\":{\\\"blocked\\\":true,\\\"errno\\\":1},\\\"UDP-DNS4\\\":{\\\"blocked\\\":true,\\\"errno\\\":1},\\\"bind-listen4\\\":{\\\"blocked\\\":true,\\\"errno\\\":1},\\\"TCP6\\\":{\\\"blocked\\\":true,\\\"errno\\\":1},\\\"UDP-DNS6\\\":{\\\"blocked\\\":true,\\\"errno\\\":1},\\\"bind-listen6\\\":{\\\"blocked\\\":true,\\\"errno\\\":1}}\\n\",\"truncated\":false}",
+            "resultTruncated": false,
+            "errorPreview": null,
+            "shell": {
+              "exitCode": 0,
+              "timedOut": false,
+              "cancelled": false
+            }
+          }
+        ],
+        "trace": {
+          "version": 1,
+          "events": [
+            {
+              "sequence": 2,
+              "occurredAt": "2026-10-23T08:54:10.414Z",
+              "type": "step.started",
+              "stepNumber": 1
+            },
+            {
+              "sequence": 4,
+              "occurredAt": "2026-10-23T08:54:10.779Z",
+              "type": "step.completed",
+              "stepNumber": 1,
+              "finishReason": "tool-calls",
+              "usage": {
+                "inputTokens": 10,
+                "outputTokens": 5,
+                "totalTokens": 15
+              }
+            },
+            {
+              "sequence": 8,
+              "occurredAt": "2026-10-23T08:54:10.978Z",
+              "type": "step.started",
+              "stepNumber": 2
+            },
+            {
+              "sequence": 10,
+              "occurredAt": "2026-10-23T08:54:11.278Z",
+              "type": "step.completed",
+              "stepNumber": 2,
+              "finishReason": "stop",
+              "usage": {
+                "inputTokens": 10,
+                "outputTokens": 5,
+                "totalTokens": 15
+              }
+            }
+          ],
+          "truncated": false,
+          "incomplete": false,
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          },
+          "steps": 2
+        },
+        "memoryReferences": [],
+        "memoryReferencesTruncated": false
+      }
+    },
+    {
+      "name": "S12-fork-exec",
+      "record": {
+        "runId": "4ecf8ed9-be5c-4a0e-9b65-7dce7d7dfe02",
+        "threadId": "s1-electron",
+        "phase": "primary",
+        "status": "completed",
+        "startedAt": "2026-10-23T08:54:11.557Z",
+        "finishedAt": "2026-10-23T08:54:12.697Z",
+        "resultTextPreview": "离线冒烟回复完成。",
+        "resultTextTruncated": false,
+        "errorPreview": null,
+        "tools": [
+          {
+            "toolCallId": "s1-shell",
+            "toolName": "shell_exec",
+            "status": "completed",
+            "requestedAt": "2026-10-23T08:54:11.857Z",
+            "startedAt": "2026-10-23T08:54:12.096Z",
+            "finishedAt": "2026-10-23T08:54:12.223Z",
+            "inputPreview": "{\"command\":\"{ node /private/tmp/serika-s1-electron-g60kGW/A/checks.mjs --child checks --plan /private/tmp/serika-s1-electron-g60kGW/A/plan.json --result-file /private/tmp/serika-s1-electron-g60kGW/A/electron-descendant.json --home /private/tmp/serika-s1-electron-g60kGW/H; } & wait\"}",
+            "inputTruncated": false,
+            "resultPreview": "{\"ok\":true,\"exitCode\":0,\"signal\":null,\"termination\":\"exited\",\"cancelled\":false,\"timedOut\":false,\"output\":\"Error opening /private/var/select/sh: Operation not permitted\\n{\\\"authorizedWrite\\\":true,\\\"privateTempWrite\\\":true,\\\"outsideWrite\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"homeRead\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"envRead\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"nestedEnvRead\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.netrc\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.netrc\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.npmrc\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.npmrc\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.pypirc\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.pypirc\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.git-credentials\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.git-credentials\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.docker/config.json\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.docker/config.json\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.aws/credentials\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.aws/credentials\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.gnupg/private\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.gnupg/private\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveRead:.ssh/credential\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"sensitiveWrite:.ssh/credential\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"protected:/private/tmp/serika-s1-electron-g60kGW/H/config.json\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"protected:/private/tmp/serika-s1-electron-g60kGW/H/config.json.lock\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"protected:/private/tmp/serika-s1-electron-g60kGW/H/data/canary\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"symlinkWrite\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"symlinkRead\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\"},\\\"runtimeWri",
+            "resultTruncated": true,
+            "errorPreview": null,
+            "shell": {
+              "exitCode": 0,
+              "timedOut": false,
+              "cancelled": false
+            }
+          }
+        ],
+        "trace": {
+          "version": 1,
+          "events": [
+            {
+              "sequence": 2,
+              "occurredAt": "2026-10-23T08:54:11.670Z",
+              "type": "step.started",
+              "stepNumber": 1
+            },
+            {
+              "sequence": 4,
+              "occurredAt": "2026-10-23T08:54:12.035Z",
+              "type": "step.completed",
+              "stepNumber": 1,
+              "finishReason": "tool-calls",
+              "usage": {
+                "inputTokens": 10,
+                "outputTokens": 5,
+                "totalTokens": 15
+              }
+            },
+            {
+              "sequence": 8,
+              "occurredAt": "2026-10-23T08:54:12.283Z",
+              "type": "step.started",
+              "stepNumber": 2
+            },
+            {
+              "sequence": 10,
+              "occurredAt": "2026-10-23T08:54:12.581Z",
+              "type": "step.completed",
+              "stepNumber": 2,
+              "finishReason": "stop",
+              "usage": {
+                "inputTokens": 10,
+                "outputTokens": 5,
+                "totalTokens": 15
+              }
+            }
+          ],
+          "truncated": false,
+          "incomplete": false,
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          },
+          "steps": 2
+        },
+        "memoryReferences": [],
+        "memoryReferencesTruncated": false
+      }
+    },
+    {
+      "name": "S12-detached-posix-spawn",
+      "record": {
+        "runId": "08eeb185-cfa2-49b8-928a-110dc2c74918",
+        "threadId": "s1-electron",
+        "phase": "primary",
+        "status": "completed",
+        "startedAt": "2026-10-23T08:54:12.832Z",
+        "finishedAt": "2026-10-23T08:54:13.958Z",
+        "resultTextPreview": "离线冒烟回复完成。",
+        "resultTextTruncated": false,
+        "errorPreview": null,
+        "tools": [
+          {
+            "toolCallId": "s1-shell",
+            "toolName": "shell_exec",
+            "status": "completed",
+            "requestedAt": "2026-10-23T08:54:13.135Z",
+            "startedAt": "2026-10-23T08:54:13.369Z",
+            "finishedAt": "2026-10-23T08:54:13.486Z",
+            "inputPreview": "{\"command\":\"node /private/tmp/serika-s1-electron-g60kGW/A/checks.mjs --child spawn --plan /private/tmp/serika-s1-electron-g60kGW/A/plan.json --home /private/tmp/serika-s1-electron-g60kGW/H\"}",
+            "inputTruncated": false,
+            "resultPreview": "{\"ok\":true,\"exitCode\":0,\"signal\":null,\"termination\":\"exited\",\"cancelled\":false,\"timedOut\":false,\"output\":\"Error opening /private/var/select/sh: Operation not permitted\\n{\\\"detachedSpawn\\\":{\\\"blocked\\\":true,\\\"code\\\":\\\"EPERM\\\",\\\"exitCode\\\":null}}\\n\",\"truncated\":false}",
+            "resultTruncated": false,
+            "errorPreview": null,
+            "shell": {
+              "exitCode": 0,
+              "timedOut": false,
+              "cancelled": false
+            }
+          }
+        ],
+        "trace": {
+          "version": 1,
+          "events": [
+            {
+              "sequence": 2,
+              "occurredAt": "2026-10-23T08:54:12.946Z",
+              "type": "step.started",
+              "stepNumber": 1
+            },
+            {
+              "sequence": 4,
+              "occurredAt": "2026-10-23T08:54:13.311Z",
+              "type": "step.completed",
+              "stepNumber": 1,
+              "finishReason": "tool-calls",
+              "usage": {
+                "inputTokens": 10,
+                "outputTokens": 5,
+                "totalTokens": 15
+              }
+            },
+            {
+              "sequence": 8,
+              "occurredAt": "2026-10-23T08:54:13.547Z",
+              "type": "step.started",
+              "stepNumber": 2
+            },
+            {
+              "sequence": 10,
+              "occurredAt": "2026-10-23T08:54:13.842Z",
+              "type": "step.completed",
+              "stepNumber": 2,
+              "finishReason": "stop",
+              "usage": {
+                "inputTokens": 10,
+                "outputTokens": 5,
+                "totalTokens": 15
+              }
+            }
+          ],
+          "truncated": false,
+          "incomplete": false,
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          },
+          "steps": 2
+        },
+        "memoryReferences": [],
+        "memoryReferencesTruncated": false
+      }
+    },
+    {
+      "name": "S13-cancel",
+      "record": {
+        "runId": "e5e3bcdd-7019-4bca-a48c-acdc05728b16",
+        "threadId": "s1-electron",
+        "phase": "primary",
+        "status": "cancelled",
+        "startedAt": "2026-10-23T08:54:14.097Z",
+        "finishedAt": "2026-10-23T08:54:14.822Z",
+        "resultTextPreview": "",
+        "resultTextTruncated": false,
+        "errorPreview": "Agent run was cancelled",
+        "tools": [
+          {
+            "toolCallId": "s1-shell",
+            "toolName": "shell_exec",
+            "status": "unknown",
+            "requestedAt": "2026-10-23T08:54:14.401Z",
+            "startedAt": "2026-10-23T08:54:14.635Z",
+            "finishedAt": null,
+            "inputPreview": "{\"command\":\"/private/tmp/serika-s1-electron-g60kGW/A/cancel --temp /private/tmp/serika-s1-electron-g60kGW/A/electron-cancel --home /private/tmp/serika-s1-electron-g60kGW/H\"}",
+            "inputTruncated": false,
+            "resultPreview": null,
+            "resultTruncated": false,
+            "errorPreview": null,
+            "shell": null
+          }
+        ],
+        "trace": {
+          "version": 1,
+          "events": [
+            {
+              "sequence": 2,
+              "occurredAt": "2026-10-23T08:54:14.213Z",
+              "type": "step.started",
+              "stepNumber": 1
+            },
+            {
+              "sequence": 4,
+              "occurredAt": "2026-10-23T08:54:14.576Z",
+              "type": "step.completed",
+              "stepNumber": 1,
+              "finishReason": "tool-calls",
+              "usage": {
+                "inputTokens": 10,
+                "outputTokens": 5,
+                "totalTokens": 15
+              }
+            }
+          ],
+          "truncated": false,
+          "incomplete": false,
+          "usage": {},
+          "steps": 0
+        },
+        "memoryReferences": [],
+        "memoryReferencesTruncated": false
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "S15-cross-process-denied.png",
+      "sha256": "dfd309b00b433c5f22543d5282b9b4bf60559bc901c5dc1ec9c7542787a04b4e"
+    },
+    {
+      "file": "S04-S09-files-network-denied.png",
+      "sha256": "ce6407fb81dbe9234e627496ae52be9a5aa8919b57160ea9d28d930267f37fa1"
+    },
+    {
+      "file": "S13-before-cancel.png",
+      "sha256": "6a0c531982918a7fb4e641288297c4cf4c012aaf434aeaa36d64f6d718c6fa2d"
+    },
+    {
+      "file": "failure.png",
+      "sha256": "3e2157f71eeb797cef04572a9c61ecb9347bd1d6173dd601335c5d40cc4f767b"
+    }
+  ],
+  "commands": [
+    {
+      "name": "native-fixture",
+      "exitCode": 0,
+      "stdout": "{\"runId\":\"c8526630-bc56-448f-82f3-f1120183e2fe\",\"status\":\"passed\",\"output\":\"/private/tmp/serika-s1-electron-g60kGW/evidence\"}\n",
+      "stderr": ""
+    }
+  ],
+  "main": {
+    "electron": "44.4.5",
+    "pid": 53080,
+    "userData": "/private/tmp/serika-s1-electron-g60kGW/profile",
+    "home": "/private/tmp/serika-s1-electron-g60kGW/userhome"
+  },
+  "renderer": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+    "url": "file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/apps/desktop/out/renderer/index.html"
+  },
+  "artifactHashes": {
+    "out/main/index.js": "e8aca13f2027bd957e00c879ad74658269c89b89a62e8a6e85629835d770568f",
+    "out/preload/index.cjs": "e95eb5c1150249b1799b345032280c51994c84636a2f1715af321a88c6ab6199",
+    "out/renderer/index.html": "f83dfa044b12ab8a984d013a05e8cce339963393c8c44f4c53c8602b8ef66945"
+  },
+  "crossProcess": {
+    "numericProcargs2": {
+      "name": "PROBE_CREDENTIAL_CANARY",
+      "variableNameObserved": false,
+      "blocked": true,
+      "errno": 1
+    },
+    "processInfo": {
+      "blocked": true,
+      "errno": 1
+    },
+    "processPath": {
+      "blocked": true,
+      "errno": 1
+    },
+    "taskPort": {
+      "blocked": true,
+      "result": 5
+    },
+    "taskReadPort": {
+      "blocked": true,
+      "result": -1
+    },
+    "taskInspectPort": {
+      "blocked": true,
+      "result": -1
+    },
+    "taskNamePort": {
+      "blocked": true,
+      "result": 5
+    },
+    "numericProcInfo": {
+      "blocked": true,
+      "errno": 1
+    },
+    "numericProcargs": {
+      "blocked": true,
+      "errno": 1
+    },
+    "runtimeSysctl": {
+      "blocked": false,
+      "errno": 0
+    },
+    "externalSignal": {
+      "blocked": true,
+      "errno": 1
+    },
+    "machServices": [
+      {
+        "name": "com.apple.cfprefsd.agent",
+        "blocked": true,
+        "result": 1100
+      },
+      {
+        "name": "com.apple.coreservices.appleevents",
+        "blocked": true,
+        "result": 1100
+      }
+    ],
+    "descriptors": {
+      "extraOpen": 0,
+      "sockets": 0
+    }
+  },
+  "filesystem": {
+    "authorizedWrite": true,
+    "privateTempWrite": true,
+    "outsideWrite": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveRead": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "homeRead": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "envRead": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "nestedEnvRead": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveRead:.netrc": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveWrite:.netrc": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveRead:.npmrc": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveWrite:.npmrc": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveRead:.pypirc": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveWrite:.pypirc": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveRead:.git-credentials": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveWrite:.git-credentials": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveRead:.docker/config.json": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveWrite:.docker/config.json": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveRead:.aws/credentials": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveWrite:.aws/credentials": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveRead:.gnupg/private": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveWrite:.gnupg/private": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveRead:.ssh/credential": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "sensitiveWrite:.ssh/credential": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "protected:/private/tmp/serika-s1-electron-g60kGW/H/config.json": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "protected:/private/tmp/serika-s1-electron-g60kGW/H/config.json.lock": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "protected:/private/tmp/serika-s1-electron-g60kGW/H/data/canary": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "symlinkWrite": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "symlinkRead": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "runtimeWrite": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "environment": [
+      {
+        "name": "AWS_ACCESS_KEY_ID",
+        "blocked": true
+      },
+      {
+        "name": "DYLD_INSERT_LIBRARIES",
+        "blocked": true
+      },
+      {
+        "name": "NODE_OPTIONS",
+        "blocked": true
+      },
+      {
+        "name": "NO_PROXY",
+        "blocked": true
+      },
+      {
+        "name": "PROBE_CREDENTIAL_CANARY",
+        "blocked": true
+      },
+      {
+        "name": "SSH_AUTH_SOCK",
+        "blocked": true
+      }
+    ],
+    "IPv4": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "IPv6": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "Unix": {
+      "blocked": true,
+      "code": "EPERM"
+    },
+    "nodeExecuted": true
+  },
+  "network": {
+    "TCP4": {
+      "blocked": true,
+      "errno": 1
+    },
+    "UDP-DNS4": {
+      "blocked": true,
+      "errno": 1
+    },
+    "bind-listen4": {
+      "blocked": true,
+      "errno": 1
+    },
+    "TCP6": {
+      "blocked": true,
+      "errno": 1
+    },
+    "UDP-DNS6": {
+      "blocked": true,
+      "errno": 1
+    },
+    "bind-listen6": {
+      "blocked": true,
+      "errno": 1
+    }
+  },
+  "failure": {
+    "name": "AssertionError",
+    "message": "Expected values to be strictly equal:\n\n'10' !== '15'\n"
+  },
+  "electronExit": {
+    "pid": 53080,
+    "exitCode": 0,
+    "signal": null
+  },
+  "finishedAt": "2026-10-23T08:54:15.543Z"
+}

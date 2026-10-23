@@ -1,0 +1,114 @@
+{
+  "runId": "9a62f511-2abd-4b9b-9048-595dcf69d48f",
+  "startedAt": "2026-10-23T08:22:10.017Z",
+  "platform": "darwin",
+  "arch": "arm64",
+  "node": "v26.4.0",
+  "sourceCommit": "bb5c6e6c1674b0a2bdb3b71f331abf6b33467ced",
+  "sourceWorktreeDirty": true,
+  "scriptSha256": "a88f1f10e02867cdd87b78edd231cb923816452612c0115ac5cad6c21f943edd",
+  "realModelCalls": 0,
+  "status": "failed",
+  "commands": [
+    {
+      "name": "compile-process",
+      "exitCode": 0,
+      "signal": null,
+      "sourceSha256": "7c2d7f058d50bdd93e730d41b005d13e70a5d5960f65c6cf08f0a20c2d683c28",
+      "stderr": ""
+    },
+    {
+      "name": "compile-cancel",
+      "exitCode": 0,
+      "signal": null,
+      "sourceSha256": "c5e8d978feb9cb98460aca022b0df0f50763f8cc4970d3c106d2c02d53aa131e",
+      "stderr": ""
+    },
+    {
+      "name": "cross-process-host-control",
+      "exitCode": 0,
+      "result": {
+        "numericProcargs2": {
+          "name": "PROBE_CREDENTIAL_CANARY",
+          "blocked": false,
+          "errno": 0
+        },
+        "processInfo": {
+          "blocked": false,
+          "errno": 0
+        },
+        "processPath": {
+          "blocked": false,
+          "errno": 0
+        },
+        "taskPort": {
+          "blocked": true,
+          "result": 5
+        },
+        "runtimeSysctl": {
+          "blocked": false,
+          "errno": 0
+        }
+      }
+    },
+    {
+      "name": "S15",
+      "command": "/private/tmp/serika-s1-native-SldHlG/A/process --pid 36305 --home /private/tmp/serika-s1-native-SldHlG/H",
+      "result": {
+        "ok": true,
+        "exitCode": 0,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\n{\"numericProcargs2\":{\"name\":\"PROBE_CREDENTIAL_CANARY\",\"blocked\":true,\"errno\":1},\"processInfo\":{\"blocked\":true,\"errno\":1},\"processPath\":{\"blocked\":true,\"errno\":1},\"taskPort\":{\"blocked\":true,\"result\":5},\"runtimeSysctl\":{\"blocked\":false,\"errno\":0}}\n",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S04-S09",
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node /private/tmp/serika-s1-native-SldHlG/A/checks.mjs --child checks --plan /private/tmp/serika-s1-native-SldHlG/A/plan.json --home /private/tmp/serika-s1-native-SldHlG/H",
+      "result": {
+        "ok": true,
+        "exitCode": null,
+        "signal": "SIGABRT",
+        "termination": "signalled",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\n\n  #  /opt/homebrew/Cellar/node/26.4.0/bin/node[36310]: void node::os::GetOSInformation(const FunctionCallbackInfo<Value> &) at ../src/node_os.cc:88\n  #  Assertion failed: (args.Length()) >= (1)\n\n----- Native stack trace -----\n\n 1: 0x10af0a930 node::Assert(node::AssertionInfo const&) [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n 2: 0x10af2ea38 node::os::GetOSInformation(v8::FunctionCallbackInfo<v8::Value> const&) [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n 3: 0x10a6bb20c Builtins_CallApiCallbackGeneric [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n 4: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n 5: 0x11c680610 \n 6: 0x11c6802b4 \n 7: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n 8: 0x11c680610 \n 9: 0x11c6802b4 \n10: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n11: 0x11c680610 \n12: 0x11c6802b4 \n13: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n14: 0x11c680610 \n15: 0x11c6802b4 \n16: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n17: 0x11c680610 \n18: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n19: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n20: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n21: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n22: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n23: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n24: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n25: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n26: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n27: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n28: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n29: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n30: 0x10a6b9d10 Builtins_InterpreterPushArgsThenFastConstructFunction [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n31: 0x10a85097c Builtins_ConstructHandler [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n32: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n33: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n34: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n35: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n36: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n37: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n38: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n39: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n40: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n41: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n42: 0x10a6b9424 Builtins_InterpreterEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n43: 0x10a6b6788 Builtins_JSEntryTrampoline [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n44: 0x10a6b6478 Builtins_JSEntry [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n45: 0x109f35090 v8::internal::(anonymous namespace)::Invoke(v8::internal::Isolate*, v8::internal::(anonymous namespace)::InvokeParams const&) [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n46: 0x109f34ac8 v8::internal::Execution::Call(v8::internal::Isolate*, v8::internal::DirectHandle<v8::internal::Object>, v8::internal::DirectHandle<v8::internal::Object>, v8::base::Vector<v8::internal::DirectHandle<v8::internal::Object> const>) [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n47: 0x10afa43d0 v8::Function::Call(v8::Isolate*, v8::Local<v8::Context>, v8::Local<v8::Value>, int, v8::Local<v8::Value>*) [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n48: 0x109c7317c node::builtins::BuiltinLoader::CompileAndCall(v8::Local<v8::Context>, char const*, node::Realm*) [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n49: 0x10af3268c node::Realm::ExecuteBootstrapper(char const*) [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n50: 0x10aef6d28 node::StartExecution(node::Environment*, char const*) (.cold.1) [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n51: 0x109c5e3b8 node::StartExecution(node::Environment*, char const*) [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n52: 0x109c5e350 node::StartExecution(node::Environment*, std::__1::function<v8::MaybeLocal<v8::Value> (node::StartExecutionCallbackInfoWithModule const&)>) [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n53: 0x109bed138 node::LoadEnvironment(node::Environment*, std::__1::function<v8::MaybeLocal<v8::Value> (node::StartExecutionCallbackInfoWithModule const&)>, std::__1::function<void (node::Environment*, v8::Local<v8::Value>, v8::Local<v8::Value>)>) [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n54: 0x109cc009c node::NodeMainInstance::Run(node::ExitCode*, node::Environment*) [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n55: 0x109cbfe2c node::NodeMainInstance::Run() [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n56: 0x109c60e04 node::Start(int, char**) [/opt/homebrew/Cellar/node/26.4.0/lib/libnode.147.dylib]\n57: 0x195ea3e80 start [/usr/lib/dyld]\n\n----- JavaScript stack trace -----\n\n1: node:os:79:5\n2: compileForInternalLoader (node:internal/bootstrap/realm:407:7)\n3: requireBuiltin (node:internal/bootstrap/realm:438:14)\n4: node:internal/repl/history:21:12\n5: compileForInternalLoader (node:internal/bootstrap/realm:407:7)\n6: requireBuiltin (node:internal/bootstrap/realm:438:14)\n7: node:internal/readline/interface:76:25\n8: compileForInternalLoader (node:internal/bootstrap/realm:407:7)\n9: requireBuiltin (node:internal/bootstrap/realm:438:14)\n10: node:internal/fs/promises:132:23\n\n\n",
+        "truncated": false
+      }
+    }
+  ],
+  "checks": {
+    "S15": {
+      "numericProcargs2": {
+        "name": "PROBE_CREDENTIAL_CANARY",
+        "blocked": true,
+        "errno": 1
+      },
+      "processInfo": {
+        "blocked": true,
+        "errno": 1
+      },
+      "processPath": {
+        "blocked": true,
+        "errno": 1
+      },
+      "taskPort": {
+        "blocked": true,
+        "result": 5
+      },
+      "runtimeSysctl": {
+        "blocked": false,
+        "errno": 0
+      }
+    }
+  },
+  "failure": {
+    "name": "AssertionError",
+    "message": "Expected values to be strictly equal:\n\nnull !== 0\n"
+  },
+  "finishedAt": "2026-10-23T08:22:11.069Z",
+  "targetStopped": true
+}

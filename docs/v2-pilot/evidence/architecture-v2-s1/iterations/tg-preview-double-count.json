@@ -1,0 +1,91 @@
+{
+  "runId": "90059588-1743-4b00-997e-4f3a5af08b84",
+  "sourceCommit": "bb5c6e6c1674b0a2bdb3b71f331abf6b33467ced",
+  "sourceWorktreeDirty": true,
+  "scriptSha256": "fdbc0b19755844f293b8eb87d2dd2ca4e0be185c5ac4e7b7ff08a525ebdfa747",
+  "verification": "real-Mac-Controller-with-validated-test-Telegram-binding-no-transport",
+  "realModelCalls": 0,
+  "telegramOutbound": 0,
+  "status": "failed",
+  "approvals": [
+    {
+      "tool": "shell_exec",
+      "preview": "",
+      "decision": "allow",
+      "remember": null,
+      "markerAbsentBeforeApproval": true
+    },
+    {
+      "tool": "shell_exec",
+      "preview": "\nTool: shell_exec\nCommand: \"printf call-0 > ../B/call-0.txt\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+      "decision": "allow",
+      "remember": null,
+      "markerAbsentBeforeApproval": true
+    },
+    {
+      "tool": "shell_exec",
+      "preview": "",
+      "decision": "allow",
+      "remember": null,
+      "markerAbsentBeforeApproval": true
+    },
+    {
+      "tool": "shell_exec",
+      "preview": "\nTool: shell_exec\nCommand: \"printf call-1 > ../B/call-1.txt\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+      "decision": "allow",
+      "remember": null,
+      "markerAbsentBeforeApproval": true
+    }
+  ],
+  "events": [
+    {
+      "id": "52a2be94-af7c-41c7-b6d3-80a0fcec7511",
+      "type": "tool.call.completed",
+      "occurredAt": "2026-10-23T09:01:19.613Z",
+      "runId": "c22b0440-e2bf-49b4-89e0-a674369b6e56",
+      "threadId": "s1-telegram",
+      "sequence": 7,
+      "data": {
+        "toolCallId": "shell-0",
+        "toolName": "shell_exec",
+        "output": {
+          "ok": true,
+          "exitCode": 0,
+          "termination": "exited",
+          "signal": null,
+          "cancelled": false,
+          "timedOut": false,
+          "output": "",
+          "truncated": false
+        }
+      }
+    },
+    {
+      "id": "c17694ff-f00a-4cd0-9d37-2695963d2e93",
+      "type": "tool.call.completed",
+      "occurredAt": "2026-10-23T09:01:20.057Z",
+      "runId": "c22b0440-e2bf-49b4-89e0-a674369b6e56",
+      "threadId": "s1-telegram",
+      "sequence": 13,
+      "data": {
+        "toolCallId": "shell-1",
+        "toolName": "shell_exec",
+        "output": {
+          "ok": true,
+          "exitCode": 0,
+          "termination": "exited",
+          "signal": null,
+          "cancelled": false,
+          "timedOut": false,
+          "output": "",
+          "truncated": false
+        }
+      }
+    }
+  ],
+  "hostConfirmationInstructions": true,
+  "failure": {
+    "name": "AssertionError",
+    "message": "Expected values to be strictly equal:\n\n4 !== 2\n"
+  }
+}

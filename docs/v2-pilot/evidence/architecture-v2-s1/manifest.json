@@ -1,0 +1,191 @@
+{
+  "runId": "8c420f12-c6a3-47b9-bef2-c9995b18ff90",
+  "generatedAt": "2026-10-23T09:23:42.197Z",
+  "sourceCommit": "1ad23a6f847d1723331a431628188fcf92550c46",
+  "files": [
+    {
+      "file": "audit/audit.json",
+      "sha256": "b0ade20a192ba693cdafe5095290e6e048910a0a62e8fac92759d6305a68a366"
+    },
+    {
+      "file": "audit/b0.diff",
+      "sha256": "6a781230ad982b873e784f5a06aeb03c4377ec5eed26fd01d1042a131708376f"
+    },
+    {
+      "file": "decisions.tsv",
+      "sha256": "48e2dea64d593353b6fdddfbac8fd87b80dde6c1df9f41528d635bffbdafc256"
+    },
+    {
+      "file": "electron-smoke/chat-reply.png",
+      "sha256": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497"
+    },
+    {
+      "file": "electron-smoke/cm-step6-run.json",
+      "sha256": "7281ec457ea9b6c4a6332977725d32b70db719511b9c4c907874b162131b060d"
+    },
+    {
+      "file": "electron-smoke/daily-config-retired-fields.png",
+      "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+    },
+    {
+      "file": "electron-smoke/daily-path-refuses-writes.png",
+      "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+    },
+    {
+      "file": "electron-smoke/home-fixture.json",
+      "sha256": "56df9f337e59a47b9127240da9625ba9dc756144bf4f38a82d7cadba04f05b46"
+    },
+    {
+      "file": "electron-smoke/remember-on-memory-page.png",
+      "sha256": "31b517b32a4f509e5023a6cc8feb971a4dd12a4a5d61e066910b9e2a6074a315"
+    },
+    {
+      "file": "electron-smoke/remember-success-receipt.png",
+      "sha256": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25"
+    },
+    {
+      "file": "electron-smoke/restart-persistence.png",
+      "sha256": "4e181421be834783ec41e3442721fb8f692ccb473b21fe0e84dc976efea13b9f"
+    },
+    {
+      "file": "electron-smoke/result.json",
+      "sha256": "c3ad6271d35c33c4d0ad954bec5233cab5bde9c1558b5becf2a02ce8e340b454"
+    },
+    {
+      "file": "electron-smoke/startup.png",
+      "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
+    },
+    {
+      "file": "electron-smoke/undo-disappears.png",
+      "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+    },
+    {
+      "file": "electron/S04-S09-files-network-denied.png",
+      "sha256": "45067c0049ec0944bd31ec69bb1e51f49e34686237b2092a4d6b4476dd0831d3"
+    },
+    {
+      "file": "electron/S13-after-cancel.png",
+      "sha256": "ff025766e43a57e9c9c56bf6f00f56b7cad5ce3b018268232835fcb16f8a0d97"
+    },
+    {
+      "file": "electron/S13-before-cancel.png",
+      "sha256": "182977808759d1abc5e01fe25acc8d684195ea26a2addf64963b29e3c3aa351e"
+    },
+    {
+      "file": "electron/S15-cross-process-denied.png",
+      "sha256": "215c9c2bb321f7fc65efab2f01f6c647aec16e4eb50581ce1925b7c578959f33"
+    },
+    {
+      "file": "electron/electron-result.json",
+      "sha256": "c631729ea9067ac8b7ac0613e407d0d60dd9f68d1aad687724d16e66990fea3f"
+    },
+    {
+      "file": "electron/host-first-confirmation.png",
+      "sha256": "a8256586ec133c4d8fc6c02eaa8c2fdd0593493445dce7ac377df4dab475abaa"
+    },
+    {
+      "file": "electron/host-network-confirmation.png",
+      "sha256": "41cfba49a17cf6c7a471856d647d3a1c41c9bd8be3d8452a5397a64c904e59bb"
+    },
+    {
+      "file": "electron/native-result.json",
+      "sha256": "046f6c0d5fef46559e73a24ef9a3d28726d8b3ab421fdbccfbe8f833d7ae3e26"
+    },
+    {
+      "file": "electron/policy-reference.sb",
+      "sha256": "d337b0f689d4c93260f2f27a8f6e5fc132a5c7073832843027b27ee6daa4b24d"
+    },
+    {
+      "file": "final-checks.json",
+      "sha256": "965a45d9adae8e7b666d9ce924547717c449e9379a8f31cb6243b7de67d515b8"
+    },
+    {
+      "file": "iterations/config-regex.json",
+      "sha256": "95e18280e36338cd37666d4d4bb7c95cb38cd41dce51d4ddf14996f0053cffa1"
+    },
+    {
+      "file": "iterations/dns-import-sigtrap.json",
+      "sha256": "348bb8dc55db062847ef57ec83ea937da5e988c5dca0930ed750348f5a8cfb6b"
+    },
+    {
+      "file": "iterations/electron-idle-before-cleanup.json",
+      "sha256": "516f8059962c22b13fe600acc7c5399857d997827b7db3e12c47e889b2698906"
+    },
+    {
+      "file": "iterations/electron-receipt-field.json",
+      "sha256": "6931ee6577717f32060e47ff4a35422ca1106269a4054c93212a23376c4113b5"
+    },
+    {
+      "file": "iterations/electron-unknown-receipt.json",
+      "sha256": "bc050c3fd66265ae73f19c4e88515098921ecc53947a52d0fb0d7595652ddd5b"
+    },
+    {
+      "file": "iterations/npm-compatibility.json",
+      "sha256": "24cc9ce9e12e9c1fd8e576064f67759ab85725aca01897921b06ceadff0934d6"
+    },
+    {
+      "file": "iterations/tg-preview-double-count.json",
+      "sha256": "4312e94cb29337a4b1c76bb91ceb5154679261518f7b69dcdd2cd7b3f50ccf92"
+    },
+    {
+      "file": "iterations/uname-sigabrt.json",
+      "sha256": "c09cc9f64b38b06f46834126d50b5dbfe7b122b7f2d8e9511570d872da795f0f"
+    },
+    {
+      "file": "line-changes.json",
+      "sha256": "e5267edc3f8d7e813c6291573b67b346126465cc1026931c53b40093be523c9c"
+    },
+    {
+      "file": "pwd/pwd-result.json",
+      "sha256": "38e1691c20f3dc576d2ab37d2f5318169269cc9ce596ccd06e83a3f9867c2878"
+    },
+    {
+      "file": "pwd/pwd.mjs",
+      "sha256": "0bd2abbdb85c334e98aad8708052c1c66bebac57d5e68ed850e9d561d305f62a"
+    },
+    {
+      "file": "pwd/pwd.png",
+      "sha256": "367bf76861aee79ba99b96adf4a7491c00d6d9d76b76acb0196ecd6c6f3e5e21"
+    },
+    {
+      "file": "supplement/probe.mjs",
+      "sha256": "ea5b01c3bc637ff9dcc4f696d64c5b1867307bd5cee3167f31b0eb8681006ed2"
+    },
+    {
+      "file": "supplement/result.json",
+      "sha256": "93c31df5fe390745691a8713c72ad71500793ecb41a67e6e5859c0dbc6b7bc42"
+    },
+    {
+      "file": "targeted/assistant-targeted-final.log",
+      "sha256": "416d6403b35b5fc9abf6c4c381132733561d508661559e625b12fd9045b9469f"
+    },
+    {
+      "file": "targeted/desktop-targeted-final.log",
+      "sha256": "076716d768464727d9d8b724f955f8413f6a9ab178b1ccda35c512d0664c207c"
+    },
+    {
+      "file": "targeted/typecheck-final.log",
+      "sha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609"
+    },
+    {
+      "file": "telegram/telegram-result.json",
+      "sha256": "a501fb74c05831c8f301b537c89280ae27cb426504db5b6b11a88594055cf88d"
+    },
+    {
+      "file": "unified/commands.log",
+      "sha256": "ef25d93bd39ef1caeaa63d80612bcde8c7cac4f3d5651847d01a01584a6034d4"
+    },
+    {
+      "file": "unified/live.json",
+      "sha256": "1cc9421b5efe1c3f7de95b49a6a923a5e99eeb1a6eb582bd462e0c9bed1496ca"
+    },
+    {
+      "file": "unified/offline-audit.json",
+      "sha256": "93132306f94559be0d07b87466c21dc3bb38cbdd3c56fbfff58173d5373f3021"
+    },
+    {
+      "file": "unified/verification.json",
+      "sha256": "d15241ac6fe5327b246fb2bc99e8c85faf92dcd19fef640b1d39218869e86597"
+    }
+  ]
+}

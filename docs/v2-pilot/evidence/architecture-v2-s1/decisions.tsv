@@ -1,0 +1,9 @@
+ts	phase	decision	why	evidence	result
+2026-10-23T09:18:06.434Z	scope	Only desktop switches; Telegram remains confirmed host	S0 review decision	audit/audit.json	only desktop b0 row changed
+2026-10-23T09:18:06.434Z	S15	Deny all process-info; whitelist runtime sysctls	self exception failed; no weaker acceptance	electron/electron-result.json	numeric MIB and ports blocked
+2026-10-23T09:18:06.434Z	S13	Deny posix_spawn, setsid and setpgid	retain descendants in the cancellable group	electron/native-result.json	double fork and late fork stopped
+2026-10-23T09:18:06.434Z	trusted-files	Use OS regex-quote; protect ancestor renames	brackets bypassed handwritten escaping	iterations/config-regex.json	fixed and rerun
+2026-10-23T09:18:06.434Z	cancel	Await runner settlement before foreground idle	real Electron heartbeat continued after early idle	iterations/electron-idle-before-cleanup.json	formal Electron passes
+2026-10-23T09:18:06.434Z	receipts	Retain interrupted invocation as unknown	stopped processes do not prove effect outcome	electron/electron-result.json	unknown retained; no replay
+2026-10-23T09:18:06.434Z	compatibility	Record npm/pnpm as unsupported	strict policy causes SIGTRAP; no extra permissions	electron/native-result.json	requires explicitly confirmed host
+2026-10-23T09:18:06.434Z	final	Verify clean source 1ad23a6	OS effects and unified checks bind to same source	unified/verification.json	all commands exit 0

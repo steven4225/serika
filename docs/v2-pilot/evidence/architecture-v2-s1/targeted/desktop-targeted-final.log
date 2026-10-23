@@ -1,0 +1,15 @@
+✔ persists workspace authority, runs a multi-step repair, preserves attachments and keeps Telegram chat/tasks unapproved (10037.402375ms)
+✔ uses the resident socket for authority changes, retains other approvals and cancels a running autonomous Shell without replay (1564.679333ms)
+✔ does not inherit persisted desktop authority in a TUI/controller assembly without host opt-in (725.676917ms)
+✔ validates explicit setting CAS, workspace binding and external config; ignores grants after workspace changes (130.953208ms)
+✔ does not enable disabled modules or replace a configured Docker sandbox (219.603833ms)
+✔ halts after an uncertain autonomy config commit, then rereads it without launching a Run (302.876542ms)
+✔ retains the exact active request after immediate masking of a completed oversized tool result, without a foreground summary wait (1180.519166ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14514.370166

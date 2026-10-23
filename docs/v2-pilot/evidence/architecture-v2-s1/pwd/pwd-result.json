@@ -1,0 +1,109 @@
+{
+  "runId": "dab4a343-5395-480e-80e3-8a7674790cca",
+  "sourceCommit": "1ad23a6f847d1723331a431628188fcf92550c46",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "0bd2abbdb85c334e98aad8708052c1c66bebac57d5e68ed850e9d561d305f62a",
+  "status": "passed",
+  "realModelCalls": 0,
+  "main": {
+    "pid": 97157,
+    "electron": "44.4.5",
+    "userData": "/private/tmp/serika-s1-final-pM8GN5/pwd/profile",
+    "home": "/private/tmp/serika-s1-final-pM8GN5/pwd/userhome"
+  },
+  "renderer": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+    "url": "file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/apps/desktop/out/renderer/index.html"
+  },
+  "record": {
+    "runId": "ef7a564c-9ed6-46b9-8d2c-bb8777658473",
+    "threadId": "s1-pwd",
+    "phase": "primary",
+    "status": "completed",
+    "startedAt": "2026-10-23T09:19:49.917Z",
+    "finishedAt": "2026-10-23T09:19:51.189Z",
+    "resultTextPreview": "离线冒烟回复完成。",
+    "resultTextTruncated": false,
+    "errorPreview": null,
+    "tools": [
+      {
+        "toolCallId": "s1-shell",
+        "toolName": "shell_exec",
+        "status": "completed",
+        "requestedAt": "2026-10-23T09:19:50.323Z",
+        "startedAt": "2026-10-23T09:19:50.508Z",
+        "finishedAt": "2026-10-23T09:19:50.596Z",
+        "inputPreview": "{\"command\":\"pwd\"}",
+        "inputTruncated": false,
+        "resultPreview": "{\"ok\":true,\"exitCode\":0,\"signal\":null,\"termination\":\"exited\",\"cancelled\":false,\"timedOut\":false,\"output\":\"Error opening /private/var/select/sh: Operation not permitted\\n/private/tmp/serika-s1-final-pM8GN5/pwd/A\\n\",\"truncated\":false}",
+        "resultTruncated": false,
+        "errorPreview": null,
+        "shell": {
+          "exitCode": 0,
+          "timedOut": false,
+          "cancelled": false
+        }
+      }
+    ],
+    "trace": {
+      "version": 1,
+      "events": [
+        {
+          "sequence": 2,
+          "occurredAt": "2026-10-23T09:19:50.106Z",
+          "type": "step.started",
+          "stepNumber": 1
+        },
+        {
+          "sequence": 4,
+          "occurredAt": "2026-10-23T09:19:50.446Z",
+          "type": "step.completed",
+          "stepNumber": 1,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        },
+        {
+          "sequence": 8,
+          "occurredAt": "2026-10-23T09:19:50.658Z",
+          "type": "step.started",
+          "stepNumber": 2
+        },
+        {
+          "sequence": 10,
+          "occurredAt": "2026-10-23T09:19:51.048Z",
+          "type": "step.completed",
+          "stepNumber": 2,
+          "finishReason": "stop",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      ],
+      "truncated": false,
+      "incomplete": false,
+      "usage": {
+        "inputTokens": 20,
+        "outputTokens": 10,
+        "totalTokens": 30
+      },
+      "steps": 2
+    },
+    "memoryReferences": [],
+    "memoryReferencesTruncated": false
+  },
+  "screenshot": {
+    "file": "pwd.png",
+    "sha256": "367bf76861aee79ba99b96adf4a7491c00d6d9d76b76acb0196ecd6c6f3e5e21"
+  },
+  "exit": {
+    "pid": 97157,
+    "exitCode": 0,
+    "signal": null
+  }
+}
