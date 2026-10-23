@@ -19,7 +19,7 @@ export function HerdrTargetSetting({ info, busy }: { info: AppInfo; busy: boolea
   return <section className="capability-confirm" aria-label="Herdr 终端目标">
     <strong>Herdr 终端目标</strong>
     <p>{info.terminalTarget ? `已选择：${info.terminalTarget.session} / ${info.terminalTarget.paneId}` : "尚未选择终端"}</p>
-    <p className="hint">选择已运行的会话和终端。桌面和 Telegram 的每次读取、输入和停止操作都需要确认，目标选择不授予免确认。不会自动启动 Herdr，也不会使用聚焦终端。</p>
+    <p className="hint">选择已运行的会话和终端。桌面和 Telegram 的结构化 get、read、wait 免逐条确认，每次先核对终端身份；不匹配就停下要求重选。prompt、input、stop 每次确认且不可记住。通用本机 CLI 仍每次确认。不会自动启动 Herdr，也不会使用聚焦终端。</p>
     <div className="actions">
       <button className="ghost" disabled={locked} onClick={() => void perform(async () => { setSession(""); setPaneId(""); setPanes([]); setSessions([]); setSessions(await window.runloom.listHerdrSessions!()); })}>查找会话</button>
       {info.terminalTarget ? <button className="ghost" disabled={locked} onClick={() => void perform(() => window.runloom.setHerdrTarget!({ target: null, expected: info.terminalTarget! }))}>解除目标</button> : null}

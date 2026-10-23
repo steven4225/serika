@@ -11,7 +11,7 @@ const labels: Record<string, [string, string]> = {
   checkpoint: ["项目快照", "保存工作意图，通过 /resume 核对 Git 现状。"],
   task: ["定时任务", "创建提醒与定期安排，由独立后台服务处理到期事项。"],
   todoist: ["Todoist", "查询外部任务；还需要有效的服务凭据。"],
-  terminal: ["本地终端控制", "调用本机 CLI 或操作已选择的 Herdr 终端；桌面和 Telegram 每次都确认。"],
+  terminal: ["本地终端控制", "本机 CLI 每次确认；固定 Herdr 目标的 get/read/wait 免逐条确认，prompt/input/stop 每次确认且不可记住。"],
   shell: ["命令执行", "运行 Shell，展示进度与执行回执。"],
   web: ["网页与信息来源", "获取公开网页，搜索与 RSS 另有配置开关。"],
   computer: ["本机应用控制", "仅控制配置允许的应用；需要驱动与系统权限。"],
