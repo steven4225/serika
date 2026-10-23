@@ -227,3 +227,15 @@ describe("bounded Cua CLI transport", () => {
     }
   });
 });
+
+it("returns clipped AX text as bounded read-only diagnostics with no action authority", async () => {
+  const h = harness({ state: { ...state, elements: [state.elements[0], { ...state.elements[1], value: "x".repeat(5000) }] } });
+  const observed = await h.observe();
+  assert.equal(observed.ok, true);
+  assert.equal(observed.readOnly, true);
+  assert.equal(observed.observationId, undefined);
+  assert.doesNotMatch(JSON.stringify(observed), /element_token/);
+  assert.ok(Buffer.byteLength(JSON.stringify(observed)) < 24 * 1024);
+  assert.equal((await h.action("forged")).ok, false);
+  assert.equal(h.calls.some(call => call.name === "click"), false);
+});

@@ -1,3 +1,5 @@
+import { ComputerDriverUnavailableError } from "@serika/assistant";
+import { disableUnavailableComputer } from "./computer-connection.js";
 import { createDesktopSmokeModel } from "./smoke-model.js";
 import { resolveApplicationHome, assertExperimentalDataPaths } from "@serika/assistant";
 import { fileURLToPath } from "node:url";
@@ -193,7 +195,17 @@ async function main(): Promise<void> {
     ipcMain.handle(IPC.notificationTest, () => notifications().test());
     ipcMain.handle(IPC.notificationSettings, () => openSystemNotificationSettings(url => shell.openExternal(url)));
   } catch (error) {
-    const message = safeStartupError(error, process.env);
+    let startupError = error;
+    if (error instanceof ComputerDriverUnavailableError) {
+      try {
+        const recovered = await disableUnavailableComputer({ configPath: error.configPath, cwd: process.cwd(), confirm: async () => {
+          const choice = await dialog.showMessageBox(window, { type: "warning", title: "电脑控制驱动不可用", message: "配置的驱动程序失踪或无法访问。", detail: "可以退出后恢复驱动，或停用电脑控制并重新启动。停用不会安装驱动、启动服务、授予权限或重做任务。", buttons: ["保留配置，手动恢复驱动", "停用电脑控制并重新启动"], defaultId: 0, cancelId: 0 });
+          return choice.response === 1;
+        } });
+        if (recovered) { app.relaunch(); app.exit(0); return; }
+      } catch (recoveryError) { startupError = recoveryError; }
+    }
+    const message = safeStartupError(startupError, process.env);
     rejectStartup(new Error(message));
     const report = (): void => send({ type: "error", message });
     if (window.webContents.isLoading()) window.webContents.once("did-finish-load", report);

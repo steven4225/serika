@@ -80,6 +80,10 @@ export interface HerdrTargetInput { target: Pick<HerdrTarget, "session" | "paneI
 export interface HerdrSession { name: string; running: boolean }
 export interface HerdrPane { paneId: string; terminalId: string; title: string }
 
+export interface ComputerConnectionView { enabled: boolean; executable: string; allowedBundleIds: string[]; revision: string }
+export interface ComputerConnectionInput { enabled: boolean; executable: string; allowedBundleIds: string[]; expectedRevision: string }
+export type ComputerConnectionCheck = { executable: string; permissions: "not_checked" } & ({ ok: true; apps: string[] } | { ok: false; error: { code: string; message: string } });
+
 export interface AppInfo {
   terminalTarget?: HerdrTarget;
   memoryLibrary?: true;
@@ -267,6 +271,10 @@ export interface RendererApi {
   dream(): ReturnType<AssistantController["dreaming"]["dream"]>;
   changeLearnedSkill(input: Parameters<AssistantController["dreaming"]["changeLearnedSkill"]>[0]): ReturnType<AssistantController["dreaming"]["changeLearnedSkill"]>;
   getLearnedSkillReferences(): Promise<ReturnType<AssistantController["dreaming"]["getLearnedSkillReferences"]>>;
+  getComputerConnection?(): Promise<ComputerConnectionView>;
+  findComputerDrivers?(): Promise<string[]>;
+  checkComputerConnection?(path: string): Promise<ComputerConnectionCheck>;
+  saveComputerConnection?(input: ComputerConnectionInput): Promise<void>;
   listHerdrSessions?(): Promise<HerdrSession[]>;
   listHerdrPanes?(session: string): Promise<HerdrPane[]>;
   setHerdrTarget?(input: HerdrTargetInput): Promise<void>;

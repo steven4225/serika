@@ -96,6 +96,10 @@ export class RuntimeOwnership {
   enableMemory() { return this.#active().enableMemory(); }
   setModuleEnabled(...args: Parameters<DesktopRuntime["setModuleEnabled"]>) { return this.#active().setModuleEnabled(...args); }
 
+  getComputerConnection() { return this.#active().getComputerConnection(); }
+  findComputerDrivers() { return this.#active().findComputerDrivers(); }
+  checkComputerConnection(path: string) { return this.#active().checkComputerConnection(path); }
+  saveComputerConnection(...args: Parameters<DesktopRuntime["saveComputerConnection"]>) { return this.#active().saveComputerConnection(...args); }
   listHerdrSessions() { return this.#active().listHerdrSessions(); }
   listHerdrPanes(session: string) { return this.#active().listHerdrPanes(session); }
   setHerdrTarget(...args: Parameters<DesktopRuntime["setHerdrTarget"]>) { return this.#active().setHerdrTarget(...args); }

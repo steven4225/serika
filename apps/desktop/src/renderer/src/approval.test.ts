@@ -58,3 +58,12 @@ test("approval offers the conversation grant only when the backend offers one", 
   assert.match(offered, /拒绝不会被记住/);
   assert.match(markup({ ...plain, preview: "", remember: { label: "x" } }), /class="allow ghost" disabled=""/);
 });
+
+test("computer connection check has an approvable visible preview while an empty publication stays blocked", () => {
+  const value = { ...approval("检查 CUA 连接\n只读取运行应用列表。Allow this call? [y/n]"), toolName: "computer_check", input: {} };
+  const html = markup(value);
+  assert.match(html, /检查 CUA 连接/);
+  assert.doesNotMatch(html, /class="allow" disabled=""/);
+  assert.doesNotMatch(html, /目标信息不完整/);
+  assert.match(markup({ ...value, preview: "" }), /class="allow" disabled=""/);
+});

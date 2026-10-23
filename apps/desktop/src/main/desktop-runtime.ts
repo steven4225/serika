@@ -1,3 +1,5 @@
+import { ComputerConnection } from "./computer-connection.js";
+import type { ComputerConnectionInput } from "../shared/ui-contract.js";
 import { HerdrTargets } from "./herdr-target.js";
 import type { HerdrTargetInput } from "../shared/ui-contract.js";
 import { mkdir } from "node:fs/promises";
@@ -316,6 +318,15 @@ export class DesktopRuntime {
     }, false, { rollback: async () => { await undo?.(); } });
     // Unrelated adapter disposal and failed/rolled-back changes never cancel.
     if (input.id === "pomodoro" && !input.enabled) this.#pomodoroService.cancel();
+  }
+  #computerConnection() { return new ComputerConnection({ configPath: this.#identity.configPath, cwd: this.#options.cwd, env: this.#options.env, directory: this.current.info().authorizedDirectory, dataDirectory: join(this.#options.applicationHome, "data") }); }
+  getComputerConnection() { return this.#computerConnection().view(); }
+  findComputerDrivers() { return this.#computerConnection().find(); }
+  checkComputerConnection(path: string) { this.#assertIdle(); return this.#computerConnection().check(path); }
+  saveComputerConnection(input: ComputerConnectionInput) {
+    const connection = this.#computerConnection();
+    let undo: (() => Promise<void>) | undefined;
+    return this.#replace(async () => { undo = await connection.save(input); return this.#identity; }, false, { rollback: async () => { await undo?.(); } });
   }
   #herdrTargets() { return new HerdrTargets({ env: this.#options.env, cwd: this.#options.cwd, authorizedDirectory: this.current.info().authorizedDirectory }); }
   listHerdrSessions() { return this.#herdrTargets().sessions(); }

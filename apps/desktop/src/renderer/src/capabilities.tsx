@@ -1,3 +1,4 @@
+import { ComputerConnectionSetting } from "./computer-connection-setting.js";
 import { HerdrTargetSetting } from "./herdr-target-setting.js";
 import type { AppInfo } from "../../shared/ui-contract.js";
 import { useState } from "react";
@@ -65,6 +66,7 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null, int
   };
     return <section className="capability-page">
     <AutonomySetting info={info} busy={busy} />
+    <ComputerConnectionSetting info={info} busy={busy} />
     {info.modules?.some(module => module.id === "terminal" && module.enabled) ? <HerdrTargetSetting key={JSON.stringify(info.terminalTarget ?? null)} info={info} busy={busy} /> : null}
     <p className="hint">{intro ?? "选择助手可以使用的内置功能。保存后重新加载当前对话，操作按当前授权执行。"}</p>
     {busy ? <p className="hint" role="status">当前正在处理，结束后才能更改能力。</p> : null}

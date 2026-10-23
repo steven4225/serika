@@ -90,3 +90,6 @@ export type { AssistantDataPaths } from "./data-paths.js";
 export { resolveApplicationHome } from "./application-home.js";
 
 export { herdrTargetSchema, type HerdrTarget } from "./modules/terminal-module.js";
+
+export { ComputerDriverUnavailableError } from "./tui-module-config.js";
+export { computerConfigSchema, createDriverCall, discoverComputerApps } from "./modules/computer-module.js";

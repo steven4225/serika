@@ -2,7 +2,7 @@ import { constants } from "node:fs";
 import { lstat, open, realpath, rename, unlink } from "node:fs/promises";
 import { dirname, basename, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { acquireFlock } from "@serika/assistant";
+import { computerConfigSchema, acquireFlock } from "@serika/assistant";
 import { BUILTIN_MODULE_IDS, resolveTuiModuleConfig, type BuiltinModuleId } from "@serika/assistant";
 
 export interface ModuleSettingInput { id: BuiltinModuleId; enabled: boolean; expectedEnabled: boolean }
@@ -94,9 +94,11 @@ export async function changeModuleSetting(configPath: string, input: ModuleSetti
   const { cwd, dataDirectory } = options;
   const result = await updateDesktopConfig(configPath, cwd, async (text, path) => {
     const before = text!;
-    const current = await resolveTuiModuleConfig({ ...(dataDirectory ? { dataDirectory } : {}), configPath: path }, { cwd });
-    if (current.enabled[input.id] !== input.expectedEnabled) throw new Error("模块配置已变化，请重新加载后再操作");
     const config = JSON.parse(before);
+    const enabled = input.id === "computer" && !input.enabled
+      ? computerConfigSchema.parse(config.modules?.computer ?? { enabled: false }).enabled
+      : (await resolveTuiModuleConfig({ ...(dataDirectory ? { dataDirectory } : {}), configPath: path }, { cwd })).enabled[input.id];
+    if (enabled !== input.expectedEnabled) throw new Error("模块配置已变化，请重新加载后再操作");
     const saved = config.modules?.[input.id];
     if (saved === undefined && input.id === "computer") throw new Error("本机应用控制需要先配置驱动路径和允许控制的应用");
     const declaration = saved ?? { enabled: false };

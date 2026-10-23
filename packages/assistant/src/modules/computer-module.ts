@@ -67,6 +67,17 @@ export function createDriverCall(executable: string, env: NodeJS.ProcessEnv): Dr
   });
 }
 
+export async function discoverComputerApps(executable: string, env: NodeJS.ProcessEnv, signal = new AbortController().signal) {
+  try {
+    await access(executable, constants.X_OK);
+    const apps = appsSchema.parse(await createDriverCall(executable, env)("list_apps", {}, signal)).apps;
+    return { ok: true as const, apps: [...new Set(apps.filter(app => app.running).map(app => app.bundle_id))] };
+  } catch {
+    if (signal.aborted) throw signal.reason;
+    return { ok: false as const, error: { code: "COMPUTER_HEALTH_UNVERIFIED", message: "驱动连接检查失败；请检查程序、服务与系统权限。未启动服务或重试。" } };
+  }
+}
+
 const id = z.number().int().positive();
 const targetSchema = z.object({ bundleId: z.string().min(1).max(200), pid: id, windowId: id }).strict();
 const observeSchema = targetSchema.omit({ pid: true, windowId: true }).extend({
@@ -81,8 +92,8 @@ const windowsSchema = z.object({ windows: z.array(z.object({ pid: id, window_id:
 const elementSchema = z.object({
   element_index: z.number().int().nonnegative(), element_token: z.string().max(200).optional(),
   parent_index: z.number().int().nonnegative().nullable().optional(),
-  role: z.string().max(200), label: z.string().max(2000).nullable().optional(),
-  value: z.string().max(4000).nullable().optional(), actions: z.array(z.string().max(100)).max(32).optional(),
+  role: z.string().max(200), label: z.string().transform(value => ({ text: value.slice(0, 2000), clipped: value.length > 2000 })).nullable().optional(),
+  value: z.string().transform(value => ({ text: value.slice(0, 4000), clipped: value.length > 4000 })).nullable().optional(), actions: z.array(z.string().max(100)).max(32).optional(),
 });
 const stateSchema = z.object({
   pid: id, window_id: id,
@@ -188,8 +199,12 @@ export function createComputerModule(config: ComputerConfig, options: { call?: D
             const observationId = randomUUID();
             const elements = windowElements(state.elements);
             if (elements.length > 200) return failure("Window exceeds element limit; no action tokens granted");
-            const resultForModel = { ok: true, ...target, observationId, elements, reference: untrusted };
+            const clipped = elements.some(element => element.label?.clipped || element.value?.clipped);
+            const displayElements = elements.map(({ element_token, label, value, ...element }) => ({ ...element,
+              ...(clipped ? {} : { element_token }), label: label?.text ?? label, value: value?.text ?? value }));
+            const resultForModel = { ok: true, ...target, ...(clipped ? { readOnly: true, truncated: true } : { observationId }), elements: displayElements, reference: untrusted + (clipped ? " Clipped read-only AX diagnostic; no action authority. Observe a complete bounded target before acting." : "") };
             if (Buffer.byteLength(JSON.stringify(resultForModel)) > 24 * 1024) return failure("Accessibility observation exceeds context byte limit");
+            if (clipped) return resultForModel;
             observation = { ...target, id: observationId, at: now(), tokens: new Set(elements.flatMap((e) => e.element_token ? [e.element_token] : [])) };
             return resultForModel;
           } catch { return failure("Unable to observe allowed application; check driver, permissions and window state"); }
