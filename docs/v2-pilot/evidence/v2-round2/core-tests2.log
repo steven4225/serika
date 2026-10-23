@@ -1,0 +1,118 @@
+$ tsc -b
+▶ v2 pilot baseline: assembled tools, instructions and capability report
+  ✖ minimal assembly matches __baseline__/assembly-minimal.txt (81.412791ms)
+  ✖ full assembly matches __baseline__/assembly-full.txt (58.496667ms)
+  ✖ full-without-todoist assembly matches __baseline__/assembly-full-without-todoist.txt (50.031708ms)
+  ✖ full assembly in the autonomous desktop foreground matches __baseline__/assembly-full-desktop-autonomous.txt (62.855333ms)
+  ✔ the two full assemblies differ only by Todoist-owned content (0.841458ms)
+✖ v2 pilot baseline: assembled tools, instructions and capability report (254.336833ms)
+✔ confirmed Telegram terminal calls control an offline existing-Pi fixture through the shared host executor (2857.985292ms)
+✔ terminal target/config boundaries reject writable config, foreign directory and Docker coexistence (5.408ms)
+ℹ tests 7
+ℹ suites 1
+ℹ pass 3
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3035.222916
+
+✖ failing tests:
+
+test at packages/assistant/dist/baseline-assembly.test.js:130:9
+✖ minimal assembly matches __baseline__/assembly-minimal.txt (81.412791ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      enabled: false,
+      id: 'terminal',
+      registeredTools: [],
+  +   state: 'disabled'
+    }
+  
+      at assertStep3Assembly (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:200:12)
+      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:133:13)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1869:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { id: 'terminal', enabled: false, registeredTools: [], state: 'disabled' },
+    expected: { id: 'terminal', enabled: false, registeredTools: [] },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at packages/assistant/dist/baseline-assembly.test.js:130:9
+✖ full assembly matches __baseline__/assembly-full.txt (58.496667ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      enabled: false,
+      id: 'terminal',
+      registeredTools: [],
+  +   state: 'disabled'
+    }
+  
+      at assertStep3Assembly (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:200:12)
+      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:133:13)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { id: 'terminal', enabled: false, registeredTools: [], state: 'disabled' },
+    expected: { id: 'terminal', enabled: false, registeredTools: [] },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at packages/assistant/dist/baseline-assembly.test.js:130:9
+✖ full-without-todoist assembly matches __baseline__/assembly-full-without-todoist.txt (50.031708ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      enabled: false,
+      id: 'terminal',
+      registeredTools: [],
+  +   state: 'disabled'
+    }
+  
+      at assertStep3Assembly (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:200:12)
+      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:133:13)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { id: 'terminal', enabled: false, registeredTools: [], state: 'disabled' },
+    expected: { id: 'terminal', enabled: false, registeredTools: [] },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at packages/assistant/dist/baseline-assembly.test.js:137:5
+✖ full assembly in the autonomous desktop foreground matches __baseline__/assembly-full-desktop-autonomous.txt (62.855333ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      enabled: false,
+      id: 'terminal',
+      registeredTools: [],
+  +   state: 'disabled'
+    }
+  
+      at assertStep3Assembly (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:200:12)
+      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:140:9)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { id: 'terminal', enabled: false, registeredTools: [], state: 'disabled' },
+    expected: { id: 'terminal', enabled: false, registeredTools: [] },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

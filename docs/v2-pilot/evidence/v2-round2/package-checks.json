@@ -1,0 +1,169 @@
+{
+  "runId": "633d0da3-7fad-4d71-a796-26e46a528b89",
+  "generatedAt": "2026-10-23T13:31:38.155041+00:00",
+  "sourceCommit": "5168b70e63eed98bfe865bc506f67d4ba0625c4d",
+  "sourceDiffCheckExitCode": 0,
+  "credentialPatternMatches": [],
+  "trailingWhitespace": [
+    {
+      "path": "core-tests2.log",
+      "line": 26
+    },
+    {
+      "path": "core-tests2.log",
+      "line": 33
+    },
+    {
+      "path": "core-tests2.log",
+      "line": 52
+    },
+    {
+      "path": "core-tests2.log",
+      "line": 59
+    },
+    {
+      "path": "core-tests2.log",
+      "line": 76
+    },
+    {
+      "path": "core-tests2.log",
+      "line": 83
+    },
+    {
+      "path": "core-tests2.log",
+      "line": 100
+    },
+    {
+      "path": "core-tests2.log",
+      "line": 107
+    },
+    {
+      "path": "permission-capture.log",
+      "line": 19
+    },
+    {
+      "path": "permission-capture.log",
+      "line": 98
+    },
+    {
+      "path": "core-tests.log",
+      "line": 28
+    },
+    {
+      "path": "core-tests.log",
+      "line": 42
+    },
+    {
+      "path": "core-tests.log",
+      "line": 62
+    },
+    {
+      "path": "core-tests.log",
+      "line": 76
+    },
+    {
+      "path": "core-tests.log",
+      "line": 94
+    },
+    {
+      "path": "core-tests.log",
+      "line": 108
+    },
+    {
+      "path": "core-tests.log",
+      "line": 126
+    },
+    {
+      "path": "core-tests.log",
+      "line": 140
+    },
+    {
+      "path": "core-tests.log",
+      "line": 156
+    },
+    {
+      "path": "core-tests.log",
+      "line": 158
+    },
+    {
+      "path": "tg/red.log",
+      "line": 32
+    },
+    {
+      "path": "tg/red.log",
+      "line": 34
+    },
+    {
+      "path": "tg/red.log",
+      "line": 51
+    },
+    {
+      "path": "tg/red.log",
+      "line": 53
+    },
+    {
+      "path": "tg/red.log",
+      "line": 70
+    },
+    {
+      "path": "tg/red.log",
+      "line": 72
+    },
+    {
+      "path": "tg/red.log",
+      "line": 89
+    },
+    {
+      "path": "tg/red.log",
+      "line": 91
+    },
+    {
+      "path": "tg/red.log",
+      "line": 108
+    },
+    {
+      "path": "tg/red.log",
+      "line": 110
+    },
+    {
+      "path": "tg/red.log",
+      "line": 127
+    },
+    {
+      "path": "tg/red.log",
+      "line": 129
+    },
+    {
+      "path": "tg/red.log",
+      "line": 146
+    },
+    {
+      "path": "tg/red.log",
+      "line": 148
+    },
+    {
+      "path": "tg/red.log",
+      "line": 165
+    },
+    {
+      "path": "tg/red.log",
+      "line": 167
+    },
+    {
+      "path": "tg/red.log",
+      "line": 184
+    },
+    {
+      "path": "tg/red.log",
+      "line": 186
+    },
+    {
+      "path": "tg/red.log",
+      "line": 203
+    },
+    {
+      "path": "tg/red.log",
+      "line": 205
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+✔ lists fixed-argv metadata without inherited target or credentials and CAS-binds the exact terminal (732.222625ms)
+✔ rejects replaced panes, stale directory, disabled capability, unsafe executable and forged fields (417.18925ms)
+✔ changes the target through the resident socket and publishes reload state without a model Run (1012.75375ms)
+✔ registers one unique channel per forwarded method, disjoint from hand-written IPC (0.877125ms)
+✔ reads host.current on every call and drops arguments beyond the declared arity (0.245542ms)
+✔ serializes real competing processes so unrelated capability writes both survive (790.98075ms)
+✔ rechecks state after taking the configuration lock, preserves mode, and rejects aliased unsafe lock files (223.173333ms)
+✔ changes only the requested switch, detects stale state, and does not overwrite concurrent edits during rollback (324.041542ms)
+✔ enables undeclared built-ins without adding authorization or automatic memory writes (840.514042ms)
+✔ history larger than one frame crosses the real socket without disconnecting, and page reads are bounded (813.157583ms)
+✔ a detached client does not cancel the original Controller, and reconnect reloads history, output and snapshot without a second model call (816.574833ms)
+✔ RPC failures redact configured provider secrets as well as the socket token (215.334834ms)
+✔ explicit host stop refuses an active Run or timer, then disposes only once the host is idle (675.342375ms)
+✔ partial shutdown failure exposes an unavailable host, rejects new work and reconnect, and requests process exit (170.488083ms)
+✔ private credentials, authentication, identity scope and single owner are enforced (169.096125ms)
+✔ a lost mutating response rejects as uncertain and is never resent on reconnect (172.054125ms)
+✔ bounded attachments larger than the old frame limit cross the resident socket intact (1797.804458ms)
+✔ memory folder and document operations cross the real resident socket and survive reconnect (408.5185ms)
+✔ a stale resident response cannot replace a newer event, while its request still resolves (201.116875ms)
+✔ normal startup writes only identity fields and does not register a service (486.097916ms)
+✔ opens restored history and memory, continues, reopens the selected recovery profile and returns without changing the original (1833.561916ms)
+✔ an active timer refuses ownership transfer without cancelling or registering (140.342875ms)
+✔ invalid recovery data leaves the original controller and selection usable (583.327875ms)
+✔ uncertain selection persistence freezes admission and restart reads the committed recovery pointer (871.589916ms)
+✔ explicit Thread launch overrides recovery without overwriting its saved selection (1215.368625ms)
+✔ a failed enable confirmed unregistered restores the same local identity without model replay (307.342667ms)
+✔ failed enable does not start a second local owner when recovery state is {"ok":false,"registered":false} (159.423416ms)
+✔ failed enable does not start a second local owner when recovery state is {"ok":true,"registered":true} (144.834ms)
+✔ ownership transfer reserves admission synchronously and shutdown waits for its settlement (264.107375ms)
+✔ resident startup does not replace an existing service identity or accept private data fields (1.890542ms)
+✔ keeps target metadata selection separate from per-call execution authority (7.777667ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6439.0055

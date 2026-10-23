@@ -1,0 +1,68 @@
+▶ v2 pilot baseline: assembled tools, instructions and capability report
+  ✔ minimal assembly matches __baseline__/assembly-minimal.txt (109.008666ms)
+  ✔ full assembly matches __baseline__/assembly-full.txt (90.870833ms)
+  ✔ full-without-todoist assembly matches __baseline__/assembly-full-without-todoist.txt (79.261ms)
+  ✔ full assembly in the autonomous desktop foreground matches __baseline__/assembly-full-desktop-autonomous.txt (69.884125ms)
+  ✔ the two full assemblies differ only by Todoist-owned content (0.591042ms)
+✔ v2 pilot baseline: assembled tools, instructions and capability report (350.48725ms)
+✔ write_file restart checklist reads an uncommitted unknown effect from real receipts and masks retained old attachments (247.123667ms)
+CM_STEP6_METRICS {"case":"C5 essential summary overflow","at":"2026-10-23T13:12:48.884Z","outcome":"reused","compactionId":"saturated","estimatedInputTokens":22626,"error":null,"summaryLayer":{"tokens":1853,"checklistTokens":409,"budget":1248,"borrowedTokens":606,"borrowLimitTokens":2496,"requiredBorrowTokens":606,"reduction":{"originalTokens":1519,"requiredTokens":1445,"budget":839,"reducedSegments":4,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["input_limit","summary_overflow","checklist_overflow"],"borrowedTokens":606,"borrowLimitTokens":2496,"requiredBorrowTokens":606,"maskedOriginalTokens":3364,"maskedFromMessageId":"u2","checklistTokens":405,"sectionBudget":208,"maskedThroughMessageId":"u2","emergencyMasking":[{"trigger":"input_threshold","ranges":[{"fromMessageId":"u2","throughMessageId":"u2"}]}]},"modelCalls":0}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":32768,"exceeds":true,"at":"2026-10-23T13:12:48.888Z","outcome":"failed","compactionId":"cap","estimatedInputTokens":4482,"error":{"code":"CONTEXT_PREPARE_FAILED","message":"Essential continuation exceeds the capped C5 allocation after masking; original journal retained"},"summaryLayer":{"tokens":4044,"checklistTokens":161,"budget":1248,"borrowedTokens":2496,"borrowLimitTokens":2496,"requiredBorrowTokens":2797,"reduction":{"originalTokens":3851,"requiredTokens":3884,"budget":1087,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["input_limit","summary_overflow","checklist_overflow"],"borrowedTokens":2496,"borrowLimitTokens":2496,"requiredBorrowTokens":2797,"maskedOriginalTokens":49885,"maskedFromMessageId":"failure-request","checklistTokens":10169,"sectionBudget":208,"maskedThroughMessageId":"failure-198","emergencyMasking":[{"trigger":"input_threshold","ranges":[{"fromMessageId":"failure-request","throughMessageId":"failure-198"}]}]}}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":32768,"exceeds":false,"at":"2026-10-23T13:12:48.892Z","outcome":"reused","compactionId":"cap","estimatedInputTokens":3482,"error":null,"summaryLayer":{"tokens":3044,"checklistTokens":161,"budget":1248,"borrowedTokens":1797,"borrowLimitTokens":2496,"requiredBorrowTokens":1797,"reduction":{"originalTokens":2851,"requiredTokens":2884,"budget":1087,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["input_limit","summary_overflow","checklist_overflow"],"borrowedTokens":1797,"borrowLimitTokens":2496,"requiredBorrowTokens":1797,"maskedOriginalTokens":49885,"maskedFromMessageId":"failure-request","checklistTokens":10169,"sectionBudget":208,"maskedThroughMessageId":"failure-198","emergencyMasking":[{"trigger":"input_threshold","ranges":[{"fromMessageId":"failure-request","throughMessageId":"failure-198"}]}]}}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":1000000,"exceeds":true,"at":"2026-10-23T13:12:48.895Z","outcome":"failed","compactionId":"cap","estimatedInputTokens":86483,"error":{"code":"CONTEXT_PREPARE_FAILED","message":"Essential continuation exceeds the capped C5 allocation after masking; original journal retained"},"summaryLayer":{"tokens":36300,"checklistTokens":161,"budget":12000,"borrowedTokens":24000,"borrowLimitTokens":24000,"requiredBorrowTokens":24301,"reduction":{"originalTokens":36107,"requiredTokens":36140,"budget":11839,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["summary_overflow","checklist_overflow"],"borrowedTokens":24000,"borrowLimitTokens":24000,"requiredBorrowTokens":24301,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":10169,"sectionBudget":2000,"maskedThroughMessageId":null,"emergencyMasking":[]}}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":1000000,"exceeds":false,"at":"2026-10-23T13:12:48.898Z","outcome":"reused","compactionId":"cap","estimatedInputTokens":85483,"error":null,"summaryLayer":{"tokens":35300,"checklistTokens":161,"budget":12000,"borrowedTokens":23301,"borrowLimitTokens":24000,"requiredBorrowTokens":23301,"reduction":{"originalTokens":35107,"requiredTokens":35140,"budget":11839,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["summary_overflow","checklist_overflow"],"borrowedTokens":23301,"borrowLimitTokens":24000,"requiredBorrowTokens":23301,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":10169,"sectionBudget":2000,"maskedThroughMessageId":null,"emergencyMasking":[]}}
+✔ terminal_exec restart checklist reads an uncommitted unknown effect from real receipts and masks retained old attachments (224.598125ms)
+✔ retains the last eight completed receipts plus rollup, unknown and denied effects without losing originals (1.386125ms)
+✔ compacts interleaved successful reads and edits, without turning reads into saved file evidence (0.334458ms)
+✔ asks the summarizer for evidenced values without an empty JSON template (0.187167ms)
+✔ background compacts only uncovered blocks, publishes bounded action receipts, and restores without dispatch (11.671292ms)
+✔ background excludes synthetic extraction turns while hashes remain bound to the physical prefix (3.285708ms)
+✔ invalid, empty, length-truncated and oversized background summaries never advance and never retry the item (14.227667ms)
+✔ recorded array shape failures normalize only collection containers and retain remaining semantic failures (10.577125ms)
+✔ recorded CE03/CE05 proportional overflows preserve essentials, trim index topics and publish without retry (196.632958ms)
+✔ changed source or exclusions invalidate all derived layers, including a source after the old boundary (5.593375ms)
+✔ source changes during background work discard the model result before persistence (2.598333ms)
+✔ diagnostics remain read-only, preserve unknown usage, and fail visibly on read errors (2.935375ms)
+✔ foreground counts the supplied fixed prefix once, clips a single oversized message, and rejects fixed overflow (11.484084ms)
+✔ host reconciliation rejects invented success/files/evidence and retains denied, failed, unknown and unexecuted actions (0.242584ms)
+✔ an oversized checklist stays within its section and total summary budget with an explicit numbered overflow reference (4.246084ms)
+✔ reusing an old summary rebuilds a checklist with the current permission snapshot (8.540542ms)
+✔ reported provider overflow recalibrates a single oversized current message when there is no additional safe block (14.843125ms)
+✔ C5 preserves oversized essential legacy continuation using unused recent capacity without a model call (0.740042ms)
+✔ CE05 1248 total minus literal unknown request checklist retains goals, confirmed decisions, pending and permissions (0.714958ms)
+✔ C5 masks the oldest complete block for excess essential summary tokens while keeping goals, decisions, pending and permissions (21.984084ms)
+✔ C5 caps borrowing at half of recent capacity, masks through the oldest blocks, and records both overflow causes (14.023666ms)
+✔ C5 retains opaque far-index contents instead of hiding possibly essential clauses (0.25375ms)
+✔ recorded single-object constraints normalize while essential overflow uses C5 and invalid semantics still fail (12.328291ms)
+✔ C5 emergency masking preserves the current request, Steer and the latest complete split tool unit (25.862459ms)
+✔ C5 oversized protected floor clips only the provider view and continues with the result's original message ID (879.061ms)
+▶ ExecutionRecordStore
+  ✔ keeps receipts beyond the old 64-call limit and rejects dispatch at the new bounded capacity (6014.807ms)
+  ✔ stops receipt writes at file sync failure, preserves the correct unknown boundary on reopen (178.774041ms)
+  ✔ stops receipt writes at directory sync failure, preserves the correct unknown boundary on reopen (167.787958ms)
+  ✔ persists bounded full readback evidence across reopen, never hashes a truncated display preview (345.22375ms)
+  ✔ persists compact file evidence independently of truncated display input across reopen (201.808917ms)
+  ✔ does not create file success evidence for denial, unknown, wrong digest/path or completion without start (925.486834ms)
+  ✔ keeps old truncated records unverifiable and rejects corrupt compact metadata (216.217583ms)
+  ✔ preserves explicit unknown outcomes across finalization and reopen, unlike ordinary failures (595.582667ms)
+  ✔ persists bounded Run and shell tool receipts outside transcript JSONL (0.778542ms)
+  ✔ shell_exec records request/start/completion and actual shell outcome across reopen (209.079375ms)
+  ✔ terminal_exec records request/start/completion and actual shell outcome across reopen (210.83525ms)
+  ✔ marks interrupted Run, started tool unknown, requested tool not_started without replay (294.5365ms)
+  ✔ preserves completed tool receipt when Run ends abnormally (214.427834ms)
+  ✔ fails closed on corrupt JSON and symlink without overwriting either (38.095833ms)
+  ✔ rejects duplicate Run and mismatched tool event identity (112.970125ms)
+  ✔ recovers and lists only the selected Thread in a shared transcript directory (122.938292ms)
+  ✔ allows only one live controller to recover a Thread (100.893708ms)
+✔ ExecutionRecordStore (9951.418625ms)
+✔ b0 locks full host decisions, current Memory, configuration and filesystem boundaries (41991.16875ms)
+✔ confirmed Telegram terminal calls control an offline existing-Pi fixture through the shared host executor (3266.513958ms)
+✔ terminal target/config boundaries reject writable config, foreign directory and Docker coexistence (9.260667ms)
+ℹ tests 51
+ℹ suites 2
+ℹ pass 51
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 42158.960542

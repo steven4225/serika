@@ -1,0 +1,84 @@
+$ tsc -b --pretty false && pnpm --filter @serika/desktop typecheck
+$ tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit
+$ tsc -b
+▶ v2 pilot baseline: assembled tools, instructions and capability report
+  ✔ minimal assembly matches __baseline__/assembly-minimal.txt (94.153958ms)
+  ✔ full assembly matches __baseline__/assembly-full.txt (72.957125ms)
+  ✔ full-without-todoist assembly matches __baseline__/assembly-full-without-todoist.txt (56.444584ms)
+  ✔ full assembly in the autonomous desktop foreground matches __baseline__/assembly-full-desktop-autonomous.txt (63.380666ms)
+  ✔ the two full assemblies differ only by Todoist-owned content (0.650125ms)
+✔ v2 pilot baseline: assembled tools, instructions and capability report (288.263416ms)
+▶ ExecutionRecordStore
+  ✔ keeps receipts beyond the old 64-call limit and rejects dispatch at the new bounded capacity (6219.03775ms)
+  ✔ stops receipt writes at file sync failure, preserves the correct unknown boundary on reopen (168.230833ms)
+  ✔ stops receipt writes at directory sync failure, preserves the correct unknown boundary on reopen (180.1285ms)
+  ✔ persists bounded full readback evidence across reopen, never hashes a truncated display preview (345.057042ms)
+  ✔ persists compact file evidence independently of truncated display input across reopen (212.150375ms)
+  ✔ does not create file success evidence for denial, unknown, wrong digest/path or completion without start (1093.844375ms)
+  ✔ keeps old truncated records unverifiable and rejects corrupt compact metadata (226.277917ms)
+  ✔ preserves explicit unknown outcomes across finalization and reopen, unlike ordinary failures (618.520708ms)
+  ✔ persists bounded Run and shell tool receipts outside transcript JSONL (0.82675ms)
+  ✔ shell_exec records request/start/completion and actual shell outcome across reopen (215.023667ms)
+  ✔ terminal_exec records request/start/completion and actual shell outcome across reopen (218.243416ms)
+  ✔ marks interrupted Run, started tool unknown, requested tool not_started without replay (303.845458ms)
+  ✔ preserves completed tool receipt when Run ends abnormally (217.646084ms)
+  ✔ fails closed on corrupt JSON and symlink without overwriting either (35.24375ms)
+  ✔ rejects duplicate Run and mismatched tool event identity (113.509167ms)
+  ✔ recovers and lists only the selected Thread in a shared transcript directory (128.655917ms)
+  ✔ allows only one live controller to recover a Thread (124.874083ms)
+✔ ExecutionRecordStore (10422.360625ms)
+✔ b0 locks full host decisions, current Memory, configuration and filesystem boundaries (43098.782167ms)
+✔ confirmed Telegram terminal calls control an offline existing-Pi fixture through the shared host executor (3180.042334ms)
+✔ terminal target/config boundaries reject writable config, foreign directory and Docker coexistence (12.663833ms)
+ℹ tests 25
+ℹ suites 2
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 43275.828917
+✔ lists fixed-argv metadata without inherited target or credentials and CAS-binds the exact terminal (687.68575ms)
+✔ rejects replaced panes, stale directory, disabled capability, unsafe executable and forged fields (398.8395ms)
+✔ parses pane identities with the same target schema used by configuration (406.943958ms)
+✔ changes the target through the resident socket and publishes reload state without a model Run (906.675125ms)
+✔ shows an accepted correction as a normal user message in order, then updates it without duplication (0.993417ms)
+✔ retains failed corrections after reconnect, without duplicating a committed correction or claiming success (0.254208ms)
+✔ marks superseded proposals unstarted and keeps applied steer within the original task/receipt boundary (0.349334ms)
+✔ keeps a reminder readback in Chinese when the tool result also says scheduled (0.414875ms)
+✔ keeps background consolidation out of chat without hiding the next user turn (0.22875ms)
+✔ reuses receipt history only for the same completed Run (0.0815ms)
+✔ failure activity Demo presents the actual failure message on snapshot reload rather than an incomplete JSON receipt (0.148834ms)
+✔ retains missing-file input and exact error code in history and live output, not assistant claims (0.132209ms)
+✔ attaches history timestamps only for a unique current-Thread primary receipt, without altering its outcome (0.235875ms)
+✔ shell_exec projects exact Shell input from live events and history, and only complete receipt previews after reconnect (0.279375ms)
+✔ terminal_exec projects exact Shell input from live events and history, and only complete receipt previews after reconnect (0.100333ms)
+✔ keeps bounded file-change intent separate from the write outcome (0.105167ms)
+▶ conversation file receipts
+  ✔ takes compact facts from real history and live outputs, not summaries or assistant prose (0.160167ms)
+  ✔ keeps refused and failed file calls distinct even when the assistant claims success (0.068542ms)
+  ✔ never derives facts from final preview and clears an earlier receipt on unknown/failure (0.126834ms)
+  ✔ keeps returned failure/denial/unknown and Shell failure across activity and receipt reload (0.102042ms)
+  ✔ never lets incomplete final previews turn a full failed history output into success (0.177708ms)
+  ✔ matches tool identity only in the last user turn and supports refusing all history reuse (0.106542ms)
+✔ conversation file receipts (0.8885ms)
+▶ conversation shell display
+  ✔ shows live progress before the tool result and does not mark truncation as failure (0.251375ms)
+  ✔ shell_exec keeps truncated progress when overlaying a snapshot after reload (0.049292ms)
+  ✔ terminal_exec keeps truncated progress when overlaying a snapshot after reload (0.026125ms)
+  ✔ does not overlay the current Shell buffer onto repeated IDs in older turns or other tools (0.072791ms)
+✔ conversation shell display (0.447792ms)
+✔ shows persisted attachments once without displaying host document wrappers or accepting remote image URLs (0.131917ms)
+✔ projects bounded file contents only from successful full outcomes, never saved previews (0.125041ms)
+▶ host tool failures: detail `CODE: message` with the code
+  ✔ history reads the code from the front of the stored error text, and only from there (0.095ms)
+✔ host tool failures: detail `CODE: message` with the code (0.115167ms)
+✔ keeps target metadata selection separate from per-call execution authority (3.495708ms)
+ℹ tests 30
+ℹ suites 3
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2752.960375

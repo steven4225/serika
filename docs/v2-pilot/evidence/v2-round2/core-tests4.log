@@ -1,0 +1,40 @@
+$ tsc -b
+✔ write_file restart checklist reads an uncommitted unknown effect from real receipts and masks retained old attachments (172.316667ms)
+CM_STEP6_METRICS {"case":"C5 essential summary overflow","at":"2026-10-23T13:12:06.483Z","outcome":"reused","compactionId":"saturated","estimatedInputTokens":22626,"error":null,"summaryLayer":{"tokens":1853,"checklistTokens":409,"budget":1248,"borrowedTokens":606,"borrowLimitTokens":2496,"requiredBorrowTokens":606,"reduction":{"originalTokens":1519,"requiredTokens":1445,"budget":839,"reducedSegments":4,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["input_limit","summary_overflow","checklist_overflow"],"borrowedTokens":606,"borrowLimitTokens":2496,"requiredBorrowTokens":606,"maskedOriginalTokens":3364,"maskedFromMessageId":"u2","checklistTokens":405,"sectionBudget":208,"maskedThroughMessageId":"u2","emergencyMasking":[{"trigger":"input_threshold","ranges":[{"fromMessageId":"u2","throughMessageId":"u2"}]}]},"modelCalls":0}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":32768,"exceeds":true,"at":"2026-10-23T13:12:06.487Z","outcome":"failed","compactionId":"cap","estimatedInputTokens":4482,"error":{"code":"CONTEXT_PREPARE_FAILED","message":"Essential continuation exceeds the capped C5 allocation after masking; original journal retained"},"summaryLayer":{"tokens":4044,"checklistTokens":161,"budget":1248,"borrowedTokens":2496,"borrowLimitTokens":2496,"requiredBorrowTokens":2797,"reduction":{"originalTokens":3851,"requiredTokens":3884,"budget":1087,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["input_limit","summary_overflow","checklist_overflow"],"borrowedTokens":2496,"borrowLimitTokens":2496,"requiredBorrowTokens":2797,"maskedOriginalTokens":49885,"maskedFromMessageId":"failure-request","checklistTokens":10169,"sectionBudget":208,"maskedThroughMessageId":"failure-198","emergencyMasking":[{"trigger":"input_threshold","ranges":[{"fromMessageId":"failure-request","throughMessageId":"failure-198"}]}]}}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":32768,"exceeds":false,"at":"2026-10-23T13:12:06.490Z","outcome":"reused","compactionId":"cap","estimatedInputTokens":3482,"error":null,"summaryLayer":{"tokens":3044,"checklistTokens":161,"budget":1248,"borrowedTokens":1797,"borrowLimitTokens":2496,"requiredBorrowTokens":1797,"reduction":{"originalTokens":2851,"requiredTokens":2884,"budget":1087,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["input_limit","summary_overflow","checklist_overflow"],"borrowedTokens":1797,"borrowLimitTokens":2496,"requiredBorrowTokens":1797,"maskedOriginalTokens":49885,"maskedFromMessageId":"failure-request","checklistTokens":10169,"sectionBudget":208,"maskedThroughMessageId":"failure-198","emergencyMasking":[{"trigger":"input_threshold","ranges":[{"fromMessageId":"failure-request","throughMessageId":"failure-198"}]}]}}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":1000000,"exceeds":true,"at":"2026-10-23T13:12:06.493Z","outcome":"failed","compactionId":"cap","estimatedInputTokens":86483,"error":{"code":"CONTEXT_PREPARE_FAILED","message":"Essential continuation exceeds the capped C5 allocation after masking; original journal retained"},"summaryLayer":{"tokens":36300,"checklistTokens":161,"budget":12000,"borrowedTokens":24000,"borrowLimitTokens":24000,"requiredBorrowTokens":24301,"reduction":{"originalTokens":36107,"requiredTokens":36140,"budget":11839,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["summary_overflow","checklist_overflow"],"borrowedTokens":24000,"borrowLimitTokens":24000,"requiredBorrowTokens":24301,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":10169,"sectionBudget":2000,"maskedThroughMessageId":null,"emergencyMasking":[]}}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":1000000,"exceeds":false,"at":"2026-10-23T13:12:06.495Z","outcome":"reused","compactionId":"cap","estimatedInputTokens":85483,"error":null,"summaryLayer":{"tokens":35300,"checklistTokens":161,"budget":12000,"borrowedTokens":23301,"borrowLimitTokens":24000,"requiredBorrowTokens":23301,"reduction":{"originalTokens":35107,"requiredTokens":35140,"budget":11839,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["summary_overflow","checklist_overflow"],"borrowedTokens":23301,"borrowLimitTokens":24000,"requiredBorrowTokens":23301,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":10169,"sectionBudget":2000,"maskedThroughMessageId":null,"emergencyMasking":[]}}
+✔ terminal_exec restart checklist reads an uncommitted unknown effect from real receipts and masks retained old attachments (161.902416ms)
+✔ retains the last eight completed receipts plus rollup, unknown and denied effects without losing originals (1.151709ms)
+✔ compacts interleaved successful reads and edits, without turning reads into saved file evidence (0.27725ms)
+✔ asks the summarizer for evidenced values without an empty JSON template (0.157583ms)
+✔ background compacts only uncovered blocks, publishes bounded action receipts, and restores without dispatch (10.084083ms)
+✔ background excludes synthetic extraction turns while hashes remain bound to the physical prefix (2.711458ms)
+✔ invalid, empty, length-truncated and oversized background summaries never advance and never retry the item (13.101125ms)
+✔ recorded array shape failures normalize only collection containers and retain remaining semantic failures (10.496333ms)
+✔ recorded CE03/CE05 proportional overflows preserve essentials, trim index topics and publish without retry (183.546209ms)
+✔ changed source or exclusions invalidate all derived layers, including a source after the old boundary (6.488292ms)
+✔ source changes during background work discard the model result before persistence (3.236916ms)
+✔ diagnostics remain read-only, preserve unknown usage, and fail visibly on read errors (2.2975ms)
+✔ foreground counts the supplied fixed prefix once, clips a single oversized message, and rejects fixed overflow (11.22725ms)
+✔ host reconciliation rejects invented success/files/evidence and retains denied, failed, unknown and unexecuted actions (0.204625ms)
+✔ an oversized checklist stays within its section and total summary budget with an explicit numbered overflow reference (4.243792ms)
+✔ reusing an old summary rebuilds a checklist with the current permission snapshot (7.176625ms)
+✔ reported provider overflow recalibrates a single oversized current message when there is no additional safe block (14.050666ms)
+✔ C5 preserves oversized essential legacy continuation using unused recent capacity without a model call (0.556708ms)
+✔ CE05 1248 total minus literal unknown request checklist retains goals, confirmed decisions, pending and permissions (0.653125ms)
+✔ C5 masks the oldest complete block for excess essential summary tokens while keeping goals, decisions, pending and permissions (22.144166ms)
+✔ C5 caps borrowing at half of recent capacity, masks through the oldest blocks, and records both overflow causes (12.457125ms)
+✔ C5 retains opaque far-index contents instead of hiding possibly essential clauses (0.190792ms)
+✔ recorded single-object constraints normalize while essential overflow uses C5 and invalid semantics still fail (11.554833ms)
+✔ C5 emergency masking preserves the current request, Steer and the latest complete split tool unit (23.549583ms)
+✔ C5 oversized protected floor clips only the provider view and continues with the result's original message ID (829.831125ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1608.33075

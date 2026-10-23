@@ -1,0 +1,333 @@
+{
+  "runId": "03a4dc62-9e68-49ce-a584-0ccdfe729f27",
+  "generatedAt": "2026-10-23T13:12:46.932Z",
+  "baseline": "68dcda6d4cccca68d4c763b8c8461c1d192c0006",
+  "sourceCommit": "e4aa7699cecbfd0a5602cdcf87676e829953582b",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "4657289d1c79fad2229e176c7cd2e9a64793f78a418de950ef4e8df9e0c9e65d",
+  "platform": "darwin",
+  "commands": [
+    {
+      "command": [
+        "/bin/sh",
+        "-c",
+        "pnpm typecheck && pnpm build:runtime",
+        "--home",
+        "/private/tmp/serika-v2-round2-audit-H"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "log": "command-1.log",
+      "sha256": "a56cf86ce469f1cd57def4e5aa8d4f1b29166fa9684d78aae93e167298ef0595",
+      "counts": []
+    },
+    {
+      "command": [
+        "/bin/sh",
+        "-c",
+        "node --test packages/assistant/dist/terminal-control.test.js packages/assistant/dist/permission-boundary.test.js packages/assistant/dist/baseline-assembly.test.js packages/assistant/dist/execution-record-store.test.js packages/assistant/dist/context-compactor.test.js",
+        "--home",
+        "/private/tmp/serika-v2-round2-audit-H"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "log": "command-2.log",
+      "sha256": "cd1a19a245479fd336fd266febf5fd26e19560340708218a3e4537b2aa375995",
+      "counts": [
+        [
+          "tests",
+          51
+        ],
+        [
+          "pass",
+          51
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "command": [
+        "/bin/sh",
+        "-c",
+        "pnpm --filter @serika/desktop exec tsx --test src/main/telegram-gateway.test.ts src/main/herdr-target.test.ts src/main/module-settings.test.ts src/main/ipc-forwards.test.ts src/main/resident-transport.test.ts src/main/desktop-runtime.test.ts src/main/runtime-ownership.test.ts src/renderer/src/herdr-target-setting.test.ts src/renderer/src/conversation.test.ts",
+        "--home",
+        "/private/tmp/serika-v2-round2-audit-H"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "log": "command-3.log",
+      "sha256": "a63c12394909c86969f126a6dc745c98aa77b03dabb92f84e28e558d096f615d",
+      "counts": [
+        [
+          "tests",
+          148
+        ],
+        [
+          "pass",
+          148
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    }
+  ],
+  "frozen": {
+    "apps/desktop/scripts/electron-smoke.mjs": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+    "examples/eval/cm-step6-live.mjs": "6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546",
+    "packages/assistant/scripts/cm-step6-verify.mjs": "7fc93222da184d9f27cd9fc2601dde208e9a9690cc277b0c879d280d41840ffb",
+    "packages/assistant/scripts/seatbelt-s1-check.mjs": "af6f632dd35da6c3c527273ca614334714a4b7d679e1c98cce07183aad9f9d6a",
+    "packages/assistant/scripts/seatbelt-s1-audit.mjs": "4402c875108ce11ce926decb00cba5973632d8bb9d67e8e56edcbe130b02bfa4",
+    "apps/desktop/scripts/seatbelt-s1-electron.mjs": "ef5202c49d76aea439173c1553b8dcb402419982b4c09704ed554e5945437f1c",
+    "packages/assistant/src/permission-decisions.snapshot.ts": "08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace"
+  },
+  "realModelCalls": 0,
+  "telegramOutbound": 0,
+  "serviceRegistrations": 0,
+  "costUsd": 0,
+  "status": "passed",
+  "b0": {
+    "file": "packages/assistant/src/permission-boundary.snapshot.json",
+    "beforeSha256": "a5f3059a18ea43c1ff14efb48f09933ef110da00c0e070d31f3870333911852f",
+    "afterSha256": "2011a3a03fdd0d2c9e757526d16866d0c40c52e616c0f5d9ea0efb0fcbbbdc2d",
+    "existingRows": 87,
+    "changedExistingKeys": [],
+    "addedKeys": [
+      "terminal/desktop/terminal_exec",
+      "terminal/telegram/terminal_exec"
+    ],
+    "rows": {
+      "terminal/desktop/terminal_exec": {
+        "approvals": [
+          {
+            "tool": "terminal_exec",
+            "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+            "remember": null
+          },
+          {
+            "tool": "terminal_exec",
+            "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      },
+      "terminal/telegram/terminal_exec": {
+        "approvals": [
+          {
+            "tool": "terminal_exec",
+            "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+            "remember": null
+          },
+          {
+            "tool": "terminal_exec",
+            "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      }
+    }
+  },
+  "sharedSeatbelt": {
+    "packages/assistant/src/modules/seatbelt-policy.ts": "62b259cba40fba3a458341ffc8c8d4f62841a69694c23e96c0d5ca6cae57b6a8",
+    "packages/assistant/src/modules/seatbelt-shell-runner.ts": "14163daa691c21324f3ef75cbd8159ceb28e814db74ddad4fe59e7a51c4ef57f",
+    "packages/assistant/src/modules/seatbelt-runtime.ts": "058a1a077ecef83929162a60a2d26a0c516e4c2d1afbc87dff4f8790ae28d62b"
+  },
+  "lineChanges": [
+    {
+      "path": "apps/desktop/src/main/desktop-runtime.ts",
+      "kind": "product",
+      "added": 13,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/main/herdr-target.test.ts",
+      "kind": "tests-verification",
+      "added": 98,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/main/herdr-target.ts",
+      "kind": "product",
+      "added": 96,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/main/resident-protocol.ts",
+      "kind": "product",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "apps/desktop/src/main/runtime-bridge.ts",
+      "kind": "product",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/main/runtime-ownership.ts",
+      "kind": "product",
+      "added": 3,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/main/telegram-gateway.test.ts",
+      "kind": "tests-verification",
+      "added": 56,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/main/telegram-gateway.ts",
+      "kind": "product",
+      "added": 5,
+      "removed": 2
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/capabilities.tsx",
+      "kind": "product",
+      "added": 3,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/conversation.test.ts",
+      "kind": "tests-verification",
+      "added": 8,
+      "removed": 8
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/conversation.ts",
+      "kind": "product",
+      "added": 3,
+      "removed": 3
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/herdr-target-setting.test.ts",
+      "kind": "tests-verification",
+      "added": 19,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/herdr-target-setting.tsx",
+      "kind": "product",
+      "added": 38,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/ui-kit/conversation-data.ts",
+      "kind": "product",
+      "added": 5,
+      "removed": 5
+    },
+    {
+      "path": "apps/desktop/src/shared/ipc-forwards.ts",
+      "kind": "product",
+      "added": 3,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/shared/ui-contract.ts",
+      "kind": "product",
+      "added": 9,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/scripts/v2-round2-verify.mjs",
+      "kind": "tests-verification",
+      "added": 67,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/api.ts",
+      "kind": "product",
+      "added": 2,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/app.ts",
+      "kind": "product",
+      "added": 4,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/baseline-assembly.test.ts",
+      "kind": "tests-verification",
+      "added": 6,
+      "removed": 2
+    },
+    {
+      "path": "packages/assistant/src/compaction-records.ts",
+      "kind": "product",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/context-compactor.test.ts",
+      "kind": "tests-verification",
+      "added": 4,
+      "removed": 3
+    },
+    {
+      "path": "packages/assistant/src/execution-record-store.test.ts",
+      "kind": "tests-verification",
+      "added": 4,
+      "removed": 4
+    },
+    {
+      "path": "packages/assistant/src/execution-record-store.ts",
+      "kind": "product",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/modules/terminal-module.ts",
+      "kind": "product",
+      "added": 62,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/permission-boundary.snapshot.json",
+      "kind": "snapshot",
+      "added": 39,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/permission-boundary.test.ts",
+      "kind": "tests-verification",
+      "added": 42,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/terminal-control.test.ts",
+      "kind": "tests-verification",
+      "added": 83,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/tui-module-config.ts",
+      "kind": "product",
+      "added": 15,
+      "removed": 2
+    }
+  ]
+}

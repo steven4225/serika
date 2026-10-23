@@ -1,0 +1,2 @@
+$ tsc -b --pretty false && pnpm --filter @serika/desktop typecheck
+$ tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit

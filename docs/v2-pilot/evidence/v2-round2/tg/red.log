@@ -1,0 +1,217 @@
+▶ whole-message stop variants cancel the owned Run and persist the private-chat autonomy pause
+  ✖ "停" (1235.612875ms)
+  ✖ "停下" (1195.495ms)
+  ✔ "停止" (1194.486333ms)
+  ✖ "stop" (1131.150167ms)
+  ✖ "STOP" (1183.056375ms)
+  ✖ "sToP" (1199.080916ms)
+  ✔ "/stop" (1073.517542ms)
+  ✖ " \t“停止！”\n" (1194.516708ms)
+  ✖ " ,StOp!?。 " (1292.407417ms)
+  ✖ " （/stop）！ " (1192.320584ms)
+✖ whole-message stop variants cancel the owned Run and persist the private-chat autonomy pause (11893.187458ms)
+✔ sentences mentioning stop remain ordinary chat without pausing autonomy (3618.847ms)
+▶ binding success describes the current host grant and authorized directory
+  ✖ autonomy=false (210.552792ms)
+  ✖ autonomy=true (217.230042ms)
+✖ binding success describes the current host grant and authorized directory (428.215083ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 3
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16600.198291
+
+✖ failing tests:
+
+test at apps/desktop/src/main/telegram-gateway.test.ts:1391:13
+✖ "停" (1235.612875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1400:16)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1391:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at apps/desktop/src/main/telegram-gateway.test.ts:1391:13
+✖ "停下" (1195.495ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1400:16)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1391:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at apps/desktop/src/main/telegram-gateway.test.ts:1391:13
+✖ "stop" (1131.150167ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1400:16)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1391:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at apps/desktop/src/main/telegram-gateway.test.ts:1391:13
+✖ "STOP" (1183.056375ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1400:16)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1391:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at apps/desktop/src/main/telegram-gateway.test.ts:1391:13
+✖ "sToP" (1199.080916ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1400:16)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1391:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at apps/desktop/src/main/telegram-gateway.test.ts:1391:13
+✖ " \t“停止！”\n" (1194.516708ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1400:16)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1391:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at apps/desktop/src/main/telegram-gateway.test.ts:1391:13
+✖ " ,StOp!?。 " (1292.407417ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1400:16)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1391:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at apps/desktop/src/main/telegram-gateway.test.ts:1391:13
+✖ " （/stop）！ " (1192.320584ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1400:16)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1391:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at apps/desktop/src/main/telegram-gateway.test.ts:1430:13
+✖ autonomy=false (210.552792ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /已绑定当前授权目录/. Input:
+  
+  '已绑定当前工作区。直接发消息提问；任务用“任务：目标”，工具仍逐次确认。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。'
+  
+      at TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1436:16)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1430:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '已绑定当前工作区。直接发消息提问；任务用“任务：目标”，工具仍逐次确认。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。',
+    expected: /已绑定当前授权目录/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at apps/desktop/src/main/telegram-gateway.test.ts:1430:13
+✖ autonomy=true (217.230042ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /已绑定当前授权目录/. Input:
+  
+  '已绑定当前工作区。直接发消息提问；任务用“任务：目标”，工具仍逐次确认。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。'
+  
+      at TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1436:16)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async TestContext.<anonymous> (/private/tmp/serika-v2-round2-tg/apps/desktop/src/main/telegram-gateway.test.ts:1430:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '已绑定当前工作区。直接发消息提问；任务用“任务：目标”，工具仍逐次确认。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。',
+    expected: /已绑定当前授权目录/,
+    operator: 'match',
+    diff: 'simple'
+  }

@@ -1,0 +1,12 @@
+✔ lists fixed-argv metadata without inherited target or credentials and CAS-binds the exact terminal (719.8975ms)
+✔ rejects replaced panes, stale directory, disabled capability, unsafe executable and forged fields (447.105583ms)
+✔ parses pane identities with the same target schema used by configuration (496.4665ms)
+✔ changes the target through the resident socket and publishes reload state without a model Run (1050.95475ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3050.2435

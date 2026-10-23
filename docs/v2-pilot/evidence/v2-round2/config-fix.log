@@ -1,0 +1,43 @@
+$ tsc -b --pretty false && pnpm --filter @serika/desktop typecheck
+$ tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit
+$ tsc -b
+▶ resolveTuiModuleConfig
+  ✔ rejects legacy configuration fields and requires the offline importer (5.481125ms)
+  ✔ keeps local Computer Use opt-in with an external config and trusted executable (3.443291ms)
+  ✔ loads and normalizes a Docker shell sandbox configuration (1.601667ms)
+  ✔ requires a relative existing directory workspace for a shell sandbox (1.444458ms)
+  ✔ rejects missing, symlinked, and non-directory writable sandbox paths (1.328041ms)
+  ✔ requires shell.sandbox to be enabled and keeps its config outside the workspace (0.700708ms)
+  ✔ loads persistent file authorization rules with the configured workspace (0.6315ms)
+  ✔ rejects invalid persistent authorization tools and paths (0.706042ms)
+  ✔ rejects persistent authorization when the config file is inside the workspace (0.469875ms)
+  ✔ rejects an outside config symlink that resolves into the workspace (0.690667ms)
+  ✔ uses strict config modules with omitted modules disabled (8.969458ms)
+  ✔ enables the public web reader without requiring a workspace (0.533083ms)
+  ✔ validates an explicitly enabled context-compaction budget (0.648834ms)
+  ✔ reads explicit context modes without changing their input budgets or independent summary chunks (0.64225ms)
+  ✔ rejects invalid context mode thresholds, summary chunks and input budgets beyond the provider window (1.31525ms)
+  ✔ rejects an enabled context budget with no room for recent history (0.550625ms)
+  ✔ keeps web search opt-in inside the web module (0.57175ms)
+  ✔ keeps feed reading opt-in and requires the web module (0.610583ms)
+  ✔ resolves workspace relative to the config file directory (0.510875ms)
+  ✔ supports memory auto consolidation only when memory is enabled (0.632167ms)
+  ✔ requires workspace for workspace modules but allows Todoist alone (0.684583ms)
+  ✔ keeps checkpoint independently disabled by default and requires authorizedDirectory when enabled (0.725917ms)
+  ✔ rejects unknown keys, modules, versions, and bare module booleans (1.463042ms)
+  ✔ enables shell only with an explicit config and requires workspace (0.518083ms)
+  ✔ rejects malformed JSON and does not fall back to legacy settings (0.407125ms)
+  ✔ preserves the legacy CLI behavior and only uses its passed timezone (0.384334ms)
+  ✔ rejects config mode combined with module selection arguments (0.300917ms)
+  ✔ keeps the primary run at 8 steps unless config sets a bounded maxSteps (0.824083ms)
+  ✔ bounds the primary Run timeout independently of maxSteps (1.304084ms)
+  ✔ bounds the Shell command timeout without changing the Run budget (1.185083ms)
+✔ resolveTuiModuleConfig (40.302375ms)
+ℹ tests 30
+ℹ suites 1
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 127.873083

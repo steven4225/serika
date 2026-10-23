@@ -1,0 +1,25 @@
+▶ whole-message stop variants cancel the owned Run and persist the private-chat autonomy pause
+  ✔ "停" (1153.89325ms)
+  ✔ "停下" (1047.123125ms)
+  ✔ "停止" (1284.6075ms)
+  ✔ "stop" (1121.238083ms)
+  ✔ "STOP" (1461.606709ms)
+  ✔ "sToP" (1564.291916ms)
+  ✔ "/stop" (1844.12225ms)
+  ✔ " \t“停止！”\n" (1475.561875ms)
+  ✔ " ,StOp!?。 " (1254.961875ms)
+  ✔ " （/stop）！ " (1342.638583ms)
+✔ whole-message stop variants cancel the owned Run and persist the private-chat autonomy pause (13551.630542ms)
+✔ sentences mentioning stop remain ordinary chat without pausing autonomy (3627.5035ms)
+▶ binding success describes the current host grant and authorized directory
+  ✔ autonomy=false (214.762459ms)
+  ✔ autonomy=true (215.179709ms)
+✔ binding success describes the current host grant and authorized directory (430.273291ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18157.068417

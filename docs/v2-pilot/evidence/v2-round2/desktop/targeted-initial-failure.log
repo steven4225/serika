@@ -1,0 +1,30 @@
+✔ lists fixed-argv metadata without inherited target or credentials and CAS-binds the exact terminal (657.615042ms)
+✔ rejects replaced panes, stale directory, disabled capability, unsafe executable and forged fields (441.928917ms)
+✔ changes the target through the resident socket and publishes reload state without a model Run (915.100459ms)
+✔ registers one unique channel per forwarded method, disjoint from hand-written IPC (0.938542ms)
+✔ reads host.current on every call and drops arguments beyond the declared arity (0.215875ms)
+✖ keeps target metadata selection separate from per-call execution authority (2.182209ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2430.21825
+
+✖ failing tests:
+
+test at src/renderer/src/herdr-target-setting.test.ts:1:208
+✖ keeps target metadata selection separate from per-call execution authority (2.182209ms)
+  ReferenceError: React is not defined
+      at HerdrTargetSetting (/private/tmp/serika-v2-round2-desktop/apps/desktop/src/renderer/src/herdr-target-setting.tsx:19:3)
+      at Object.react_stack_bottom_frame (/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:10371:18)
+      at renderWithHooks (/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:5361:19)
+      at renderElement (/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:5796:23)
+      at retryNode (/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:6772:31)
+      at performWork (/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:7919:19)
+      at startWork (/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:8807:7)
+      at renderToStringImpl (/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:8933:7)
+      at process.env.NODE_ENV.exports.renderToStaticMarkup (/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-server-legacy.node.development.js:10426:14)
+      at TestContext.<anonymous> (/private/tmp/serika-v2-round2-desktop/apps/desktop/src/renderer/src/herdr-target-setting.test.ts:13:18)

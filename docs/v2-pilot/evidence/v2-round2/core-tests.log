@@ -1,0 +1,176 @@
+$ tsc -b
+▶ v2 pilot baseline: assembled tools, instructions and capability report
+  ✖ minimal assembly matches __baseline__/assembly-minimal.txt (83.146291ms)
+  ✖ full assembly matches __baseline__/assembly-full.txt (61.977833ms)
+  ✖ full-without-todoist assembly matches __baseline__/assembly-full-without-todoist.txt (61.493ms)
+  ✖ full assembly in the autonomous desktop foreground matches __baseline__/assembly-full-desktop-autonomous.txt (63.5715ms)
+  ✔ the two full assemblies differ only by Todoist-owned content (0.781583ms)
+✖ v2 pilot baseline: assembled tools, instructions and capability report (271.63825ms)
+✔ b0 locks full host decisions, current Memory, configuration and filesystem boundaries (44930.265333ms)
+✔ confirmed Telegram terminal calls control an offline existing-Pi fixture through the shared host executor (2965.496333ms)
+✖ terminal target/config boundaries reject writable config, foreign directory and Docker coexistence (5.835875ms)
+ℹ tests 8
+ℹ suites 1
+ℹ pass 3
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 45094.079667
+
+✖ failing tests:
+
+test at packages/assistant/dist/baseline-assembly.test.js:130:9
+✖ minimal assembly matches __baseline__/assembly-minimal.txt (83.146291ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  ... Skipped lines
+  
+    '当前助手能力（配置／实际注册，不是健康检查）：\n' +
+      'pomodoro：未启用\n' +
+      'read-file：未启用\n' +
+      'checkpoint：未启用\n' +
+      'task：未启用\n' +
+  ...
+      'computer：未启用\n' +
+  +   'terminal：未启用\n' +
+      'CUA：未配置；服务和系统权限尚未检查。\n' +
+      '配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n' +
+      '当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n' +
+      '工作目录不是操作系统隔离；主机命令仍需明确批准。\n' +
+      '命令配方未启用：需要明确启用当前主助手的 Shell；不会自行修改配置、安装或重启宿主。'
+  
+      at assertStep3Assembly (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:189:12)
+      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:133:13)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1869:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：未启用\nread-file：未启用\ncheckpoint：未启用\ntask：未启用\ntodoist：未启用\nshell：未启用\nweb：未启用\ncomputer：未启用\nterminal：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n工作目录不是操作系统隔离；主机命令仍需明确批准。\n命令配方未启用：需要明确启用当前主助手的 Shell；不会自行修改配置、安装或重启宿主。',
+    expected: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：未启用\nread-file：未启用\ncheckpoint：未启用\ntask：未启用\ntodoist：未启用\nshell：未启用\nweb：未启用\ncomputer：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n工作目录不是操作系统隔离；主机命令仍需明确批准。\n命令配方未启用：需要明确启用当前主助手的 Shell；不会自行修改配置、安装或重启宿主。',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at packages/assistant/dist/baseline-assembly.test.js:130:9
+✖ full assembly matches __baseline__/assembly-full.txt (61.977833ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  ... Skipped lines
+  
+    '当前助手能力（配置／实际注册，不是健康检查）：\n' +
+      'pomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\n' +
+      'read-file：已注册 read_file, list_directory, search_files, write_file, edit_file\n' +
+      'checkpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\n' +
+      'task：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\n' +
+  ...
+      'computer：未启用\n' +
+  +   'terminal：未启用\n' +
+      'CUA：未配置；服务和系统权限尚未检查。\n' +
+      '配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n' +
+      '当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n' +
+      '工作目录不是操作系统隔离；主机命令仍需明确批准。\n' +
+      '复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。'
+  
+      at assertStep3Assembly (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:189:12)
+      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:133:13)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\nread-file：已注册 read_file, list_directory, search_files, write_file, edit_file\ncheckpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\ntask：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\ntodoist：已注册 todoist_list_tasks\nshell：已注册 shell_exec\nweb：已注册 web_fetch, feed_read, web_search\ncomputer：未启用\nterminal：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n工作目录不是操作系统隔离；主机命令仍需明确批准。\n复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。',
+    expected: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\nread-file：已注册 read_file, list_directory, search_files, write_file, edit_file\ncheckpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\ntask：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\ntodoist：已注册 todoist_list_tasks\nshell：已注册 shell_exec\nweb：已注册 web_fetch, feed_read, web_search\ncomputer：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n工作目录不是操作系统隔离；主机命令仍需明确批准。\n复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at packages/assistant/dist/baseline-assembly.test.js:130:9
+✖ full-without-todoist assembly matches __baseline__/assembly-full-without-todoist.txt (61.493ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  ... Skipped lines
+  
+    '当前助手能力（配置／实际注册，不是健康检查）：\n' +
+      'pomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\n' +
+      'read-file：已注册 read_file, list_directory, search_files, write_file, edit_file\n' +
+      'checkpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\n' +
+      'task：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\n' +
+  ...
+      'computer：未启用\n' +
+  +   'terminal：未启用\n' +
+      'CUA：未配置；服务和系统权限尚未检查。\n' +
+      '配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n' +
+      '当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n' +
+      '工作目录不是操作系统隔离；主机命令仍需明确批准。\n' +
+      '复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。'
+  
+      at assertStep3Assembly (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:189:12)
+      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:133:13)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\nread-file：已注册 read_file, list_directory, search_files, write_file, edit_file\ncheckpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\ntask：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\ntodoist：未启用\nshell：已注册 shell_exec\nweb：已注册 web_fetch, feed_read, web_search\ncomputer：未启用\nterminal：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n工作目录不是操作系统隔离；主机命令仍需明确批准。\n复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。',
+    expected: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\nread-file：已注册 read_file, list_directory, search_files, write_file, edit_file\ncheckpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\ntask：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\ntodoist：未启用\nshell：已注册 shell_exec\nweb：已注册 web_fetch, feed_read, web_search\ncomputer：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n工作目录不是操作系统隔离；主机命令仍需明确批准。\n复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at packages/assistant/dist/baseline-assembly.test.js:137:5
+✖ full assembly in the autonomous desktop foreground matches __baseline__/assembly-full-desktop-autonomous.txt (63.5715ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  ... Skipped lines
+  
+    '当前助手能力（配置／实际注册，不是健康检查）：\n' +
+      'pomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\n' +
+      'read-file：已注册 read_file, list_directory, search_files, write_file, edit_file\n' +
+      'checkpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\n' +
+      'task：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\n' +
+  ...
+      'computer：未启用\n' +
+  +   'terminal：未启用\n' +
+      'CUA：未配置；服务和系统权限尚未检查。\n' +
+      '配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n' +
+      '当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n' +
+      '当前工作区桌面前台文件操作已授权，本机 Shell 仍逐条确认；其他入口不继承。Shell 使用进程的本机权限，工作区不是沙箱。\n' +
+      '复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。'
+  
+      at assertStep3Assembly (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:189:12)
+      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:140:9)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\nread-file：已注册 read_file, list_directory, search_files, write_file, edit_file\ncheckpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\ntask：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\ntodoist：已注册 todoist_list_tasks\nshell：已注册 shell_exec\nweb：已注册 web_fetch, feed_read, web_search\ncomputer：未启用\nterminal：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n当前工作区桌面前台文件操作已授权，本机 Shell 仍逐条确认；其他入口不继承。Shell 使用进程的本机权限，工作区不是沙箱。\n复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。',
+    expected: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\nread-file：已注册 read_file, list_directory, search_files, write_file, edit_file\ncheckpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\ntask：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\ntodoist：已注册 todoist_list_tasks\nshell：已注册 shell_exec\nweb：已注册 web_fetch, feed_read, web_search\ncomputer：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n当前工作区桌面前台文件操作已授权，本机 Shell 仍逐条确认；其他入口不继承。Shell 使用进程的本机权限，工作区不是沙箱。\n复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at packages/assistant/dist/terminal-control.test.js:73:1
+✖ terminal target/config boundaries reject writable config, foreign directory and Docker coexistence (5.835875ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /cannot be combined with Docker/. Input:
+  
+  'Error: Shell sandbox workspace must be relative to the config file'
+  
+      at async TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/terminal-control.test.js:86:9)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: Shell sandbox workspace must be relative to the config file
+        at resolveSandboxWorkspace (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/tui-module-config.js:198:15)
+        at normalizeShellSandbox (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/tui-module-config.js:243:29)
+        at resolveConfiguredMode (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/tui-module-config.js:332:17)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/terminal-control.test.js:86:9)
+        at async Test.run (node:internal/test_runner/test:1389:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:960:7),
+    expected: /cannot be combined with Docker/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
