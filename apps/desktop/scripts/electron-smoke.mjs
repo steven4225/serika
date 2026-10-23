@@ -31,13 +31,13 @@ async function setup(name, config) {
   const dir = join(root, name), workspace = join(dir, 'workspace');
   await mkdir(workspace, { recursive: true });
   const configPath = join(dir, 'config.json'), envFile = join(dir, 'test.env');
-  await writeFile(configPath, JSON.stringify(config ?? { version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: 'automatic' }, shell: { enabled: false } } }), { mode: 0o600 });
+  await writeFile(configPath, JSON.stringify(config ?? { version: 1, authorizedDirectory: workspace, modules: { memory: { enabled: true, autoConsolidate: true }, shell: { enabled: false } } }), { mode: 0o600 });
   await writeFile(envFile, 'RUNLOOM_MODEL=mock\n', { mode: 0o600 });
   return { ...env, RUNLOOM_USER_DATA: join(dir, 'profile'), RUNLOOM_WORKSPACE: workspace, RUNLOOM_CONFIG: configPath,
     RUNLOOM_ENV_FILE: envFile, RUNLOOM_TRANSCRIPTS: join(dir, 'transcripts'), RUNLOOM_THREAD: 'electron-smoke' };
 }
 async function launch(launchEnv, name) {
-  running = await electron.launch({ args: [join(desktop, 'out/main/index.js')], cwd: root, env: launchEnv, timeout: 30000 });
+  running = await electron.launch({ args: [join(desktop, 'out/main/index.js'), '--home', join(launchEnv.HOME, '.serika')], cwd: root, env: launchEnv, timeout: 30000 });
   const page = await running.firstWindow();
   page.setDefaultTimeout(15000);
   const main = await running.evaluate(({ app }) => ({ electron: process.versions.electron, pid: process.pid, userData: app.getPath('userData'), home: app.getPath('home') }));
@@ -143,7 +143,7 @@ try {
   const sentinelHash = await hash(sentinel);
   const guarded = await setup('guard');
   const guardConfig = JSON.parse(await readFile(guarded.RUNLOOM_CONFIG, 'utf8'));
-  guardConfig.workspace = daily;
+  guardConfig.authorizedDirectory = daily;
   await writeFile(guarded.RUNLOOM_CONFIG, JSON.stringify(guardConfig), { mode: 0o600 });
   guarded.RUNLOOM_WORKSPACE = daily;
   page = await launch(guarded, 'daily-path-guard');
@@ -167,10 +167,12 @@ try {
   }
   report.configSource = { kind: sourceKind, sha256: digest(configBytes), ...(sourceKind === '样例' ? { file: 'apps/desktop/scripts/fixtures/retired-config.json' } : {}) };
   const copy = JSON.parse(configBytes.toString('utf8'));
-  copy.workspace = copyEnv.RUNLOOM_WORKSPACE;
+  delete copy.workspace;
+  copy.authorizedDirectory = copyEnv.RUNLOOM_WORKSPACE;
+  if (copy.modules?.memory) delete copy.modules.memory.writePolicy;
   // Exclude daily trust/channel bindings and credentials; preserve memory options for strict validation.
-  if (copy.telegramAutonomy) copy.telegramAutonomy = { workspaceRoot: copyEnv.RUNLOOM_WORKSPACE, botId: 1, userId: 1, chatId: 1, threadId: 'smoke-only', ...('toolApproval' in copy.telegramAutonomy ? { toolApproval: 'smoke-only' } : {}) };
-  if (copy.desktopAutonomy) copy.desktopAutonomy = { workspaceRoot: copyEnv.RUNLOOM_WORKSPACE };
+  if (copy.telegramAutonomy) copy.telegramAutonomy = { authorizedDirectory: copyEnv.RUNLOOM_WORKSPACE, botId: 1, userId: 1, chatId: 1, threadId: 'smoke-only', ...('toolApproval' in copy.telegramAutonomy ? { toolApproval: 'smoke-only' } : {}) };
+  if (copy.desktopAutonomy) copy.desktopAutonomy = { authorizedDirectory: copyEnv.RUNLOOM_WORKSPACE };
   if (copy.herdrBinding) copy.herdrBinding = { workspaceRoot: copyEnv.RUNLOOM_WORKSPACE, session: 'smoke-only', paneId: 'smoke-only', terminalId: 'smoke-only' };
   for (const [id, module] of Object.entries(copy.modules ?? {})) if (id !== 'memory') copy.modules[id] = { enabled: false };
   await writeFile(copyEnv.RUNLOOM_CONFIG, JSON.stringify(copy), { mode: 0o600 });

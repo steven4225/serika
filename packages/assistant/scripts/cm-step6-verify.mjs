@@ -11,7 +11,7 @@ const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8'
 const sha = data => createHash('sha256').update(data).digest('hex');
 const hash = async path => sha(await readFile(join(repo, path)));
 const smokeScript = 'apps/desktop/scripts/electron-smoke.mjs';
-assert.equal(await hash(smokeScript), '9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f');
+assert.equal(await hash(smokeScript), '03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34');
 assert.equal(git('status', '--porcelain'), '', 'Commit source before verification');
 assert.equal(git('branch', '--show-current'), 'experiment/architecture-v2');
 for (const name of Object.keys(process.env)) {

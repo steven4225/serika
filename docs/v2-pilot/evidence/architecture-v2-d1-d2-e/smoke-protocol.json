@@ -1,0 +1,8 @@
+{
+  "authority": "User approval: only new configuration inputs and explicit temporary --home; eight checks and judgments unchanged",
+  "oldSmokeSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
+  "newSmokeSha256": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+  "diffSha256": "80d60a04a2edfc105db61a49c27baa106c24eebcd44764f467c238993307a058",
+  "b0Sha256": "b988e469ca6c830690358de82db65b67a316e9c0256bfa993b3199f8c2e68670",
+  "verification": "node --check both scripts; behavioral checks deferred until new parser implementation in this delivery"
+}
