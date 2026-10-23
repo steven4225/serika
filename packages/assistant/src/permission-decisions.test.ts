@@ -244,6 +244,12 @@ describe("permission decision snapshot", () => {
       return;
     }
     const active = (rows: Readonly<Record<string, string>>) => Object.fromEntries(Object.entries(rows).filter(([key]) => !key.split(" | ")[1]?.startsWith("memory_")));
-    assert.deepEqual(active(table), active(PERMISSION_DECISIONS));
+    const approved = Object.fromEntries(Object.entries(PERMISSION_DECISIONS).map(([key, value]) => {
+      const [scenario, tool] = key.split(" | ");
+      return [key, tool === "computer_check" || tool === "computer_observe"
+        ? scenario === "remembered same" ? "not offered" : "allow"
+        : value];
+    }));
+    assert.deepEqual(active(table), active(approved));
   });
 });

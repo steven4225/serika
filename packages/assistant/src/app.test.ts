@@ -1,6 +1,6 @@
 import { dirname } from "node:path";
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, open, rm, writeFile, chmod, access } from "node:fs/promises";
+import { mkdir, mkdtemp, open, rm, writeFile, chmod, access, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -185,11 +185,16 @@ describe("createRuntimeApp", () => {
     });
   }
 
-  it("routes Computer reads/actions through ID approvals; denial launches no driver", { skip: process.platform !== "darwin" }, async () => {
+  it("runs Computer reads automatically and denies actions before driver dispatch", { skip: process.platform !== "darwin" }, async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-app-computer-"));
     const executable = join(root, "driver");
-    const marker = join(root, "must-not-exist");
-    await writeFile(executable, `#!${process.execPath}\nrequire('node:fs').writeFileSync(${JSON.stringify(marker)},'dispatched');console.log('{}')`);
+    const marker = join(root, "must-not-exist"), calls = join(root, "calls.jsonl");
+    await writeFile(executable, `#!${process.execPath}
+const fs=require('node:fs'),name=process.argv[3];
+fs.appendFileSync(${JSON.stringify(calls)},JSON.stringify(name)+'\\n');
+if(name==='list_apps')console.log(JSON.stringify({apps:[{pid:123,bundle_id:'com.apple.TextEdit',running:true}]}));
+else if(name==='list_windows')console.log(JSON.stringify({windows:[{pid:123,window_id:456,title:'fixture'}]}));
+else {fs.writeFileSync(${JSON.stringify(marker)},'dispatched');console.log('{}')}`);
     await chmod(executable, 0o700);
     const configPath = join(root, "config.json");
     await writeFile(configPath, JSON.stringify({ version: 1, modules: { computer: { enabled: true, executable, allowedBundleIds: ["com.apple.TextEdit"] } } }));
@@ -204,9 +209,9 @@ describe("createRuntimeApp", () => {
       return { stream: simulateReadableStream<(typeof chunks)[number]>({ chunks }) };
     } });
     const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(dirname(configPath), "workspace/.runloom"), threadId: "computer-denial", configPath }, modelAlias: "mock", model, output: capture().output, env: {}, cwd: root });
+    const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [{ id: "user-computer", role: "user", parts: [{ type: "text", text: "Observe my permitted app" }] }] });
     try {
-      const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [{ id: "user-computer", role: "user", parts: [{ type: "text", text: "Observe my permitted app" }] }] });
-      for (const name of names) {
+      for (const name of ["computer_action"]) {
         const deadline = Date.now() + 2000;
         while (!app.toolConfirmation?.getPending() && Date.now() < deadline) await delay(1);
         const pending = app.toolConfirmation?.getPending();
@@ -215,7 +220,8 @@ describe("createRuntimeApp", () => {
       }
       assert.equal((await handle.result).status, "completed");
       await assert.rejects(access(marker));
-    } finally { app.dispose(); await rm(root, { recursive: true, force: true }); }
+      assert.deepEqual((await readFile(calls, "utf8")).trim().split("\n").map(line => JSON.parse(line)), ["list_apps", "list_windows"]);
+    } finally { await handle.cancel(); await handle.result; app.dispose(); await rm(root, { recursive: true, force: true }); }
   });
   for (const enabled of [false, true]) {
     it(`sends current memory after obsolete empty-selection answers without persisting the reference (compaction ${enabled})`, async () => {
