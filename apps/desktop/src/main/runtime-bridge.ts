@@ -228,6 +228,7 @@ export class RuntimeBridge {
         enabled: this.#app.moduleConfig?.enabled[id] === true,
       })),
       autonomy: { enabled: this.#app.desktopAutonomyEnabled === true, directory: this.#app.authorizedDirectory ?? null },
+      ...(this.#app.moduleConfig?.terminalTarget ? { terminalTarget: this.#app.moduleConfig.terminalTarget } : {}),
       configPath: this.#app.moduleConfig?.configPath ?? null,
       moduleOptions: {
         webSearch: this.#app.moduleConfig?.webSearchEnabled === true,

@@ -1,3 +1,4 @@
+import type { HerdrTarget } from "@serika/assistant";
 import type { MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "@serika/assistant";
 import type { RecipeEntry, RecipeChange } from "@serika/assistant";
 import type { UIMessage } from "ai";
@@ -75,7 +76,12 @@ export interface ToolActivity {
   truncated: boolean;
 }
 
+export interface HerdrTargetInput { target: Pick<HerdrTarget, "session" | "paneId" | "terminalId"> | null; expected: HerdrTarget | null }
+export interface HerdrSession { name: string; running: boolean }
+export interface HerdrPane { paneId: string; terminalId: string; title: string }
+
 export interface AppInfo {
+  terminalTarget?: HerdrTarget;
   memoryLibrary?: true;
   attachments?: true;
   pomodoroControls?: true;
@@ -261,6 +267,9 @@ export interface RendererApi {
   dream(): ReturnType<AssistantController["dreaming"]["dream"]>;
   changeLearnedSkill(input: Parameters<AssistantController["dreaming"]["changeLearnedSkill"]>[0]): ReturnType<AssistantController["dreaming"]["changeLearnedSkill"]>;
   getLearnedSkillReferences(): Promise<ReturnType<AssistantController["dreaming"]["getLearnedSkillReferences"]>>;
+  listHerdrSessions?(): Promise<HerdrSession[]>;
+  listHerdrPanes?(session: string): Promise<HerdrPane[]>;
+  setHerdrTarget?(input: HerdrTargetInput): Promise<void>;
   setAutonomyEnabled?(input: { enabled: boolean; expectedEnabled: boolean }): Promise<void>;
   /** Success means a Run started, not that the Skill completed or its output is correct. */
   runSkill(input: SkillRunInput): Promise<SkillResult<{ runId: string }>>;

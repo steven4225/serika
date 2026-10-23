@@ -1,3 +1,5 @@
+import { HerdrTargets } from "./herdr-target.js";
+import type { HerdrTargetInput } from "../shared/ui-contract.js";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { assistantDataPaths, assertExperimentalDataPaths } from "@serika/assistant";
@@ -314,6 +316,17 @@ export class DesktopRuntime {
     }, false, { rollback: async () => { await undo?.(); } });
     // Unrelated adapter disposal and failed/rolled-back changes never cancel.
     if (input.id === "pomodoro" && !input.enabled) this.#pomodoroService.cancel();
+  }
+  #herdrTargets() { return new HerdrTargets({ env: this.#options.env, cwd: this.#options.cwd, authorizedDirectory: this.current.info().authorizedDirectory }); }
+  listHerdrSessions() { return this.#herdrTargets().sessions(); }
+  listHerdrPanes(session: string) { return this.#herdrTargets().panes(session); }
+  setHerdrTarget(input: HerdrTargetInput) {
+    const targets = this.#herdrTargets();
+    let undo: (() => Promise<void>) | undefined;
+    return this.#replace(async () => {
+      undo = await targets.bind(this.#identity.configPath, input);
+      return this.#identity;
+    }, false, { rollback: async () => { await undo?.(); } });
   }
   setAutonomyEnabled(input: AutonomySettingInput) {
     let undo: (() => Promise<void>) | undefined;

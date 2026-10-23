@@ -1,3 +1,4 @@
+import { HerdrTargetSetting } from "./herdr-target-setting.js";
 import type { AppInfo } from "../../shared/ui-contract.js";
 import { useState } from "react";
 import { memoryAutomationLabel } from "./memory-copy.js";
@@ -9,6 +10,7 @@ const labels: Record<string, [string, string]> = {
   checkpoint: ["项目快照", "保存工作意图，通过 /resume 核对 Git 现状。"],
   task: ["定时任务", "创建提醒与定期安排，由独立后台服务处理到期事项。"],
   todoist: ["Todoist", "查询外部任务；还需要有效的服务凭据。"],
+  terminal: ["本地终端控制", "调用本机 CLI 或操作已选择的 Herdr 终端；桌面和 Telegram 每次都确认。"],
   shell: ["命令执行", "运行 Shell，展示进度与执行回执。"],
   web: ["网页与信息来源", "获取公开网页，搜索与 RSS 另有配置开关。"],
   computer: ["本机应用控制", "仅控制配置允许的应用；需要驱动与系统权限。"],
@@ -63,6 +65,7 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null, int
   };
     return <section className="capability-page">
     <AutonomySetting info={info} busy={busy} />
+    {info.modules?.some(module => module.id === "terminal" && module.enabled) ? <HerdrTargetSetting key={JSON.stringify(info.terminalTarget ?? null)} info={info} busy={busy} /> : null}
     <p className="hint">{intro ?? "选择助手可以使用的内置功能。保存后重新加载当前对话，操作按当前授权执行。"}</p>
     {busy ? <p className="hint" role="status">当前正在处理，结束后才能更改能力。</p> : null}
     {unavailable ? <p className="error" role="status">连接未恢复。以下是上次连接的配置，不能当作当前生效状态；重新连接后再更改能力。</p> : null}

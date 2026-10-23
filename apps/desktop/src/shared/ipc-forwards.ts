@@ -79,6 +79,9 @@ export const IPC_FORWARDS = {
     enableMemory: 0,
     setModuleEnabled: 1,
     setAutonomyEnabled: 1,
+    listHerdrSessions: 0,
+    listHerdrPanes: 1,
+    setHerdrTarget: 1,
   },
 } as const satisfies Record<"current" | "host", Partial<Record<keyof RendererApi, 0 | 1 | 2>>>;
 
