@@ -10,6 +10,7 @@ import {
 import { z } from "zod";
 import { resolveConfiguredTodoistTimeZone, resolveShorthandTodoistTimeZone, todoistModuleConfigSchema } from "./modules/todoist-module.js";
 import { validModelPrice, type ModelPrice } from "./model-usage.js";
+import { herdrTargetSchema, type HerdrTarget } from "./modules/terminal-module.js";
 import { computerConfigSchema, type ComputerConfig } from "./modules/computer-module.js";
 import { hooksConfigSchema, type HookRule } from "./automation-hooks.js";
 import { skillPackageRegistrationsSchema, type SkillPackageRegistration } from "./skill-catalog.js";
@@ -41,6 +42,7 @@ export const BUILTIN_MODULE_IDS = [
   "shell",
   "web",
   "computer",
+  "terminal",
 ] as const;
 
 export type BuiltinModuleId = (typeof BUILTIN_MODULE_IDS)[number];
@@ -80,6 +82,7 @@ export interface ResolvedTuiModuleConfig {
   maxSteps: number;
   totalTimeoutMs: number;
   computer?: ComputerConfig;
+  terminalTarget?: HerdrTarget;
   automation?: AutomationConfig;
   modelPricing?: readonly ModelPrice[];
   modelContextWindows?: readonly import("./context-budget.js").ModelContextWindow[];
@@ -175,6 +178,7 @@ const tuiModuleConfigV1Schema = z
         shell: shellModuleSchema.optional(),
         web: webModuleSchema.optional(),
         computer: computerConfigSchema.optional(),
+        terminal: z.object({ enabled: z.boolean(), target: herdrTargetSchema.optional() }).strict().optional(),
     })
     .strict(),
     telegramAutonomy: z.object({ authorizedDirectory: nonEmptyString, botId: z.number().int().positive().safe(), userId: z.number().int().positive().safe(), chatId: z.number().int().positive().safe(), threadId: nonEmptyString }).strict().optional(),
@@ -204,6 +208,7 @@ export interface TuiModuleConfigV1 {
   authorizedDirectory?: string | undefined;
   modules: {
     computer?: ComputerConfig | undefined;
+    terminal?: { enabled: boolean; target?: HerdrTarget | undefined } | undefined;
     pomodoro?: { enabled: boolean } | undefined;
     "read-file"?: { enabled: boolean } | undefined;
     memory?:
@@ -260,11 +265,12 @@ function emptyEnabled(): Record<BuiltinModuleId, boolean> {
     shell: false,
     web: false,
     computer: false,
+    terminal: false,
   };
 }
 
 function hasWorkspaceModule(enabled: Record<BuiltinModuleId, boolean>, dataDirectory?: string): boolean {
-  return enabled["read-file"] || enabled.checkpoint || enabled.shell || (!dataDirectory && (enabled.memory || enabled.task));
+  return enabled["read-file"] || enabled.checkpoint || enabled.shell || enabled.terminal || (!dataDirectory && (enabled.memory || enabled.task));
 }
 
 function assertWorkspaceRequirement(
@@ -475,6 +481,7 @@ async function resolveConfiguredMode(
   enabled.shell = config.modules.shell?.enabled ?? false;
   enabled.web = config.modules.web?.enabled ?? false;
   enabled.computer = config.modules.computer?.enabled ?? false;
+  enabled.terminal = config.modules.terminal?.enabled ?? false;
   if (enabled.computer && process.platform !== "darwin") {
     throw new Error("computer module currently requires macOS");
   }
@@ -520,6 +527,11 @@ async function resolveConfiguredMode(
       ? null
       : await resolveWorkspace(config.authorizedDirectory, dirname(absoluteConfigPath)));
   const shellSandbox = sandboxResolution?.shellSandbox ?? null;
+  const terminalTarget = config.modules.terminal?.target;
+  if (terminalTarget && terminalTarget.authorizedDirectory !== authorizedDirectory) {
+    throw new Error("Herdr target must match the exact authorizedDirectory");
+  }
+  if (enabled.terminal && shellSandbox) throw new Error("Host terminal control cannot be combined with Docker Shell");
   let computer: ComputerConfig | undefined;
   if (enabled.computer) {
     const executable = await realpath(config.modules.computer!.executable!);
@@ -533,7 +545,7 @@ async function resolveConfiguredMode(
     authorizedDirectory,
     enabled,
   );
-  if (config.telegramAutonomy || config.desktopAutonomy || fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || config.automation !== undefined) {
+  if (enabled.terminal || terminalTarget || config.telegramAutonomy || config.desktopAutonomy || fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || config.automation !== undefined) {
     const configRealPath = await realpath(absoluteConfigPath);
     if (authorizedDirectory !== null && isPathWithin(authorizedDirectory, configRealPath)) {
       throw new Error(
@@ -562,6 +574,7 @@ async function resolveConfiguredMode(
     maxSteps: config.run?.maxSteps ?? TUI_DEFAULT_MAX_STEPS,
     totalTimeoutMs: config.run?.totalTimeoutMs ?? TUI_DEFAULT_TOTAL_TIMEOUT_MS,
     ...(computer ? { computer } : {}),
+    ...(terminalTarget ? { terminalTarget } : {}),
     ...(config.automation ? { automation: config.automation } : {}),
     ...(config.modelPricing ? { modelPricing: config.modelPricing } : {}),
     ...(config.modelContextWindows ? { modelContextWindows: config.modelContextWindows } : {}),

@@ -64,6 +64,7 @@ import { createMemoryModule } from "./modules/memory-module.js";
 import { createCheckpointModule } from "./modules/checkpoint-module.js";
 import { createPomodoroModule, type PomodoroService } from "./modules/pomodoro-module.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
+import { createTerminalModule } from "./modules/terminal-module.js";
 import { createShellModule } from "./modules/shell-module.js";
 import { SeatbeltShellRunner } from "./modules/seatbelt-shell-runner.js";
 import type { ShellProgress } from "./modules/shell-module.js";
@@ -427,6 +428,9 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                   }),
                 ]
               : []),
+            ...(moduleConfig!.enabled.terminal && options.desktopAutonomyHost
+              ? [createTerminalModule({ directory: authorizedDirectory!, target: moduleConfig!.terminalTarget,
+                  timeoutMs: moduleConfig!.shellTimeoutMs, onProgress: notifyShellProgress })] : []),
             ...(moduleConfig!.computer
               ? [createComputerModule(moduleConfig!.computer, { env })]
               : []),

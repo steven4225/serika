@@ -457,7 +457,7 @@ export class ExecutionRecordStore {
         const result = stringifyPreview(event.data.output);
         tool.resultPreview = result.text;
         tool.resultTruncated = result.truncated;
-        if (tool.toolName === "shell_exec" || tool.toolName === "recipe_run") tool.shell = shellReceipt(event.data.output);
+        if (tool.toolName === "shell_exec" || tool.toolName === "terminal_exec" || tool.toolName === "recipe_run") tool.shell = shellReceipt(event.data.output);
         const written = fileResult(tool, event.data.output);
         if (written !== undefined) tool.fileWrite = written;
         const read = fileReadResult(tool, event.data.output);

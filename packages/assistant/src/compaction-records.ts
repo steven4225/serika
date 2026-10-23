@@ -89,7 +89,7 @@ export function createCompactionChecklist(input: CompactionChecklistSources & {
       if (tool.status === "requested" || tool.status === "started") continue;
       const receipt = { runId: run.runId, toolCallId: tool.toolCallId, toolName: tool.toolName,
         status: tool.status, errorCode: tool.errorCode, fileInput: tool.fileInput, fileWrite: tool.fileWrite, shell: tool.shell,
-        ...(tool.toolName === "shell_exec" ? { inputPreview: tool.inputPreview, inputTruncated: tool.inputTruncated } : {}) };
+        ...((tool.toolName === "shell_exec" || tool.toolName === "terminal_exec") ? { inputPreview: tool.inputPreview, inputTruncated: tool.inputTruncated } : {}) };
       receipts.delete(tool.toolCallId);
       receipts.set(tool.toolCallId, receipt);
       if (tool.status === "unknown") unknown.set(tool.toolCallId, receipt);

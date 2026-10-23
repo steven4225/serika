@@ -88,3 +88,5 @@ export { assistantDataPaths } from "./data-paths.js";
 export type { AssistantDataPaths } from "./data-paths.js";
 
 export { resolveApplicationHome } from "./application-home.js";
+
+export { herdrTargetSchema, type HerdrTarget } from "./modules/terminal-module.js";

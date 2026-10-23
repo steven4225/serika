@@ -34,14 +34,14 @@ const make = (store: FakeStore, summarizer: Summarizer, extra: Partial<Construct
   store, threadId: "thread-1", modelId: "mock", budget, fixedContext: () => ({ instructions: "instructions", tools: [] }), summarizer, ...extra });
 const signal = () => new AbortController().signal;
 
-it("step5: restart checklist reads an uncommitted unknown write from real receipts and masks retained old attachments", async () => {
+for (const toolName of ["write_file", "terminal_exec"]) it(`${toolName} restart checklist reads an uncommitted unknown effect from real receipts and masks retained old attachments`, async () => {
   const root = await mkdtemp(join(tmpdir(), "cm-step5-receipts-"));
   try {
     const records = createExecutionRecordStore(root);
     await records.startRun({ runId: "interrupted", threadId: "thread-1", phase: "primary" });
     for (const type of ["tool.call.requested", "tool.call.started"] as const) await records.recordToolEvent("interrupted", {
       id: type, type, runId: "interrupted", threadId: "thread-1", sequence: 1, occurredAt: new Date(0).toISOString(),
-      data: { toolCallId: "uncertain-write", toolName: "write_file", input: { path: "notes/report.md", content: "new" } },
+      data: { toolCallId: "uncertain-write", toolName, input: toolName === "write_file" ? { path: "notes/report.md", content: "new" } : { command: "herdr --session selected agent prompt p1 task" } },
     } as Parameters<typeof records.recordToolEvent>[1]);
     await records.recoverInterrupted("thread-1");
     const permission = createToolConfirmation(new PassThrough()); permission.beginRun(true); permission.endRun();
@@ -52,7 +52,8 @@ it("step5: restart checklist reads an uncommitted unknown write from real receip
     assert.doesNotMatch(JSON.stringify(projected), /OLD_BYTES/);
     assert.match(JSON.stringify(messages), /OLD_BYTES/);
     const checklist = createCompactionChecklist({ messages, permissions: permission.snapshot(), runs: await createExecutionRecordStore(root).listRuns("thread-1") });
-    assert.match(JSON.stringify(checklist), /uncertain-write.*write_file.*unknown.*notes\/report.md/);
+    assert.match(JSON.stringify(checklist), new RegExp(`uncertain-write.*${toolName}.*unknown`));
+    assert.match(JSON.stringify(checklist), toolName === "write_file" ? /notes\/report.md/ : /herdr --session selected agent prompt p1 task/);
     assert.match(JSON.stringify(checklist), /autonomousFiles.*false/);
     assert.doesNotMatch(JSON.stringify(checklist), /OLD_BYTES/);
   } finally { await rm(root, { recursive: true, force: true }); }

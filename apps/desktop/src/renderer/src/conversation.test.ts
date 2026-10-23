@@ -167,12 +167,12 @@ it("attaches history timestamps only for a unique current-Thread primary receipt
   assert.deepEqual(annotateHistoryTools(duplicate, [run], "t1"), duplicate);
 });
 
-it("projects exact Shell input from live events and history, and only complete receipt previews after reconnect", () => {
+for (const toolName of ["shell_exec", "terminal_exec"]) it(`${toolName} projects exact Shell input from live events and history, and only complete receipt previews after reconnect`, () => {
   const input = { command: "node check.mjs\nprintf done", cwd: "project" };
   const requested = applyEvent(emptyLiveRun, { id: "command", type: "tool.call.requested", occurredAt: "2026-10-16T00:00:00Z", runId: "run", threadId: "thread", sequence: 1,
-    data: { toolCallId: "shell", toolName: "shell_exec", input } });
-  const history = rowsFromHistory([{ id: "command", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "shell_exec", toolCallId: "shell", state: "input-available", input }] }]);
-  const receipt: ExecutionToolRecord = { toolCallId: "shell", toolName: "shell_exec", status: "completed", requestedAt: "2026-10-16T00:00:00Z", startedAt: null, finishedAt: null,
+    data: { toolCallId: "shell", toolName, input } });
+  const history = rowsFromHistory([{ id: "command", role: "assistant", parts: [{ type: "dynamic-tool", toolName, toolCallId: "shell", state: "input-available", input }] }]);
+  const receipt: ExecutionToolRecord = { toolCallId: "shell", toolName, status: "completed", requestedAt: "2026-10-16T00:00:00Z", startedAt: null, finishedAt: null,
     inputPreview: JSON.stringify(input), inputTruncated: false, resultPreview: null, resultTruncated: true, errorPreview: null,
     shell: { exitCode: 0, cancelled: false, timedOut: false } };
   for (const rows of [requested.rows, history, overlayExecutionReceipts([], [receipt]), overlayExecutionReceipts(requested.rows, [receipt])]) {
@@ -191,8 +191,8 @@ it("projects exact Shell input from live events and history, and only complete r
   }
   const output = { ok: true, exitCode: 0, timedOut: false, cancelled: false, output: "sum check passed" };
   const completed = applyEvent(requested, { id: "done", type: "tool.call.completed", occurredAt: "2026-10-16T00:00:01Z", runId: "run", threadId: "thread", sequence: 2,
-    data: { toolCallId: "shell", toolName: "shell_exec", output } });
-  const saved = rowsFromHistory([{ id: "done", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "shell_exec", toolCallId: "shell", state: "output-available", input, output }] }]);
+    data: { toolCallId: "shell", toolName, output } });
+  const saved = rowsFromHistory([{ id: "done", role: "assistant", parts: [{ type: "dynamic-tool", toolName, toolCallId: "shell", state: "output-available", input, output }] }]);
   const reloaded = overlayExecutionReceipts([], [{ ...receipt, resultPreview: JSON.stringify(output), resultTruncated: false }]);
   for (const row of [completed.rows[0], saved[0], reloaded[0]]) {
     assert.ok(row?.kind === "tool");
@@ -403,12 +403,12 @@ describe("conversation shell display", () => {
     }
   });
 
-  it("keeps truncated progress when overlaying a snapshot after reload", () => {
+  for (const toolName of ["shell_exec", "terminal_exec"]) it(`${toolName} keeps truncated progress when overlaying a snapshot after reload`, () => {
     const buffer = new ShellProgressBuffer();
     buffer.apply({ toolCallId: "sh-1", sequence: 1, stream: "stdout", text: "log", truncated: false });
     buffer.apply({ toolCallId: "sh-1", sequence: 2, stream: "stdout", text: "", truncated: true });
     const rows = overlayShellProgress(
-      [{ kind: "tool", key: "t:sh-1", toolCallId: "sh-1", toolName: "shell_exec", status: "requested" }],
+      [{ kind: "tool", key: "t:sh-1", toolCallId: "sh-1", toolName, status: "requested" }],
       buffer,
     );
     const tool = rows[0];

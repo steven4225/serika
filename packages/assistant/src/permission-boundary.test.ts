@@ -83,6 +83,48 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
         }
       } finally { unsubscribe(); await controller.shutdown(); app.dispose(); }
     }
+    for (const source of ["desktop", "telegram"] as const) {
+      const configPath = join(root, `terminal-${source}.json`);
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace,
+        desktopAutonomy: { authorizedDirectory: workspace },
+        telegramAutonomy: { authorizedDirectory: workspace, botId: 1, userId: 2, chatId: 3, threadId: "thread" },
+        modules: { terminal: { enabled: true } } }));
+      let step = 0;
+      const app = await createRuntimeApp({ directory: join(root, `terminal-${source}`, "transcripts"),
+        assistant: { dataDirectory: join(root, `terminal-${source}`, "data"), threadId: "thread", configPath },
+        modelAlias: "scripted", output: new PassThrough(), cwd: root, env: {},
+        desktopAutonomyHost: { home: join(root, `terminal-${source}`) }, authorizeTelegramAutonomy: () => true,
+        model: new MockLanguageModelV3({ doStream: async () => {
+          const call = step++;
+          return { stream: simulateReadableStream({ chunks: [
+            { type: "stream-start" as const, warnings: [] },
+            ...(call < 2 ? [{ type: "tool-call" as const, toolCallId: `terminal-${call}`, toolName: "terminal_exec",
+              input: JSON.stringify({ command: "printf unauthorized > ../host-write", cwd: "." }) }] : []),
+            { type: "finish" as const, finishReason: { unified: call < 2 ? "tool-calls" as const : "stop" as const, raw: undefined }, usage },
+          ] }) };
+        } }) });
+      const controller = createAssistantController(app);
+      const approvals: { tool: string; preview: string; remember: string | null }[] = [];
+      const events: string[] = [];
+      const unsubscribe = controller.subscribe(event => {
+        if (event.type === "approval" && event.approval.preview) {
+          approvals.push({ tool: event.approval.toolName, preview: event.approval.preview, remember: event.approval.remember?.label ?? null });
+          controller.confirm({ approvalId: event.approval.approvalId, decision: "deny" });
+        }
+        if (event.type === "run-event" && event.event.type === "tool.call.failed") events.push(event.event.data.error.code);
+      });
+      try {
+        const done = new Promise<void>(resolve => {
+          const remove = controller.subscribe(event => { if (event.type === "state" && event.state.kind === "idle") { remove(); resolve(); } });
+        });
+        assert.ok((await controller.run("检查本地终端", source === "telegram" ? { source } : { desktopEntry: true })).ok);
+        await done;
+        assert.equal(approvals.length, 2);
+        assert.deepEqual(events, ["TOOL_DENIED", "TOOL_DENIED"]);
+        await assert.rejects(readFile(join(root, "host-write")), { code: "ENOENT" });
+        rows[`terminal/${source}/terminal_exec`] = { approvals, events, status: controller.getSnapshot().lastPrimaryResult?.status };
+      } finally { unsubscribe(); await controller.shutdown(); app.dispose(); }
+    }
     for (const [name, path] of [["valid", "note.txt"], ["absolute", join(root, "outside")], ["traversal", "../outside"], ["symlink", "link/private"]]) {
       const result = await readFileFromWorkspace(workspace, path!, new AbortController().signal);
       rows[`path/${name}`] = result.ok ? "ok" : result.error.code;

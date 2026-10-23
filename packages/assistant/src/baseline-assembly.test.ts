@@ -175,12 +175,16 @@ function assertStep3Assembly(actual: string, baseline: string, autonomous = fals
     .replace("pinned preview 0 · <BYTES>/8192 bytes · truncated false · excluded otherThread 0, disabled 0, expired 0", "snapshot 0 · <BYTES>/8192 bytes · overflow false · excluded thread 0, documents 0, disabled 0, expired 0")
     .replace("无查询 pinned 预览不是下一轮实际命中数；未选中不表示已删除。记忆详情: 使用 memory_list / memory_get 查询（沿用工具确认）", "当前可生成快照的预览；已运行请求使用其保存的固定版本。超额及文档正文可通过 memory_read 按需读取。");
   assert.equal(modules(actual), expectedModules);
-  const capabilities = (text: string) => section(text, "/capabilities").replace(/^memory：.*\n/m, "");
+  assert.match(section(actual, "/capabilities"), /^terminal：未启用$/m);
+  const capabilities = (text: string) => section(text, "/capabilities").replace(/^memory：.*\n/m, "").replace(/^terminal：未启用\n/m, "");
   assert.equal(capabilities(actual), capabilities(baseline));
   const status = (text: string) => { const value = JSON.parse(section(text, "capability_status"));
     value.tools = value.tools.filter((name: string) => !name.startsWith("memory_") && !name.startsWith("history_"));
     value.modules = value.modules.map((module: { id: string; registeredTools: string[] }) => module.id === "memory" ? { ...module, registeredTools: [] } : module);
     if (autonomous) value.modules = value.modules.filter((module: { id: string }) => module.id !== "memory");
     return value; };
-  assert.deepEqual(status(actual), status(baseline));
+  const currentStatus = status(actual);
+  assert.deepEqual(currentStatus.modules.find((module: { id: string }) => module.id === "terminal"), { id: "terminal", enabled: false, registeredTools: [], state: "disabled" });
+  currentStatus.modules = currentStatus.modules.filter((module: { id: string }) => module.id !== "terminal");
+  assert.deepEqual(currentStatus, status(baseline));
 }

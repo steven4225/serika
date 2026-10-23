@@ -1005,5 +1005,43 @@
   "config/inside/files": "TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace",
   "config/inside/autonomy": "TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace",
   "config/inside/docker": "TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace",
-  "worker": []
+  "worker": [],
+  "terminal/desktop/terminal_exec": {
+    "approvals": [
+      {
+        "tool": "terminal_exec",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+        "remember": null
+      },
+      {
+        "tool": "terminal_exec",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "terminal/telegram/terminal_exec": {
+    "approvals": [
+      {
+        "tool": "terminal_exec",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+        "remember": null
+      },
+      {
+        "tool": "terminal_exec",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  }
 }

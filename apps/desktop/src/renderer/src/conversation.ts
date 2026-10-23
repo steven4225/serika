@@ -163,7 +163,7 @@ function shellOutputFields(output: unknown): Pick<ToolRow, "output"> {
 
 function toolInputFields(toolName: string, input: unknown): Pick<ToolRow, "inputPath" | "inputCommand" | "inputCwd" | "fileChange"> {
   if (typeof input !== "object" || input === null) return {};
-  if (toolName === "shell_exec") {
+  if (toolName === "shell_exec" || toolName === "terminal_exec") {
     const { command, cwd } = input as { command?: unknown; cwd?: unknown };
     return { ...(typeof command === "string" && command.length > 0 ? { inputCommand: command } : {}),
       ...(typeof cwd === "string" && cwd.length > 0 ? { inputCwd: cwd } : {}) };
@@ -378,7 +378,7 @@ export function overlayExecutionReceipts(
       : returned.detail ?? (tool.resultTruncated ? "回执已截断，不能据此推断成功" : undefined);
     const errorCode = fullFailure ? fullFailure.errorCode
       : tool.status === "completed" ? (existing?.outcomeSource === "full" ? existing.errorCode : complete ? outputErrorCode(parsed) : undefined) : undefined;
-    const metadata = { ...receiptInputFields(tool), ...(complete && tool.toolName === "shell_exec" ? shellOutputFields(parsed) : {}),
+    const metadata = { ...receiptInputFields(tool), ...(complete && (tool.toolName === "shell_exec" || tool.toolName === "terminal_exec") ? shellOutputFields(parsed) : {}),
       recordedAt: tool.requestedAt, ...(tool.fileInput?.path ? { inputPath: tool.fileInput.path } : {}) };
     const next: ToolRow = { kind: "tool", key: `receipt:${tool.toolName}:${tool.toolCallId}:${result.length}`, toolCallId: tool.toolCallId,
       ...metadata, ...(errorCode ? { errorCode } : {}),
@@ -522,7 +522,7 @@ export function overlayShellProgress(rows: ConversationRow[], buffer: ShellProgr
   return rows.map((row, index) => {
     // A process-local buffer belongs to the current Run, not old tool IDs in
     // previous turns. No-user live/activity rows are all within that Run.
-    if (index < turnStart || row.kind !== "tool" || row.toolName !== "shell_exec") return row;
+    if (index < turnStart || row.kind !== "tool" || (row.toolName !== "shell_exec" && row.toolName !== "terminal_exec")) return row;
     const view = buffer.view(row.toolCallId);
     if (view === undefined) return row;
     return {

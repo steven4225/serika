@@ -82,11 +82,11 @@ export function workSummary(rows: readonly ConversationRow[]): { label: string; 
 export function compactWorkSummary(rows: readonly ConversationRow[], running: boolean, waitingForApproval: boolean) {
   const tools = rows.filter((row): row is ToolRow => row.kind === "tool");
   const { needsAttention, pending } = workSummary(rows);
-  const commands = tools.filter(row => row.toolName === "shell_exec").length;
+  const commands = tools.filter(row => (row.toolName === "shell_exec" || row.toolName === "terminal_exec")).length;
   const changed = new Set(tools.filter(row => (row.toolName === "write_file" || row.toolName === "edit_file") && row.status === "ok" && row.receipt)
     .map(row => row.receipt!.path)).size;
-  const failedCommands = tools.filter(row => row.toolName === "shell_exec" && row.status === "failed").length;
-  const failedOthers = tools.filter(row => row.toolName !== "shell_exec" && row.status === "failed" && !isMissingFile(row)).length;
+  const failedCommands = tools.filter(row => (row.toolName === "shell_exec" || row.toolName === "terminal_exec") && row.status === "failed").length;
+  const failedOthers = tools.filter(row => row.toolName !== "shell_exec" && row.toolName !== "terminal_exec" && row.status === "failed" && !isMissingFile(row)).length;
   const notices = [
     tools.some(row => row.status === "unknown") ? "效果未知 · 需人工核对，不自动重做" : "",
     tools.some(row => row.status === "dispatched") ? "动作已派发 · 待核对" : "",
@@ -105,8 +105,8 @@ export function compactWorkSummary(rows: readonly ConversationRow[], running: bo
 }
 
 export function toolPresentation(row: ToolRow): { name: string; status: string; icon: "terminal" | "memory" | "timer" | "activity"; attention: boolean } {
-  const names: Record<string, string> = { computer_observe: "观察应用", computer_action: "操作应用", read_file: "读取文件", list_directory: "查看目录", search_files: "查找文件", write_file: "写入文件", edit_file: "编辑文件", shell_exec: "运行命令", web_fetch: "读取网页", web_search: "搜索网页", feed_read: "读取订阅", memory_add: "保存记忆", memory_update: "更新记忆", task_create: "创建提醒", task_reschedule: "调整提醒", task_cancel: "取消提醒", task_repeat_create: "重复提醒", task_repeat_cancel: "取消重复提醒", task_repeat_pause: "暂停重复提醒", task_repeat_resume: "恢复重复提醒", checkpoint_save: "保存进度" };
+  const names: Record<string, string> = { computer_observe: "观察应用", computer_action: "操作应用", read_file: "读取文件", list_directory: "查看目录", search_files: "查找文件", write_file: "写入文件", edit_file: "编辑文件", shell_exec: "运行命令", terminal_exec: "控制本地终端", web_fetch: "读取网页", web_search: "搜索网页", feed_read: "读取订阅", memory_add: "保存记忆", memory_update: "更新记忆", task_create: "创建提醒", task_reschedule: "调整提醒", task_cancel: "取消提醒", task_repeat_create: "重复提醒", task_repeat_cancel: "取消重复提醒", task_repeat_pause: "暂停重复提醒", task_repeat_resume: "恢复重复提醒", checkpoint_save: "保存进度" };
   const statuses: Record<ToolRow["status"], string> = { requested: "调用中", ok: "返回成功", incomplete: "回执不完整", observed: "观察已返回", dispatched: "已派发 · 待核对", not_started: "未执行", failed: "失败", denied: "已拒绝", unknown: "效果未知", timed_out: "超时", cancelled: "已取消" };
   return { name: names[row.toolName] ?? row.toolName, status: isMissingFile(row) ? "文件不存在" : statuses[row.status], attention: needsAttention(row),
-    icon: row.toolName === "shell_exec" ? "terminal" : row.toolName.startsWith("memory_") ? "memory" : row.toolName.startsWith("task_") ? "timer" : "activity" };
+    icon: (row.toolName === "shell_exec" || row.toolName === "terminal_exec") ? "terminal" : row.toolName.startsWith("memory_") ? "memory" : row.toolName.startsWith("task_") ? "timer" : "activity" };
 }

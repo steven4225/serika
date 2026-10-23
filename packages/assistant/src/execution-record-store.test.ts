@@ -216,18 +216,18 @@ describe("ExecutionRecordStore", () => {
     await assert.rejects(readFile(join(path, EXECUTION_RECORD_FILE)), { code: "ENOENT" });
   });
 
-  it("records request/start/completion and actual shell outcome across reopen", async () => {
+  for (const toolName of ["shell_exec", "terminal_exec"]) it(`${toolName} records request/start/completion and actual shell outcome across reopen`, async () => {
     const path = await directory();
     const store = createExecutionRecordStore(path, { now });
     await store.startRun({ runId: "run-1", threadId: "thread-1", phase: "primary" });
     await store.recordToolEvent("run-1", toolEvent("tool.call.requested", {
-      toolCallId: "tool-1", toolName: "shell_exec", input: { command: "sleep 1" },
+      toolCallId: "tool-1", toolName, input: { command: "sleep 1" },
     }));
     await store.recordToolEvent("run-1", toolEvent("tool.call.started", {
-      toolCallId: "tool-1", toolName: "shell_exec",
+      toolCallId: "tool-1", toolName,
     }));
     await store.recordToolEvent("run-1", toolEvent("tool.call.completed", {
-      toolCallId: "tool-1", toolName: "shell_exec",
+      toolCallId: "tool-1", toolName,
       output: { ok: true, exitCode: 7, timedOut: false, cancelled: false, output: "bad" },
     }));
     await store.finishRun("run-1", result());
