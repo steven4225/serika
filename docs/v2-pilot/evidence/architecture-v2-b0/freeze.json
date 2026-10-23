@@ -1,0 +1,54 @@
+{
+  "runId": "232e901d-05cb-4f0e-9db0-a1f4bbc8e4e9",
+  "recordedAt": "2026-10-23T02:38:33.392Z",
+  "productCommit": "75c6d9ab1bd7a468e51057c19a87cb940e2d7893",
+  "platform": "darwin",
+  "node": "v26.4.0",
+  "inputs": {
+    "file": "packages/assistant/src/permission-boundary.test.ts",
+    "sha256": "3d99e3e0e97ba532145c3fe637b7dc5f20bee7ab5606a1ab258140adf555f924"
+  },
+  "snapshot": {
+    "file": "packages/assistant/src/permission-boundary.snapshot.json",
+    "rows": 87,
+    "firstSha256": "b988e469ca6c830690358de82db65b67a316e9c0256bfa993b3199f8c2e68670",
+    "secondSha256": "b988e469ca6c830690358de82db65b67a316e9c0256bfa993b3199f8c2e68670",
+    "equal": true
+  },
+  "existing": {
+    "file": "packages/assistant/src/permission-decisions.snapshot.ts",
+    "sha256": "08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace",
+    "activeRows": 521
+  },
+  "commands": [
+    {
+      "command": "pnpm build:runtime",
+      "exitCode": 0
+    },
+    {
+      "command": "SERIKA_B0_CAPTURE=/tmp/serika-b0-first.json node --test packages/assistant/dist/permission-boundary.test.js",
+      "exitCode": 1,
+      "reason": "Initial recording compared against empty bootstrap file; no product change"
+    },
+    {
+      "command": "SERIKA_B0_CAPTURE=/tmp/serika-b0-second.json node --test packages/assistant/dist/{permission-boundary,permission-decisions,permission-extension,tool-confirmation-remember,tui-module-config}.test.js",
+      "exitCode": 0,
+      "tests": 46,
+      "pass": 46,
+      "fail": 0
+    }
+  ],
+  "priorFullHostValidation": {
+    "sourceCommit": "75c6d9ab1bd7a468e51057c19a87cb940e2d7893",
+    "runId": "634d6cc5-2ffa-44e0-b036-96e0b809cad5",
+    "sha256": "72d1a5c4cde9c65304af4b52a2c88d5991d85e84f527936eec9dbe932f2eaedf"
+  },
+  "review": [
+    "Host Shell always asks",
+    "Desktop and Telegram authority remain separate",
+    "Foreign directory and Thread do not grant autonomy",
+    "Memory read/write use real host registration and store",
+    "Worker has no foreground tools"
+  ],
+  "realModelCalls": 0
+}
