@@ -1384,3 +1384,59 @@ it("stop pauses even an idle bound private chat across reload; only explicit res
     assert.equal(f.gateway.status().autonomyPaused, false);
   } finally { await f.cleanup(); }
 });
+
+it("whole-message stop variants cancel the owned Run and persist the private-chat autonomy pause", async t => {
+  for (const text of ["停", "停下", "停止", "stop", "STOP", "sToP", "/stop", " \t“停止！”\n", " ,StOp!?。 ", " （/stop）！ "]) {
+    await t.test(JSON.stringify(text), async () => {
+      const f = await fixture(async n => response(n === 1 ? { name: "task_create", input: { prompt: "待确认提醒", runAt: new Date(Date.now() + 120_000).toISOString(), arrangement: reminder } } : undefined));
+      try {
+        await f.bind(); const owner = f.store.snapshot().owner!;
+        await f.host.setTelegramAutonomyEnabled({ enabled: true, expectedEnabled: false, expectedOwner: { userId: owner.userId, chatId: owner.chatId, threadId: owner.threadId } });
+        await f.gateway.receive(update(2, "创建提醒"));
+        await until(() => !!f.host.current.snapshot().pendingApproval);
+        const calls = f.calls();
+        await f.gateway.receive(update(3, text));
+        assert.equal(f.gateway.status().autonomyPaused, true);
+        await until(() => f.host.current.snapshot().state.kind === "idle");
+        assert.equal(f.gateway.status().autonomyEnabled, false);
+        const loaded = new TelegramStore(f.store.path, f.store.workspace); await loaded.load();
+        assert.equal(loaded.snapshot().autonomyPaused, true);
+        assert.equal(f.calls(), calls, "stop must cancel rather than enter the model or Steer");
+      } finally { await f.cleanup(); }
+    });
+  }
+});
+
+it("sentences mentioning stop remain ordinary chat without pausing autonomy", async () => {
+  const f = await fixture();
+  try {
+    await f.bind(); const owner = f.store.snapshot().owner!;
+    await f.host.setTelegramAutonomyEnabled({ enabled: true, expectedEnabled: false, expectedOwner: { userId: owner.userId, chatId: owner.chatId, threadId: owner.threadId } });
+    const messages = ["请停止当前任务", "停止执行", "不要停止", "stopped", "s top", "st/op"];
+    for (const [index, text] of messages.entries()) {
+      const id = index + 2;
+      await f.gateway.receive(update(id, text));
+      await until(() => f.store.snapshot().inputs.find(input => input.key === `42:${id}`)?.state === "finished");
+      assert.equal(f.gateway.status().autonomyPaused, false, text);
+      assert.equal(f.gateway.status().autonomyEnabled, true, text);
+    }
+    assert.equal(f.calls(), messages.length);
+  } finally { await f.cleanup(); }
+});
+
+it("binding success describes the current host grant and authorized directory", async t => {
+  for (const enabled of [false, true]) {
+    await t.test(`autonomy=${enabled}`, async () => {
+      const f = await fixture();
+      try {
+        t.mock.method(f.host, "channelTelegramAutonomyEnabled", () => enabled);
+        await f.bind();
+        const text = f.store.snapshot().deliveries.find(delivery => delivery.key.startsWith("binding:"))!.text;
+        assert.match(text, /已绑定当前授权目录/);
+        assert.doesNotMatch(text, /工作区/);
+        assert.match(text, enabled ? /文件和 Seatbelt 内命令免逐条确认，其他工具仍逐次确认/ : /工具仍逐次确认/);
+        if (!enabled) assert.doesNotMatch(text, /文件和 Seatbelt 内命令免逐条确认/);
+      } finally { await f.cleanup(); }
+    });
+  }
+});

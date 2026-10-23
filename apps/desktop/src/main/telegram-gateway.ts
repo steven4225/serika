@@ -296,7 +296,9 @@ export class TelegramGateway {
         data.owner = { ...pairing.proposed!, threadId: thread.threadId };
       });
       this.#pairing = null;
-      await this.#reply(`binding:${thread.threadId}`, pairing.proposed.chatId, "已绑定当前工作区。直接发消息提问；任务用“任务：目标”，工具仍逐次确认。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。");
+      const permissions = this.host.channelTelegramAutonomyEnabled()
+        ? "授权目录内文件和 Seatbelt 内命令免逐条确认，其他工具仍逐次确认。" : "工具仍逐次确认。";
+      await this.#reply(`binding:${thread.threadId}`, pairing.proposed.chatId, `已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。${permissions}执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。`);
       return this.status();
     } finally { this.#settings = false; }
   }
@@ -451,7 +453,8 @@ export class TelegramGateway {
       return reject(accepted ? "已处理这一次确认，不适用于后续操作。" : "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。");
     }
     if (/^(允许|拒绝)(?:[\s:：A-Za-z0-9]|$)/.test(text)) return reject("请点当前确认下的按钮，或完整发送“允许 短码 / 拒绝 短码”；发送 /confirm 可刷新确认。");
-    if (text === "停止" || text === "/stop") {
+    const stopText = text.replace(/^[\s\p{P}]+|[\s\p{P}]+$/gu, "").toLowerCase();
+    if (["停", "停下", "停止", "stop"].includes(stopText)) {
       const running = this.#ownedRunning();
       this.#pausing = true;
       const cancellation = running ? this.host.current.cancel() : Promise.resolve();
