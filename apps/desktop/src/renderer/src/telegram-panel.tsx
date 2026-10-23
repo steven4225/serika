@@ -56,7 +56,7 @@ export function TelegramPanel({ busy }: { busy: boolean }) {
         ? void act(() => window.runloom.setTelegramAutonomyEnabled!({ enabled: false, expectedEnabled: true, expectedOwner: { userId: status.owner!.userId, chatId: status.owner!.chatId, threadId: status.owner!.threadId } }))
         : setAutonomyPreview(true)}>{status.autonomyEnabled ? "关闭私聊自主执行" : "开启私聊自主执行…"}</button>
       {autonomyPreview ? <div className="memory-setup-preview"><strong>允许 {status.owner.name} 从当前绑定私聊自主执行？</strong>
-        <p>该私聊可连续读取和修改授权目录内的文件，Shell 复用桌面 Seatbelt，默认断网、不可用时拒绝执行。联网的本机 Shell、Computer、浏览器和终端控制仍需逐次确认。后台和定时任务不继承此授权。</p>
+        <p>该私聊可连续读取和修改授权目录内的文件，Shell 复用桌面 Seatbelt，默认断网、不可用时拒绝执行。联网的本机 Shell、Computer、浏览器、通用本机 CLI 和 Herdr 发送操作仍需逐次确认。固定目标的 Herdr get/read/wait 按只读规则免逐条确认，每次核对终端身份。后台和定时任务不继承此授权。</p>
         <button disabled={busy || working} onClick={() => void act(async () => { const next = await window.runloom.setTelegramAutonomyEnabled!({ enabled: true, expectedEnabled: false, expectedOwner: { userId: status.owner!.userId, chatId: status.owner!.chatId, threadId: status.owner!.threadId } }); setAutonomyPreview(false); return next; })}>确认授权当前私聊</button>
         <button className="ghost" onClick={() => setAutonomyPreview(false)}>取消</button>
       </div> : null}

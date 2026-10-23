@@ -1462,7 +1462,9 @@ it("fixed-target Herdr read returns through offline Telegram without approval", 
     return response(undefined, observed ? "离线 Pi 的只读输出" : "fixture result missing");
   }, true, false, true);
   try {
-    await f.bind(); await f.gateway.receive(update(2, "读取已选择的 Pi"));
+    await f.bind();
+    assert.ok(f.sent.some(text => text.includes("Herdr 专用 get/read/wait 免逐条确认")));
+    await f.gateway.receive(update(2, "读取已选择的 Pi"));
     await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
     assert.equal(observed, true);
     assert.ok(f.sent.some(text => text.includes("离线 Pi 的只读输出")));
