@@ -1,0 +1,268 @@
+{
+  "runId": "ceb5bab0-5c7d-4953-b8cb-9638d21cce80",
+  "generatedAt": "2026-10-23T12:26:16.617Z",
+  "sourceCommit": "165b4d823477c2ae43e37c8f60881181c5cdbda2",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "5fdc8099ac5fa0f4c4442d40acc45aa8426c80991e1c460c95876b9f0034cced",
+  "platform": "darwin",
+  "commands": [
+    {
+      "command": [
+        "/bin/sh",
+        "-c",
+        "pnpm typecheck",
+        "--home",
+        "/private/tmp/serika-s1-round1-final2/H"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "log": "command-1.log",
+      "sha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "counts": []
+    },
+    {
+      "command": [
+        "/bin/sh",
+        "-c",
+        "pnpm --filter @serika/desktop exec tsx --test --test-name-pattern=\"ordinary TG|stop pauses|independent TG authorization|TG grant survives|Steer supersedes\" src/main/telegram-gateway.test.ts",
+        "--home",
+        "/private/tmp/serika-s1-round1-final2/H"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "log": "command-2.log",
+      "sha256": "924370529c5d4115a793d2ad14385195a38b8514d7000e660bd484d1ced4ade1",
+      "counts": [
+        [
+          "tests",
+          6
+        ],
+        [
+          "pass",
+          6
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "command": [
+        "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "packages/assistant/scripts/seatbelt-s1-check.mjs",
+        "--home",
+        "/private/tmp/serika-s1-round1-final2/native/H",
+        "--output",
+        "/private/tmp/serika-v2-round1/audit-final/native"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "log": "command-3.log",
+      "sha256": "276b11f9979572e831c9cf75a0f1c36b5ec28865d6726c8c2d2e2a55239dc1c5",
+      "counts": []
+    }
+  ],
+  "frozen": {
+    "apps/desktop/scripts/electron-smoke.mjs": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+    "examples/eval/cm-step6-live.mjs": "6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546",
+    "packages/assistant/scripts/cm-step6-verify.mjs": "7fc93222da184d9f27cd9fc2601dde208e9a9690cc277b0c879d280d41840ffb",
+    "packages/assistant/scripts/seatbelt-s1-check.mjs": "af6f632dd35da6c3c527273ca614334714a4b7d679e1c98cce07183aad9f9d6a",
+    "packages/assistant/scripts/seatbelt-s1-audit.mjs": "4402c875108ce11ce926decb00cba5973632d8bb9d67e8e56edcbe130b02bfa4",
+    "apps/desktop/scripts/seatbelt-s1-electron.mjs": "ef5202c49d76aea439173c1553b8dcb402419982b4c09704ed554e5945437f1c",
+    "packages/assistant/src/permission-decisions.snapshot.ts": "08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace"
+  },
+  "realModelCalls": 0,
+  "telegramOutbound": 0,
+  "serviceRegistrations": 0,
+  "costUsd": 0,
+  "status": "passed",
+  "b0": {
+    "file": "packages/assistant/src/permission-boundary.snapshot.json",
+    "beforeSha256": "d0b820f3eef8a8230d951e8e4da3d53cde0756b776b7645ffc00980dbbcc2e07",
+    "afterSha256": "a5f3059a18ea43c1ff14efb48f09933ef110da00c0e070d31f3870333911852f",
+    "approvedChangedKeys": [
+      "telegram/shell_exec"
+    ],
+    "actualChangedKeys": [
+      "telegram/shell_exec"
+    ],
+    "otherBytesUnchanged": true,
+    "before": {
+      "approvals": [
+        {
+          "tool": "shell_exec",
+          "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+          "remember": null
+        }
+      ],
+      "status": "completed",
+      "events": [
+        {
+          "type": "tool.call.failed",
+          "ok": null,
+          "code": "TOOL_DENIED"
+        }
+      ]
+    },
+    "after": {
+      "approvals": [],
+      "status": "completed",
+      "events": [
+        {
+          "type": "tool.call.completed",
+          "ok": true,
+          "code": null
+        }
+      ]
+    }
+  },
+  "sharedSeatbelt": {
+    "packages/assistant/src/modules/seatbelt-policy.ts": "62b259cba40fba3a458341ffc8c8d4f62841a69694c23e96c0d5ca6cae57b6a8",
+    "packages/assistant/src/modules/seatbelt-shell-runner.ts": "14163daa691c21324f3ef75cbd8159ceb28e814db74ddad4fe59e7a51c4ef57f",
+    "packages/assistant/src/modules/seatbelt-runtime.ts": "058a1a077ecef83929162a60a2d26a0c516e4c2d1afbc87dff4f8790ae28d62b"
+  },
+  "native": {
+    "runId": "81c0ef44-b9d1-4d68-a182-625069e82e58",
+    "file": "native/native-result.json",
+    "sha256": "7bdffaa2c909cf70ba158b2fd52a55707ed6ee78a707c6cf410d27541fd4a8f9"
+  },
+  "lineChanges": [
+    {
+      "path": "apps/desktop/src/main/desktop-runtime.ts",
+      "kind": "product",
+      "added": 2,
+      "removed": 1
+    },
+    {
+      "path": "apps/desktop/src/main/ipc-forwards.test.ts",
+      "kind": "tests-verification",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "apps/desktop/src/main/ipc-forwards.ts",
+      "kind": "product",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "apps/desktop/src/main/module-settings.ts",
+      "kind": "product",
+      "added": 6,
+      "removed": 3
+    },
+    {
+      "path": "apps/desktop/src/main/resident-protocol.ts",
+      "kind": "product",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "apps/desktop/src/main/resident-transport.test.ts",
+      "kind": "tests-verification",
+      "added": 35,
+      "removed": 2
+    },
+    {
+      "path": "apps/desktop/src/main/resident-transport.ts",
+      "kind": "product",
+      "added": 14,
+      "removed": 5
+    },
+    {
+      "path": "apps/desktop/src/main/runtime-ownership.ts",
+      "kind": "product",
+      "added": 6,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/main/telegram-gateway.test.ts",
+      "kind": "tests-verification",
+      "added": 87,
+      "removed": 11
+    },
+    {
+      "path": "apps/desktop/src/main/telegram-gateway.ts",
+      "kind": "product",
+      "added": 71,
+      "removed": 14
+    },
+    {
+      "path": "apps/desktop/src/main/telegram-store.ts",
+      "kind": "product",
+      "added": 10,
+      "removed": 4
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/app/runtime-store.ts",
+      "kind": "product",
+      "added": 69,
+      "removed": 12
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/runtime-store.test.ts",
+      "kind": "tests-verification",
+      "added": 100,
+      "removed": 3
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/telegram-panel.tsx",
+      "kind": "product",
+      "added": 3,
+      "removed": 3
+    },
+    {
+      "path": "apps/desktop/src/shared/telegram.ts",
+      "kind": "product",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "docs/architecture-v2-step4.5-plan.md",
+      "kind": "docs-evidence",
+      "added": 3,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/scripts/v2-round1-verify.mjs",
+      "kind": "tests-verification",
+      "added": 63,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/app.ts",
+      "kind": "product",
+      "added": 3,
+      "removed": 2
+    },
+    {
+      "path": "packages/assistant/src/baseline-assembly.test.ts",
+      "kind": "tests-verification",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/foreground-autonomy.ts",
+      "kind": "product",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/modules/shell-module.ts",
+      "kind": "product",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/permission-boundary.snapshot.json",
+      "kind": "docs-evidence",
+      "added": 4,
+      "removed": 10
+    }
+  ]
+}

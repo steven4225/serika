@@ -1,0 +1,5 @@
+03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34  apps/desktop/scripts/electron-smoke.mjs
+6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546  examples/eval/cm-step6-live.mjs
+7fc93222da184d9f27cd9fc2601dde208e9a9690cc277b0c879d280d41840ffb  packages/assistant/scripts/cm-step6-verify.mjs
+08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace  packages/assistant/src/permission-decisions.snapshot.ts
+d0b820f3eef8a8230d951e8e4da3d53cde0756b776b7645ffc00980dbbcc2e07  packages/assistant/src/permission-boundary.snapshot.json

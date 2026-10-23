@@ -1,0 +1,38 @@
+{
+  "cwd": "/private/tmp/serika-v2-round1-sync",
+  "red": {
+    "productCommit": "4045b454544d3718d99eb93b7e640efcfe11e3cb",
+    "testsCommit": "dd818653622c17c42ece0273c50155bd8e4b02f0",
+    "command": [
+      "node",
+      "/private/tmp/serika-v2-round1-sync-run.mjs",
+      "--home",
+      "/private/tmp/serika-v2-round1-sync-H",
+      "/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/apps/desktop/node_modules/.bin/tsx",
+      "--test",
+      "--test-name-pattern=same-Run snapshot repairs|Steer hydration survives",
+      "apps/desktop/src/renderer/src/runtime-store.test.ts"
+    ],
+    "testProcessExitCode": 1,
+    "fileRestoreWrapperExitCode": 0,
+    "passed": 0,
+    "tests": 2,
+    "log": "sync-regressions-red.log"
+  },
+  "green": {
+    "sourceCommit": "dd818653622c17c42ece0273c50155bd8e4b02f0",
+    "command": [
+      "node",
+      "/private/tmp/serika-v2-round1-sync-run.mjs",
+      "--home",
+      "/private/tmp/serika-v2-round1-sync-H",
+      "/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/apps/desktop/node_modules/.bin/tsx",
+      "--test",
+      "apps/desktop/src/renderer/src/runtime-store.test.ts"
+    ],
+    "exitCode": 0,
+    "passed": 42,
+    "tests": 42,
+    "log": "sync-regressions-green.log"
+  }
+}

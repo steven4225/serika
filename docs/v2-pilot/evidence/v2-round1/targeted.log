@@ -1,0 +1,91 @@
+$ tsc -b --pretty false && pnpm --filter @serika/desktop typecheck
+$ tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit
+▶ v2 pilot baseline: assembled tools, instructions and capability report
+  ✔ minimal assembly matches __baseline__/assembly-minimal.txt (79.842333ms)
+  ✔ full assembly matches __baseline__/assembly-full.txt (55.179125ms)
+  ✔ full-without-todoist assembly matches __baseline__/assembly-full-without-todoist.txt (60.374ms)
+  ✔ full assembly in the autonomous desktop foreground matches __baseline__/assembly-full-desktop-autonomous.txt (55.095167ms)
+  ✔ the two full assemblies differ only by Todoist-owned content (0.467792ms)
+✔ v2 pilot baseline: assembled tools, instructions and capability report (251.581167ms)
+✔ b0 locks full host decisions, current Memory, configuration and filesystem boundaries (42143.532208ms)
+ℹ tests 6
+ℹ suites 1
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 42282.658416
+✔ bound TG owner queries actual capability registration without a model, tools or config writes (298.67675ms)
+✔ TG capability queries never present cached registration as current during runtime recovery (268.918291ms)
+✔ Telegram receive clock is persisted at +08:00 and used for relative reminders despite delayed admission (949.213834ms)
+✔ package2: phone button saves one reminder, emits host readback, and delivers its due result once (1549.288917ms)
+✔ package2: phone approval spelling 允许abcdef1234 bypasses busy admission (1372.705708ms)
+✔ package2: phone approval spelling 允许：
+ABCDEF1234 bypasses busy admission (1472.857875ms)
+✔ package2: phone approval spelling 允许　 ABCDEF1234 bypasses busy admission (1487.975291ms)
+✔ package2: incomplete phone control is not a new chat and a denied reminder cannot get model success copy (1337.427375ms)
+✔ package2: saved reminder retains the background-unavailable warning and survives gateway restart (1445.174333ms)
+✔ package2: copied or foreign callback cannot consume a valid confirmation; callback answer failure never replays it (1610.129ms)
+✔ package2: expired phone buttons grant nothing and stop remains a control (1015.353709ms)
+✔ package2: desktop phone buttons grant nothing and stop remains a control (993.772417ms)
+✔ package2: invalid schedule returns a host failure instead of model success (1266.367417ms)
+✔ package2: uncertain reminder commit is reported as unknown, not unsaved, and repeated approval never recreates it (1119.563667ms)
+✔ package2: not_sent host receipt send does not undo or recreate a saved reminder (1453.227875ms)
+✔ package2: unknown host receipt send does not undo or recreate a saved reminder (1451.859792ms)
+✔ formatted multipart result retries only the definitely rejected part after reopen, never the Run (4078.81375ms)
+✔ an ambiguous multipart send stops remaining parts and stays blocked after restart (2034.630709ms)
+✔ a crash in a persisted part dispatch does not restore send permission (257.258834ms)
+✔ Telegram result copy: ordinary replies omit gateway wrappers without changing model prose or Run linkage (1389.693875ms)
+✔ Telegram result copy: recovery preserves completed boundaries without a new Run or visible Run suffix (1084.440375ms)
+✔ Telegram result copy: recovery preserves empty boundaries without a new Run or visible Run suffix (934.656416ms)
+✔ Telegram result copy: recovery preserves task boundaries without a new Run or visible Run suffix (898.893083ms)
+✔ Telegram result copy: recovery preserves failed boundaries without a new Run or visible Run suffix (893.6155ms)
+✔ Telegram result copy: recovery preserves cancelled boundaries without a new Run or visible Run suffix (971.454625ms)
+✔ Telegram result copy: recovery preserves interrupted boundaries without a new Run or visible Run suffix (904.659625ms)
+✔ Telegram result copy: recovery preserves unknown tool boundaries without a new Run or visible Run suffix (906.605875ms)
+✔ Telegram result copy: recovery preserves truncated receipt boundaries without a new Run or visible Run suffix (929.130625ms)
+✔ approved Telegram arrangement saves the exact destination before worker activation, no second scheduler (1380.334583ms)
+✔ old or unselected results stay local; selected outcomes deliver once even when task capability is off (675.461708ms)
+✔ a definite send failure can retry only delivery; concurrent, unknown and stale approval retries cannot replay (570.822458ms)
+✔ handles all failed channel messages and unknown delivery observations without replay or false success (242.672208ms)
+✔ reopening reconstructs a missing pending result from TaskStore without calling model, but never retries unknown send (397.741292ms)
+✔ recurring opt-in excludes old history, pages past 50, and respects the persisted RSS no-new-item outcome (6878.984917ms)
+✔ recurring delivery survives over 1000 occurrences, persists scan progress and revisits later completions (841.332666ms)
+✔ requires desktop binding; foreign, group, bot and duplicate deliveries cannot start Runs (876.841458ms)
+✔ shares the real file approval, shortcodes are single-use and plain yes is not authority (1475.534417ms)
+{"demo":"telegram-confirmation-renewal","expiredCodeRejected":true,"sameRun":true,"successfulWrites":1,"repeatedCodeRejected":true,"transport":"scripted","telegram":"not_run"}
+✔ expired confirmation can be renewed without a new Run; both old and repeated codes grant nothing (1565.688542ms)
+✔ confirmation renewal reports not_sent, revokes the old code and never blindly resends it (1631.432709ms)
+✔ confirmation renewal reports unknown, revokes the old code and never blindly resends it (1580.245667ms)
+✔ restart cancels queued stale confirmation sends, preserves ambiguous sends and never restores their authority (346.740375ms)
+✔ archived inbound message IDs still dedupe even under a different update ID (4296.468666ms)
+✔ recovering an input with a terminal receipt does not resend its archived submitted result (7875.122292ms)
+{"demo":"telegram-lifecycle","seededInputs":1024,"seededDeliveries":2048,"activeInputs":136,"activeDeliveries":267,"newRuns":6,"oldMessageReplays":0,"unresolvedPreserved":true,"transport":"scripted","telegram":"not_run"}
+✔ a full legacy journal resumes continuous channel traffic, preserves unresolved effects and dedupes after a second restart (27846.159916ms)
+✔ a input change invalidates a short code despite matching Run and approval ID (957.0475ms)
+✔ a owner change invalidates a short code despite matching Run and approval ID (924.477208ms)
+✔ desktop confirmation invalidates Telegram approval and busy input never steals another Thread (1821.536708ms)
+✔ desktop handling while a confirmation send claim is persisted prevents sending the stale envelope (1277.338875ms)
+✔ a source-barrier failure dispatches zero model calls (515.879458ms)
+✔ Steer supersedes old approval without authorizing it; control messages stay excluded (1428.108167ms)
+✔ desktop handling invalidates the IM short code, and expired binding/approval grant nothing (1368.358875ms)
+✔ Stop cancels only the bound primary Run, never replays a pending tool (901.184083ms)
+✔ an explicit desktop observation unblocks the channel without rewriting an uncertain Run (912.511375ms)
+✔ restart never replays ambiguous input or unknown sends; terminal receipts recover delivery without a model (975.121ms)
+✔ polling acknowledges only persisted input and repeated platform updates start one Run (905.946083ms)
+✔ send rejection and timeout remain distinct and neither retries task execution (1584.458625ms)
+✔ Task text gets an explicit preview and uses the existing WorkTask, not human acceptance (1129.23175ms)
+✔ private state validates corruption and permission, and failed writes freeze subsequent admission (9.090917ms)
+✔ API never leaks token URLs or retries sends, and refuses an existing webhook (155.10925ms)
+✔ independent TG authorization runs chat and WorkTasks through real file/Shell tools, persists and restores per-call confirmation when disabled (9194.408875ms)
+✔ TG grant survives host restart but never authorizes a changed bot/user/chat/Thread or desktop entry, and cancelled effects are not replayed (1865.072083ms)
+✔ TG independent authority crosses the resident socket with identity CAS, without exposing host-only channel entry points (1282.437ms)
+ℹ tests 62
+ℹ suites 0
+ℹ pass 62
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 120555.254041

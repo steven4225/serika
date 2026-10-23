@@ -1,0 +1,12 @@
+✔ Steer supersedes old approval without authorizing it; control messages stay excluded (1523.22775ms)
+✔ ordinary TG supplements bind before Steer, stay silent, and recover a lost acknowledgement without replay (1464.878458ms)
+✔ successful ordinary TG Steer sends only the parent result and keeps an exact original Run association (1389.149667ms)
+✔ stop pauses even an idle bound private chat across reload; only explicit resume restores its existing grant (1576.228375ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6476.779041

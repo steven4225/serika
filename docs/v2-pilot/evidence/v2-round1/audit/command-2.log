@@ -1,0 +1,14 @@
+✔ Steer supersedes old approval without authorizing it; control messages stay excluded (1394.25825ms)
+✔ independent TG authorization runs chat and WorkTasks through real file/Shell tools, persists and restores per-call confirmation when disabled (9348.9205ms)
+✔ TG grant survives host restart but never authorizes a changed bot/user/chat/Thread or desktop entry, and cancelled effects are not replayed (2003.972917ms)
+✔ ordinary TG supplements bind before Steer, stay silent, and recover a lost acknowledgement without replay (1578.392625ms)
+✔ successful ordinary TG Steer sends only the parent result and keeps an exact original Run association (1899.113625ms)
+✔ stop pauses even an idle bound private chat across reload; only explicit resume restores its existing grant (1818.857208ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18456.636458
