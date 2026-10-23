@@ -77,8 +77,8 @@ export interface ToolActivity {
 }
 
 export interface HerdrTargetInput { target: Pick<HerdrTarget, "session" | "paneId" | "terminalId"> | null; expected: HerdrTarget | null }
-export interface HerdrSession { name: string; running: boolean }
-export interface HerdrPane { paneId: string; terminalId: string; title: string }
+export type { HerdrSession, HerdrPane } from "@serika/assistant";
+import type { HerdrSession, HerdrPane } from "@serika/assistant";
 
 export interface ComputerConnectionView { enabled: boolean; executable: string; allowedBundleIds: string[]; revision: string }
 export interface ComputerConnectionInput { enabled: boolean; executable: string; allowedBundleIds: string[]; expectedRevision: string }

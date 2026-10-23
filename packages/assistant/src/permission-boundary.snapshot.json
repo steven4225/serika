@@ -1043,5 +1043,273 @@
       "TOOL_DENIED"
     ],
     "status": "completed"
+  },
+  "round3/desktop/herdr_pi_read/get": {
+    "approvals": [],
+    "events": [],
+    "status": "completed"
+  },
+  "round3/desktop/herdr_pi_read/read": {
+    "approvals": [],
+    "events": [],
+    "status": "completed"
+  },
+  "round3/desktop/herdr_pi_read/wait": {
+    "approvals": [],
+    "events": [],
+    "status": "completed"
+  },
+  "round3/desktop/herdr_pi_control/prompt": {
+    "approvals": [
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      },
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/desktop/herdr_pi_control/input": {
+    "approvals": [
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      },
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/desktop/herdr_pi_control/stop": {
+    "approvals": [
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      },
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/desktop/computer_check/check": {
+    "approvals": [
+      {
+        "tool": "computer_check",
+        "remember": null
+      },
+      {
+        "tool": "computer_check",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/desktop/computer_observe/observe": {
+    "approvals": [
+      {
+        "tool": "computer_observe",
+        "remember": null
+      },
+      {
+        "tool": "computer_observe",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/desktop/computer_action/action": {
+    "approvals": [
+      {
+        "tool": "computer_action",
+        "remember": null
+      },
+      {
+        "tool": "computer_action",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/desktop/terminal_exec/browser": {
+    "approvals": [
+      {
+        "tool": "terminal_exec",
+        "remember": null
+      },
+      {
+        "tool": "terminal_exec",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/telegram/herdr_pi_read/get": {
+    "approvals": [],
+    "events": [],
+    "status": "completed"
+  },
+  "round3/telegram/herdr_pi_read/read": {
+    "approvals": [],
+    "events": [],
+    "status": "completed"
+  },
+  "round3/telegram/herdr_pi_read/wait": {
+    "approvals": [],
+    "events": [],
+    "status": "completed"
+  },
+  "round3/telegram/herdr_pi_control/prompt": {
+    "approvals": [
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      },
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/telegram/herdr_pi_control/input": {
+    "approvals": [
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      },
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/telegram/herdr_pi_control/stop": {
+    "approvals": [
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      },
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/telegram/computer_check/check": {
+    "approvals": [
+      {
+        "tool": "computer_check",
+        "remember": null
+      },
+      {
+        "tool": "computer_check",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/telegram/computer_observe/observe": {
+    "approvals": [
+      {
+        "tool": "computer_observe",
+        "remember": null
+      },
+      {
+        "tool": "computer_observe",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/telegram/computer_action/action": {
+    "approvals": [
+      {
+        "tool": "computer_action",
+        "remember": null
+      },
+      {
+        "tool": "computer_action",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/telegram/terminal_exec/browser": {
+    "approvals": [
+      {
+        "tool": "terminal_exec",
+        "remember": null
+      },
+      {
+        "tool": "terminal_exec",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
   }
 }

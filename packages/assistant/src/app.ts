@@ -429,7 +429,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                 ]
               : []),
             ...(moduleConfig!.enabled.terminal && options.desktopAutonomyHost
-              ? [createTerminalModule({ directory: authorizedDirectory!, target: moduleConfig!.terminalTarget,
+              ? [createTerminalModule({ directory: authorizedDirectory!, env, target: moduleConfig!.terminalTarget,
                   timeoutMs: moduleConfig!.shellTimeoutMs, onProgress: notifyShellProgress })] : []),
             ...(moduleConfig!.computer
               ? [createComputerModule(moduleConfig!.computer, { env })]

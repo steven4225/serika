@@ -55,14 +55,26 @@ it("TG capability queries never present cached registration as current during ru
     assert.equal(f.calls(), 0);
   } finally { await f.cleanup(); }
 });
-async function fixture(stream: (call: number, prompt?: string) => Promise<ReturnType<typeof response>> = async () => response(), backgroundReady = true, shellEnabled = false) {
+async function fixture(stream: (call: number, prompt?: string) => Promise<ReturnType<typeof response>> = async () => response(), backgroundReady = true, shellEnabled = false, herdrFixture = false) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-telegram-unit-")));
   const workspace = join(root, "workspace"), applicationHome = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: shellEnabled }, task: { enabled: true } } }));
+  const bin = join(root, "bin");
+  if (herdrFixture) {
+    await mkdir(bin);
+    await writeFile(join(bin, "herdr"), `#!${process.execPath}
+const args=process.argv.slice(2);
+if(args[0]!=="--session"||args[1]!=="offline"||args[4]!=="p1")process.exit(3);
+if(args[2]==="pane")console.log(JSON.stringify({result:{type:"pane_info",pane:{pane_id:"p1",terminal_id:"t1"}}}));
+else if(args[3]==="get")console.log(JSON.stringify({result:{type:"agent_info",agent:{agent:"pi",agent_status:"idle",pane_id:"p1",terminal_id:"t1",state_change_seq:1}}}));
+else if(args[3]==="read")console.log("离线 Pi 的只读输出");
+else process.exit(4);`);
+    await chmod(join(bin, "herdr"), 0o700);
+  }
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: shellEnabled }, ...(herdrFixture ? { terminal: { enabled: true, target: { authorizedDirectory: workspace, session: "offline", paneId: "p1", terminalId: "t1" } } } : {}), task: { enabled: true } } }));
   let calls = 0;
   let time = Date.now(), activations = 0;
-  const host = await DesktopRuntime.create({ applicationHome, cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
+  const host = await DesktopRuntime.create({ applicationHome, cwd: root, env: { RUNLOOM_CONFIG: configPath, ...(herdrFixture ? { PATH: bin, HOME: applicationHome } : {}) }, modelAlias: "mock",
     model: new MockLanguageModelV3({ doStream: async ({ prompt }) => stream(++calls, JSON.stringify(prompt)) }), send: () => {},
     taskAutomation: { status: async () => ({ available: true, registered: true, running: backgroundReady, ready: backgroundReady, todoistPlanningAvailable: false }), enable: async () => { activations++; return { enabled: backgroundReady, ready: backgroundReady }; } } });
   const store = new TelegramStore(join(applicationHome, "resident", "telegram.json"), applicationHome);
@@ -1439,4 +1451,26 @@ it("binding success describes the current host grant and authorized directory", 
       } finally { await f.cleanup(); }
     });
   }
+});
+
+
+it("fixed-target Herdr read returns through offline Telegram without approval", async () => {
+  let observed = false;
+  const f = await fixture(async (n, prompt) => {
+    if (n === 1) return response({ name: "herdr_pi_read", input: { action: "read" } });
+    observed = prompt?.includes("离线 Pi 的只读输出") === true;
+    return response(undefined, observed ? "离线 Pi 的只读输出" : "fixture result missing");
+  }, true, false, true);
+  try {
+    await f.bind(); await f.gateway.receive(update(2, "读取已选择的 Pi"));
+    await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
+    assert.equal(observed, true);
+    assert.ok(f.sent.some(text => text.includes("离线 Pi 的只读输出")));
+    assert.equal(f.sent.some(text => text.includes("需要你确认")), false);
+    const input = f.store.snapshot().inputs.find(x => x.key === "42:2")!;
+    const receipt = await f.host.channelReceipt(f.store.snapshot().owner!.threadId, input.runId!);
+    assert.equal(receipt?.tools[0]?.toolName, "herdr_pi_read");
+    assert.equal(receipt?.tools[0]?.status, "completed");
+    assert.equal(receipt?.tools[0]?.approvalRequestedAt, undefined);
+  } finally { await f.cleanup(); }
 });

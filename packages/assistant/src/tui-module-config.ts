@@ -10,7 +10,7 @@ import {
 import { z } from "zod";
 import { resolveConfiguredTodoistTimeZone, resolveShorthandTodoistTimeZone, todoistModuleConfigSchema } from "./modules/todoist-module.js";
 import { validModelPrice, type ModelPrice } from "./model-usage.js";
-import { herdrTargetSchema, type HerdrTarget } from "./modules/terminal-module.js";
+import { herdrTargetSchema, type HerdrTarget } from "./herdr.js";
 import { computerConfigSchema, type ComputerConfig } from "./modules/computer-module.js";
 import { hooksConfigSchema, type HookRule } from "./automation-hooks.js";
 import { skillPackageRegistrationsSchema, type SkillPackageRegistration } from "./skill-catalog.js";
