@@ -123,6 +123,7 @@
 | app.test.ts 的 Computer 路径 | 两工具均待 ID 审批，驱动不启动 | 只读实际调用 list_apps/list_windows；仅 action 待审批，拒绝后不派发 |
 | permission-decisions.test.ts | 冻结快照的 check/observe 为 ask | 冻结文件不改；只对两工具建立显式 allow 预期，remembered same 仍 not offered，其余逐值比较 |
 
+- 冻结 offline audit 会复制既往 `live.json` 的投影作为历史对照；该文件 startedAt 为 2026-10-21T13:06:11.451Z、sourceCommit 为 3ec3f6a5f09432a5a2de11a2a9e78e470cbab3f4。本轮仅运行离线 audit，没有重新调用该模型；历史成本与成绩不计入本轮。
 - 无真实模型、真实 Computer 应用/驱动、TG 外发或服务注册。Computer 当前仍是 AX 观察，不产生截图；本轮没有新增截图能力。截图/界面证据仅来自冻结冒烟的隔离假数据，未读取真实 UI 密钥。提交前做凭据模式扫描，不归档真实默认目录文件内容。
 - 写入检查会使非 Node 写入导致的目录变化失败，不能撤销已经发生的外部写入；本轮实际真实目录无变化。它是测试检查，不替换产品 Seatbelt。只在 macOS Node/离线 TG/冻结 Electron 形态验证，没有实际 Pi/网站/Computer 业务验收。
 - 归档原始失败断言日志含 16 处行尾空白，证据 git diff --check 退出 2；保留原字节，位置与输出在 package-checks.json。源码 diff --check 退出 0，报告没有将证据格式检查写成通过。
