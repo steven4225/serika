@@ -1,0 +1,13 @@
+diff --git a/examples/eval/cm-step6-live.mjs b/examples/eval/cm-step6-live.mjs
+index 76947d4..aa30143 100644
+--- a/examples/eval/cm-step6-live.mjs
++++ b/examples/eval/cm-step6-live.mjs
+@@ -263,7 +263,7 @@ export async function runChat({ model, modelAlias, root, spec, question, label,
+   const output = new PassThrough(); output.resume();
+   const configPath = join(root, 'config.json'), workspace = join(root, 'workspace');
+   await mkdir(workspace, { recursive: true });
+-  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: false }, 'read-file': { enabled: false } }, contextCompaction: spec.contextBudget,
++  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { memory: { enabled: false }, 'read-file': { enabled: false } }, contextCompaction: spec.contextBudget,
+     modelContextWindows: [{ provider: 'openai-compatible.chat', modelId: model.modelId, contextWindowTokens: spec.contextBudget.contextWindowTokens }], run: { maxSteps: 1, totalTimeoutMs: 120000 } }));
+   const app = await createRuntimeApp({ directory: join(root, 'transcripts'), assistant: { threadId: 'eval', configPath }, model, modelAlias, output, env: {}, cwd: root });
+   const controller = createAssistantController(app); const unexpected = []; let backgroundFailure = null;

@@ -1,0 +1,6 @@
+{
+  "approval": "User approved only configuration input migration; grading, judgments and assertions unchanged",
+  "path": "examples/eval/cm-step6-live.mjs",
+  "oldSha256": "f45f10aa5f644fdc450d9e8ffef81d45d48f53f38d7455cca00c611b4e43c46a",
+  "newSha256": "6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546"
+}
