@@ -1,0 +1,24 @@
+{
+  "runId": "edb94bd7-01f2-44c7-9309-54b9b71b7eed",
+  "command": [
+    "node",
+    "/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/node_modules/typescript/bin/tsc",
+    "--strict",
+    "--skipLibCheck",
+    "--target",
+    "ES2023",
+    "--module",
+    "NodeNext",
+    "--moduleResolution",
+    "NodeNext",
+    "--noResolve",
+    "--noEmitOnError",
+    "--outDir",
+    "/private/tmp/serika-v2-round3-browser-evidence/compiled",
+    "packages/assistant/src/modules/browser-cli-instructions.ts"
+  ],
+  "home": "/private/tmp/serika-v2-round3-browser-evidence/H",
+  "exitCode": 1,
+  "signal": null,
+  "outputSha256": "5b766b55df5bc15c215149742c8fe88d72a584cb45f5422c7edca1594b6d0cb5"
+}

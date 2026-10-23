@@ -1,0 +1,13 @@
+# Round 3 tasks
+- [x] Read pstack principles/playbook, Karpathy, repository/module constraints and scoped main behavior; user-approved round2 is f638f46.
+- [x] How: trace Computer config/driver/IPC + terminal permission/identity + CLI instructions.
+- [x] Architect: data shapes for fixed-target Herdr actions and Computer setup/recovery; compare single action-dependent permission vs split read/write tools.
+- [x] Blocking first: clean v2 baseline, frozen SHA and immutable89 b0 rows saved before independent work.
+- [x] Independent workstreams: Computer and browser instructions isolated in temporary worktrees; root owns Herdr permissions, target backend and integration.
+- [x] Shared state: root alone integrates experiment branch; shared config remains existing lock/CAS owner.
+- [x] Smallest safe decomposition: scoped modules reuse existing permission, driver and CLI ports; no new behavior loop.
+- [x] Review actual delegated diffs; migrate callers/delete replaced paths; offline fake driver/Herdr/browser/TG tests with explicit temporary --home.
+- [x] Commit clean source, round3 audit and frozen unified verification exit0. Source 4f0d083; audit 90250e13-93d4-4cbf-8cab-09188794bb7d.
+- [ ] Five-section report + product/test counts + actual command exit/hash and deviations; evidence token scan.
+- [ ] Commit/push only experiment branch; remote equality; stop for review, no daily cutover.
+- [ ] Opening PR skipped: user/repo request branch checkpoints only; no PR.

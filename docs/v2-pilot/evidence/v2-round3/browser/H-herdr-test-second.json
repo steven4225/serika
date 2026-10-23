@@ -1,0 +1,12 @@
+{
+  "runId": "47b56fc0-d342-4c62-8d4c-a513e5ba1f6a",
+  "command": [
+    "node",
+    "--test",
+    "packages/assistant/dist/herdr.test.js"
+  ],
+  "home": "/private/tmp/serika-v2-round3-browser-evidence/H-herdr-test-final",
+  "exitCode": 1,
+  "signal": null,
+  "outputSha256": "4d9fd960bca18885a1c2cb42b63393e13391c5d6c4011aa55137cdc5d69d7227"
+}

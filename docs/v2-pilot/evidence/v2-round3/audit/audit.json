@@ -1,0 +1,611 @@
+{
+  "runId": "90250e13-93d4-4cbf-8cab-09188794bb7d",
+  "generatedAt": "2026-10-23T14:53:29.137Z",
+  "baseline": "f638f46c4e012b13c790222cae694b8b3867fa18",
+  "sourceCommit": "4f0d083b37eb42e6c751e35cd1e7054de512a696",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "1807fd4ee0d7f09ad3469b8cda0d6291a699397cd81b8778f6a4f1ef66c137fe",
+  "platform": "darwin",
+  "commands": [
+    {
+      "command": [
+        "/bin/sh",
+        "-c",
+        "pnpm typecheck && pnpm build:runtime",
+        "--home",
+        "/private/tmp/serika-v2-round3-audit-H"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "log": "command-1.log",
+      "sha256": "a56cf86ce469f1cd57def4e5aa8d4f1b29166fa9684d78aae93e167298ef0595",
+      "counts": []
+    },
+    {
+      "command": [
+        "/bin/sh",
+        "-c",
+        "node --test packages/assistant/dist/herdr.test.js packages/assistant/dist/herdr-control.test.js packages/assistant/dist/modules/computer-module.test.js packages/assistant/dist/computer-controller.test.js packages/assistant/dist/terminal-control.test.js packages/assistant/dist/permission-boundary.test.js packages/assistant/dist/baseline-assembly.test.js packages/assistant/dist/execution-record-store.test.js packages/assistant/dist/context-compactor.test.js packages/assistant/dist/tui-module-config.test.js",
+        "--home",
+        "/private/tmp/serika-v2-round3-audit-H"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "log": "command-2.log",
+      "sha256": "e683bac15775f7c186a8d34e2bcebca9f55073d2e0138dec03a63d72cbcac446",
+      "counts": [
+        [
+          "tests",
+          110
+        ],
+        [
+          "pass",
+          110
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "command": [
+        "/bin/sh",
+        "-c",
+        "pnpm --filter @serika/desktop exec tsx --test src/main/computer-connection.test.ts src/renderer/src/computer-connection-setting.test.ts src/renderer/src/approval.test.ts src/main/telegram-gateway.test.ts src/main/herdr-target.test.ts src/main/module-settings.test.ts src/main/ipc-forwards.test.ts src/main/resident-transport.test.ts src/main/desktop-runtime.test.ts src/main/runtime-ownership.test.ts src/renderer/src/herdr-target-setting.test.ts src/renderer/src/conversation.test.ts",
+        "--home",
+        "/private/tmp/serika-v2-round3-audit-H"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "log": "command-3.log",
+      "sha256": "dcd73960b3c191abde12cf396775985ee1eff8fd1a1990ec86e7d5a959a0c883",
+      "counts": [
+        [
+          "tests",
+          159
+        ],
+        [
+          "pass",
+          159
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    }
+  ],
+  "frozen": {
+    "apps/desktop/scripts/electron-smoke.mjs": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+    "examples/eval/cm-step6-live.mjs": "6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546",
+    "packages/assistant/scripts/cm-step6-verify.mjs": "7fc93222da184d9f27cd9fc2601dde208e9a9690cc277b0c879d280d41840ffb",
+    "packages/assistant/scripts/seatbelt-s1-check.mjs": "af6f632dd35da6c3c527273ca614334714a4b7d679e1c98cce07183aad9f9d6a",
+    "packages/assistant/scripts/seatbelt-s1-audit.mjs": "4402c875108ce11ce926decb00cba5973632d8bb9d67e8e56edcbe130b02bfa4",
+    "apps/desktop/scripts/seatbelt-s1-electron.mjs": "ef5202c49d76aea439173c1553b8dcb402419982b4c09704ed554e5945437f1c",
+    "packages/assistant/src/permission-decisions.snapshot.ts": "08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace"
+  },
+  "realModelCalls": 0,
+  "telegramOutbound": 0,
+  "serviceRegistrations": 0,
+  "costUsd": 0,
+  "status": "passed",
+  "b0": {
+    "file": "packages/assistant/src/permission-boundary.snapshot.json",
+    "beforeSha256": "2011a3a03fdd0d2c9e757526d16866d0c40c52e616c0f5d9ea0efb0fcbbbdc2d",
+    "afterSha256": "5c21f345323678c3e7b76561270742a8e36b3fdafb01eb0aa2c8095a32597746",
+    "existingRows": 89,
+    "changedExistingKeys": [],
+    "addedKeys": [
+      "round3/desktop/herdr_pi_read/get",
+      "round3/desktop/herdr_pi_read/read",
+      "round3/desktop/herdr_pi_read/wait",
+      "round3/desktop/herdr_pi_control/prompt",
+      "round3/desktop/herdr_pi_control/input",
+      "round3/desktop/herdr_pi_control/stop",
+      "round3/desktop/computer_check/check",
+      "round3/desktop/computer_observe/observe",
+      "round3/desktop/computer_action/action",
+      "round3/desktop/terminal_exec/browser",
+      "round3/telegram/herdr_pi_read/get",
+      "round3/telegram/herdr_pi_read/read",
+      "round3/telegram/herdr_pi_read/wait",
+      "round3/telegram/herdr_pi_control/prompt",
+      "round3/telegram/herdr_pi_control/input",
+      "round3/telegram/herdr_pi_control/stop",
+      "round3/telegram/computer_check/check",
+      "round3/telegram/computer_observe/observe",
+      "round3/telegram/computer_action/action",
+      "round3/telegram/terminal_exec/browser"
+    ],
+    "rows": {
+      "round3/desktop/herdr_pi_read/get": {
+        "approvals": [],
+        "events": [],
+        "status": "completed"
+      },
+      "round3/desktop/herdr_pi_read/read": {
+        "approvals": [],
+        "events": [],
+        "status": "completed"
+      },
+      "round3/desktop/herdr_pi_read/wait": {
+        "approvals": [],
+        "events": [],
+        "status": "completed"
+      },
+      "round3/desktop/herdr_pi_control/prompt": {
+        "approvals": [
+          {
+            "tool": "herdr_pi_control",
+            "remember": null
+          },
+          {
+            "tool": "herdr_pi_control",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      },
+      "round3/desktop/herdr_pi_control/input": {
+        "approvals": [
+          {
+            "tool": "herdr_pi_control",
+            "remember": null
+          },
+          {
+            "tool": "herdr_pi_control",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      },
+      "round3/desktop/herdr_pi_control/stop": {
+        "approvals": [
+          {
+            "tool": "herdr_pi_control",
+            "remember": null
+          },
+          {
+            "tool": "herdr_pi_control",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      },
+      "round3/desktop/computer_check/check": {
+        "approvals": [
+          {
+            "tool": "computer_check",
+            "remember": null
+          },
+          {
+            "tool": "computer_check",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      },
+      "round3/desktop/computer_observe/observe": {
+        "approvals": [
+          {
+            "tool": "computer_observe",
+            "remember": null
+          },
+          {
+            "tool": "computer_observe",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      },
+      "round3/desktop/computer_action/action": {
+        "approvals": [
+          {
+            "tool": "computer_action",
+            "remember": null
+          },
+          {
+            "tool": "computer_action",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      },
+      "round3/desktop/terminal_exec/browser": {
+        "approvals": [
+          {
+            "tool": "terminal_exec",
+            "remember": null
+          },
+          {
+            "tool": "terminal_exec",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      },
+      "round3/telegram/herdr_pi_read/get": {
+        "approvals": [],
+        "events": [],
+        "status": "completed"
+      },
+      "round3/telegram/herdr_pi_read/read": {
+        "approvals": [],
+        "events": [],
+        "status": "completed"
+      },
+      "round3/telegram/herdr_pi_read/wait": {
+        "approvals": [],
+        "events": [],
+        "status": "completed"
+      },
+      "round3/telegram/herdr_pi_control/prompt": {
+        "approvals": [
+          {
+            "tool": "herdr_pi_control",
+            "remember": null
+          },
+          {
+            "tool": "herdr_pi_control",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      },
+      "round3/telegram/herdr_pi_control/input": {
+        "approvals": [
+          {
+            "tool": "herdr_pi_control",
+            "remember": null
+          },
+          {
+            "tool": "herdr_pi_control",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      },
+      "round3/telegram/herdr_pi_control/stop": {
+        "approvals": [
+          {
+            "tool": "herdr_pi_control",
+            "remember": null
+          },
+          {
+            "tool": "herdr_pi_control",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      },
+      "round3/telegram/computer_check/check": {
+        "approvals": [
+          {
+            "tool": "computer_check",
+            "remember": null
+          },
+          {
+            "tool": "computer_check",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      },
+      "round3/telegram/computer_observe/observe": {
+        "approvals": [
+          {
+            "tool": "computer_observe",
+            "remember": null
+          },
+          {
+            "tool": "computer_observe",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      },
+      "round3/telegram/computer_action/action": {
+        "approvals": [
+          {
+            "tool": "computer_action",
+            "remember": null
+          },
+          {
+            "tool": "computer_action",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      },
+      "round3/telegram/terminal_exec/browser": {
+        "approvals": [
+          {
+            "tool": "terminal_exec",
+            "remember": null
+          },
+          {
+            "tool": "terminal_exec",
+            "remember": null
+          }
+        ],
+        "events": [
+          "TOOL_DENIED",
+          "TOOL_DENIED"
+        ],
+        "status": "completed"
+      }
+    }
+  },
+  "sharedSeatbelt": {
+    "packages/assistant/src/modules/seatbelt-policy.ts": "62b259cba40fba3a458341ffc8c8d4f62841a69694c23e96c0d5ca6cae57b6a8",
+    "packages/assistant/src/modules/seatbelt-shell-runner.ts": "14163daa691c21324f3ef75cbd8159ceb28e814db74ddad4fe59e7a51c4ef57f",
+    "packages/assistant/src/modules/seatbelt-runtime.ts": "058a1a077ecef83929162a60a2d26a0c516e4c2d1afbc87dff4f8790ae28d62b"
+  },
+  "lineChanges": [
+    {
+      "path": "apps/desktop/src/main/computer-connection.test.ts",
+      "kind": "tests-verification",
+      "added": 92,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/main/computer-connection.ts",
+      "kind": "product",
+      "added": 74,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-runtime.ts",
+      "kind": "product",
+      "added": 11,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/main/herdr-target.ts",
+      "kind": "product",
+      "added": 7,
+      "removed": 60
+    },
+    {
+      "path": "apps/desktop/src/main/index.ts",
+      "kind": "product",
+      "added": 13,
+      "removed": 1
+    },
+    {
+      "path": "apps/desktop/src/main/module-settings.ts",
+      "kind": "product",
+      "added": 5,
+      "removed": 3
+    },
+    {
+      "path": "apps/desktop/src/main/resident-protocol.ts",
+      "kind": "product",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "apps/desktop/src/main/runtime-ownership.ts",
+      "kind": "product",
+      "added": 4,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/main/telegram-gateway.test.ts",
+      "kind": "tests-verification",
+      "added": 39,
+      "removed": 3
+    },
+    {
+      "path": "apps/desktop/src/main/telegram-gateway.ts",
+      "kind": "product",
+      "added": 8,
+      "removed": 4
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/approval.test.ts",
+      "kind": "tests-verification",
+      "added": 9,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/approval.tsx",
+      "kind": "product",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/capabilities.tsx",
+      "kind": "product",
+      "added": 3,
+      "removed": 1
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/computer-connection-setting.test.ts",
+      "kind": "tests-verification",
+      "added": 34,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/computer-connection-setting.tsx",
+      "kind": "product",
+      "added": 45,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/herdr-target-setting.test.ts",
+      "kind": "tests-verification",
+      "added": 5,
+      "removed": 3
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/herdr-target-setting.tsx",
+      "kind": "product",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/telegram-panel.tsx",
+      "kind": "product",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "apps/desktop/src/shared/ipc-forwards.ts",
+      "kind": "product",
+      "added": 4,
+      "removed": 0
+    },
+    {
+      "path": "apps/desktop/src/shared/ui-contract.ts",
+      "kind": "product",
+      "added": 10,
+      "removed": 2
+    },
+    {
+      "path": "packages/assistant/scripts/v2-round3-verify.mjs",
+      "kind": "tests-verification",
+      "added": 75,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/api.ts",
+      "kind": "product",
+      "added": 3,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/app.ts",
+      "kind": "product",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "packages/assistant/src/herdr-control.test.ts",
+      "kind": "tests-verification",
+      "added": 69,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/herdr.test.ts",
+      "kind": "tests-verification",
+      "added": 111,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/herdr.ts",
+      "kind": "product",
+      "added": 153,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/modules/browser-cli-instructions.ts",
+      "kind": "product",
+      "added": 15,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/modules/computer-module.test.ts",
+      "kind": "tests-verification",
+      "added": 12,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/modules/computer-module.ts",
+      "kind": "product",
+      "added": 18,
+      "removed": 3
+    },
+    {
+      "path": "packages/assistant/src/modules/terminal-module.ts",
+      "kind": "product",
+      "added": 29,
+      "removed": 25
+    },
+    {
+      "path": "packages/assistant/src/permission-boundary.snapshot.json",
+      "kind": "snapshot",
+      "added": 268,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/permission-boundary.test.ts",
+      "kind": "tests-verification",
+      "added": 45,
+      "removed": 0
+    },
+    {
+      "path": "packages/assistant/src/terminal-control.test.ts",
+      "kind": "tests-verification",
+      "added": 18,
+      "removed": 28
+    },
+    {
+      "path": "packages/assistant/src/tui-module-config.ts",
+      "kind": "product",
+      "added": 21,
+      "removed": 9
+    }
+  ]
+}

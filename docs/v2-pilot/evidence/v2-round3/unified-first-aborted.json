@@ -1,0 +1,6 @@
+{
+  "sourceCommit": "4ca32b562edb111d041285ee5284e5645454f1dd",
+  "reason": "Stopped during UTC tests to correct obsolete Herdr UI approval copy; never claimed passed",
+  "signal": "SIGTERM",
+  "ownedProcessCount": 14
+}

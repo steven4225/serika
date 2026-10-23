@@ -1,0 +1,62 @@
+✔ Herdr fixed actions verify the selected Pi identity, strip credentials and use only explicit argv (1006.497917ms)
+✔ Herdr rejects replacement, foreign directory, non-Pi and working prompt before reading or sending (643.235791ms)
+✖ Herdr sending failure is unknown once, with stderr suppressed and no automatic readback (386.177208ms)
+✖ Herdr cancellation before dispatch sends nothing; cancellation after input dispatch stays unknown (392.715542ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2508.265875
+
+✖ failing tests:
+
+test at packages/assistant/dist/herdr.test.js:79:1
+✖ Herdr sending failure is unknown once, with stderr suppressed and no automatic readback (386.177208ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(error instanceof Error && "code" in error && error.code === "TOOL_OUTCOME_UNKNOWN")
+  
+      at Object.<anonymous> (file:///private/tmp/serika-v2-round3-browser/packages/assistant/dist/herdr.test.js:84:20)
+      at expectedException (node:assert:547:17)
+      at expectsError (node:assert:672:21)
+      at strict.rejects (node:assert:738:3)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (file:///private/tmp/serika-v2-round3-browser/packages/assistant/dist/herdr.test.js:83:9)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at packages/assistant/dist/herdr.test.js:95:1
+✖ Herdr cancellation before dispatch sends nothing; cancellation after input dispatch stays unknown (392.715542ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  AgentError: Herdr input may have been dispatched. Stop and reconcile with the user before any further operation.
+      at async TestContext.<anonymous> (file:///private/tmp/serika-v2-round3-browser/packages/assistant/dist/herdr.test.js:108:9)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: AgentError: Herdr input may have been dispatched. Stop and reconcile with the user before any further operation.
+        at unknownEffect (file:///private/tmp/serika-v2-round3-browser/packages/assistant/dist/herdr.js:29:29)
+        at HerdrClient.execute (file:///private/tmp/serika-v2-round3-browser/packages/assistant/dist/herdr.js:175:23)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (file:///private/tmp/serika-v2-round3-browser/packages/assistant/dist/herdr.test.js:108:9)
+        at async Test.run (node:internal/test_runner/test:1389:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+      [cause]: undefined
+    },
+    operator: 'rejects',
+    diff: 'simple'
+  }

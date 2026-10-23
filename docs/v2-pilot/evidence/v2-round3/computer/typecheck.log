@@ -1,0 +1,11 @@
+$ tsc -b --pretty false && pnpm --filter @serika/desktop typecheck
+$ tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit
+src/main/computer-connection.ts(5,10): error TS2305: Module '"@serika/assistant"' has no exported member 'computerConfigSchema'.
+src/main/computer-connection.ts(5,32): error TS2305: Module '"@serika/assistant"' has no exported member 'discoverComputerApps'.
+src/main/index.ts(1,10): error TS2305: Module '"@serika/assistant"' has no exported member 'ComputerDriverUnavailableError'.
+src/main/index.ts(200,74): error TS18046: 'error' is of type 'unknown'.
+src/main/module-settings.ts(5,10): error TS2305: Module '"@serika/assistant"' has no exported member 'computerConfigSchema'.
+/private/tmp/serika-v2-round3-computer/apps/desktop:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @serika/desktop@0.1.0 typecheck: `tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit`
+Exit status 1
+[ELIFECYCLE] Command failed with exit code 1.

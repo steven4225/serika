@@ -1,0 +1,6 @@
+decision	reason	evidence	result
+read/control tools	Existing permission facts decide approval per tool, no new host name switch	module-host.ts defaults approval/remember	herdr_pi_read auto; herdr_pi_control never remembered
+shared HerdrClient	One fixed argv/env/identity boundary for settings and tool	herdr-target.ts old metadata discovery	Migrate desktop metadata callers; delete old private parser/process API
+browser CLI instructions	main #175 is installed CLI discovery guidance; terminal host already has each-call gate	main local-terminal.ts behavior	One instruction export; no second browser tool executor
+Computer connection service	Config lock/CAS/reload already owned by desktop	ComputerConnection + updateDesktopConfig + Runtime replace	Explicit check/save/disable and cold-start choice
+immutable b0	User freezes 89 existing rows	f638f46 snapshot	Append20 permission rows only

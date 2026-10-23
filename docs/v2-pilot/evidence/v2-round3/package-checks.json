@@ -1,0 +1,46 @@
+{
+  "credentialPatternFiles": [],
+  "scan": "known credential formats only",
+  "preservedWhitespaceLines": [
+    {
+      "file": "b0-capture.log",
+      "line": 18
+    },
+    {
+      "file": "b0-capture.log",
+      "line": 299
+    },
+    {
+      "file": "browser/H-herdr-test-second.log",
+      "line": 19
+    },
+    {
+      "file": "browser/H-herdr-test-second.log",
+      "line": 21
+    },
+    {
+      "file": "browser/H-herdr-test-second.log",
+      "line": 41
+    },
+    {
+      "file": "browser/H-herdr-test-second.log",
+      "line": 43
+    },
+    {
+      "file": "browser/H-herdr-test-final.log",
+      "line": 19
+    },
+    {
+      "file": "browser/H-herdr-test-final.log",
+      "line": 21
+    },
+    {
+      "file": "browser/H-herdr-test-final.log",
+      "line": 41
+    },
+    {
+      "file": "browser/H-herdr-test-final.log",
+      "line": 43
+    }
+  ]
+}

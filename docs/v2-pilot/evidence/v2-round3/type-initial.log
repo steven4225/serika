@@ -1,0 +1,5 @@
+$ tsc -b --pretty false && pnpm --filter @serika/desktop typecheck
+packages/assistant/src/api.ts(92,101): error TS2307: Cannot find module './herdr.js' or its corresponding type declarations.
+packages/assistant/src/modules/terminal-module.ts(2,84): error TS2307: Cannot find module '../herdr.js' or its corresponding type declarations.
+packages/assistant/src/tui-module-config.ts(13,53): error TS2307: Cannot find module './herdr.js' or its corresponding type declarations.
+[ELIFECYCLE] Command failed with exit code 2.

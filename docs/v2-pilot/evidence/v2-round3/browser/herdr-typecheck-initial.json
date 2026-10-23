@@ -1,0 +1,23 @@
+{
+  "runId": "6b74812d-782d-4c9d-ad01-1c24e43553b6",
+  "command": [
+    "node",
+    "/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/node_modules/typescript/bin/tsc",
+    "--ignoreConfig",
+    "--strict",
+    "--skipLibCheck",
+    "--target",
+    "ES2023",
+    "--module",
+    "NodeNext",
+    "--moduleResolution",
+    "NodeNext",
+    "--noEmit",
+    "packages/assistant/src/herdr.ts",
+    "packages/assistant/src/herdr.test.ts"
+  ],
+  "home": "/private/tmp/serika-v2-round3-browser-evidence/H-typecheck",
+  "exitCode": 1,
+  "signal": null,
+  "outputSha256": "1903f0902ca91fc7e80f65848c732584779ee17935382acf80d7e59f6da3e07f"
+}

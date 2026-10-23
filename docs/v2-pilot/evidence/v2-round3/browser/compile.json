@@ -1,0 +1,14 @@
+{
+  "runId": "ef8a8665-7f45-40e1-b34b-d67087b30449",
+  "command": [
+    "node",
+    "--import",
+    "/Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/apps/desktop/node_modules/tsx/dist/loader.mjs",
+    "--test",
+    "packages/assistant/src/herdr.test.ts"
+  ],
+  "home": "/private/tmp/serika-v2-round3-browser-evidence/H-herdr",
+  "exitCode": 1,
+  "signal": null,
+  "outputSha256": "46729af67eeb0bfef56c92da3004d13c2ded2d73c9a3551140157cafda1ff091"
+}

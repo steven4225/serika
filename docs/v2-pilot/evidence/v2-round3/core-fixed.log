@@ -1,0 +1,39 @@
+✔ desktop structured Herdr calls bind the fixed target and only sending asks each time (4042.525208ms)
+✔ telegram structured Herdr calls bind the fixed target and only sending asks each time (3847.421792ms)
+✔ Herdr fixed actions verify the selected Pi identity, strip credentials and use only explicit argv (1145.079625ms)
+✔ Herdr rejects replacement, foreign directory, non-Pi and working prompt before reading or sending (821.5ms)
+✔ Herdr sending failure is unknown once, with stderr suppressed and no automatic readback (420.513583ms)
+✔ Herdr cancellation before dispatch sends nothing; cancellation after input dispatch stays unknown (479.004875ms)
+▶ allowed local application computer tools
+  ✔ explicit health check probes only connection and filters unrelated app metadata; never reads UI or claims OS permission (3.871667ms)
+  ✔ health failures stay unverified, do not leak driver text or guess missing OS permission (0.314459ms)
+  ✔ excludes app menus and their tokens from the exact-window observation (0.958833ms)
+  ✔ fails closed on missing/ambiguous roots and over-limit exact window subtrees (1.449833ms)
+  ✔ rejects duplicate indices and excludes orphaned or cyclic nodes (0.438334ms)
+  ✔ stops the existing AgentLoop on an unknown action without another model call or replay (15.85325ms)
+  ✔ requires explicit driver and exact app whitelist (0.438917ms)
+  ✔ returns only the allowed app windows and never dispatches for a foreign app (0.250084ms)
+  ✔ observes then acts with a target-scoped token, consumes it and requires re-observation (0.285667ms)
+  ✔ rejects expired snapshots, changed ownership and tokens from replaced observations (0.312542ms)
+  ✔ rejects degraded, mismatched, oversized and truncated snapshots (0.818584ms)
+  ✔ inserts bounded text only into the observed element and disables screenshots (0.116625ms)
+  ✔ lets transport/unknown effects escape, does not repeat dispatch, and disposes tokens (0.541208ms)
+  ✔ allows a fresh read after a dispatched but not business-verified click without repeating the action (0.109042ms)
+  ✔ declares never-remembered calls, the connectivity-check card and its instructions (1.16925ms)
+✔ allowed local application computer tools (27.659709ms)
+▶ bounded Cua CLI transport
+  ✔ uses stdin JSON, not shell/argv text, and strips secrets and bypass flags (195.306792ms)
+  ✔ fails closed on invalid JSON, excessive output and cancelled child processes (218.148875ms)
+✔ bounded Cua CLI transport (413.694667ms)
+✔ returns clipped AX text as bounded read-only diagnostics with no action authority (0.369625ms)
+✔ desktop browser CLI calls require individual approvals and execute only the confirmed offline fixture (2970.431792ms)
+✔ telegram browser CLI calls require individual approvals and execute only the confirmed offline fixture (2857.073ms)
+✔ terminal target/config boundaries reject writable config, foreign directory and Docker coexistence (2.414917ms)
+ℹ tests 27
+ℹ suites 2
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8062.929167

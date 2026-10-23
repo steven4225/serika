@@ -1,0 +1,1294 @@
+{
+  "plain/commands": [
+    "authorize",
+    "authorize-shell",
+    "capabilities",
+    "history",
+    "home",
+    "modules",
+    "permissions",
+    "recipes",
+    "task",
+    "workspace"
+  ],
+  "plain/tools": [
+    "capability_status",
+    "edit_file",
+    "history_read",
+    "history_search",
+    "list_directory",
+    "memory_read",
+    "memory_write",
+    "read_file",
+    "recipe_list",
+    "recipe_manage",
+    "recipe_run",
+    "recipe_save",
+    "search_files",
+    "shell_exec",
+    "task_ack",
+    "task_cancel",
+    "task_create",
+    "task_get",
+    "task_list",
+    "task_repeat_cancel",
+    "task_repeat_create",
+    "task_repeat_get",
+    "task_repeat_list",
+    "task_repeat_pause",
+    "task_repeat_resume",
+    "task_reschedule",
+    "write_file"
+  ],
+  "plain/capability_status": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": null,
+        "code": null
+      }
+    ]
+  },
+  "plain/memory_read": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "plain/memory_write": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "plain/saved-memory": [
+    {
+      "text": "我喜欢乌龙茶",
+      "category": "preference"
+    }
+  ],
+  "plain/task_list": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "plain/read_file": {
+    "approvals": [
+      {
+        "tool": "read_file",
+        "preview": "\nTool: read_file\nPath: \"note.txt\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ",
+        "remember": "本次对话内不再询问 read_file"
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "plain/write_file": {
+    "approvals": [
+      {
+        "tool": "write_file",
+        "preview": "\nTool: write_file\nPath: \"created.txt\"\nContent: \"allowed\"\nAllow this call? [y/n] ",
+        "remember": "本次对话内允许 write_file 改动 工作区根目录 下的文件（不含子目录）"
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "plain/shell_exec": {
+    "approvals": [
+      {
+        "tool": "shell_exec",
+        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+        "remember": null
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "desktop/commands": [
+    "authorize",
+    "authorize-shell",
+    "capabilities",
+    "history",
+    "home",
+    "modules",
+    "permissions",
+    "recipes",
+    "task",
+    "workspace"
+  ],
+  "desktop/tools": [
+    "capability_status",
+    "edit_file",
+    "history_read",
+    "history_search",
+    "list_directory",
+    "memory_read",
+    "read_file",
+    "recipe_list",
+    "recipe_manage",
+    "recipe_run",
+    "recipe_save",
+    "search_files",
+    "shell_exec",
+    "task_ack",
+    "task_cancel",
+    "task_create",
+    "task_get",
+    "task_list",
+    "task_repeat_cancel",
+    "task_repeat_create",
+    "task_repeat_get",
+    "task_repeat_list",
+    "task_repeat_pause",
+    "task_repeat_resume",
+    "task_reschedule",
+    "write_file"
+  ],
+  "desktop/capability_status": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": null,
+        "code": null
+      }
+    ]
+  },
+  "desktop/memory_read": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "desktop/memory_write": {
+    "approvals": [],
+    "status": "failed",
+    "events": []
+  },
+  "desktop/saved-memory": [],
+  "desktop/task_list": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "desktop/read_file": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "desktop/write_file": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "desktop/shell_exec": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "telegram-desktop-only/commands": [
+    "authorize",
+    "authorize-shell",
+    "capabilities",
+    "history",
+    "home",
+    "modules",
+    "permissions",
+    "recipes",
+    "task",
+    "workspace"
+  ],
+  "telegram-desktop-only/tools": [
+    "capability_status",
+    "edit_file",
+    "history_read",
+    "history_search",
+    "list_directory",
+    "memory_read",
+    "memory_write",
+    "read_file",
+    "recipe_list",
+    "recipe_manage",
+    "recipe_run",
+    "recipe_save",
+    "search_files",
+    "shell_exec",
+    "task_ack",
+    "task_cancel",
+    "task_create",
+    "task_get",
+    "task_list",
+    "task_repeat_cancel",
+    "task_repeat_create",
+    "task_repeat_get",
+    "task_repeat_list",
+    "task_repeat_pause",
+    "task_repeat_resume",
+    "task_reschedule",
+    "write_file"
+  ],
+  "telegram-desktop-only/capability_status": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": null,
+        "code": null
+      }
+    ]
+  },
+  "telegram-desktop-only/memory_read": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "telegram-desktop-only/memory_write": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "telegram-desktop-only/saved-memory": [
+    {
+      "text": "我喜欢乌龙茶",
+      "category": "preference"
+    }
+  ],
+  "telegram-desktop-only/task_list": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "telegram-desktop-only/read_file": {
+    "approvals": [
+      {
+        "tool": "read_file",
+        "preview": "\nTool: read_file\nPath: \"note.txt\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ",
+        "remember": null
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "telegram-desktop-only/write_file": {
+    "approvals": [
+      {
+        "tool": "write_file",
+        "preview": "\nTool: write_file\nPath: \"created.txt\"\nContent: \"allowed\"\nAllow this call? [y/n] ",
+        "remember": null
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "telegram-desktop-only/shell_exec": {
+    "approvals": [
+      {
+        "tool": "shell_exec",
+        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+        "remember": null
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "telegram/commands": [
+    "authorize",
+    "authorize-shell",
+    "capabilities",
+    "history",
+    "home",
+    "modules",
+    "permissions",
+    "recipes",
+    "task",
+    "workspace"
+  ],
+  "telegram/tools": [
+    "capability_status",
+    "edit_file",
+    "history_read",
+    "history_search",
+    "list_directory",
+    "memory_read",
+    "read_file",
+    "recipe_list",
+    "recipe_manage",
+    "recipe_run",
+    "recipe_save",
+    "search_files",
+    "shell_exec",
+    "task_ack",
+    "task_cancel",
+    "task_create",
+    "task_get",
+    "task_list",
+    "task_repeat_cancel",
+    "task_repeat_create",
+    "task_repeat_get",
+    "task_repeat_list",
+    "task_repeat_pause",
+    "task_repeat_resume",
+    "task_reschedule",
+    "write_file"
+  ],
+  "telegram/capability_status": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": null,
+        "code": null
+      }
+    ]
+  },
+  "telegram/memory_read": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "telegram/memory_write": {
+    "approvals": [],
+    "status": "failed",
+    "events": []
+  },
+  "telegram/saved-memory": [],
+  "telegram/task_list": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "telegram/read_file": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "telegram/write_file": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "telegram/shell_exec": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "foreign-grant/commands": [
+    "authorize",
+    "authorize-shell",
+    "capabilities",
+    "history",
+    "home",
+    "modules",
+    "permissions",
+    "recipes",
+    "task",
+    "workspace"
+  ],
+  "foreign-grant/tools": [
+    "capability_status",
+    "edit_file",
+    "history_read",
+    "history_search",
+    "list_directory",
+    "memory_read",
+    "memory_write",
+    "read_file",
+    "recipe_list",
+    "recipe_manage",
+    "recipe_run",
+    "recipe_save",
+    "search_files",
+    "shell_exec",
+    "task_ack",
+    "task_cancel",
+    "task_create",
+    "task_get",
+    "task_list",
+    "task_repeat_cancel",
+    "task_repeat_create",
+    "task_repeat_get",
+    "task_repeat_list",
+    "task_repeat_pause",
+    "task_repeat_resume",
+    "task_reschedule",
+    "write_file"
+  ],
+  "foreign-grant/capability_status": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": null,
+        "code": null
+      }
+    ]
+  },
+  "foreign-grant/memory_read": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "foreign-grant/memory_write": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "foreign-grant/saved-memory": [
+    {
+      "text": "我喜欢乌龙茶",
+      "category": "preference"
+    }
+  ],
+  "foreign-grant/task_list": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "foreign-grant/read_file": {
+    "approvals": [
+      {
+        "tool": "read_file",
+        "preview": "\nTool: read_file\nPath: \"note.txt\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ",
+        "remember": "本次对话内不再询问 read_file"
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "foreign-grant/write_file": {
+    "approvals": [
+      {
+        "tool": "write_file",
+        "preview": "\nTool: write_file\nPath: \"created.txt\"\nContent: \"allowed\"\nAllow this call? [y/n] ",
+        "remember": "本次对话内允许 write_file 改动 工作区根目录 下的文件（不含子目录）"
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "foreign-grant/shell_exec": {
+    "approvals": [
+      {
+        "tool": "shell_exec",
+        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+        "remember": null
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "other-thread/commands": [
+    "authorize",
+    "authorize-shell",
+    "capabilities",
+    "history",
+    "home",
+    "modules",
+    "permissions",
+    "recipes",
+    "task",
+    "workspace"
+  ],
+  "other-thread/tools": [
+    "capability_status",
+    "edit_file",
+    "history_read",
+    "history_search",
+    "list_directory",
+    "memory_read",
+    "memory_write",
+    "read_file",
+    "recipe_list",
+    "recipe_manage",
+    "recipe_run",
+    "recipe_save",
+    "search_files",
+    "shell_exec",
+    "task_ack",
+    "task_cancel",
+    "task_create",
+    "task_get",
+    "task_list",
+    "task_repeat_cancel",
+    "task_repeat_create",
+    "task_repeat_get",
+    "task_repeat_list",
+    "task_repeat_pause",
+    "task_repeat_resume",
+    "task_reschedule",
+    "write_file"
+  ],
+  "other-thread/capability_status": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": null,
+        "code": null
+      }
+    ]
+  },
+  "other-thread/memory_read": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "other-thread/memory_write": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "other-thread/saved-memory": [
+    {
+      "text": "我喜欢乌龙茶",
+      "category": "preference"
+    }
+  ],
+  "other-thread/task_list": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "other-thread/read_file": {
+    "approvals": [
+      {
+        "tool": "read_file",
+        "preview": "\nTool: read_file\nPath: \"note.txt\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ",
+        "remember": null
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "other-thread/write_file": {
+    "approvals": [
+      {
+        "tool": "write_file",
+        "preview": "\nTool: write_file\nPath: \"created.txt\"\nContent: \"allowed\"\nAllow this call? [y/n] ",
+        "remember": null
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "other-thread/shell_exec": {
+    "approvals": [
+      {
+        "tool": "shell_exec",
+        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+        "remember": null
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "tui/commands": [
+    "authorize",
+    "authorize-shell",
+    "capabilities",
+    "history",
+    "home",
+    "modules",
+    "permissions",
+    "recipes",
+    "task",
+    "workspace"
+  ],
+  "tui/tools": [
+    "capability_status",
+    "edit_file",
+    "history_read",
+    "history_search",
+    "list_directory",
+    "memory_read",
+    "memory_write",
+    "read_file",
+    "recipe_list",
+    "recipe_manage",
+    "recipe_run",
+    "recipe_save",
+    "search_files",
+    "shell_exec",
+    "task_ack",
+    "task_cancel",
+    "task_create",
+    "task_get",
+    "task_list",
+    "task_repeat_cancel",
+    "task_repeat_create",
+    "task_repeat_get",
+    "task_repeat_list",
+    "task_repeat_pause",
+    "task_repeat_resume",
+    "task_reschedule",
+    "write_file"
+  ],
+  "tui/capability_status": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": null,
+        "code": null
+      }
+    ]
+  },
+  "tui/memory_read": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "tui/memory_write": {
+    "approvals": [],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.completed",
+        "ok": true,
+        "code": null
+      }
+    ]
+  },
+  "tui/saved-memory": [
+    {
+      "text": "我喜欢乌龙茶",
+      "category": "preference"
+    }
+  ],
+  "tui/task_list": {
+    "approvals": [
+      {
+        "tool": "task_list",
+        "preview": "\nTool: task_list\nInput: {}\nAllow this call? [y/n] ",
+        "remember": "本次对话内不再询问 task_list"
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "tui/read_file": {
+    "approvals": [
+      {
+        "tool": "read_file",
+        "preview": "\nTool: read_file\nPath: \"note.txt\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ",
+        "remember": "本次对话内不再询问 read_file"
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "tui/write_file": {
+    "approvals": [
+      {
+        "tool": "write_file",
+        "preview": "\nTool: write_file\nPath: \"created.txt\"\nContent: \"allowed\"\nAllow this call? [y/n] ",
+        "remember": "本次对话内允许 write_file 改动 工作区根目录 下的文件（不含子目录）"
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "tui/shell_exec": {
+    "approvals": [
+      {
+        "tool": "shell_exec",
+        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+        "remember": null
+      }
+    ],
+    "status": "completed",
+    "events": [
+      {
+        "type": "tool.call.failed",
+        "ok": null,
+        "code": "TOOL_DENIED"
+      }
+    ]
+  },
+  "terminal/desktop/terminal_exec": {
+    "approvals": [
+      {
+        "tool": "terminal_exec",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+        "remember": null
+      },
+      {
+        "tool": "terminal_exec",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "terminal/telegram/terminal_exec": {
+    "approvals": [
+      {
+        "tool": "terminal_exec",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+        "remember": null
+      },
+      {
+        "tool": "terminal_exec",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/desktop/herdr_pi_read/get": {
+    "approvals": [],
+    "events": [],
+    "status": "completed"
+  },
+  "round3/desktop/herdr_pi_read/read": {
+    "approvals": [],
+    "events": [],
+    "status": "completed"
+  },
+  "round3/desktop/herdr_pi_read/wait": {
+    "approvals": [],
+    "events": [],
+    "status": "completed"
+  },
+  "round3/desktop/herdr_pi_control/prompt": {
+    "approvals": [
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      },
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/desktop/herdr_pi_control/input": {
+    "approvals": [
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      },
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/desktop/herdr_pi_control/stop": {
+    "approvals": [
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      },
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/desktop/computer_check/check": {
+    "approvals": [
+      {
+        "tool": "computer_check",
+        "remember": null
+      },
+      {
+        "tool": "computer_check",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/desktop/computer_observe/observe": {
+    "approvals": [
+      {
+        "tool": "computer_observe",
+        "remember": null
+      },
+      {
+        "tool": "computer_observe",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/desktop/computer_action/action": {
+    "approvals": [
+      {
+        "tool": "computer_action",
+        "remember": null
+      },
+      {
+        "tool": "computer_action",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/desktop/terminal_exec/browser": {
+    "approvals": [
+      {
+        "tool": "terminal_exec",
+        "remember": null
+      },
+      {
+        "tool": "terminal_exec",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/telegram/herdr_pi_read/get": {
+    "approvals": [],
+    "events": [],
+    "status": "completed"
+  },
+  "round3/telegram/herdr_pi_read/read": {
+    "approvals": [],
+    "events": [],
+    "status": "completed"
+  },
+  "round3/telegram/herdr_pi_read/wait": {
+    "approvals": [],
+    "events": [],
+    "status": "completed"
+  },
+  "round3/telegram/herdr_pi_control/prompt": {
+    "approvals": [
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      },
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/telegram/herdr_pi_control/input": {
+    "approvals": [
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      },
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/telegram/herdr_pi_control/stop": {
+    "approvals": [
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      },
+      {
+        "tool": "herdr_pi_control",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/telegram/computer_check/check": {
+    "approvals": [
+      {
+        "tool": "computer_check",
+        "remember": null
+      },
+      {
+        "tool": "computer_check",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/telegram/computer_observe/observe": {
+    "approvals": [
+      {
+        "tool": "computer_observe",
+        "remember": null
+      },
+      {
+        "tool": "computer_observe",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/telegram/computer_action/action": {
+    "approvals": [
+      {
+        "tool": "computer_action",
+        "remember": null
+      },
+      {
+        "tool": "computer_action",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "round3/telegram/terminal_exec/browser": {
+    "approvals": [
+      {
+        "tool": "terminal_exec",
+        "remember": null
+      },
+      {
+        "tool": "terminal_exec",
+        "remember": null
+      }
+    ],
+    "events": [
+      "TOOL_DENIED",
+      "TOOL_DENIED"
+    ],
+    "status": "completed"
+  },
+  "path/valid": "ok",
+  "path/absolute": "INVALID_PATH",
+  "path/traversal": "PATH_OUTSIDE_WORKSPACE",
+  "path/symlink": "SYMLINK_NOT_ALLOWED",
+  "config/outside/implicit": {
+    "fileRules": [],
+    "docker": null
+  },
+  "config/outside/files": {
+    "fileRules": [
+      {
+        "tools": [
+          "read_file"
+        ],
+        "allowedPaths": [
+          ""
+        ]
+      }
+    ],
+    "docker": null
+  },
+  "config/outside/autonomy": {
+    "fileRules": [],
+    "docker": null
+  },
+  "config/outside/docker": {
+    "fileRules": [],
+    "docker": {
+      "backend": "docker",
+      "image": "img",
+      "readablePaths": [
+        "note.txt"
+      ],
+      "writablePaths": [
+        ""
+      ]
+    }
+  },
+  "config/inside/implicit": {
+    "fileRules": [],
+    "docker": null
+  },
+  "config/inside/files": "TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace",
+  "config/inside/autonomy": "TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace",
+  "config/inside/docker": "TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace",
+  "worker": []
+}

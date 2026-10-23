@@ -1,0 +1,12 @@
+✔ Herdr fixed actions verify the selected Pi identity, strip credentials and use only explicit argv (1039.765583ms)
+✔ Herdr rejects replacement, foreign directory, non-Pi and working prompt before reading or sending (807.819167ms)
+✔ Herdr sending failure is unknown once, with stderr suppressed and no automatic readback (405.274ms)
+✔ Herdr cancellation before dispatch sends nothing; cancellation after input dispatch stays unknown (405.300667ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2737.441625

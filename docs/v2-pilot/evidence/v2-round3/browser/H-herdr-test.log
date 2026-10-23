@@ -1,0 +1,63 @@
+✖ Herdr fixed actions verify the selected Pi identity, strip credentials and use only explicit argv (574.975917ms)
+✖ Herdr rejects replacement, foreign directory, non-Pi and working prompt before reading or sending (388.39875ms)
+✖ Herdr sending failure is unknown once, with stderr suppressed and no automatic readback (341.503625ms)
+✖ Herdr cancellation before dispatch sends nothing; cancellation after input dispatch stays unknown (340.8485ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7048.055125
+
+✖ failing tests:
+
+test at packages/assistant/dist/herdr.test.js:36:1
+✖ Herdr fixed actions verify the selected Pi identity, strip credentials and use only explicit argv (574.975917ms)
+  Error: Herdr command unavailable or returned an unconfirmed result
+      at file:///private/tmp/serika-v2-round3-browser/packages/assistant/dist/herdr.js:82:28
+      at ChildProcess.exithandler (node:child_process:424:5)
+      at ChildProcess.emit (node:events:509:20)
+      at maybeClose (node:internal/child_process:1125:16)
+      at ChildProcess._handle.onexit (node:internal/child_process:305:5)
+
+test at packages/assistant/dist/herdr.test.js:62:1
+✖ Herdr rejects replacement, foreign directory, non-Pi and working prompt before reading or sending (388.39875ms)
+  Error: ENOENT: no such file or directory, open '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-herdr-client-3zWj9e/calls.jsonl'
+      at async open (node:internal/fs/promises:1360:25)
+      at async readFile (node:internal/fs/promises:2149:14)
+      at async Object.calls (file:///private/tmp/serika-v2-round3-browser/packages/assistant/dist/herdr.test.js:33:32)
+      at async TestContext.<anonymous> (file:///private/tmp/serika-v2-round3-browser/packages/assistant/dist/herdr.test.js:71:21)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-herdr-client-3zWj9e/calls.jsonl'
+  }
+
+test at packages/assistant/dist/herdr.test.js:79:1
+✖ Herdr sending failure is unknown once, with stderr suppressed and no automatic readback (341.503625ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (file:///private/tmp/serika-v2-round3-browser/packages/assistant/dist/herdr.test.js:83:9)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at packages/assistant/dist/herdr.test.js:95:1
+✖ Herdr cancellation before dispatch sends nothing; cancellation after input dispatch stays unknown (340.8485ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

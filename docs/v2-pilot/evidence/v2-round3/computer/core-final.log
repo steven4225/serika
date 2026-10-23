@@ -1,0 +1,62 @@
+▶ allowed local application computer tools
+  ✔ explicit health check probes only connection and filters unrelated app metadata; never reads UI or claims OS permission (3.633292ms)
+  ✔ health failures stay unverified, do not leak driver text or guess missing OS permission (0.397167ms)
+  ✔ excludes app menus and their tokens from the exact-window observation (1.433625ms)
+  ✔ fails closed on missing/ambiguous roots and over-limit exact window subtrees (1.315417ms)
+  ✔ rejects duplicate indices and excludes orphaned or cyclic nodes (0.438708ms)
+  ✔ stops the existing AgentLoop on an unknown action without another model call or replay (13.968166ms)
+  ✔ requires explicit driver and exact app whitelist (0.911375ms)
+  ✔ returns only the allowed app windows and never dispatches for a foreign app (0.301458ms)
+  ✔ observes then acts with a target-scoped token, consumes it and requires re-observation (0.307334ms)
+  ✔ rejects expired snapshots, changed ownership and tokens from replaced observations (0.322041ms)
+  ✔ rejects degraded, mismatched, oversized and truncated snapshots (0.940417ms)
+  ✔ inserts bounded text only into the observed element and disables screenshots (0.146ms)
+  ✔ lets transport/unknown effects escape, does not repeat dispatch, and disposes tokens (0.723291ms)
+  ✔ allows a fresh read after a dispatched but not business-verified click without repeating the action (1.24475ms)
+  ✔ declares never-remembered calls, the connectivity-check card and its instructions (0.176458ms)
+✔ allowed local application computer tools (27.375916ms)
+▶ bounded Cua CLI transport
+  ✔ uses stdin JSON, not shell/argv text, and strips secrets and bypass flags (92.461875ms)
+  ✔ fails closed on invalid JSON, excessive output and cancelled child processes (200.542459ms)
+✔ bounded Cua CLI transport (293.1525ms)
+✔ returns clipped AX text as bounded read-only diagnostics with no action authority (0.386333ms)
+▶ resolveTuiModuleConfig
+  ✔ rejects legacy configuration fields and requires the offline importer (11.354ms)
+  ✔ keeps local Computer Use opt-in with an external config and trusted executable (10.592584ms)
+  ✔ loads and normalizes a Docker shell sandbox configuration (3.619666ms)
+  ✔ requires a relative existing directory workspace for a shell sandbox (4.405792ms)
+  ✔ rejects missing, symlinked, and non-directory writable sandbox paths (1.634458ms)
+  ✔ requires shell.sandbox to be enabled and keeps its config outside the workspace (0.89525ms)
+  ✔ loads persistent file authorization rules with the configured workspace (1.615208ms)
+  ✔ rejects invalid persistent authorization tools and paths (1.386333ms)
+  ✔ rejects persistent authorization when the config file is inside the workspace (1.035375ms)
+  ✔ rejects an outside config symlink that resolves into the workspace (0.941959ms)
+  ✔ uses strict config modules with omitted modules disabled (9.449416ms)
+  ✔ enables the public web reader without requiring a workspace (4.617292ms)
+  ✔ validates an explicitly enabled context-compaction budget (1.479542ms)
+  ✔ reads explicit context modes without changing their input budgets or independent summary chunks (1.180291ms)
+  ✔ rejects invalid context mode thresholds, summary chunks and input budgets beyond the provider window (1.948209ms)
+  ✔ rejects an enabled context budget with no room for recent history (0.590625ms)
+  ✔ keeps web search opt-in inside the web module (0.85025ms)
+  ✔ keeps feed reading opt-in and requires the web module (1.122ms)
+  ✔ resolves workspace relative to the config file directory (0.909584ms)
+  ✔ supports memory auto consolidation only when memory is enabled (1.179959ms)
+  ✔ requires workspace for workspace modules but allows Todoist alone (0.934416ms)
+  ✔ keeps checkpoint independently disabled by default and requires authorizedDirectory when enabled (1.027584ms)
+  ✔ rejects unknown keys, modules, versions, and bare module booleans (1.629875ms)
+  ✔ enables shell only with an explicit config and requires workspace (0.694917ms)
+  ✔ rejects malformed JSON and does not fall back to legacy settings (0.411708ms)
+  ✔ preserves the legacy CLI behavior and only uses its passed timezone (0.989875ms)
+  ✔ rejects config mode combined with module selection arguments (0.537792ms)
+  ✔ keeps the primary run at 8 steps unless config sets a bounded maxSteps (1.18775ms)
+  ✔ bounds the primary Run timeout independently of maxSteps (1.630125ms)
+  ✔ bounds the Shell command timeout without changing the Run budget (1.281167ms)
+✔ resolveTuiModuleConfig (72.589ms)
+ℹ tests 48
+ℹ suites 3
+ℹ pass 48
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 423.878833

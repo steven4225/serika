@@ -1,0 +1,8 @@
+{
+  "exitCode": 1,
+  "reason": "credential scanner regex matched sk- inside tracked task- file paths",
+  "matchedLocations": 10,
+  "classification": "false positives: lineChanges.path and sourceHashes keys all tracked paths",
+  "fix": "word boundary before sk-; evidence bytes left unchanged",
+  "secretValuePrinted": false
+}

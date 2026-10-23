@@ -1,0 +1,17 @@
+{
+  "commit": "f638f46c4e012b13c790222cae694b8b3867fa18",
+  "hashes": {
+    "apps/desktop/scripts/electron-smoke.mjs": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+    "examples/eval/cm-step6-live.mjs": "6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546",
+    "packages/assistant/scripts/cm-step6-verify.mjs": "7fc93222da184d9f27cd9fc2601dde208e9a9690cc277b0c879d280d41840ffb",
+    "packages/assistant/scripts/seatbelt-s1-check.mjs": "af6f632dd35da6c3c527273ca614334714a4b7d679e1c98cce07183aad9f9d6a",
+    "packages/assistant/scripts/seatbelt-s1-audit.mjs": "4402c875108ce11ce926decb00cba5973632d8bb9d67e8e56edcbe130b02bfa4",
+    "apps/desktop/scripts/seatbelt-s1-electron.mjs": "ef5202c49d76aea439173c1553b8dcb402419982b4c09704ed554e5945437f1c",
+    "packages/assistant/src/permission-decisions.snapshot.ts": "08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace",
+    "packages/assistant/src/modules/seatbelt-policy.ts": "62b259cba40fba3a458341ffc8c8d4f62841a69694c23e96c0d5ca6cae57b6a8",
+    "packages/assistant/src/modules/seatbelt-shell-runner.ts": "14163daa691c21324f3ef75cbd8159ceb28e814db74ddad4fe59e7a51c4ef57f",
+    "packages/assistant/src/modules/seatbelt-runtime.ts": "058a1a077ecef83929162a60a2d26a0c516e4c2d1afbc87dff4f8790ae28d62b",
+    "packages/assistant/src/permission-boundary.snapshot.json": "2011a3a03fdd0d2c9e757526d16866d0c40c52e616c0f5d9ea0efb0fcbbbdc2d"
+  },
+  "b0Rows": 89
+}

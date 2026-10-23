@@ -1,0 +1,27 @@
+✔ discovers without executing, explicitly checks with a safe environment, and CAS-saves exact application grants (711.84375ms)
+✔ revokes a missing driver without executing it and requires explicit startup confirmation plus exact config CAS (367.60675ms)
+✔ uses the resident socket for connection setup, reload and driver-loss disable without creating a Run (844.0815ms)
+✔ registers one unique channel per forwarded method, disjoint from hand-written IPC (1.692708ms)
+✔ reads host.current on every call and drops arguments beyond the declared arity (0.470875ms)
+✔ serializes real competing processes so unrelated capability writes both survive (410.789583ms)
+✔ rechecks state after taking the configuration lock, preserves mode, and rejects aliased unsafe lock files (174.322209ms)
+✔ changes only the requested switch, detects stale state, and does not overwrite concurrent edits during rollback (261.55075ms)
+✔ enables undeclared built-ins without adding authorization or automatic memory writes (744.671917ms)
+✔ approval preview guard rejects "" (4.635375ms)
+✔ approval preview guard rejects " \n\t " (0.269792ms)
+✔ approval delayed preview becomes enabled only with visible content and hides terminal y/n (0.969375ms)
+✔ structured computer preview also waits for backend publication before enabling allow (1.565833ms)
+✔ approval offers the conversation grant only when the backend offers one (1.250208ms)
+✔ computer connection check has an approvable visible preview while an empty publication stays blocked (0.682875ms)
+✔ shows dispatched Computer receipts as unverified, not business success, across live/history/reload (0.939458ms)
+✔ retains unknown outcomes and distinguishes cancellation-before-start from cancellation-after-start (0.228208ms)
+✔ does not turn a truncated Shell receipt into success when applying final receipts (0.067666ms)
+✔ previews exact target and full text without inventing missing window data (0.398625ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2293.883625

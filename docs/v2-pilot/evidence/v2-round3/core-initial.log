@@ -1,0 +1,44 @@
+✖ packages/assistant/dist/herdr-control.test.js (89170.37675ms)
+✔ Herdr fixed actions verify the selected Pi identity, strip credentials and use only explicit argv (1185.137666ms)
+✔ Herdr rejects replacement, foreign directory, non-Pi and working prompt before reading or sending (824.039875ms)
+✔ Herdr sending failure is unknown once, with stderr suppressed and no automatic readback (389.422375ms)
+✔ Herdr cancellation before dispatch sends nothing; cancellation after input dispatch stays unknown (397.8385ms)
+▶ allowed local application computer tools
+  ✔ explicit health check probes only connection and filters unrelated app metadata; never reads UI or claims OS permission (2.178334ms)
+  ✔ health failures stay unverified, do not leak driver text or guess missing OS permission (0.288417ms)
+  ✔ excludes app menus and their tokens from the exact-window observation (2.988792ms)
+  ✔ fails closed on missing/ambiguous roots and over-limit exact window subtrees (0.979834ms)
+  ✔ rejects duplicate indices and excludes orphaned or cyclic nodes (0.418375ms)
+  ✔ stops the existing AgentLoop on an unknown action without another model call or replay (20.111125ms)
+  ✔ requires explicit driver and exact app whitelist (0.49175ms)
+  ✔ returns only the allowed app windows and never dispatches for a foreign app (0.252875ms)
+  ✔ observes then acts with a target-scoped token, consumes it and requires re-observation (0.579375ms)
+  ✔ rejects expired snapshots, changed ownership and tokens from replaced observations (0.358375ms)
+  ✔ rejects degraded, mismatched, oversized and truncated snapshots (0.804208ms)
+  ✔ inserts bounded text only into the observed element and disables screenshots (0.128375ms)
+  ✔ lets transport/unknown effects escape, does not repeat dispatch, and disposes tokens (0.688458ms)
+  ✔ allows a fresh read after a dispatched but not business-verified click without repeating the action (0.161917ms)
+  ✔ declares never-remembered calls, the connectivity-check card and its instructions (0.167042ms)
+✔ allowed local application computer tools (31.369ms)
+▶ bounded Cua CLI transport
+  ✔ uses stdin JSON, not shell/argv text, and strips secrets and bypass flags (361.54375ms)
+  ✔ fails closed on invalid JSON, excessive output and cancelled child processes (617.39275ms)
+✔ bounded Cua CLI transport (979.160417ms)
+✔ returns clipped AX text as bounded read-only diagnostics with no action authority (0.43625ms)
+✔ desktop browser CLI calls require individual approvals and execute only the confirmed offline fixture (3090.133375ms)
+✔ telegram browser CLI calls require individual approvals and execute only the confirmed offline fixture (2962.906167ms)
+✔ terminal target/config boundaries reject writable config, foreign directory and Docker coexistence (2.123292ms)
+ℹ tests 26
+ℹ suites 2
+ℹ pass 25
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 89175.287458
+
+✖ failing tests:
+
+test at packages/assistant/dist/herdr-control.test.js:1:1
+✖ packages/assistant/dist/herdr-control.test.js (89170.37675ms)
+  'test failed'

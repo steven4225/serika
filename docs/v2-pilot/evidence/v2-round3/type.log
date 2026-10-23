@@ -1,0 +1,16 @@
+$ tsc -b --pretty false && pnpm --filter @serika/desktop typecheck
+packages/assistant/src/modules/terminal-module.ts(50,122): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type 'ZodDiscriminatedUnion<[ZodObject<{ action: ZodLiteral<"get">; }, $strict>, ZodObject<{ action: ZodLiteral<"read">; }, $strict>, ZodObject<...>], "action">' is not assignable to type 'FlexibleSchema<never>'.
+      Type 'ZodDiscriminatedUnion<[ZodObject<{ action: ZodLiteral<"get">; }, $strict>, ZodObject<{ action: ZodLiteral<"read">; }, $strict>, ZodObject<...>], "action">' is missing the following properties from type 'ZodType<never, ZodTypeDef, any>': _type, _parse, _getType, _getOrReturnCtx, and 7 more.
+packages/assistant/src/modules/terminal-module.ts(51,11): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(input: { action: "get"; } | { action: "read"; } | { action: "wait"; }, { abortSignal }: ToolExecutionOptions<any>) => Promise<{ ok: boolean; error: { code: string; message: string; }; }> | Promise<...>' is not assignable to type 'undefined'.
+packages/assistant/src/modules/terminal-module.ts(57,139): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type 'ZodDiscriminatedUnion<[ZodObject<{ action: ZodLiteral<"prompt">; text: ZodString; }, $strict>, ZodObject<{ action: ZodLiteral<"input">; key: ZodEnum<{ "ctrl+c": "ctrl+c"; ... 6 more ...; up: "up"; }>; }, $strict>, ZodObject<...>], "action">' is not assignable to type 'FlexibleSchema<never>'.
+      Type 'ZodDiscriminatedUnion<[ZodObject<{ action: ZodLiteral<"prompt">; text: ZodString; }, $strict>, ZodObject<{ action: ZodLiteral<"input">; key: ZodEnum<{ "ctrl+c": "ctrl+c"; ... 6 more ...; up: "up"; }>; }, $strict>, ZodObject<...>], "action">' is missing the following properties from type 'ZodType<never, ZodTypeDef, any>': _type, _parse, _getType, _getOrReturnCtx, and 7 more.
+packages/assistant/src/modules/terminal-module.ts(58,11): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(input: { action: "prompt"; text: string; } | { action: "input"; key: "ctrl+c" | "down" | "enter" | "esc" | "left" | "right" | "tab" | "up"; } | { action: "stop"; }, { abortSignal }: ToolExecutionOptions<any>) => Promise<...> | Promise<...>' is not assignable to type 'undefined'.
+[ELIFECYCLE] Command failed with exit code 2.
