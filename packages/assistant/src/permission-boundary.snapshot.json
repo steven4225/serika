@@ -1268,12 +1268,42 @@
     "approvals": [],
     "events": [],
     "status": "completed",
-    "results": []
+    "results": [
+      {
+        "ok": false,
+        "error": {
+          "code": "COMPUTER_PRECHECK_FAILED",
+          "message": "Application is not allowed"
+        }
+      },
+      {
+        "ok": false,
+        "error": {
+          "code": "COMPUTER_PRECHECK_FAILED",
+          "message": "Application is not allowed"
+        }
+      }
+    ]
   },
   "round3/telegram/computer_observe/unauthorized": {
     "approvals": [],
     "events": [],
     "status": "completed",
-    "results": []
+    "results": [
+      {
+        "ok": false,
+        "error": {
+          "code": "COMPUTER_PRECHECK_FAILED",
+          "message": "Application is not allowed"
+        }
+      },
+      {
+        "ok": false,
+        "error": {
+          "code": "COMPUTER_PRECHECK_FAILED",
+          "message": "Application is not allowed"
+        }
+      }
+    ]
   }
 }

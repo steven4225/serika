@@ -171,7 +171,7 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
           const rejected = selected[1] === "unauthorized";
           if (rejected) assert.deepEqual(outputs, Array.from({ length: 2 }, () => ({ ok: false, error: { code: "COMPUTER_PRECHECK_FAILED", message: "Application is not allowed" } })));
           rows[`round3/${source}/${selected[0]}/${selected[1]}`] = { approvals: [...approvals], events: [...events], status: controller.getSnapshot().lastPrimaryResult?.status,
-            ...(rejected ? { results: outputs } : {}) };
+            ...(rejected ? { results: [...outputs] } : {}) };
         }
       } finally { unsubscribe(); await controller.shutdown(); app.dispose(); }
     }
