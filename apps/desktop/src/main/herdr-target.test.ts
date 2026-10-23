@@ -16,7 +16,7 @@ async function fixture() {
 import {appendFileSync,readFileSync} from 'node:fs';
 const args=process.argv.slice(2); appendFileSync(${JSON.stringify(log)},JSON.stringify({args,home:process.env.HOME,inherited:process.env.HERDR_SESSION,secret:process.env.TEST_API_KEY})+'\\n');
 if(args.join(' ')==='session list --json') console.log(JSON.stringify({sessions:[{name:'test-session',running:true},{name:'stopped',running:false}]}));
-else if(args.join(' ')==='--session test-session pane list') console.log(JSON.stringify({result:{panes:[{pane_id:'pane-1',terminal_id:JSON.parse(readFileSync(${JSON.stringify(state)},'utf8')).terminal,terminal_title_stripped:'Pi'}]}}));
+else if(args.join(' ')==='--session test-session pane list') console.log(JSON.stringify({result:{panes:[{pane_id:JSON.parse(readFileSync(${JSON.stringify(state)},'utf8')).pane??'pane-1',terminal_id:JSON.parse(readFileSync(${JSON.stringify(state)},'utf8')).terminal,terminal_title_stripped:'Pi'}]}}));
 else { console.error('unexpected argv');process.exit(3); }
 `;
   await writeFile(join(bin, "herdr"), script); await chmod(join(bin, "herdr"), 0o700);
@@ -60,6 +60,19 @@ it("rejects replaced panes, stale directory, disabled capability, unsafe executa
     await writeFile(join(f.directory, "herdr"), "#!/bin/sh\nexit 99\n"); await chmod(join(f.directory, "herdr"), 0o700);
     const unsafe = new HerdrTargets({ env: { HOME: f.home, PATH: f.directory }, cwd: f.root, authorizedDirectory: f.directory });
     await assert.rejects(unsafe.sessions(), /授权目录之外/);
+  } finally { await f.cleanup(); }
+});
+
+it("parses pane identities with the same target schema used by configuration", async () => {
+  const f = await fixture();
+  try {
+    const pane = "p".repeat(256);
+    await writeFile(f.state, JSON.stringify({ terminal: "terminal-1", pane }));
+    assert.equal((await f.service.panes("test-session"))[0]?.paneId, pane);
+    await writeFile(f.state, JSON.stringify({ terminal: "terminal-1", pane: pane + "x" }));
+    await assert.rejects(f.service.panes("test-session"));
+    await writeFile(f.state, JSON.stringify({ terminal: "terminal-1", pane: "pane\u007f" }));
+    await assert.rejects(f.service.panes("test-session"));
   } finally { await f.cleanup(); }
 });
 

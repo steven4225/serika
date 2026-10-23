@@ -64,7 +64,7 @@ export class HerdrTargets {
     const { panes } = record(record(await this.#json(["--session", sessionName(session), "pane", "list"])).result);
     if (!Array.isArray(panes) || panes.length > 256) throw new Error("Herdr 终端列表无效");
     return panes.map(value => { const item = record(value); return {
-      paneId: text(item.pane_id, 128), terminalId: text(item.terminal_id, 256),
+      paneId: herdrTargetSchema.shape.paneId.parse(item.pane_id), terminalId: herdrTargetSchema.shape.terminalId.parse(item.terminal_id),
       title: typeof item.terminal_title_stripped === "string" ? item.terminal_title_stripped.replace(/[\x00-\x1f]/g, " ").slice(0, 120) : "",
     }; });
   }
