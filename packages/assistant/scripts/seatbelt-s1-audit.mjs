@@ -13,6 +13,9 @@ const sha=data=>createHash('sha256').update(data).digest('hex'),json=value=>JSON
 const baseline='bb5c6e6c1674b0a2bdb3b71f331abf6b33467ced',path='packages/assistant/src/permission-boundary.snapshot.json';
 const before=git('show',baseline+':'+path),after=await readFile(join(repo,path),'utf8');
 assert.equal(sha(before),'b988e469ca6c830690358de82db65b67a316e9c0256bfa993b3199f8c2e68670');
+const acceptedS1='9ad2b9cf5560c2b9c57f6a3c57a85001b1452b8d', acceptedBytes=git('show',acceptedS1+':'+path);
+assert.equal(sha(acceptedBytes),'d0b820f3eef8a8230d951e8e4da3d53cde0756b776b7645ffc00980dbbcc2e07');
+assert.equal(after,acceptedBytes,'S05 must not change the accepted S1 b0 bytes');
 const oldRows=JSON.parse(before),newRows=JSON.parse(after);
 const changed=[...new Set([...Object.keys(oldRows),...Object.keys(newRows)])].filter(key=>JSON.stringify(oldRows[key])!==JSON.stringify(newRows[key]));
 assert.deepEqual(changed,['desktop/shell_exec']);
@@ -26,10 +29,10 @@ const frozen={
  'examples/eval/cm-step6-live.mjs':'6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546'};
 for(const [file,digest] of Object.entries(frozen)) assert.equal(sha(await readFile(join(repo,file))),digest,file);
 const report={runId:randomUUID(),generatedAt:new Date().toISOString(),sourceCommit:git('rev-parse','HEAD').trim(),sourceWorktreeDirty:!!git('status','--porcelain').trim(),
- scriptSha256:sha(await readFile(fileURLToPath(import.meta.url))),baselineCommit:baseline,status:'passed',b0:{file:path,beforeSha256:sha(before),afterSha256:sha(after),
+ scriptSha256:sha(await readFile(fileURLToPath(import.meta.url))),baselineCommit:baseline,acceptedS1:{commit:acceptedS1,sha256:sha(acceptedBytes),byteIdentical:true},status:'passed',b0:{file:path,beforeSha256:sha(before),afterSha256:sha(after),
  approvedChangedKeys:['desktop/shell_exec'],actualChangedKeys:changed,unapprovedChanges:[],completeFileExactlyApprovedPatch:true,
  telegram:{byteIdentical:true,beforeBytes:Buffer.byteLength(oldTelegram),afterBytes:Buffer.byteLength(newTelegram),beforeSha256:sha(oldTelegram),afterSha256:sha(newTelegram)}},frozen};
-const lines=git('diff','--numstat',baseline,'HEAD').trim().split('\n').filter(Boolean).map(line=>{const [added,removed,path]=line.split('\t');
+const lines=git('diff','--numstat',acceptedS1,'HEAD').trim().split('\n').filter(Boolean).map(line=>{const [added,removed,path]=line.split('\t');
  const kind=path.startsWith('docs/')||path.endsWith('.json')?'evidence-docs':path.includes('/scripts/')||path.includes('.test.')||path.endsWith('/smoke-model.ts')?'tests-verification':'product';return {path,added:Number(added),removed:Number(removed),kind};});
 report.lineChanges=Object.fromEntries(['product','migration-tools','tests-verification'].map(kind=>{const files=lines.filter(file=>file.kind===kind);return [kind,{added:files.reduce((n,f)=>n+f.added,0),removed:files.reduce((n,f)=>n+f.removed,0),net:files.reduce((n,f)=>n+f.added-f.removed,0),files}];}));
 report.excludedNonCode=lines.filter(file=>file.kind==='evidence-docs');

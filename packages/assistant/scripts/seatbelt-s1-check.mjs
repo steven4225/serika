@@ -44,7 +44,7 @@ if (args.includes('--child')) {
     await attempt('protectedAncestorRename', () => rename(plan.protectedRename,join(directory,'relocated-protected')));
     await attempt('symlinkWrite', () => writeFile(join(directory, 'escape/denied.txt'), 'denied'));
     await attempt('symlinkRead', () => readFile(join(directory, 'secret/credential')));
-    await attempt('runtimeWrite', () => writeFile('/opt/homebrew/Cellar/node/26.4.0/bin/s1-denied', 'denied'));
+    await attempt('runtimeWrite', () => writeFile(plan.runtime.node, 'denied'));
     checks.environment = plan.envNames.map(name => ({ name, blocked: !(name in process.env) }));
     for (const [name, host] of [['IPv4', '127.0.0.1'], ['IPv6', '::1'], ['Unix', null]]) {
       await attempt(name, () => new Promise((done, fail) => {
@@ -67,6 +67,7 @@ if (args.includes('--child')) {
     sourceWorktreeDirty: !!spawnSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }).stdout.trim(),
     scriptSha256: sha(await readFile(fileURLToPath(import.meta.url))), realModelCalls: 0, status: 'failed', commands: [], checks: {} };
   for (const path of [home, directory, output, join(root, 'B'), join(root, 'sensitive'), join(directory, 'nested'), join(directory, '.ssh')]) await mkdir(path, { mode: 0o700 });
+  await mkdir(join(directory,'readable')); await writeFile(join(directory,'readable/example.txt'),'allowed');
   await writeFile(join(home, 'config.json'), 'fixture-only');
   await writeFile(join(root, 'sensitive/credential'), 'fixture-only');
   for (const name of ['.env', 'nested/.env.local', '.ssh/credential']) await writeFile(join(directory, name), 'fixture-only');
@@ -92,6 +93,9 @@ if (args.includes('--child')) {
     await new Promise((done, fail) => { server.once('error', fail); server.listen(host ? { host, port: 0 } : { path: plan.socket }, done); });
     if (host) plan.ports[name] = server.address().port;
   }
+  const {resolveSeatbeltRuntime} = await import('../dist/modules/seatbelt-runtime.js');
+  const runtime = await resolveSeatbeltRuntime({home, protectedPaths:[home,plan.sensitive]});
+  plan.runtime = runtime; report.resolvedRuntime = runtime;
   await writeFile(planPath, json(plan));
   const env = { HOME: home, TMPDIR: root, PATH: '/usr/bin:/bin' };
   for (const name of ['process', 'cancel', 'network']) {
@@ -109,7 +113,7 @@ if (args.includes('--child')) {
   const runner = new SeatbeltShellRunner(scope);
   const {seatbeltPolicy} = await import('../dist/modules/seatbelt-policy.js');
   report.expandedSensitiveRoots = [...scope.protectedPaths, ...['.serika','.ssh','.aws','.gnupg','Library'].map(name=>join(userInfo().homedir,name))];
-  const referencePolicy = seatbeltPolicy({directory,temp:join(root,'policy-reference-T'),userHome:userInfo().homedir,protectedPaths:scope.protectedPaths,configPath:scope.configPath});
+  const referencePolicy = seatbeltPolicy({runtime,directory,temp:join(root,'policy-reference-T'),userHome:userInfo().homedir,protectedPaths:scope.protectedPaths,configPath:scope.configPath});
   for(const path of report.expandedSensitiveRoots) assert.ok(referencePolicy.includes('(subpath ' + JSON.stringify(path) + ')'));
   await writeFile(join(output,'policy-reference.sb'),referencePolicy);
   report.policyReference = {file:'policy-reference.sb',sha256:sha(referencePolicy),temporaryDirectoryIsReferenceOnly:true};
@@ -171,6 +175,13 @@ if (args.includes('--child')) {
     assert.equal(alive, false); assert.equal(before, after); assert.equal(result.cancelled, true);
     const unavailable = await runner.execute({ directory: home, input: { command: 'touch forbidden-fallback' }, signal: new AbortController().signal, execution });
     assert.equal(unavailable.ok, false); assert.equal(unavailable.error.code, 'SANDBOX_UNAVAILABLE'); report.checks.S03 = unavailable;
+    const originalPath = process.env.PATH;
+    let missingRuntime;
+    try { process.env.PATH = join(root,'absent-runtime'); missingRuntime = new SeatbeltShellRunner(scope); }
+    finally { if (originalPath === undefined) delete process.env.PATH; else process.env.PATH = originalPath; }
+    const runtimeUnavailable = await missingRuntime.execute({directory,input:{command:'printf forbidden > runtime-fallback'},signal:new AbortController().signal,execution});
+    assert.equal(runtimeUnavailable.ok,false); assert.equal(runtimeUnavailable.error.code,'SANDBOX_UNAVAILABLE');
+    await assert.rejects(readFile(join(directory,'runtime-fallback')),{code:'ENOENT'}); report.checks.runtimeUnavailable=runtimeUnavailable;
     const originalKill = process.kill; let settlementChecks = 0;
     process.kill = (pid, signal) => { if (pid < 0 && signal === 0) { settlementChecks++; throw Object.assign(new Error('Injected process-group observation failure'), {code:'EPERM'}); } return originalKill(pid, signal); };
     try {
@@ -181,12 +192,16 @@ if (args.includes('--child')) {
     } finally { process.kill = originalKill; }
     assert.equal(await readFile(join(directory,'unknown-once'),'utf8'), 'invoked'); assert.equal(settlementChecks,1);
     assert.equal(udpPackets, 0); report.checks.networkPeerPackets = udpPackets;
+    const initialized = spawnSync('/bin/sh', ['-c', 'exec "$1" init --quiet "$2"', '--home', runtime.git, directory, '--home', home], { env, encoding:'utf8' });
+    report.commands.push({name:'S05-git-fixture-init',exitCode:initialized.status,stderr:initialized.stderr}); assert.equal(initialized.status,0);
     const versions = {};
-    for (const [name, command] of [['shell', 'printf shell-ok'], ['node', `${process.execPath} --version`], ['git', `/Library/Developer/CommandLineTools/usr/bin/git --version`], ['npm', `${process.execPath} /opt/homebrew/lib/node_modules/npm/bin/npm-cli.js --version`], ['pnpm', `${process.execPath} /opt/homebrew/Cellar/pnpm/11.9.0/libexec/lib/node_modules/pnpm/bin/pnpm.cjs --version`]]) {
-      const result = await run('S05-' + name, command); versions[name] = result; assert.equal(result.ok, true); if (['shell', 'node', 'git'].includes(name)) assert.equal(result.exitCode, 0, name); else versions[name].supported = result.exitCode === 0;
+    for (const [name, command] of [['shell','printf shell-ok'],['node','node --version'],['git','git --version'],
+      ['ls','ls .'],['cat','cat allowed.txt'],['grep',"grep allowed allowed.txt"],['sed',"sed 's/allowed/checked/' allowed.txt"],
+      ['find','find ./readable -type f'],['git-status','git status']]) {
+      const result = await run('S05-' + name, command); versions[name] = result; assert.equal(result.ok,true); assert.equal(result.exitCode,0,name);
     }
     report.checks.runtime = versions;
-    report.runtimeUnsupported = Object.entries(versions).filter(([,r])=>r.exitCode!==0).map(([name,r])=>({name,exitCode:r.exitCode,signal:r.signal,requiredPath:'explicit host Run with per-call confirmation'}));
+    report.runtimeDeferred = ['npm/pnpm','Node child processes','other Homebrew tools'];
     for (const [name, program, args] of [['missing-program', join(root, 'absent-sandbox'), []], ['invalid-profile', '/usr/bin/sandbox-exec', ['-p', '(invalid-profile)', '/bin/sh', '-c', 'printf forbidden-fallback', '--home', home]]]) {
       const r = spawnSync(program, [...args, '--home', home], {env, encoding: 'utf8'});
       assert.ok(r.error || r.status !== 0); assert.ok(!r.stdout?.includes('forbidden-fallback'));

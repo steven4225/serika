@@ -6,7 +6,8 @@ import { dirname, join, resolve, sep } from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import { fileURLToPath } from "node:url";
 import { AgentError } from "@serika/core";
-import { SEATBELT_GIT, SEATBELT_NODE, seatbeltPolicy } from "./seatbelt-policy.js";
+import { seatbeltPolicy } from "./seatbelt-policy.js";
+import { resolveSeatbeltRuntime, seatbeltEnvironment, type SeatbeltRuntime } from "./seatbelt-runtime.js";
 import type { ShellExecInput, ShellExecOptions, ShellExecResult } from "./shell-module.js";
 
 export interface SeatbeltShellScope { home: string; configPath?: string; protectedPaths: readonly string[] }
@@ -14,11 +15,6 @@ export interface SeatbeltShellScope { home: string; configPath?: string; protect
 const within = (root: string, path: string) => path === root || path.startsWith(root + sep);
 const unavailable = (): ShellExecResult => ({ ok: false, error: { code: "SANDBOX_UNAVAILABLE", message: "Seatbelt unavailable or directory/runtime outside the approved policy. No host fallback." } });
 const unknown = () => new AgentError({ code: "TOOL_OUTCOME_UNKNOWN", phase: "tool", retryable: false, message: "Seatbelt process group settlement is unknown. Inspect effects before any new invocation." });
-
-export function seatbeltEnvironment(temp: string): NodeJS.ProcessEnv {
-  return { HOME: temp, TMPDIR: temp, PATH: dirname(SEATBELT_NODE) + ":" + dirname(SEATBELT_GIT) + ":/usr/bin:/bin",
-    LANG: "C", LC_ALL: "C", TZ: "UTC", OPENSSL_CONF: "/dev/null", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0" };
-}
 
 async function canonicalDirectory(path: string): Promise<string> {
   const resolved = resolve(path);
@@ -29,9 +25,14 @@ async function canonicalDirectory(path: string): Promise<string> {
 
 export class SeatbeltShellRunner {
   readonly #pending = new Set<Promise<ShellExecResult>>();
-  constructor(readonly scope: SeatbeltShellScope) {}
-  execute(options: Omit<Parameters<typeof executeSeatbeltShellCommand>[0], "scope">): Promise<ShellExecResult> {
-    const pending = executeSeatbeltShellCommand({ ...options, scope: this.scope });
+  readonly #runtime: Promise<SeatbeltRuntime | null>;
+  constructor(readonly scope: SeatbeltShellScope) {
+    this.#runtime = process.platform === "darwin" && process.arch === "arm64" && release() === "27.0.0"
+      ? resolveSeatbeltRuntime({ ...scope, protectedPaths: [...scope.protectedPaths, fileURLToPath(new URL("../../../..", import.meta.url))] }).catch(() => null)
+      : Promise.resolve(null);
+  }
+  execute(options: Omit<Parameters<typeof executeSeatbeltShellCommand>[0], "scope" | "runtime">): Promise<ShellExecResult> {
+    const pending = executeSeatbeltShellCommand({ ...options, scope: this.scope, runtime: this.#runtime });
     this.#pending.add(pending);
     void pending.then(() => this.#pending.delete(pending), () => this.#pending.delete(pending));
     return pending;
@@ -40,7 +41,7 @@ export class SeatbeltShellRunner {
 }
 
 async function executeSeatbeltShellCommand(options: {
-  directory: string; scope: SeatbeltShellScope; input: ShellExecInput; signal: AbortSignal;
+  directory: string; scope: SeatbeltShellScope; runtime: Promise<SeatbeltRuntime | null>; input: ShellExecInput; signal: AbortSignal;
   execution: ShellExecOptions & { timeoutMs: number; maxOutputBytes: number; killGraceMs: number };
 }): Promise<ShellExecResult> {
   const { input, scope, signal } = options;
@@ -50,27 +51,30 @@ async function executeSeatbeltShellCommand(options: {
   try {
     if (process.platform !== "darwin" || process.arch !== "arm64" || release() !== "27.0.0") return unavailable();
     await access("/usr/bin/sandbox-exec", constants.X_OK);
-    if (await realpath("/opt/homebrew/bin/node") !== SEATBELT_NODE) return unavailable();
+    const runtime = await options.runtime;
+    if (!runtime) return unavailable();
     directory = await canonicalDirectory(options.directory);
     cwd = await canonicalDirectory(resolve(directory, input.cwd ?? "."));
     if (!within(directory, cwd)) return unavailable();
-    if (["/", "/Users", "/opt/homebrew", homedir(), userInfo().homedir, dirname(SEATBELT_NODE)].includes(directory)) return unavailable();
+    if (["/", "/Users", "/opt/homebrew", homedir(), userInfo().homedir, dirname(runtime.node)].includes(directory)) return unavailable();
     const forbidden = [...scope.protectedPaths,
       ...["Library", ".serika", ".ssh", ".aws", ".gnupg"].map(name => join(userInfo().homedir, name))];
     if (forbidden.some(path => within(path, directory))) return unavailable();
   } catch { return unavailable(); }
+  const runtime = await options.runtime;
+  if (!runtime) return unavailable();
   const control = await mkdtemp(join(await realpath(tmpdir()), "serika-seatbelt-"));
   const temp = join(control, "command");
   await mkdir(temp, { mode: 0o700 });
   const profile = join(control, "policy.sb");
   const codeRoot = fileURLToPath(new URL("../../../..", import.meta.url));
-  const policy = seatbeltPolicy({ directory, temp, userHome: userInfo().homedir, protectedPaths: [...scope.protectedPaths, scope.home, codeRoot],
+  const policy = seatbeltPolicy({ directory, temp, runtime, userHome: userInfo().homedir, protectedPaths: [...scope.protectedPaths, scope.home, codeRoot],
     ...(scope.configPath ? { configPath: scope.configPath } : {}) });
   await writeFile(profile, policy, { mode: 0o600 });
   let settled = false;
   try {
     const child = spawn("/usr/bin/sandbox-exec", ["-f", profile, "/bin/sh", "-c", input.command, "--home", scope.home], {
-      cwd, env: seatbeltEnvironment(temp), detached: true, stdio: ["ignore", "pipe", "pipe"],
+      cwd, env: seatbeltEnvironment({ temp, runtime }), detached: true, stdio: ["ignore", "pipe", "pipe"],
     });
     return await new Promise<ShellExecResult>((done, reject) => {
       const chunks: Buffer[] = []; let bytes = 0, truncated = false, stopped: "cancelled" | "timedOut" | undefined;

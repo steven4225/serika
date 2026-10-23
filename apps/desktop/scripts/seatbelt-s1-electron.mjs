@@ -84,6 +84,11 @@ try {
   await send(`{ node ${directory}/checks.mjs --child checks --plan ${planPath} --result-file ${childObserved} --home ${home}; } & wait`);
   assert.equal((await receipt('S12-fork-exec')).shell.exitCode,0);assert.deepEqual(JSON.parse(await readFile(childObserved,'utf8')),filesystem);
   await send(`node ${directory}/checks.mjs --child spawn --plan ${planPath} --home ${home}`);assert.equal(parse(await receipt('S12-detached-posix-spawn')).detachedSpawn.blocked,true);
+  for (const [name, command] of [['ls','ls .'],['cat','cat allowed.txt'],['grep','grep allowed allowed.txt'],
+    ['sed',"sed 's/allowed/checked/' allowed.txt"],['find','find ./readable -type f'],['git-status','git status']]) {
+    await send(command);const tool=await receipt('S05-'+name);assert.equal(tool.shell.exitCode,0);assert.equal(tool.approvalRequestedAt,undefined);
+  }
+  await shot('S05-system-commands');
   const cancel=join(directory,'electron-cancel');await mkdir(cancel);
   await send(`${directory}/cancel --temp ${cancel} --home ${home}`);let ready;
   await until(async()=>{try{ready=JSON.parse(await readFile(join(cancel,'ready.json'),'utf8'));return true;}catch{return false;}});
