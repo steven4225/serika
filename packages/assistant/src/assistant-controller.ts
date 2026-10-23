@@ -464,7 +464,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       }
       activeHandle = undefined;
       app.toolConfirmation?.endRun();
-      app.endForegroundExecution?.();
+      await app.endForegroundExecution?.();
     }
   };
 

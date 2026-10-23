@@ -60,6 +60,7 @@ export type ToolConfirmationCard = string | { text: string; reminder: ReminderCo
 export interface InstructionRun {
   /** The Run executes host-authorized tools without y/n confirmation. */
   readonly autonomous: boolean;
+  readonly entry?: "desktop" | "telegram" | undefined;
 }
 
 export interface ModuleContext {

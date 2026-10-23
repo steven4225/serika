@@ -65,6 +65,7 @@ import { createCheckpointModule } from "./modules/checkpoint-module.js";
 import { createPomodoroModule, type PomodoroService } from "./modules/pomodoro-module.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
 import { createShellModule } from "./modules/shell-module.js";
+import { SeatbeltShellRunner } from "./modules/seatbelt-shell-runner.js";
 import type { ShellProgress } from "./modules/shell-module.js";
 import { assertDockerShellSandboxAvailable } from "./modules/docker-shell-runner.js";
 import { createTaskModule } from "./modules/task-module.js";
@@ -146,7 +147,7 @@ export interface RuntimeAppOptions {
   /** Trusted embedding opt-in: only built-in task_list/task_get in the authorized directory. */
   allowDirectoryTaskReads?: true;
   /** Only the desktop host may enable persisted directory autonomy. TUI/worker do not opt in. */
-  allowDesktopAutonomy?: true;
+  desktopAutonomyHost?: { home: string };
   /** Trusted gateway validates the saved private-chat identity at Run start. */
   authorizeTelegramAutonomy?: (grant: import("./tui-module-config.js").TelegramAutonomyGrant) => boolean;
   /** Trusted destination registration after the task commit, before service activation. */
@@ -176,7 +177,7 @@ export interface RuntimeApp {
   enableExecutionRecords: () => void;
   beginOutputTiming?: (message: UIMessage) => ReturnType<typeof beginRoundOutputTiming> | undefined;
   beginForegroundExecution?: (entry: "desktop" | "telegram" | undefined, request?: UIMessage) => boolean;
-  endForegroundExecution?: () => void;
+  endForegroundExecution?: () => Promise<void>;
   desktopAutonomyEnabled?: boolean;
   telegramAutonomyEnabled?: () => boolean;
   bindNextExecutionWorkTask: (input: { id: string; expectedRevision: number }) => () => void;
@@ -254,7 +255,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   if (moduleConfig && modelCapacity) moduleConfig.contextCompaction = effectiveContextBudget(moduleConfig.contextCompaction, modelCapacity);
   const workspaceRoot = moduleConfig?.workspaceRoot ?? undefined;
   const authorizedDirectory = moduleConfig?.authorizedDirectory ?? undefined;
-  const desktopAutonomyEnabled = options.allowDesktopAutonomy === true &&
+  const desktopAutonomyEnabled = options.desktopAutonomyHost !== undefined &&
     moduleConfig?.desktopAutonomy?.directory === authorizedDirectory && authorizedDirectory !== undefined && !moduleConfig?.shellSandbox;
   const telegramAutonomyEnabled = () => !!moduleConfig?.telegramAutonomy && !moduleConfig.shellSandbox &&
     options.authorizeTelegramAutonomy?.(moduleConfig.telegramAutonomy) === true;
@@ -262,6 +263,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   // sets and clears only its own part, at the same points as before.
   const currentRun: RunState = { foreground: undefined, workTaskMessage: undefined, workTask: undefined, memorySource: undefined, resume: undefined };
   const autonomousRun = () => currentRun.foreground?.autonomous === true;
+  const seatbeltRun = () => currentRun.foreground?.entry === "desktop" && autonomousRun();
   const memoryEnabled = moduleConfig?.enabled.memory ?? false;
   const checkpointEnabled = moduleConfig?.enabled.checkpoint ?? false;
   const taskEnabled = moduleConfig?.enabled.task ?? false;
@@ -392,6 +394,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
 
   const taskReadApproval = options.allowDirectoryTaskReads === true && authorizedDirectory !== undefined
     ? createDirectoryTaskReadApproval(authorizedDirectory, PRIMARY_AGENT_ID) : undefined;
+  const seatbeltRunner = desktopAutonomyEnabled ? new SeatbeltShellRunner({
+    home: resolve(cwd, options.desktopAutonomyHost!.home),
+    protectedPaths: [resolve(cwd, assembly!.dataDirectory!), ...(options.directory ? [resolve(options.directory)] : [])],
+    ...(moduleConfig!.configPath ? { configPath: moduleConfig!.configPath } : {}),
+  }) : undefined;
   const captureBuiltinTaskModule = (module: AgentModule): AgentModule =>
     taskReadApproval?.captureBuiltinModule(module) ?? module;
 
@@ -412,6 +419,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               ? [
                   createShellModule(authorizedDirectory!, {
                     ...(shellSandbox === undefined ? {} : { sandbox: shellSandbox }),
+                    ...(seatbeltRunner ? { seatbelt: { active: seatbeltRun, runner: seatbeltRunner } } : {}),
                     timeoutMs: !moduleConfig!.shellSandbox && (desktopAutonomyEnabled || moduleConfig!.telegramAutonomy && options.authorizeTelegramAutonomy) ? AUTONOMOUS_SHELL_TIMEOUT_MS : moduleConfig!.shellTimeoutMs,
                     commandTimeoutMs: () => autonomousRun() ? AUTONOMOUS_SHELL_TIMEOUT_MS : moduleConfig!.shellTimeoutMs,
                     onProgress: notifyShellProgress,
@@ -633,7 +641,6 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     // Each module declares its own placement (instructionPlacement); no per-module line here.
     (moduleHost?.sectionInstructions("body", run) ?? "");
   const baseInstructions = instructionsFor({ autonomous: false });
-  const autonomousBaseInstructions = instructionsFor({ autonomous: true });
 
   // Everything below may throw after modules were created. Release the module
   // host on failure, matching the previous single try/finally in the entry.
@@ -662,7 +669,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       return createResumeContextMessage(active.observation);
     };
     const primaryInstructions = () => autonomousRun()
-      ? autonomousBaseInstructions + "\n" + AUTONOMOUS_INSTRUCTIONS
+      ? instructionsFor({ autonomous: true, entry: currentRun.foreground?.entry }) + "\n" + AUTONOMOUS_INSTRUCTIONS
       : baseInstructions;
     const checklistSources = async (): Promise<CompactionChecklistSources> => ({ workTask: currentRun.workTask, permissions: toolConfirmation?.snapshot(),
       runs: await transcript.filterRuns(await executionRecords.listRuns(threadId, EXECUTION_RECORD_MAX_RUNS)) });
@@ -857,6 +864,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           report: moduleConfig === undefined ? undefined
             : { configPath: moduleConfig.configPath, directory: moduleConfig.authorizedDirectory },
           autoApprove: [
+            input => input.definition.id === PRIMARY_AGENT_ID && seatbeltRun() && input.toolName === "shell_exec" &&
+              moduleHost?.toolModules.get(input.toolName) === "shell",
             input => input.definition.id === PRIMARY_AGENT_ID && memoryReaders.some(item => item.metadata.name === input.toolName &&
               registeredTools.find(tool => tool.metadata.name === input.toolName) === item),
             // The host's own status tool, only when it is the registration this app made.
@@ -1001,7 +1010,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         currentRun.foreground = { entry, autonomous, ...(autonomous && request ? { request: structuredClone(request) } : {}) };
         return autonomous;
       },
-      endForegroundExecution: () => { currentRun.foreground = undefined; },
+      endForegroundExecution: async () => { await seatbeltRunner?.settle(); currentRun.foreground = undefined; },
       ...(recipes ? { recipes } : {}),
       renderHome: renderFreshHome,
       registerNotificationRedraw: (redraw) => {

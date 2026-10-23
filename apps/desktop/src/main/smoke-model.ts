@@ -9,7 +9,9 @@ export function createDesktopSmokeModel() {
     const user = prompt[lastUser];
     const text = user?.role === "user" ? user.content.find(part => part.type === "text")?.text ?? "" : "";
     let input: Record<string, unknown> | undefined;
+    let toolName = "memory_write";
     if (!prompt.slice(lastUser + 1).some(message => message.role === "tool")) {
+      if (text.startsWith("S1 shell ")) { input = { command: text.slice(9) }; toolName = "shell_exec"; }
       if (text.startsWith("记住 ")) input = { operation: "add", text: text.slice(3), category: "preference", sourceQuote: text, identity: { subject: "user", attribute: "smoke_preference", value: text.slice(3) } };
       if (text === "撤销刚才记住的内容") {
         const results = prompt.flatMap(message => message.role === "tool" ? message.content : []);
@@ -22,7 +24,7 @@ export function createDesktopSmokeModel() {
         if (!input) throw new Error("Smoke provider has no saved memory receipt");
       }
     }
-    const chunks = input ? [{ type: "tool-call" as const, toolCallId: "smoke-memory", toolName: "memory_write", input: JSON.stringify(input) }] : [
+    const chunks = input ? [{ type: "tool-call" as const, toolCallId: toolName === "memory_write" ? "smoke-memory" : "s1-shell", toolName, input: JSON.stringify(input) }] : [
       { type: "text-start" as const, id: "answer" }, { type: "text-delta" as const, id: "answer", delta: "离线冒烟回复完成。" }, { type: "text-end" as const, id: "answer" },
     ];
     return { stream: simulateReadableStream({ chunks: [

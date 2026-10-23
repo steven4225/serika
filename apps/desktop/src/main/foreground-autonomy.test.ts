@@ -72,15 +72,15 @@ it("persists workspace authority, runs a multi-step repair, preserves attachment
     assert.equal(host.info().autonomy?.enabled, true);
     reset([
       { name: "write_file", input: { path: "answer.txt", content: "wrong" } },
-      shell("test \"$(cat answer.txt)\" = right"),
+      shell('read value < answer.txt; test "$value" = right'),
       { name: "edit_file", input: { path: "answer.txt", oldText: "wrong", newText: "right" } },
       { name: "read_file", input: { path: "answer.txt" } },
       ...Array.from({ length: 7 }, (_, n) => shell(`test -f answer.txt && test ${n} -ge 0`)),
-      shell("test \"$(cat answer.txt)\" = right"),
+      shell('read value < answer.txt; test "$value" = right'),
     ]);
     const started = await host.current.run("修复并检查", { attachments: [{ name: "note.txt", mediaType: "text/plain", data: Buffer.from("保留附件").toString("base64") }] } as never);
-    assert.equal(started.ok, true); assert.equal(await approveShellUntilIdle(), 9);
-    assert.ok(events.every(event => event.type !== "approval" || event.approval.toolName === "shell_exec"));
+    assert.equal(started.ok, true); assert.equal(await approveShellUntilIdle(), 0);
+    assert.ok(events.every(event => event.type !== "approval"));
     assert.equal(await readFile(join(f.workspace, "answer.txt"), "utf8"), "right");
     assert.ok(instructions[0]?.includes("host has explicitly authorized"));
     assert.ok(instructions[0]?.includes("保留附件"));
@@ -89,14 +89,14 @@ it("persists workspace authority, runs a multi-step repair, preserves attachment
     assert.ok(read.ok && read.run); const run = read.run;
     assert.equal(run.status, "completed"); assert.equal(run.tools.length, 12);
     assert.equal(run.tools[1]?.shell?.exitCode, 1); assert.equal(run.tools.at(-1)?.shell?.exitCode, 0);
-    assert.ok(run.tools.every(tool => !!tool.approvalRequestedAt === (tool.toolName === "shell_exec")));
+    assert.ok(run.tools.every(tool => !tool.approvalRequestedAt));
     const task = await host.current.createWorkTask({ goal: "检查文件", acceptance: [
       { id: "check", description: "文件存在", required: true, method: "automatic", verification: { kind: "shell_exit_zero", command: "test -f answer.txt", cwd: "." } },
       { id: "quality", description: "用户接受质量", required: true, method: "human", verification: { kind: "human" } },
     ] });
     assert.ok(task.ok); reset([shell("test -f answer.txt")]);
     assert.equal((await host.current.runWorkTask({ id: task.value.id, expectedRevision: task.value.revision })).ok, true);
-    assert.equal(await approveShellUntilIdle(), 1);
+    assert.equal(await approveShellUntilIdle(), 0);
     const delivered = await host.current.getWorkTask(task.value.id); assert.ok(delivered.ok); assert.equal(delivered.value.status, "awaiting_acceptance");
     for (const asTask of [false, true]) {
       reset([shell("touch telegram-must-not-run")]);
@@ -124,7 +124,7 @@ it("uses the resident socket for authority changes, retains other approvals and 
   const model = new MockLanguageModelV3({ doStream: async () => {
     calls++;
     return response(otherTool ? { name: "recipe_list", input: {} } :
-      { name: "shell_exec", input: { command: "printf started > marker.txt; sleep 60; touch must-not-complete", cwd: "." } }, calls);
+      { name: "shell_exec", input: { command: `printf started > marker.txt; node -e 'setTimeout(()=>{},60000)' -- --home ${f.root}; printf forbidden > must-not-complete`, cwd: "." } }, calls);
   } });
   const server = await startResidentServer({ paths, scope, createRuntime: send => DesktopRuntime.create({ applicationHome, cwd: f.root, env: { RUNLOOM_CONFIG: f.configPath }, modelAlias: "mock", model, send }) });
   const client = await ResidentClient.connect({ paths, scope, send: () => {} });
@@ -137,9 +137,7 @@ it("uses the resident socket for authority changes, retains other approvals and 
     await client.current.cancel(); await until(() => server.runtime.current.snapshot().state.kind === "idle");
     otherTool = false;
     const started = await client.current.run("执行并停止"); assert.ok(started.ok);
-    // D2: the host shell call itself is confirmed once, then runs and is cancelled.
-    await until(() => server.runtime.current.snapshot().pendingApproval?.toolName === "shell_exec");
-    assert.equal(server.runtime.current.confirm({ approvalId: server.runtime.current.snapshot().pendingApproval!.approvalId, decision: "allow" }).accepted, true);
+    assert.equal(server.runtime.current.snapshot().pendingApproval, null);
     // Wait for the real process to run, rather than only a dispatched event.
     const deadline = Date.now() + 20_000;
     while (true) {

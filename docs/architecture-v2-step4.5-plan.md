@@ -199,6 +199,8 @@ S0–S1 在 b0+b1、d1+d2+e 后、切日用前实施，只做 macOS Seatbelt 与
 
 系统隔离只约束 Shell 子进程。Todoist、web_fetch、Telegram、Computer 的授权不因此扩大。向 Herdr 或浏览器已有进程发送指令可能使外部进程产生副作用，不能把该行为算成已被 Shell 沙箱隔离。
 
+S0 `bb5c6e6` 后的批准范围：S01、S03–S15 和 b0 `desktop/shell_exec`。S02 未批准，切日用后再评估；TG 自主 Shell 保持 host 逐条确认，b0 `telegram/shell_exec` 必须逐字节不变。S13、S15 任一未证明，S1 不通过；实际 b0 多出任何其他变化也不通过。S15 先验证 Seatbelt 拒绝数字 MIB sysctl 和 process-info 等跨进程读取，若不可行则停止，另交“Electron、resident、worker 启动环境无密钥，文件或 Keychain 读入内存”的备选及剩余风险，由用户决定，不自动实施。
+
 | 步 | 文件与交付 | 验收 | 预计净行数 |
 |---|---|---|---|
 | S0 后端可用性与规则定稿 | Shell 模块/配置；专用 OS 能力探测和隔离验证脚本。切日用前仅现场确认 macOS sandbox-exec 可用，Linux bubblewrap 探测延后至切日用后，确定运行时只读依赖、敏感路径和凭据环境规则 | 先在真实 macOS 给出支持/不可用结果，Linux 阶段另行给出结果；缺程序、user namespace 禁用等情况拒绝沙箱执行，不回退 host。只探测不启用自主权 | 产品 +30～+60；验证工具/测试 +60～+100 |

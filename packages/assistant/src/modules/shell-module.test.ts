@@ -369,7 +369,7 @@ describe("executeShellCommand", () => {
     assert.match(String(card(host)), /^\nTool: shell_exec\nCommand: "ls"\nCwd: "\." \(relative to workspace\)\n/);
     assert.match(String(card(docker)), /\(relative to sandbox mounts\)\nDocker sandbox image: img; network none; root filesystem read-only\.\nReadable: none; writable: none\.\n/);
     assert.match(host.instructions("shell"), /will be shown for y\/n confirmation\./);
-    assert.match(host.instructions("shell", { autonomous: true }), /File tools and local shell_exec are host-authorized for this Run\./);
+    assert.match(host.instructions("shell", { autonomous: true }), /The command and workspace-relative cwd will be shown for y\/n confirmation\./);
     assert.equal(docker.instructions("shell", { autonomous: true }), docker.instructions("shell"));
   });
 });

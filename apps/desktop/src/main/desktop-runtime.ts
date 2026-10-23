@@ -155,7 +155,7 @@ export class DesktopRuntime {
       modelAlias: this.#options.modelAlias, model: this.#options.model, output, env: this.#options.env, cwd: this.#options.cwd,
       pomodoroService: this.#pomodoroService,
       allowDirectoryTaskReads: true,
-      allowDesktopAutonomy: true,
+      desktopAutonomyHost: { home: this.#options.applicationHome },
       onHomeSnapshot: snapshot => output.homeSnapshot(snapshot),
       onModuleNotification: notification => output.moduleNotification(notification),
       authorizeTelegramAutonomy: grant => this.#telegram?.matchesAutonomyGrant(grant) === true,

@@ -33,14 +33,14 @@ test("production five-layer runtime persists references, reopens the same prefix
       { type: "text-delta" as const, id: "answer", delta: "done" }, { type: "text-end" as const, id: "answer" },
       ]), { type: "finish" as const, finishReason: { unified: query ? "tool-calls" as const : "stop" as const, raw: undefined }, usage }] }) };
   } });
-  const open = () => createRuntimeApp({ directory, assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "thread", configPath }, modelAlias: "fixture", model, output: new PassThrough(), env: {}, cwd: root, allowDesktopAutonomy: true });
+  const open = () => createRuntimeApp({ directory, assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "thread", configPath }, modelAlias: "fixture", model, output: new PassThrough(), env: {}, cwd: root, desktopAutonomyHost: { home: join(root, "H") } });
   let app = await open();
   const run = async (id: string) => {
     const request = { id, role: "user" as const, parts: [{ type: "text" as const, text: id }] };
     app.beginForegroundExecution?.("desktop", request);
     try { const handle = await app.runtime.run({ agentId: app.agentId, threadId: "thread", messages: [request], signal: AbortSignal.timeout(5000) });
       assert.equal((await handle.result).status, "completed");
-    } finally { app.endForegroundExecution?.(); }
+    } finally { await app.endForegroundExecution?.(); }
   };
   try {
     const legacy = { id: "legacy", role: "user" as const, parts: [{ type: "text" as const, text: "old message" }] };

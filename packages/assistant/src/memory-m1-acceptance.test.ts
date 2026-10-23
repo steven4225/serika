@@ -58,7 +58,7 @@ test("M1 ordinary automatic chat uses one writer without approval: 3 foreground 
     ] }) };
   } });
   const output = new PassThrough(); output.resume();
-  const app = await createRuntimeApp({ directory, assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "t", configPath }, modelAlias: "fixture", model, output, env: {}, cwd: root, allowDesktopAutonomy: true });
+  const app = await createRuntimeApp({ directory, assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "t", configPath }, modelAlias: "fixture", model, output, env: {}, cwd: root, desktopAutonomyHost: { home: join(root, "H") } });
   const controller = createAssistantController(app);
   try {
     for (const text of ["你好", "记住：我喝咖啡不加糖"]) {
@@ -76,7 +76,7 @@ test("M1 ordinary automatic chat uses one writer without approval: 3 foreground 
     }
     const input = user("autonomous", "继续任务"); assert.equal(app.beginForegroundExecution!("desktop", input), true);
     try { const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [input] }); assert.equal((await handle.result).status, "completed"); }
-    finally { app.endForegroundExecution!(); }
+    finally { await app.endForegroundExecution!(); }
     assert.equal(requests.at(-1)!.tools?.some(tool => tool.name === "memory_write"), false);
   } finally { await controller.shutdown(); await rm(root, { recursive: true, force: true }); }
 });

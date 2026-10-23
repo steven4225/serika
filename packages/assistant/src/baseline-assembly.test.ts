@@ -27,6 +27,7 @@ import { MEMORY_READ_INSTRUCTIONS } from "./memory-instructions.js";
 process.env.TZ = "UTC";
 
 import { MEMORY_PRIMARY_WRITE_INSTRUCTIONS } from "./memory-write.js";
+import { SEATBELT_INSTRUCTIONS } from "./modules/seatbelt-policy.js";
 
 const FULL = {
   pomodoro: { enabled: true },
@@ -60,7 +61,7 @@ function contentText(content: unknown): string {
 
 /**
  * `desktopAutonomy`: the trusted desktop foreground (docs/v2-pilot/pending.md A.4). The config names this
- * workspace in `desktopAutonomy`, the app is created with `allowDesktopAutonomy` (as desktop-runtime.ts does),
+ * workspace in `desktopAutonomy`, the app is created with `desktopAutonomyHost` (as desktop-runtime.ts does),
  * and the Run is wrapped in begin/endForegroundExecution("desktop") (as the controller does for a desktop
  * primary Run), so the model receives the autonomous instructions.
  */
@@ -87,7 +88,7 @@ async function capture(modules: Record<string, unknown>, { desktopAutonomy = fal
   const app = await createRuntimeApp({
     directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "baseline", configPath },
     modelAlias: "mock", model, output, env: { TODOIST_API_TOKEN: "baseline-token" }, cwd: root,
-    ...(desktopAutonomy ? { allowDesktopAutonomy: true as const } : {}),
+    ...(desktopAutonomy ? { desktopAutonomyHost: { home: join(root, "H") } } : {}),
   });
   try {
     const user = { id: "baseline-user", role: "user" as const, parts: [{ type: "text" as const, text: "baseline" }] };
@@ -95,7 +96,7 @@ async function capture(modules: Record<string, unknown>, { desktopAutonomy = fal
     try {
       const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [user] });
       assert.equal((await handle.result).status, "completed");
-    } finally { if (desktopAutonomy) app.endForegroundExecution?.(); }
+    } finally { if (desktopAutonomy) await app.endForegroundExecution?.(); }
     assert.ok(request, "the primary model must be called once");
     written = "";
     await app.commands?.get("modules")?.execute("");
@@ -158,9 +159,14 @@ function assertStep3Assembly(actual: string, baseline: string, autonomous = fals
   assert.ok(after.has("memory_read")); after.delete("memory_read");
   for (const name of before.keys()) if (name.startsWith("memory_")) { assert.ok(!after.has(name)); before.delete(name); }
   if (!autonomous && hadMemory) { assert.ok(after.get("memory_write")?.includes("replace")); after.delete("memory_write"); } else assert.ok(!after.has("memory_write"));
+  if (autonomous) before.set("shell_exec", before.get("shell_exec")!.replace("Run one non-interactive local shell command from a workspace-relative directory. The command may inspect or modify the machine; it is bounded by a timeout and output limit.", SEATBELT_INSTRUCTIONS));
   assert.deepEqual(after, before);
   const system = (text: string) => text.split("## message 0 system\n\n")[1]!.split(/\n\n(?:## message|# \/modules)/)[0]!;
-  const oldSystem = system(baseline).replace(/In automatic memory mode,[\s\S]*?Active injected Memory overrides conflicting older transcript\/compaction, while the latest user request remains authoritative\./, "");
+  let oldSystem = system(baseline).replace(/In automatic memory mode,[\s\S]*?Active injected Memory overrides conflicting older transcript\/compaction, while the latest user request remains authoritative\./, "");
+  if (autonomous) oldSystem = oldSystem
+    .replace(/When shell_exec is available,[\s\S]*?Do not use shell_exec when it is not enabled\. /, SEATBELT_INSTRUCTIONS + " ")
+    .replace("Local shell_exec is not pre-authorized: each command is still shown to the user for confirmation, so run only the commands the task needs.", "Only desktop autonomous shell_exec uses the module's Seatbelt policy without per-command confirmation. Telegram and explicitly selected host Shell still require confirmation for every command. Run only commands the task needs.")
+    .replace("Other tools retain their own permissions. Local Shell has the process's host permissions; the workspace is not an OS sandbox.", "Other tools retain their own permissions. Host Shell has the process's host permissions; its workspace is not an OS sandbox. Network commands require an explicitly selected host Run and per-command confirmation.");
   const newSystem = system(actual).replace(autonomous ? MEMORY_READ_INSTRUCTIONS : MEMORY_READ_INSTRUCTIONS + MEMORY_PRIMARY_WRITE_INSTRUCTIONS, "");
   assert.equal(newSystem, oldSystem);
   const section = (text: string, title: string) => text.split(`# ${title}\n\n`)[1]!.split(/\n\n# /)[0]!;
