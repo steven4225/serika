@@ -402,6 +402,7 @@ describe("resolveTuiModuleConfig", () => {
       shell: false,
       web: false,
       computer: false,
+      terminal: false,
     });
     assert.equal(resolved.autoConsolidate, false);
     assert.equal(resolved.todoistTimeZone, "Asia/Shanghai");
@@ -744,6 +745,7 @@ describe("resolveTuiModuleConfig", () => {
       shell: false,
       web: false,
       computer: false,
+      terminal: false,
     });
     assert.equal(resolved.autoConsolidate, true);
     assert.equal(resolved.todoistTimeZone, "UTC");

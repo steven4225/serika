@@ -53,7 +53,7 @@ try {
     const before = sha(git('show', `${baseline}:${file}`)), after = sha(await readFile(join(repo, file))); assert.equal(after, before, file); report.sharedSeatbelt[file] = after;
   }
   await run('/bin/sh', ['-c', 'pnpm typecheck && pnpm build:runtime', '--home', home]);
-  await run('/bin/sh', ['-c', 'node --test packages/assistant/dist/terminal-control.test.js packages/assistant/dist/permission-boundary.test.js packages/assistant/dist/baseline-assembly.test.js packages/assistant/dist/execution-record-store.test.js packages/assistant/dist/context-compactor.test.js', '--home', home]);
+  await run('/bin/sh', ['-c', 'node --test packages/assistant/dist/terminal-control.test.js packages/assistant/dist/permission-boundary.test.js packages/assistant/dist/baseline-assembly.test.js packages/assistant/dist/execution-record-store.test.js packages/assistant/dist/context-compactor.test.js packages/assistant/dist/tui-module-config.test.js', '--home', home]);
   await run('/bin/sh', ['-c', 'pnpm --filter @serika/desktop exec tsx --test src/main/telegram-gateway.test.ts src/main/herdr-target.test.ts src/main/module-settings.test.ts src/main/ipc-forwards.test.ts src/main/resident-transport.test.ts src/main/desktop-runtime.test.ts src/main/runtime-ownership.test.ts src/renderer/src/herdr-target-setting.test.ts src/renderer/src/conversation.test.ts', '--home', home]);
   report.lineChanges = git('diff', '--numstat', baseline, 'HEAD').trim().split('\n').filter(Boolean).map(line => {
     const [added, removed, path] = line.split('\t');
