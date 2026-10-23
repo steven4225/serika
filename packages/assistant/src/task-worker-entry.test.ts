@@ -115,21 +115,21 @@ describe("durable desktop notification adapter", () => {
 describe("task-worker CLI arguments", () => {
   it("accepts explicit home and optional project, including pnpm's separator", () => {
     assert.deepEqual(parseTaskWorkerArgs(["--home", "/tmp/isolated-home"]), { home: "/tmp/isolated-home" });
-    assert.deepEqual(parseTaskWorkerArgs(["--workspace", "/tmp/work", "--config", "/trusted/config.json"]), { workspace: "/tmp/work", configPath: "/trusted/config.json" });
-    assert.deepEqual(parseTaskWorkerArgs(["--", "--workspace", "./sample"]), {
-      workspace: "./sample",
+    assert.deepEqual(parseTaskWorkerArgs(["--home", "/tmp/isolated-home", "--workspace", "/tmp/work", "--config", "/trusted/config.json"]), { home: "/tmp/isolated-home", workspace: "/tmp/work", configPath: "/trusted/config.json" });
+    assert.deepEqual(parseTaskWorkerArgs(["--", "--home", "/tmp/isolated-home", "--workspace", "./sample"]), {
+      home: "/tmp/isolated-home", workspace: "./sample",
     });
     assert.deepEqual(
-      parseTaskWorkerArgs(["--workspace", "./sample", "--todoist", "--notify"]),
-      { workspace: "./sample", todoist: true, notify: true },
+      parseTaskWorkerArgs(["--home", "/tmp/isolated-home", "--workspace", "./sample", "--todoist", "--notify"]),
+      { home: "/tmp/isolated-home", workspace: "./sample", todoist: true, notify: true },
     );
     assert.deepEqual(
-      parseTaskWorkerArgs(["--workspace", "./sample", "--workspace-context"]),
-      { workspace: "./sample", workspaceContext: true },
+      parseTaskWorkerArgs(["--home", "/tmp/isolated-home", "--workspace", "./sample", "--workspace-context"]),
+      { home: "/tmp/isolated-home", workspace: "./sample", workspaceContext: true },
     );
     assert.deepEqual(
-      parseTaskWorkerArgs(["--workspace", "./sample", "--safe-retry"]),
-      { workspace: "./sample", safeRetry: true },
+      parseTaskWorkerArgs(["--home", "/tmp/isolated-home", "--workspace", "./sample", "--safe-retry"]),
+      { home: "/tmp/isolated-home", workspace: "./sample", safeRetry: true },
     );
   });
 
@@ -166,6 +166,28 @@ describe("task-worker CLI arguments", () => {
 });
 
 describe("task-worker startup validation", () => {
+  it("requires explicit --home before accessing default or environment storage", async () => {
+    const root = await mkdtemp(join(tmpdir(), "serika-worker-explicit-home-"));
+    try {
+      for (const configuredHome of [undefined, join(root, "environment-home")]) {
+        const env: NodeJS.ProcessEnv = { ...process.env, HOME: root, RUNLOOM_MODEL: "mock" };
+        delete env.SERIKA_HOME;
+        if (configuredHome !== undefined) env.SERIKA_HOME = configuredHome;
+        const child = spawn(process.execPath, [fileURLToPath(new URL("./task-worker-entry.js", import.meta.url))], {
+          env, stdio: ["ignore", "ignore", "pipe"],
+        });
+        let stderr = "";
+        child.stderr?.setEncoding("utf8");
+        child.stderr?.on("data", chunk => { stderr += chunk; });
+        const [exitCode] = await once(child, "close");
+        assert.equal(exitCode, 1);
+        assert.match(stderr, /task-worker requires explicit --home/);
+      }
+      await assert.rejects(stat(join(root, ".serika")), { code: "ENOENT" });
+      await assert.rejects(stat(join(root, "environment-home")), { code: "ENOENT" });
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
   async function assertInvalidEnvironmentLeavesTaskScheduled(
     environment: NodeJS.ProcessEnv,
     expectedError: RegExp,

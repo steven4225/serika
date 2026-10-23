@@ -45,7 +45,7 @@ import { assistantDataPaths } from "./data-paths.js";
 import { readTuiModuleConfig } from "./tui-module-config.js";
 
 interface TaskWorkerArgs {
-  home?: string;
+  home: string;
   workspace?: string;
   todoist?: true;
   notify?: true;
@@ -133,9 +133,10 @@ export function parseTaskWorkerArgs(args: readonly string[]): TaskWorkerArgs {
 
   if (workspaceContext && workspace === undefined) throw new Error("--workspace-context requires --workspace");
   if (notificationHelperPath !== undefined && !notify) throw new Error("--notification-helper requires --notify");
+  if (home === undefined) throw new Error("task-worker requires explicit --home");
   return {
+    home,
     ...(workspace === undefined ? {} : { workspace }),
-    ...(home === undefined ? {} : { home }),
     ...(configPath === undefined ? {} : { configPath }),
     ...(notificationHelperPath === undefined ? {} : { notificationHelperPath }),
     ...(todoist ? { todoist: true as const } : {}),

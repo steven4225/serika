@@ -50,8 +50,8 @@ it("RSS identities prefer feed ID, then URL, then title/date; ordinary prompts g
   assert.equal(rssItemKey(item("a")), rssItemKey({ ...item("a"), title: "changed", url: "https://example.com/changed" }));
   assert.equal(rssItemKey({ ...item("a"), id: null }), rssItemKey({ ...item("a"), id: null, summary: "changed" }));
   assert.notEqual(rssItemKey({ ...item("a"), id: null, url: null }), rssItemKey({ ...item("b"), id: null, url: null }));
-  assert.equal(parseTaskWorkerArgs(["--workspace", "/tmp", "--rss"]).rss, true);
-  assert.throws(() => parseTaskWorkerArgs(["--workspace", "/tmp", "--rss", "--rss"]));
+  assert.equal(parseTaskWorkerArgs(["--home", "/tmp/rss-home", "--workspace", "/tmp", "--rss"]).rss, true);
+  assert.throws(() => parseTaskWorkerArgs(["--home", "/tmp/rss-home", "--workspace", "/tmp", "--rss", "--rss"]));
 });
 
 it("first baseline, no repeat, new item, restart and delivery-before-dedupe", async () => {

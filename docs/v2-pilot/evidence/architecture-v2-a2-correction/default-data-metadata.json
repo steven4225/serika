@@ -1,0 +1,23 @@
+{
+  "runId": "0d795cb9-ba10-4a07-84cc-9430973ad4fe",
+  "collectedAt": "2026-10-23T02:24:19.186Z",
+  "root": "~/.serika/data",
+  "method": "readdir/lstat only; no content read, symlinks not followed",
+  "files": [
+    {
+      "name": "task-worker-health.json",
+      "size": 206,
+      "modified": "2026-10-22T17:33:49.354Z"
+    },
+    {
+      "name": "task-worker.lock",
+      "size": 0,
+      "modified": "2026-10-22T17:32:47.922Z"
+    },
+    {
+      "name": "tasks.json.lock",
+      "size": 0,
+      "modified": "2026-10-22T17:32:47.977Z"
+    }
+  ]
+}
