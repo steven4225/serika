@@ -1,0 +1,39 @@
+{
+  "productName": "macOS",
+  "productVersion": "27.0.1",
+  "buildVersion": "26A434",
+  "darwinRelease": "27.0.0",
+  "arch": "arm64",
+  "command": [
+    "/bin/sh",
+    "-c",
+    "exec /usr/bin/sw_vers",
+    "--home",
+    "/private/tmp/serika-s0-20261023-0D5Arf/probe-final/H"
+  ],
+  "exitCode": 0,
+  "localReferences": [
+    {
+      "path": "/usr/share/man/man1/sandbox-exec.1",
+      "sha256": "0d264f72dc6a8e0db5474840f33b512542c469beb109ed146c17055da287336b"
+    },
+    {
+      "path": "/System/Library/Sandbox/Profiles/system.sb",
+      "sha256": "180a0356611b5de7a7db84b800ed47a1d2f15ec884d0fb960445366ededac7c8"
+    },
+    {
+      "path": "/usr/share/sandbox/cvmsServer.sb",
+      "sha256": "ba5ad2d6132afcb5db6f67bc82f6009ac580961a8adf3a707e733f15d80cc33f"
+    }
+  ],
+  "referenceObservations": [
+    "sandbox-exec man marks command DEPRECATED",
+    "Apple profile calls the interfaces private and subject to change",
+    "cvmsServer profile contains syscall-unix filters; this does not prove detached spawning is blocked"
+  ],
+  "upstreamReferences": [
+    "https://nodejs.org/api/child_process.html",
+    "https://developer.apple.com/forums/thread/747499"
+  ],
+  "scope": "raw Seatbelt profile, not App Sandbox entitlement acceptance"
+}

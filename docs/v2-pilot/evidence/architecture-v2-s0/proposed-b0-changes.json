@@ -1,0 +1,101 @@
+{
+  "status": "pending_user_approval",
+  "productPermissionChangesInS0": [],
+  "baselineCommit": "6f12544c6c35a5ec1eaf3003d79e1979c45c790e",
+  "baselineFile": "packages/assistant/src/permission-boundary.snapshot.json",
+  "baselineSha256": "b988e469ca6c830690358de82db65b67a316e9c0256bfa993b3199f8c2e68670",
+  "ruleTable": "docs/v2-pilot/architecture-v2-s0.md section 2 S01-S15",
+  "allowedExistingKeys": [
+    "desktop/shell_exec",
+    "telegram/shell_exec"
+  ],
+  "existingRows": {
+    "desktop/shell_exec": {
+      "rule": "S01",
+      "before": {
+        "approvals": [
+          {
+            "tool": "shell_exec",
+            "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+            "remember": null
+          }
+        ],
+        "status": "completed",
+        "events": [
+          {
+            "type": "tool.call.failed",
+            "ok": null,
+            "code": "TOOL_DENIED"
+          }
+        ]
+      },
+      "proposedAfter": {
+        "approvals": [],
+        "status": "completed",
+        "events": [
+          {
+            "type": "tool.call.completed",
+            "ok": true,
+            "code": null
+          }
+        ]
+      }
+    },
+    "telegram/shell_exec": {
+      "rule": "S02",
+      "before": {
+        "approvals": [
+          {
+            "tool": "shell_exec",
+            "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+            "remember": null
+          }
+        ],
+        "status": "completed",
+        "events": [
+          {
+            "type": "tool.call.failed",
+            "ok": null,
+            "code": "TOOL_DENIED"
+          }
+        ]
+      },
+      "proposedAfter": {
+        "approvals": [],
+        "status": "completed",
+        "events": [
+          {
+            "type": "tool.call.completed",
+            "ok": true,
+            "code": null
+          }
+        ]
+      }
+    }
+  },
+  "everythingElse": "must equal original b0 under the already approved e projection; no additional projection",
+  "existingProjection": {
+    "retiredKeys": [
+      "config/inside/automatic",
+      "config/inside/review",
+      "config/outside/automatic",
+      "config/outside/review"
+    ],
+    "retiredMetadata": "config rows policy only"
+  },
+  "permissionDecisionsSnapshot": "all existing host and Docker rows remain unchanged; new Seatbelt cases separate",
+  "s1DeliveryRequirement": "actual changes vs approved S01-S15 and the two rows; any unapproved change fails; real macOS Electron evidence required",
+  "newCases": [
+    "unavailable/rejected backend",
+    "explicit host confirmation",
+    "filesystem and sensitive sentinels",
+    "network IPv4 IPv6 TCP UDP DNS loopback Unix listen",
+    "arbitrary inherited descriptor/socket/IPC",
+    "ordinary and detached descendant constraints",
+    "ordinary detached and respawned descendant cancellation",
+    "cross-process args environment and memory credential reads",
+    "unknown receipt no retry"
+  ],
+  "s1Accepted": false,
+  "ruleTableRowsSha256": "49c027d0c66bd99160ba6d215697eb73f0077c470e3f7b10d61073b34a325915"
+}

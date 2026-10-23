@@ -1,0 +1,491 @@
+{
+  "runId": "7bf127e1-5af5-45bc-ae44-9a170f905318",
+  "startedAt": "2026-10-23T04:46:16.066Z",
+  "platform": "darwin",
+  "release": "27.0.0",
+  "arch": "arm64",
+  "node": "v26.4.0",
+  "sourceCommit": "390c719ee0f90a738b923757e973dc3c0870df6c",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "9dbcbd98f52e5fd648e351957dd4f6096e5da829303fbba0509db3782158ae52",
+  "realModelCalls": 0,
+  "productAutonomyEnabled": false,
+  "scope": "S0 observations only; not S1 acceptance",
+  "s1Accepted": false,
+  "commands": [
+    {
+      "mode": "availability",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 17,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "filesystem",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 330,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "environment",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 479,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "network",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 119,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "descendant",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 377,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "detached",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 377,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "runtime",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 366,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "descriptor-clean",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 26,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "compile-process-environment-control",
+      "exitCode": 0,
+      "signal": null,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "process-environment-host-control",
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "mode": "process-environment-sandbox",
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "mode": "descriptor-clean",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 26,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "descriptor",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 43,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "cancel-ordinary",
+      "exitCode": null,
+      "signal": "SIGKILL",
+      "detachedDescendant": false,
+      "continuesAfterGroupKill": false,
+      "continuesAfterExplicitCleanup": false
+    },
+    {
+      "mode": "cancel-detached",
+      "exitCode": null,
+      "signal": "SIGKILL",
+      "detachedDescendant": true,
+      "continuesAfterGroupKill": true,
+      "continuesAfterExplicitCleanup": false
+    },
+    {
+      "mode": "availability",
+      "exitCode": null,
+      "signal": null,
+      "error": "ENOENT",
+      "stdoutBytes": 0,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "availability",
+      "exitCode": 65,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 0,
+      "stderrBytes": 113
+    }
+  ],
+  "checks": {
+    "availability": {
+      "executablePresent": true,
+      "entered": true
+    },
+    "filesystem": {
+      "authorizedWrite": true,
+      "privateTempWrite": true,
+      "outsideWrite": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "homeRead": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "runtimeWrite": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "symlinkWrite": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "projectEnvRead": {
+        "blocked": true,
+        "code": "EPERM"
+      }
+    },
+    "environment": {
+      "variables": [
+        {
+          "name": "AWS_ACCESS_KEY_ID",
+          "blocked": true
+        },
+        {
+          "name": "AWS_SECRET_ACCESS_KEY",
+          "blocked": true
+        },
+        {
+          "name": "BASH_ENV",
+          "blocked": true
+        },
+        {
+          "name": "CANARY_UNCLASSIFIED",
+          "blocked": true
+        },
+        {
+          "name": "CODEX_MCP_NODE_PATH",
+          "blocked": true
+        },
+        {
+          "name": "DYLD_INSERT_LIBRARIES",
+          "blocked": true
+        },
+        {
+          "name": "GPG_AGENT_INFO",
+          "blocked": true
+        },
+        {
+          "name": "NODE_OPTIONS",
+          "blocked": true
+        },
+        {
+          "name": "NO_PROXY",
+          "blocked": true
+        },
+        {
+          "name": "OPENAI_API_KEY",
+          "blocked": true
+        },
+        {
+          "name": "SSH_AUTH_SOCK",
+          "blocked": true
+        }
+      ]
+    },
+    "network": {
+      "IPv4": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "IPv6": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "Unix": {
+        "blocked": true,
+        "code": "EPERM"
+      }
+    },
+    "descendant": {
+      "childExit": 0,
+      "childSignal": null,
+      "inherited": {
+        "authorizedWrite": true,
+        "privateTempWrite": true,
+        "outsideWrite": {
+          "blocked": true,
+          "code": "EPERM"
+        },
+        "sensitiveRead": {
+          "blocked": true,
+          "code": "EPERM"
+        },
+        "homeRead": {
+          "blocked": true,
+          "code": "EPERM"
+        },
+        "runtimeWrite": {
+          "blocked": true,
+          "code": "EPERM"
+        },
+        "symlinkWrite": {
+          "blocked": true,
+          "code": "EPERM"
+        },
+        "projectEnvRead": {
+          "blocked": true,
+          "code": "EPERM"
+        }
+      }
+    },
+    "detached": {
+      "childExit": 0,
+      "childSignal": null,
+      "inherited": {
+        "authorizedWrite": true,
+        "privateTempWrite": true,
+        "outsideWrite": {
+          "blocked": true,
+          "code": "EPERM"
+        },
+        "sensitiveRead": {
+          "blocked": true,
+          "code": "EPERM"
+        },
+        "homeRead": {
+          "blocked": true,
+          "code": "EPERM"
+        },
+        "runtimeWrite": {
+          "blocked": true,
+          "code": "EPERM"
+        },
+        "symlinkWrite": {
+          "blocked": true,
+          "code": "EPERM"
+        },
+        "projectEnvRead": {
+          "blocked": true,
+          "code": "EPERM"
+        }
+      }
+    },
+    "runtime": {
+      "shell": {
+        "exitCode": 0,
+        "signal": null,
+        "started": true,
+        "nonemptyOutput": true
+      },
+      "git": {
+        "exitCode": 0,
+        "signal": null,
+        "started": true,
+        "nonemptyOutput": true
+      },
+      "node": {
+        "exitCode": 0,
+        "signal": null,
+        "started": true,
+        "nonemptyOutput": true
+      },
+      "npm": {
+        "exitCode": 0,
+        "signal": null,
+        "started": true,
+        "nonemptyOutput": true
+      },
+      "pnpm": {
+        "exitCode": 0,
+        "signal": null,
+        "started": true,
+        "nonemptyOutput": true
+      }
+    },
+    "descriptor-clean": {
+      "extraFdIsSocket": false
+    },
+    "processEnvironment": {
+      "hostControl": {
+        "name": "PROBE_CREDENTIAL_CANARY",
+        "blocked": false,
+        "errno": 0
+      },
+      "sandbox": {
+        "name": "PROBE_CREDENTIAL_CANARY",
+        "blocked": false,
+        "errno": 0
+      }
+    },
+    "cleanSocketLaunch": {
+      "extraFdIsSocket": false,
+      "peerReceivedBytes": 0
+    },
+    "deliberatelyInheritedSocket": {
+      "inheritedSocketWrite": {
+        "blocked": false
+      },
+      "peerReceivedBytes": 12
+    },
+    "cancelOrdinary": {
+      "exitCode": null,
+      "signal": "SIGKILL",
+      "detachedDescendant": false,
+      "continuesAfterGroupKill": false,
+      "continuesAfterExplicitCleanup": false
+    },
+    "cancelDetached": {
+      "exitCode": null,
+      "signal": "SIGKILL",
+      "detachedDescendant": true,
+      "continuesAfterGroupKill": true,
+      "continuesAfterExplicitCleanup": false
+    },
+    "unavailable": {
+      "refused": true,
+      "entered": false,
+      "hostFallback": false
+    },
+    "rejectedProfile": {
+      "refused": true,
+      "entered": false,
+      "hostFallback": false
+    }
+  },
+  "status": "passed",
+  "b0Sha256": "b988e469ca6c830690358de82db65b67a316e9c0256bfa993b3199f8c2e68670",
+  "environment": {
+    "parentCredentialNames": [
+      "CODEX_MCP_NODE_PATH",
+      "NO_PROXY",
+      "SSH_AUTH_SOCK"
+    ],
+    "additionalProbeNames": [
+      "OPENAI_API_KEY",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SECRET_ACCESS_KEY",
+      "SSH_AUTH_SOCK",
+      "GPG_AGENT_INFO",
+      "NODE_OPTIONS",
+      "DYLD_INSERT_LIBRARIES",
+      "BASH_ENV",
+      "CANARY_UNCLASSIFIED"
+    ],
+    "credentialValuesCopiedToChild": false,
+    "construction": "fresh fixed environment, no source environment spread"
+  },
+  "runtime": {
+    "executable": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+    "gitExecutable": "/Library/Developer/CommandLineTools/usr/bin/git",
+    "packageManagers": [
+      {
+        "name": "npm",
+        "entry": "/opt/homebrew/lib/node_modules/npm/bin/npm-cli.js",
+        "readOnlyRoot": "/opt/homebrew/lib/node_modules/npm"
+      },
+      {
+        "name": "pnpm",
+        "entry": "/opt/homebrew/Cellar/pnpm/11.9.0/libexec/lib/node_modules/pnpm/bin/pnpm.mjs",
+        "readOnlyRoot": "/opt/homebrew/Cellar/pnpm/11.9.0/libexec/lib/node_modules/pnpm"
+      }
+    ],
+    "dependencyDirectories": [
+      "/opt/homebrew/Cellar/node/26.4.0/bin",
+      "/opt/homebrew/opt/node/bin",
+      "/opt/homebrew/Cellar/node/26.4.0/lib",
+      "/opt/homebrew/opt/node/lib",
+      "/opt/homebrew/Cellar/llhttp/9.4.2/lib",
+      "/opt/homebrew/opt/llhttp/lib",
+      "/opt/homebrew/Cellar/libuv/1.52.1/lib",
+      "/opt/homebrew/opt/libuv/lib",
+      "/opt/homebrew/Cellar/ada-url/3.4.4/lib",
+      "/opt/homebrew/opt/ada-url/lib",
+      "/opt/homebrew/Cellar/simdjson/4.6.4/lib",
+      "/opt/homebrew/opt/simdjson/lib",
+      "/opt/homebrew/Cellar/brotli/1.2.0/lib",
+      "/opt/homebrew/opt/brotli/lib",
+      "/opt/homebrew/Cellar/c-ares/1.34.8/lib",
+      "/opt/homebrew/opt/c-ares/lib",
+      "/opt/homebrew/Cellar/hdrhistogram_c/0.11.10/lib",
+      "/opt/homebrew/opt/hdrhistogram_c/lib",
+      "/opt/homebrew/Cellar/merve/1.2.2_1/lib",
+      "/opt/homebrew/opt/merve/lib",
+      "/opt/homebrew/Cellar/nbytes/0.1.4/lib",
+      "/opt/homebrew/opt/nbytes/lib",
+      "/opt/homebrew/Cellar/libnghttp2/1.69.0/lib",
+      "/opt/homebrew/opt/libnghttp2/lib",
+      "/opt/homebrew/Cellar/libnghttp3/1.17.0/lib",
+      "/opt/homebrew/opt/libnghttp3/lib",
+      "/opt/homebrew/Cellar/libngtcp2/1.24.0/lib",
+      "/opt/homebrew/opt/libngtcp2/lib",
+      "/opt/homebrew/Cellar/sqlite/3.53.4/lib",
+      "/opt/homebrew/opt/sqlite/lib",
+      "/opt/homebrew/Cellar/libffi/3.6.0/lib",
+      "/opt/homebrew/opt/libffi/lib",
+      "/opt/homebrew/Cellar/uvwasi/0.0.23/lib",
+      "/opt/homebrew/opt/uvwasi/lib",
+      "/opt/homebrew/Cellar/zstd/1.5.7_1/lib",
+      "/opt/homebrew/opt/zstd/lib",
+      "/opt/homebrew/Cellar/openssl@3/3.6.5/lib",
+      "/opt/homebrew/opt/openssl@3/lib",
+      "/opt/homebrew/Cellar/icu4c@78/78.3/lib",
+      "/opt/homebrew/opt/icu4c@78/lib",
+      "/opt/homebrew/Cellar/simdutf/9.0.0/lib",
+      "/opt/homebrew/opt/simdutf/lib"
+    ],
+    "systemReadRoots": [
+      "/System/Library",
+      "/usr/lib",
+      "/Library/Developer/CommandLineTools/usr/lib"
+    ],
+    "environmentNamesPassed": [
+      "GIT_CONFIG_GLOBAL",
+      "GIT_CONFIG_NOSYSTEM",
+      "GIT_TERMINAL_PROMPT",
+      "HOME",
+      "LANG",
+      "LC_ALL",
+      "OPENSSL_CONF",
+      "PATH",
+      "TMPDIR",
+      "TZ"
+    ],
+    "metadataAncestorsOnly": true,
+    "globalOpenSSLConfigurationDisabled": true
+  },
+  "executedProfileSha256": "16e708b484fc11070a07c5d0fa73ddca7dcd8773a97829751fe7c088f1e325c4",
+  "profile": "(version 1)\n(deny default)\n(allow process-exec)\n(allow process-fork)\n(allow sysctl-read)\n(allow signal (target self))\n(allow file-read-metadata (literal \"/\") (literal \"/System\") (literal \"/usr\") (literal \"/Library/Developer/CommandLineTools/usr\") (literal \"/Library/Developer/CommandLineTools\") (literal \"/Library/Developer\") (literal \"/Library\") (literal \"/opt/homebrew/Cellar/node/26.4.0\") (literal \"/opt/homebrew/Cellar/node\") (literal \"/opt/homebrew/Cellar\") (literal \"/opt/homebrew\") (literal \"/opt\") (literal \"/opt/homebrew/opt/node\") (literal \"/opt/homebrew/opt\") (literal \"/opt/homebrew/Cellar/llhttp/9.4.2\") (literal \"/opt/homebrew/Cellar/llhttp\") (literal \"/opt/homebrew/opt/llhttp\") (literal \"/opt/homebrew/Cellar/libuv/1.52.1\") (literal \"/opt/homebrew/Cellar/libuv\") (literal \"/opt/homebrew/opt/libuv\") (literal \"/opt/homebrew/Cellar/ada-url/3.4.4\") (literal \"/opt/homebrew/Cellar/ada-url\") (literal \"/opt/homebrew/opt/ada-url\") (literal \"/opt/homebrew/Cellar/simdjson/4.6.4\") (literal \"/opt/homebrew/Cellar/simdjson\") (literal \"/opt/homebrew/opt/simdjson\") (literal \"/opt/homebrew/Cellar/brotli/1.2.0\") (literal \"/opt/homebrew/Cellar/brotli\") (literal \"/opt/homebrew/opt/brotli\") (literal \"/opt/homebrew/Cellar/c-ares/1.34.8\") (literal \"/opt/homebrew/Cellar/c-ares\") (literal \"/opt/homebrew/opt/c-ares\") (literal \"/opt/homebrew/Cellar/hdrhistogram_c/0.11.10\") (literal \"/opt/homebrew/Cellar/hdrhistogram_c\") (literal \"/opt/homebrew/opt/hdrhistogram_c\") (literal \"/opt/homebrew/Cellar/merve/1.2.2_1\") (literal \"/opt/homebrew/Cellar/merve\") (literal \"/opt/homebrew/opt/merve\") (literal \"/opt/homebrew/Cellar/nbytes/0.1.4\") (literal \"/opt/homebrew/Cellar/nbytes\") (literal \"/opt/homebrew/opt/nbytes\") (literal \"/opt/homebrew/Cellar/libnghttp2/1.69.0\") (literal \"/opt/homebrew/Cellar/libnghttp2\") (literal \"/opt/homebrew/opt/libnghttp2\") (literal \"/opt/homebrew/Cellar/libnghttp3/1.17.0\") (literal \"/opt/homebrew/Cellar/libnghttp3\") (literal \"/opt/homebrew/opt/libnghttp3\") (literal \"/opt/homebrew/Cellar/libngtcp2/1.24.0\") (literal \"/opt/homebrew/Cellar/libngtcp2\") (literal \"/opt/homebrew/opt/libngtcp2\") (literal \"/opt/homebrew/Cellar/sqlite/3.53.4\") (literal \"/opt/homebrew/Cellar/sqlite\") (literal \"/opt/homebrew/opt/sqlite\") (literal \"/opt/homebrew/Cellar/libffi/3.6.0\") (literal \"/opt/homebrew/Cellar/libffi\") (literal \"/opt/homebrew/opt/libffi\") (literal \"/opt/homebrew/Cellar/uvwasi/0.0.23\") (literal \"/opt/homebrew/Cellar/uvwasi\") (literal \"/opt/homebrew/opt/uvwasi\") (literal \"/opt/homebrew/Cellar/zstd/1.5.7_1\") (literal \"/opt/homebrew/Cellar/zstd\") (literal \"/opt/homebrew/opt/zstd\") (literal \"/opt/homebrew/Cellar/openssl@3/3.6.5\") (literal \"/opt/homebrew/Cellar/openssl@3\") (literal \"/opt/homebrew/opt/openssl@3\") (literal \"/opt/homebrew/Cellar/icu4c@78/78.3\") (literal \"/opt/homebrew/Cellar/icu4c@78\") (literal \"/opt/homebrew/opt/icu4c@78\") (literal \"/opt/homebrew/Cellar/simdutf/9.0.0\") (literal \"/opt/homebrew/Cellar/simdutf\") (literal \"/opt/homebrew/opt/simdutf\") (literal \"/opt/homebrew/lib/node_modules\") (literal \"/opt/homebrew/lib\") (literal \"/opt/homebrew/Cellar/pnpm/11.9.0/libexec/lib/node_modules\") (literal \"/opt/homebrew/Cellar/pnpm/11.9.0/libexec/lib\") (literal \"/opt/homebrew/Cellar/pnpm/11.9.0/libexec\") (literal \"/opt/homebrew/Cellar/pnpm/11.9.0\") (literal \"/opt/homebrew/Cellar/pnpm\") (literal \"<temporary>\") (literal \"/private/tmp/serika-s0-20261023-0D5Arf\") (literal \"/private/tmp\") (literal \"/private\") (literal \"/bin\") (literal \"/Library/Developer/CommandLineTools/usr/bin\") (literal \"/dev\") (literal \"/opt/homebrew/Cellar/node/26.4.0/bin\"))\n(allow file-read* (subpath \"/System/Library\") (subpath \"/usr/lib\") (subpath \"/Library/Developer/CommandLineTools/usr/lib\") (subpath \"/opt/homebrew/Cellar/node/26.4.0/bin\") (subpath \"/opt/homebrew/opt/node/bin\") (subpath \"/opt/homebrew/Cellar/node/26.4.0/lib\") (subpath \"/opt/homebrew/opt/node/lib\") (subpath \"/opt/homebrew/Cellar/llhttp/9.4.2/lib\") (subpath \"/opt/homebrew/opt/llhttp/lib\") (subpath \"/opt/homebrew/Cellar/libuv/1.52.1/lib\") (subpath \"/opt/homebrew/opt/libuv/lib\") (subpath \"/opt/homebrew/Cellar/ada-url/3.4.4/lib\") (subpath \"/opt/homebrew/opt/ada-url/lib\") (subpath \"/opt/homebrew/Cellar/simdjson/4.6.4/lib\") (subpath \"/opt/homebrew/opt/simdjson/lib\") (subpath \"/opt/homebrew/Cellar/brotli/1.2.0/lib\") (subpath \"/opt/homebrew/opt/brotli/lib\") (subpath \"/opt/homebrew/Cellar/c-ares/1.34.8/lib\") (subpath \"/opt/homebrew/opt/c-ares/lib\") (subpath \"/opt/homebrew/Cellar/hdrhistogram_c/0.11.10/lib\") (subpath \"/opt/homebrew/opt/hdrhistogram_c/lib\") (subpath \"/opt/homebrew/Cellar/merve/1.2.2_1/lib\") (subpath \"/opt/homebrew/opt/merve/lib\") (subpath \"/opt/homebrew/Cellar/nbytes/0.1.4/lib\") (subpath \"/opt/homebrew/opt/nbytes/lib\") (subpath \"/opt/homebrew/Cellar/libnghttp2/1.69.0/lib\") (subpath \"/opt/homebrew/opt/libnghttp2/lib\") (subpath \"/opt/homebrew/Cellar/libnghttp3/1.17.0/lib\") (subpath \"/opt/homebrew/opt/libnghttp3/lib\") (subpath \"/opt/homebrew/Cellar/libngtcp2/1.24.0/lib\") (subpath \"/opt/homebrew/opt/libngtcp2/lib\") (subpath \"/opt/homebrew/Cellar/sqlite/3.53.4/lib\") (subpath \"/opt/homebrew/opt/sqlite/lib\") (subpath \"/opt/homebrew/Cellar/libffi/3.6.0/lib\") (subpath \"/opt/homebrew/opt/libffi/lib\") (subpath \"/opt/homebrew/Cellar/uvwasi/0.0.23/lib\") (subpath \"/opt/homebrew/opt/uvwasi/lib\") (subpath \"/opt/homebrew/Cellar/zstd/1.5.7_1/lib\") (subpath \"/opt/homebrew/opt/zstd/lib\") (subpath \"/opt/homebrew/Cellar/openssl@3/3.6.5/lib\") (subpath \"/opt/homebrew/opt/openssl@3/lib\") (subpath \"/opt/homebrew/Cellar/icu4c@78/78.3/lib\") (subpath \"/opt/homebrew/opt/icu4c@78/lib\") (subpath \"/opt/homebrew/Cellar/simdutf/9.0.0/lib\") (subpath \"/opt/homebrew/opt/simdutf/lib\") (subpath \"/opt/homebrew/lib/node_modules/npm\") (subpath \"/opt/homebrew/Cellar/pnpm/11.9.0/libexec/lib/node_modules/pnpm\") (subpath \"<temporary>/runtime\") (subpath \"<temporary>/authorized\") (subpath \"<temporary>/command-temp\") (literal \"/\") (literal \"/bin/sh\") (literal \"/Library/Developer/CommandLineTools/usr/bin/git\") (literal \"/dev/null\") (literal \"/dev/urandom\") (literal \"/opt/homebrew/Cellar/node/26.4.0/bin/node\"))\n(allow file-write* (subpath \"<temporary>/authorized\") (subpath \"<temporary>/command-temp\") (literal \"/dev/null\"))\n(deny file-read* file-write* (subpath \"<temporary>/H\") (subpath \"<temporary>/sensitive\") (regex #\"(^|/)\\.env($|\\.)\"))\n",
+  "portableProfileSha256": "dd5580c556a72a439dffc92ec95cbf187eb343bbf8e6b2da7ff2c7fe1fa2f6bf",
+  "finishedAt": "2026-10-23T04:46:20.030Z"
+}

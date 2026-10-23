@@ -1,0 +1,452 @@
+{
+  "scope": "S0, scratch results are not S1 acceptance",
+  "scratchArtifacts": [
+    {
+      "file": "ancestors.mjs",
+      "sha256": "772f0e8440ff6a9e99600e5841b06c4b383b324aad865334d986d25fe60e0288"
+    },
+    {
+      "file": "escape.mjs",
+      "sha256": "1944fff0d732a327bef2799c06d3903193a59de2e8439a7efcef7635ed7ee577"
+    },
+    {
+      "file": "first-probe.mjs",
+      "sha256": "7e4adab4326da2f4fb77fdf3db832bf37a203f3fdae29ee4269399d7148db890"
+    },
+    {
+      "file": "matrix.mjs",
+      "sha256": "334af1e201fbfcfe51ff3e1aab5917e804e855a7e398018bceb8dc05886cce01"
+    },
+    {
+      "file": "narrow.mjs",
+      "sha256": "840884126636e10efd98194b63d1c68e23b8112b293288be32bb7e9bd566f7b0"
+    },
+    {
+      "file": "process-info-control.mjs",
+      "sha256": "85f19dd97358e8ae2d47e73a22a76a160ebf05e1b726d33aca8ba10d1495f12e"
+    },
+    {
+      "file": "read-matrix.mjs",
+      "sha256": "5ca6d1957a55d3ca5b165cf9f6871b25c64d2c3d3dd83dac23032fe1d1615d90"
+    },
+    {
+      "file": "sysctl-probe.mjs",
+      "sha256": "6b69a382debb718cf16cf91bd406df5ba1d0a965a39bb4c7546f79d52392a3d3"
+    },
+    {
+      "file": "ancestors.sb",
+      "sha256": "d1a19ac45584b4a321028a0738fb675189bbb2b63ee10d6b2e4a1e0d213f441c"
+    },
+    {
+      "file": "escape-noGroupChange.sb",
+      "sha256": "c878a5f93bde14e41aa766fc4ba445abc47d3b0753b23a0f0b66cf46b8ba4c3d"
+    },
+    {
+      "file": "escape-plain.sb",
+      "sha256": "d1a19ac45584b4a321028a0738fb675189bbb2b63ee10d6b2e4a1e0d213f441c"
+    },
+    {
+      "file": "first.sb",
+      "sha256": "92b9bcd991a7df91a9d7e9de1ff8dd5abe73c794182aacb758b6d2c4d577893c"
+    },
+    {
+      "file": "matrix-all.sb",
+      "sha256": "f388b5754c5ad8b33e6c8d4e9e8a63df2500a00a1244d5b39596784dde783f07"
+    },
+    {
+      "file": "matrix-info.sb",
+      "sha256": "0dc936a46bb9d0f202cc497db8a53b475e600f141f1d2470a4153466cb453d07"
+    },
+    {
+      "file": "matrix-ipc.sb",
+      "sha256": "b0c3f60225b7d380dff78a3b2c7303eb7baeb108ec39b8c578916d56b51cdc16"
+    },
+    {
+      "file": "matrix-mach.sb",
+      "sha256": "87ef0285e5dd237a8c33e1c3c016eda7e20c4f329800a7be3f5de4d5ebc57ba9"
+    },
+    {
+      "file": "matrix-mapping.sb",
+      "sha256": "52ed993d558bf31d72eacab4a8e916c9355ab2a7a1d7757fbfd5dc0365297681"
+    },
+    {
+      "file": "matrix-metadata.sb",
+      "sha256": "7510138bde30984e021be0325c7ca0b764111ffb27f09c77422b6e49976868b6"
+    },
+    {
+      "file": "matrix-reads.sb",
+      "sha256": "dbc5d49eaa916ea911e8ad7b1dd8f04930088a7a2ecdf69454c28b7503230c76"
+    },
+    {
+      "file": "narrow-narrow.sb",
+      "sha256": "b3f92efd2cf0dca6a25cdcd883d8bdea8aa8675f00a3f2c3fc1646c660d30b13"
+    },
+    {
+      "file": "narrow-narrowMeta.sb",
+      "sha256": "720738e5e1a87274e26675d923ac0d5d9189c748e2aa0b51bb629407180527d4"
+    },
+    {
+      "file": "narrow-packages.sb",
+      "sha256": "e6be5f8dfcd56a461da87922329a2a939814326911fb9024b77ea0408e5ea181"
+    },
+    {
+      "file": "narrow-rootAndHomebrew.sb",
+      "sha256": "e859e37b8d97a270c893d2b00b8ec1bfed4b276a129aa17f2ffa0017f810383a"
+    },
+    {
+      "file": "narrow-rootAndOpt.sb",
+      "sha256": "53991bd8c87585f9de47432eb3cd8cc2e7969f49062120dadd1ce3b189630e54"
+    },
+    {
+      "file": "read-allbutusers.sb",
+      "sha256": "1e46c5c3de1690d922b2f478cda3a210c10ae82fe50f41564256069095796e2e"
+    },
+    {
+      "file": "read-dev.sb",
+      "sha256": "c4b0cf122929bc7ea5de7f12680c06d8fcd975a6202deb9e19470a27b9768eca"
+    },
+    {
+      "file": "read-etc.sb",
+      "sha256": "647b37d2f784c3e352cef9e39aa3940c8aa3240c32291137dfeb9506fe712bf4"
+    },
+    {
+      "file": "read-homebrew.sb",
+      "sha256": "78ab0589e09a8f43c0abd23ae14399a28028e54697b7f8311cee8894b9ab74da"
+    },
+    {
+      "file": "read-library.sb",
+      "sha256": "9b08570e9bd5294053a90387c4cadd9f161c98caf89a1854e9ca1d1675f4e1ab"
+    },
+    {
+      "file": "read-opt.sb",
+      "sha256": "f6469d58271a7965dc5785ed8de293a8d3ea6446791fb7a53a4377d6ccd05a55"
+    },
+    {
+      "file": "read-random.sb",
+      "sha256": "3dcd554f0c70bdd13b5ba1a14fcabfd6091ffafa566bd6d73991ca2b1d8af9b7"
+    },
+    {
+      "file": "read-root.sb",
+      "sha256": "e47278fd5551ba75a3ce11d659b81ff20b047f37f60375b83fd3d1cca5ce91a0"
+    },
+    {
+      "file": "read-system.sb",
+      "sha256": "e7c3c0181bf484e850c271dff00478283c83ddf625938efc35d4075f483999a8"
+    },
+    {
+      "file": "read-timezone.sb",
+      "sha256": "8161fe032ea92eacea539ad48ae822a2def609586179515300d814ad8d8b55e8"
+    },
+    {
+      "file": "read-usr.sb",
+      "sha256": "ce4b54e26091f0094a093a448bdcf0233cc5f3305b23dd2b4d644291ff34f45b"
+    },
+    {
+      "file": "read-var.sb",
+      "sha256": "b5aff84cd88437dee7cc6ffbed924858ef4de11a33f3bb2fcabea682016d3919"
+    },
+    {
+      "file": "restricted-sysctl.sb",
+      "sha256": "5965e479e09b553480b4d3c2555cd5709369d3121fe56035e22d054703012318"
+    }
+  ],
+  "scratchObservations": [
+    {
+      "case": "initial default-deny Node",
+      "exitCode": null,
+      "signal": "SIGABRT",
+      "resolution": "actual dylib aliases and exact ancestor metadata; OPENSSL_CONF=/dev/null"
+    },
+    {
+      "case": "broad file-read diagnostic",
+      "exitCode": 0,
+      "resolution": "scratch only; not final profile"
+    },
+    {
+      "case": "deny setsid/setpgid vs Node detached spawn",
+      "childExitCode": 0,
+      "blocked": false,
+      "resolution": "not an effective cancellation strategy; excluded from final profile"
+    },
+    {
+      "case": "first CLI missing temporary parent",
+      "exitCode": 1,
+      "code": "ENOENT",
+      "resolution": "create canonical parent; explicit boundary check added"
+    },
+    {
+      "case": "first full probe git failure hidden by missing runtime assertion",
+      "probeExitCode": 0,
+      "gitExitCode": 1,
+      "resolution": "direct CLT Git plus assertions for every runtime subcommand"
+    },
+    {
+      "case": "initial descriptor lstat EPERM",
+      "proofOfNoSocket": false,
+      "resolution": "fstat plus peer byte counter control"
+    },
+    {
+      "case": "inherited connected socket",
+      "blocked": false,
+      "resolution": "S1 must not pass any extra descriptor"
+    },
+    {
+      "case": "detached descendant after group kill",
+      "continues": true,
+      "resolution": "probe explicit PID cleanup only; S1 cancellation remains unimplemented"
+    }
+  ],
+  "iterations": [
+    {
+      "stage": "first",
+      "evidenceSha256": "660612c17373bc61584a1d182c6a27a9871a1071c2648204d9cd762b9cf4ad9d",
+      "sourceCommit": "6f12544c6c35a5ec1eaf3003d79e1979c45c790e",
+      "scriptSha256": "2324d4741136c1d457e8a6109dc2e235cf8e7ba1c69111d6d39236874a01eaf5",
+      "status": "passed",
+      "runtimeResults": {
+        "shell": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "git": {
+          "exitCode": 1,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": false
+        },
+        "node": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        }
+      },
+      "observedInheritedSocket": {
+        "inheritedSocketWrite": {
+          "blocked": false
+        }
+      },
+      "note": "preliminary, uncommitted script"
+    },
+    {
+      "stage": "second",
+      "evidenceSha256": "760ef60dbd6a40c11e24b77bb89250b9b1e794cc380a524d78cbc1c94b585424",
+      "sourceCommit": "6f12544c6c35a5ec1eaf3003d79e1979c45c790e",
+      "scriptSha256": "91d1920d5b5301a4eda5860c99d76d0b2b33c29e2305f1dc0404928dfad224e5",
+      "status": "passed",
+      "runtimeResults": {
+        "shell": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "git": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "node": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        }
+      },
+      "observedInheritedSocket": {
+        "inheritedSocketWrite": {
+          "blocked": false
+        },
+        "peerReceivedBytes": 12
+      },
+      "note": "preliminary, uncommitted script"
+    },
+    {
+      "stage": "third",
+      "evidenceSha256": "dc0b55531f83b0afe1c6265cb015e737ed9ab3b871d53a815576f143df5e4243",
+      "sourceCommit": "6f12544c6c35a5ec1eaf3003d79e1979c45c790e",
+      "scriptSha256": "d92be41a6584ba9cf3ed9a460c5894c8093aeb44efa8c21cf33da663a4462fde",
+      "status": "passed",
+      "runtimeResults": {
+        "shell": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "git": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "node": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "npm": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "pnpm": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        }
+      },
+      "observedInheritedSocket": {
+        "inheritedSocketWrite": {
+          "blocked": false
+        },
+        "peerReceivedBytes": 12
+      },
+      "note": "preliminary, uncommitted script"
+    },
+    {
+      "stage": "prior-final",
+      "evidenceSha256": "79c51eaac205055c816778fdc85e6f22bc04d06e166c4b46dca35a29f28b939b",
+      "sourceCommit": "6bed4ff30f35bf7e0bf0336207539cdbc88acd9f",
+      "scriptSha256": "1d4ec5680edb9e4a97db2227964f328562dd6bf554bc4010b39f25e1734b0833",
+      "status": "passed",
+      "runtimeResults": {
+        "shell": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "git": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "node": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "npm": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "pnpm": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        }
+      },
+      "observedInheritedSocket": {
+        "inheritedSocketWrite": {
+          "blocked": false
+        },
+        "peerReceivedBytes": 12
+      },
+      "note": "committed source, worktree clean"
+    },
+    {
+      "stage": "envcheck",
+      "evidenceSha256": "4165ca51cdb42f0fa2864ac94e2fc263d574a7f0d9eb6c85d0f61d63e3384254",
+      "sourceCommit": "6bed4ff30f35bf7e0bf0336207539cdbc88acd9f",
+      "scriptSha256": "9dbcbd98f52e5fd648e351957dd4f6096e5da829303fbba0509db3782158ae52",
+      "status": "passed",
+      "runtimeResults": {
+        "shell": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "git": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "node": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "npm": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "pnpm": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        }
+      },
+      "observedInheritedSocket": {
+        "inheritedSocketWrite": {
+          "blocked": false
+        },
+        "peerReceivedBytes": 12
+      },
+      "note": "preliminary, uncommitted script"
+    },
+    {
+      "stage": "final",
+      "evidenceSha256": "3f74e090dcee6339abd19e337dd11f16a7921e91288ae57abbad476c77254585",
+      "sourceCommit": "390c719ee0f90a738b923757e973dc3c0870df6c",
+      "scriptSha256": "9dbcbd98f52e5fd648e351957dd4f6096e5da829303fbba0509db3782158ae52",
+      "status": "passed",
+      "runtimeResults": {
+        "shell": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "git": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "node": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "npm": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        },
+        "pnpm": {
+          "exitCode": 0,
+          "signal": null,
+          "started": true,
+          "nonemptyOutput": true
+        }
+      },
+      "observedInheritedSocket": {
+        "inheritedSocketWrite": {
+          "blocked": false
+        },
+        "peerReceivedBytes": 12
+      },
+      "note": "committed source, worktree clean"
+    }
+  ]
+}

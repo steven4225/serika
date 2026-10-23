@@ -1,0 +1,85 @@
+{
+  "runId": "88ec40d4-69e4-46bb-b1e8-e37c7fe93fc8",
+  "sourceCommit": "390c719ee0f90a738b923757e973dc3c0870df6c",
+  "startedAt": "2026-10-23T04:46:16.080Z",
+  "finishedAt": "2026-10-23T04:53:41.992Z",
+  "file": "docs/v2-pilot/evidence/electron-smoke/result.json",
+  "sha256": "9d177f4872efedd8aff146157f1ac466d99b97c94b326641203f26c89f8e0280",
+  "scriptSha256": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+  "checks": [
+    {
+      "name": "startup",
+      "result": "passed",
+      "unexpectedErrors": 0
+    },
+    {
+      "name": "chat-reply",
+      "result": "passed",
+      "unexpectedErrors": 0
+    },
+    {
+      "name": "remember-success-receipt",
+      "result": "passed",
+      "unexpectedErrors": 0
+    },
+    {
+      "name": "remember-on-memory-page",
+      "result": "passed",
+      "unexpectedErrors": 0
+    },
+    {
+      "name": "restart-persistence",
+      "result": "passed",
+      "unexpectedErrors": 0
+    },
+    {
+      "name": "undo-disappears",
+      "result": "passed",
+      "unexpectedErrors": 0
+    },
+    {
+      "name": "daily-path-refuses-writes",
+      "result": "passed",
+      "unexpectedErrors": 0
+    },
+    {
+      "name": "daily-config-retired-fields",
+      "result": "passed",
+      "unexpectedErrors": 0
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "startup.png",
+      "sha256": "82a9f29c5fb034605fd867c20510e886a4893263d3f48714cdae74d11707b53e"
+    },
+    {
+      "file": "chat-reply.png",
+      "sha256": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497"
+    },
+    {
+      "file": "remember-success-receipt.png",
+      "sha256": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25"
+    },
+    {
+      "file": "remember-on-memory-page.png",
+      "sha256": "964e7a0f89c30fa82e7b555e8fe7dbbfff6b51d240409bf1439b09b5ee55c489"
+    },
+    {
+      "file": "restart-persistence.png",
+      "sha256": "2c394a9e0953a891aa92c771d2db5be1c1600273e4740ba71a18dcf12887098b"
+    },
+    {
+      "file": "undo-disappears.png",
+      "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+    },
+    {
+      "file": "daily-path-refuses-writes.png",
+      "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+    },
+    {
+      "file": "daily-config-retired-fields.png",
+      "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+    }
+  ]
+}

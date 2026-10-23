@@ -1,0 +1,98 @@
+{
+  "scope": "supplemental S0 failed narrowing attempts, no product integration",
+  "sourceCommit": "6bed4ff30f35bf7e0bf0336207539cdbc88acd9f",
+  "narrowWhitelist": {
+    "wrapperExitCode": 1,
+    "sysctlNames": [
+      "hw.ncpu",
+      "hw.activecpu",
+      "hw.physicalcpu",
+      "hw.logicalcpu",
+      "hw.memsize",
+      "hw.pagesize",
+      "kern.osrelease",
+      "kern.ostype"
+    ],
+    "childExitCode": null,
+    "childSignal": "SIGABRT",
+    "profileSha256": "db60e46e3098f0ccc438b40bdf7c1f2a24df07b07924dcce14b2036dfa3f1a4d"
+  },
+  "denyNamePrefix": {
+    "wrapperExitCode": 1,
+    "profileRule": "deny sysctl-read sysctl-name-regex ^kern\\.proc",
+    "childExitCode": 0,
+    "runtime": {
+      "shell": {
+        "exitCode": 0,
+        "signal": null,
+        "started": true,
+        "nonemptyOutput": true
+      },
+      "git": {
+        "exitCode": 0,
+        "signal": null,
+        "started": true,
+        "nonemptyOutput": true
+      },
+      "node": {
+        "exitCode": 0,
+        "signal": null,
+        "started": true,
+        "nonemptyOutput": true
+      },
+      "npm": {
+        "exitCode": 7,
+        "signal": null,
+        "started": true,
+        "nonemptyOutput": false
+      },
+      "pnpm": {
+        "exitCode": 1,
+        "signal": null,
+        "started": true,
+        "nonemptyOutput": false
+      }
+    },
+    "profileSha256": "5965e479e09b553480b4d3c2555cd5709369d3121fe56035e22d054703012318",
+    "note": "raw report retained only privately; its inherited sysctlNames field was unused in this profile variant"
+  },
+  "fakeProcessControl": {
+    "scope": "only a synthetic temporary parent process; no real credential values retained",
+    "sourceCommit": "6bed4ff30f35bf7e0bf0336207539cdbc88acd9f",
+    "helperSourceSha256": "e48c2bb640064bb1ebdf9117e4a99033d9fc39f4180c6d666bcb7a134466fb07",
+    "commands": [
+      {
+        "profile": null,
+        "exitCode": 0,
+        "signal": null,
+        "result": {
+          "name": "PROBE_CREDENTIAL_CANARY",
+          "blocked": false,
+          "errno": 0
+        }
+      },
+      {
+        "profile": "/private/tmp/serika-s0-20261023-0D5Arf/probe-final/probe.sb",
+        "exitCode": 0,
+        "signal": null,
+        "result": {
+          "name": "PROBE_CREDENTIAL_CANARY",
+          "blocked": false,
+          "errno": 0
+        }
+      },
+      {
+        "profile": "/private/tmp/serika-s0-20261023-0D5Arf/restricted-sysctl.sb",
+        "exitCode": 0,
+        "signal": null,
+        "result": {
+          "name": "PROBE_CREDENTIAL_CANARY",
+          "blocked": false,
+          "errno": 0
+        }
+      }
+    ],
+    "s1Accepted": false
+  },
+  "s1Accepted": false
+}

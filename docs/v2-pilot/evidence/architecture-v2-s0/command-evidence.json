@@ -1,0 +1,175 @@
+{
+  "sourceCommit": "390c719ee0f90a738b923757e973dc3c0870df6c",
+  "commands": [
+    {
+      "command": [
+        "node",
+        "--check",
+        "packages/assistant/scripts/seatbelt-probe.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "node",
+        "packages/assistant/scripts/seatbelt-probe.mjs",
+        "--home",
+        "/private/tmp/serika-s0-20261023-0D5Arf/probe-complete/H",
+        "--output",
+        "/private/tmp/serika-s0-20261023-0D5Arf/probe-result-final.json"
+      ],
+      "exitCode": 0,
+      "outputSha256": "3f74e090dcee6339abd19e337dd11f16a7921e91288ae57abbad476c77254585",
+      "scriptSha256": "9dbcbd98f52e5fd648e351957dd4f6096e5da829303fbba0509db3782158ae52"
+    },
+    {
+      "command": "initial unified verifier at 6bed4ff",
+      "exitCode": 0,
+      "logSha256": "e4a355a2e19f615a66428c43fb6278bd3611c08a4bcb25107a61fd05fbea92f7",
+      "reportSha256": "a09a8a656e8d01ec3e55f72c91c634eaa0b02534319bf9b0edb9492ebaef6146"
+    },
+    {
+      "command": "SERIKA_CM6_VERIFY_OUTPUT=/private/tmp/serika-s0-20261023-0D5Arf/unified-final-output node packages/assistant/scripts/cm-step6-verify.mjs",
+      "exitCode": 0,
+      "logSha256": "9074a6da02deef519284b4d0c9823d2009a43f1b0dfb0e6deab7a528a5782a96",
+      "reportSha256": "6f4574837dc3ed2defb26a04bded3fcc29c930dd3d9588be611e2533a6413e9e"
+    }
+  ],
+  "supplementalSysctlAttempts": {
+    "narrowWhitelistWrapperExitCode": 1,
+    "nameDenyWrapperExitCode": 1,
+    "results": "sysctl-attempts.json"
+  },
+  "nativeProbeCommands": [
+    {
+      "mode": "availability",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 17,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "filesystem",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 330,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "environment",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 479,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "network",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 119,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "descendant",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 377,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "detached",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 377,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "runtime",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 366,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "descriptor-clean",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 26,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "compile-process-environment-control",
+      "exitCode": 0,
+      "signal": null,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "process-environment-host-control",
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "mode": "process-environment-sandbox",
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "mode": "descriptor-clean",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 26,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "descriptor",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 43,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "cancel-ordinary",
+      "exitCode": null,
+      "signal": "SIGKILL",
+      "detachedDescendant": false,
+      "continuesAfterGroupKill": false,
+      "continuesAfterExplicitCleanup": false
+    },
+    {
+      "mode": "cancel-detached",
+      "exitCode": null,
+      "signal": "SIGKILL",
+      "detachedDescendant": true,
+      "continuesAfterGroupKill": true,
+      "continuesAfterExplicitCleanup": false
+    },
+    {
+      "mode": "availability",
+      "exitCode": null,
+      "signal": null,
+      "error": "ENOENT",
+      "stdoutBytes": 0,
+      "stderrBytes": 0
+    },
+    {
+      "mode": "availability",
+      "exitCode": 65,
+      "signal": null,
+      "error": null,
+      "stdoutBytes": 0,
+      "stderrBytes": 113
+    }
+  ],
+  "realModelCalls": 0,
+  "costUsd": 0
+}

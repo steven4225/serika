@@ -1,0 +1,26 @@
+{
+  "baselineCommit": "6f12544",
+  "sourceCommit": "390c719ee0f90a738b923757e973dc3c0870df6c",
+  "files": [
+    {
+      "path": "packages/assistant/src/permission-boundary.snapshot.json",
+      "beforeSha256": "b988e469ca6c830690358de82db65b67a316e9c0256bfa993b3199f8c2e68670",
+      "afterSha256": "b988e469ca6c830690358de82db65b67a316e9c0256bfa993b3199f8c2e68670"
+    },
+    {
+      "path": "packages/assistant/src/permission-decisions.snapshot.ts",
+      "beforeSha256": "08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace",
+      "afterSha256": "08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace"
+    },
+    {
+      "path": "apps/desktop/scripts/electron-smoke.mjs",
+      "beforeSha256": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+      "afterSha256": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34"
+    },
+    {
+      "path": "examples/eval/cm-step6-live.mjs",
+      "beforeSha256": "6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546",
+      "afterSha256": "6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546"
+    }
+  ]
+}

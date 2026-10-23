@@ -1,0 +1,35 @@
+{
+  "baseCommit": "6f12544",
+  "sourceCommit": "390c719ee0f90a738b923757e973dc3c0870df6c",
+  "excludes": [
+    "documentation",
+    "JSON evidence",
+    "screenshots"
+  ],
+  "files": [
+    {
+      "path": "packages/assistant/scripts/seatbelt-probe.mjs",
+      "category": "tests_and_verification",
+      "added": 280,
+      "removed": 0,
+      "net": 280
+    }
+  ],
+  "totals": {
+    "product": {
+      "added": 0,
+      "removed": 0,
+      "net": 0
+    },
+    "migration_tools": {
+      "added": 0,
+      "removed": 0,
+      "net": 0
+    },
+    "tests_and_verification": {
+      "added": 280,
+      "removed": 0,
+      "net": 280
+    }
+  }
+}

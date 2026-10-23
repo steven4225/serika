@@ -1,0 +1,22 @@
+{
+  "sourceCommit": "390c719ee0f90a738b923757e973dc3c0870df6c",
+  "sourceStayedCleanDuringUnified": true,
+  "allFrozenHashesUnchanged": true,
+  "codePathsChanged": [
+    "packages/assistant/scripts/seatbelt-probe.mjs"
+  ],
+  "productPermissionChanges": [],
+  "ruleCount": 15,
+  "ruleTableRowsSha256": "49c027d0c66bd99160ba6d215697eb73f0077c470e3f7b10d61073b34a325915",
+  "ruleApprovalStatus": "pending_user_approval",
+  "lastProbeDescendantAbsent": true,
+  "canaryParentWaitedForExit": true,
+  "s1Accepted": false,
+  "negativeControls": {
+    "inheritedConnectedSocketBlocked": false,
+    "detachedDescendantContinuesAfterGroupKill": true,
+    "crossProcessEnvironmentBlocked": false
+  },
+  "realModelCalls": 0,
+  "costUsd": 0
+}
