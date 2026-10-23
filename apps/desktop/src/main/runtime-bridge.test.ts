@@ -49,9 +49,9 @@ describe("assistantEventToRenderer", () => {
   });
 
   it("forwards memory-updated and work-task updates as typed events", () => {
-    assert.deepEqual(assistantEventToRenderer({ type: "memory-updated", reason: "proposals" }), {
+    assert.deepEqual(assistantEventToRenderer({ type: "memory-updated", reason: "write" }), {
       type: "memory-updated",
-      reason: "proposals",
+      reason: "write",
     });
     assert.deepEqual(assistantEventToRenderer({ type: "work-task-updated", task: {} as never }), { type: "work-task-updated", task: {} });
   });

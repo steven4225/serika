@@ -45,7 +45,7 @@ async function prepare() {
   const root = await mkdtemp(join(tmpdir(), "runloom-desktop-worktask-"));
   await mkdir(join(root, "workspace"));
   await mkdir(join(root, "transcripts"));
-  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace: "./workspace", modules: { "read-file": { enabled: true } } }));
+  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, authorizedDirectory: "./workspace", modules: { "read-file": { enabled: true } } }));
   return root;
 }
 async function open(root: string, thread = "work-thread", writes = false, model?: LanguageModel) {
@@ -128,7 +128,7 @@ describe("work task desktop boundary", () => {
     const command = "node check-plan.mjs";
     await writeFile(join(root, "workspace", "check-plan.mjs"),
       'import assert from "node:assert/strict"; import {readFileSync} from "node:fs"; const text=readFileSync("report.md","utf8"); for(const part of ["# Goal","# Checks","# Next","KEEP-THIS"]) assert.ok(text.includes(part),part); console.log("plan checks passed");');
-    await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace: "./workspace",
+    await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, authorizedDirectory: "./workspace",
       modules: { "read-file": { enabled: true }, shell: { enabled: true, timeoutMs: 8000 } } }));
     function scripted(actions: Array<{ name: string; input: unknown }>) {
       let step = 0;

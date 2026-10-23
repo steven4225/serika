@@ -29,7 +29,7 @@ printf 'Evidence root: %s\n' "$RUNLOOM_PHASE2_ROOT"
 cat > "$RUNLOOM_CONTEXT_CONFIG" <<JSON
 {
   "version": 1,
-  "workspace": "$RUNLOOM_CONTEXT_WORKSPACE",
+  "authorizedDirectory": "$RUNLOOM_CONTEXT_WORKSPACE",
   "modules": { "read-file": { "enabled": true } },
   "contextCompaction": {
     "enabled": true,
@@ -44,7 +44,7 @@ JSON
 cat > "$RUNLOOM_MEMORY_CONFIG" <<JSON
 {
   "version": 1,
-  "workspace": "$RUNLOOM_MEMORY_WORKSPACE",
+  "authorizedDirectory": "$RUNLOOM_MEMORY_WORKSPACE",
   "modules": { "memory": { "enabled": true, "autoConsolidate": true } }
 }
 JSON

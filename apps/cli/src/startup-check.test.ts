@@ -20,7 +20,7 @@ async function automationFixture() {
   await writeFile(join(workspace, "sentinel.txt"), "existing workspace data");
   const hash = createBuiltinSkill({ ...manifest, instructions }).hash;
   const registration = { id: manifest.id, directory, expectedHash: hash };
-  const writeConfig = async (automation: unknown) => writeFile(config, JSON.stringify({ version: 1, workspace,
+  const writeConfig = async (automation: unknown) => writeFile(config, JSON.stringify({ version: 1, authorizedDirectory: workspace,
     modules: { memory: { enabled: true, autoConsolidate: true }, checkpoint: { enabled: true }, task: { enabled: true } },
     automation }));
   return { cwd, workspace, directory, config, registration, writeConfig,
@@ -143,7 +143,7 @@ describe("static TUI startup check", () => {
     const config = join(cwd, "config.json");
     await writeFile(config, JSON.stringify({
       version: 1,
-      workspace: "./workspace",
+      authorizedDirectory: "./workspace",
       modules: { memory: { enabled: true }, checkpoint: { enabled: true }, task: { enabled: true } },
     }));
     const snapshot = await checkTuiStartup(["--home", join(cwd, "home"), "transcripts", "--thread", "personal", "--config", config], { cwd, env: {} });

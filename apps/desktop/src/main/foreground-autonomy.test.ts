@@ -33,7 +33,7 @@ async function until(check: () => boolean, message = "state timeout") {
 async function fixture() {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-autonomy-")));
   const workspace = join(root, "workspace"), configPath = join(root, "config.json"); await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { shell: { enabled: true, timeoutMs: 2000 }, "read-file": { enabled: true } }, run: { maxSteps: 2, totalTimeoutMs: 10_000 }, automation: { hooks: [] } }));
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { shell: { enabled: true, timeoutMs: 2000 }, "read-file": { enabled: true } }, run: { maxSteps: 2, totalTimeoutMs: 10_000 }, automation: { hooks: [] } }));
   return { root, workspace, configPath };
 }
 
@@ -191,11 +191,11 @@ it("validates explicit setting CAS, workspace binding and external config; ignor
     await assert.rejects(changeAutonomySetting(f.configPath, { enabled: false, expectedEnabled: false }, f.root, f.workspace), /配置已变化/);
     assert.equal((await resolveTuiModuleConfig({ configPath: f.configPath }, { cwd: f.root })).desktopAutonomy?.directory, f.workspace);
     const config = JSON.parse(await readFile(f.configPath, "utf8"));
-    const other = join(f.root, "other"); await mkdir(other); config.workspace = other;
+    const other = join(f.root, "other"); await mkdir(other); config.authorizedDirectory = other;
     await writeFile(f.configPath, JSON.stringify(config));
     assert.equal((await resolveTuiModuleConfig({ configPath: f.configPath }, { cwd: f.root })).desktopAutonomy, undefined);
     await assert.rejects(undo(), /其他程序修改/);
-    config.workspace = f.workspace;
+    config.authorizedDirectory = f.workspace;
     const internal = join(f.workspace, "config.json"); await writeFile(internal, JSON.stringify(config));
     await assert.rejects(resolveTuiModuleConfig({ configPath: internal }, { cwd: f.root }), /outside the workspace/);
   } finally { await rm(f.root, { recursive: true, force: true }); }
@@ -213,7 +213,7 @@ it("does not enable disabled modules or replace a configured Docker sandbox", as
       assert.equal(host.info().autonomy?.enabled, true);
       for (const name of ["shell_exec", "read_file", "write_file", "edit_file"]) assert.equal(host.info().capabilities?.tools.includes(name), false);
     } finally { await host.shutdown(); }
-    config.workspace = "./workspace";
+    config.authorizedDirectory = "./workspace";
     config.modules.shell = { enabled: true, sandbox: { backend: "docker", image: "node:22-bookworm-slim", readablePaths: [], writablePaths: [] } };
     await writeFile(f.configPath, JSON.stringify(config));
     await assert.rejects(changeAutonomySetting(f.configPath, { enabled: true, expectedEnabled: false }, f.root, f.workspace), /不会替换 Docker/);
@@ -240,7 +240,7 @@ it("halts after an uncertain autonomy config commit, then rereads it without lau
 it("retains the exact active request after immediate masking of a completed oversized tool result, without a foreground summary wait", async () => {
   const f = await fixture(); const events: MainToRenderer[] = [];
   const config = JSON.parse(await readFile(f.configPath, "utf8"));
-  config.desktopAutonomy = { workspaceRoot: f.workspace };
+  config.desktopAutonomy = { authorizedDirectory: f.workspace };
   config.contextCompaction = { enabled: true, contextWindowTokens: 18000, maxOutputTokens: 1024, safetyMarginTokens: 512,
     keepRecentTokens: 256, summaryMaxOutputTokens: 1024 };
   await writeFile(f.configPath, JSON.stringify(config));

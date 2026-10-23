@@ -17,7 +17,7 @@ export async function loadScheduledSkillAutomation(options: { configPath: string
   const config = await readTuiModuleConfig(configPath);
   // Foreground config resolution uses the explicit path's directory, even
   // when that path is a symlink; canonicalize only the trust boundary above.
-  if (config.workspace === undefined || await resolveWorkspace(config.workspace, dirname(options.configPath)) !== directory) throw new Error("Worker config workspace must exactly match --workspace");
+  if (config.authorizedDirectory === undefined || await resolveWorkspace(config.authorizedDirectory, dirname(options.configPath)) !== directory) throw new Error("Worker config workspace must exactly match --workspace");
   const registrations = config.automation?.skills ?? [];
   const allSkills = await loadSkillPackages(registrations, directory);
   // Memory packages can be present in the shared config, but cannot be invoked by this worker.

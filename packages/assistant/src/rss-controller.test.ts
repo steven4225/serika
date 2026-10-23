@@ -12,7 +12,7 @@ it("Controller RSS requests are workspace-bound, read-only when querying, revisi
   const root = await realpath(await mkdtemp(join(tmpdir(), "rss-controller-")));
   const workspace = join(root, "workspace");
   await mkdir(workspace);
-  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace, modules: { task: { enabled: true } } }));
+  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { task: { enabled: true } } }));
   const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "rss-test", configPath: join(root, "config.json") }, modelAlias: "mock", model: createScheduledDemoModel(), output: new PassThrough(), cwd: root, env: {} });
   const controller = createAssistantController(app);
   try {

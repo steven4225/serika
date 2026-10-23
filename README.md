@@ -107,7 +107,7 @@ RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo --workspace ./s
 
 `--workspace` 是本次进程允许文件工具访问的根目录；不传时不会注册这些工具。每次工具调用都显示相对路径并等待 `y/n` 确认。工具只接受 workspace 内的相对路径，读取普通 UTF-8 文本，单文件上限为 64 KiB；绝对路径、越界路径、符号链接、目录、非法 UTF-8 或含 NUL 的内容会被拒绝。它不按扩展名判断文本类型，也不承诺识别所有二进制格式。文件内容会进入模型上下文，并在 Run 完成后随已提交 transcript 保存。workspace 是应用层的路径边界，不提供操作系统级沙箱隔离。
 
-配置 workspace 后提供受控文件工具与 Memory 工具。`write_file` 只新建，`edit_file` 只替换恰好一个匹配。正式记忆与当前 Thread 的待审候选保存在 `.runloom/memory.json` v3；v1/v2 只读兼容，首次实际成功变更才升级。正式条目保留 scope、source、status、revision、expiresAt、pinned 与有限历史；thread scope 由程序绑定当前 Thread。conversation 来源必须是当前 Thread 唯一已提交用户消息中的精确引句，对不上就拒绝；当前 Run 的直接记住请求仍是 manual。`memory_list` 不返回历史正文；`memory_get` 显示保存时核验的引句，不保证原话还在当前 transcript。
+配置 `authorizedDirectory` 后提供受控文件工具，记忆数据写入显式 H 的 `data/memory.json` v6。`write_file` 只新建，`edit_file` 只替换恰好一个匹配。记忆保留 ID、用户原话来源、版本及撤回回执，来源核对失败不会保存；不确定内容沿用 uncertain 原话保存规则。没有候选审核模式、候选工具或 `writePolicy` 配置。后台抽取仅在明确启用 `autoConsolidate` 时运行。
 
 存储容量与注入预算分开：模型输入改为固定工作区快照，偏好和笔记各 4 KiB，置顶优先；超额完整条目保留在库中按需查。记忆文档与已有方法只注入索引，正文通过免确认的 `memory_read` 读取，查询只做最小关键词匹配。查询改写、相关性、contextView、向量服务及配置已删除。旧 Thread 记忆留待第 7 步裁决，不注入主聊天或 worker。
 
@@ -128,7 +128,7 @@ TUI 启动时会在历史记录之后显示一次只读 Home；空闲输入 `/ho
 ```json
 {
   "version": 1,
-  "workspace": "./sample-project",
+  "authorizedDirectory": "./sample-project",
   "modules": { "read-file": { "enabled": true } },
   "fileAuthorizations": [
     { "tools": ["read_file", "search_files"], "allowedPaths": ["docs/"] },
@@ -181,7 +181,7 @@ RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runl
 ```json
 {
   "version": 1,
-  "workspace": "./sample-project",
+  "authorizedDirectory": "./sample-project",
   "modules": {
     "pomodoro": { "enabled": true },
     "read-file": { "enabled": true },
@@ -194,7 +194,7 @@ RUNLOOM_MODEL=mock pnpm tui -- ./var/runloom --thread daily-plan --config ./runl
 }
 ```
 
-`workspace` 相对配置文件所在目录解析。启用 `read-file`、`memory`、`checkpoint`、`task` 或 `shell` 时必须提供有效 workspace；只启用 Todoist、web 或番茄钟可以省略。配置模式下未列出的模块默认关闭，因此 checkpoint 默认关闭并独立于 memory。配置模式下 Todoist 时区只读取 JSON，缺省为 `Asia/Shanghai`；不传 `--config` 时仍沿用 `RUNLOOM_TODOIST_TIMEZONE`。Todoist token 始终从 `TODOIST_API_TOKEN` 读取，不能写进 JSON。
+`authorizedDirectory` 相对配置文件所在目录解析；旧配置的 `workspace`、自主授权的 `workspaceRoot` 和记忆 `writePolicy` 须先用离线导入器转换。启用 `read-file`、`memory`、`checkpoint`、`task` 或 `shell` 时必须提供有效 workspace；只启用 Todoist、web 或番茄钟可以省略。配置模式下未列出的模块默认关闭，因此 checkpoint 默认关闭并独立于 memory。配置模式下 Todoist 时区只读取 JSON，缺省为 `Asia/Shanghai`；不传 `--config` 时仍沿用 `RUNLOOM_TODOIST_TIMEZONE`。Todoist token 始终从 `TODOIST_API_TOKEN` 读取，不能写进 JSON。
 
 `--config` 与 `--workspace`、`--todoist`、`--auto-consolidate` 互斥，但可和 transcript 目录、`--thread` 一起使用。不传 `--config` 时，原有命令行行为保持不变。
 
@@ -277,7 +277,7 @@ Stage 7-3 将 Todoist 只读查询与已有 workspace 文件工具组合起来�
 ```json
 {
   "version": 1,
-  "workspace": "./notes",
+  "authorizedDirectory": "./notes",
   "modules": {
     "read-file": { "enabled": true },
     "todoist": { "enabled": true, "timeZone": "Asia/Shanghai" }
@@ -393,7 +393,7 @@ RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo
 ```json
 {
   "version": 1,
-  "workspace": "./sample-project",
+  "authorizedDirectory": "./sample-project",
   "modules": {
     "shell": {
       "enabled": true,

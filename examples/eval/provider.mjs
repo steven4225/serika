@@ -86,7 +86,7 @@ export default class SerikaProvider {
       if (vars.scenario === 'budget') return { output: await budgetCase(root), metadata: { mode, layer: 'context-budget', modelCalled: false } };
       const workspace = join(root, 'workspace'); await mkdir(workspace);
       const config = join(root, 'config.json');
-      await writeFile(config, JSON.stringify({ version: 1, workspace,
+      await writeFile(config, JSON.stringify({ version: 1, authorizedDirectory: workspace,
         modules: { memory: { enabled: false } } }));
       const selected = mode === 'live' ? configureCliModel(createDemoModel) : { modelAlias: 'eval/scripted', model: scriptedModel(vars) };
       const output = new PassThrough(); output.resume();

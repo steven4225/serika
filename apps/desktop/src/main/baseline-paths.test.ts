@@ -33,8 +33,8 @@ describe("v2 pilot baseline: desktop data paths", () => {
       lines.push(`resolveDesktopConfig(no env) = ${relative(root, config.configPath)} generated=${config.generated}`);
       const explicit = await resolveDesktopConfig({ env: { RUNLOOM_CONFIG: "/elsewhere/runloom.json" }, applicationHome, cwd: root });
       lines.push(`resolveDesktopConfig(RUNLOOM_CONFIG) = ${explicit.configPath} generated=${explicit.generated}`);
-      const generated = JSON.parse(await readFile(config.configPath, "utf8")) as { workspace?: string };
-      lines.push(`generated config workspace = ${String(generated.workspace)}`);
+      const generated = JSON.parse(await readFile(config.configPath, "utf8")) as { authorizedDirectory?: string };
+      lines.push(`generated config workspace = ${String(generated.authorizedDirectory)}`);
       // Fixed absolute inputs: the explicit-launch key hashes these exact strings.
       const workspaceRoot = "/fixed/work", configPath = "/fixed/runloom.json";
       const explicitIdentity = await resolveDesktopIdentity({ applicationHome, configPath, workspaceRoot,

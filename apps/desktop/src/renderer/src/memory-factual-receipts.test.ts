@@ -15,7 +15,7 @@ test("real bridge history page renders committed host memory receipt; unreadable
   try {
     const workspace = join(root, "workspace"); await mkdir(workspace);
     const config = join(root, "config.json");
-    await writeFile(config, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true } } }));
+    await writeFile(config, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { memory: { enabled: true } } }));
     const output = new TeeOutput(() => {});
     const app = await createRuntimeApp({ directory: join(root, "history"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "receipts", configPath: config },
       model: createDemoModel(), modelAlias: "mock/default", output, cwd: root, env: {} });

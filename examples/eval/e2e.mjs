@@ -31,8 +31,8 @@ const compactionHistory = (spec, generation = 0) => isCompactionFidelity(spec)
 
 export function fixtureConfig(spec, workspace) {
   const memory = spec.category === 'memory';
-  return { version: 1, workspace,
-    modules: { 'read-file': { enabled: true }, memory: { enabled: memory, autoConsolidate: memory, writePolicy: memory ? 'automatic' : 'review' },
+  return { version: 1, authorizedDirectory: workspace,
+    modules: { 'read-file': { enabled: true }, memory: { enabled: memory, autoConsolidate: memory },
       task: { enabled: spec.category === 'reminders' } },
     ...(spec.modelContextWindows ? { modelContextWindows: spec.modelContextWindows } : {}),
     ...(spec.category === 'compaction' ? { contextCompaction: spec.requestedContextBudget ?? spec.contextBudget ?? compactBudget } : {}), run: { maxSteps: 8, totalTimeoutMs: 120000 } };
@@ -317,7 +317,7 @@ export async function runE2E(caseId, variant = 0) {
   if (seed?.metadata) evidence.seed = seed.metadata;
   const oracle = evaluateCase(spec, evidence);
   const usage = summarizeUsage(evidence.usage?.calls ?? [], evidence.usage?.droppedCount ?? 0);
-  const failureClass = oracle.passed ? null : /API_KEY|ENOENT|memory\.writePolicy|401|429|ENOTFOUND|ECONNREFUSED|quota|insufficient.credit/i.test(evidence.error?.message ?? '') ? 'environment_error' : 'agent_failure';
+  const failureClass = oracle.passed ? null : /API_KEY|ENOENT|401|429|ENOTFOUND|ECONNREFUSED|quota|insufficient.credit/i.test(evidence.error?.message ?? '') ? 'environment_error' : 'agent_failure';
   const result = { id, caseId, variant: spec.variant ?? null, suite: spec.suite ?? 'seed', fixtureTruth: spec.truth ?? null,
     category: spec.category, title: spec.title, source: spec.source ?? '固定种子集', layer: 'real_model_backend', startedAt,
     finishedAt: new Date().toISOString(), durationMs: Date.now() - Date.parse(startedAt), failureClass,

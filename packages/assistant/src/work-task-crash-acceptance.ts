@@ -99,7 +99,7 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
     assert.ok(!gateSent); gateSent = true;
     const task = value(await controller.workTasks.get(taskId));
     const receipt = await controller.runs.get(runId); assert.ok(receipt);
-    const disk = await readFile(join(config.workspace, ARTIFACT)).catch((error: NodeJS.ErrnoException) => {
+    const disk = await readFile(join(config.authorizedDirectory, ARTIFACT)).catch((error: NodeJS.ErrnoException) => {
       if (error.code === "ENOENT") return null; throw error;
     });
     assert.equal(task.status, "running"); assert.equal(receipt.status, "running");
@@ -123,7 +123,7 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
     const record = app.executionRecords.recordToolEvent.bind(app.executionRecords);
     app.executionRecords.recordToolEvent = async (runId, event) => {
       if (event.type === "tool.call.completed" && event.data.toolName === "write_file" && scenario !== "before-dispatch") {
-        assert.equal(await readFile(join(config.workspace, ARTIFACT), "utf8"), CONTENT);
+        assert.equal(await readFile(join(config.authorizedDirectory, ARTIFACT), "utf8"), CONTENT);
         assert.ok(event.data.output && typeof event.data.output === "object" && "ok" in event.data.output && event.data.output.ok === true);
         if (scenario === "recorded-write") await record(runId, event);
         await gate(runId);
@@ -178,7 +178,7 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
     assert.equal(controller.getSnapshot().pendingApproval, null);
     assert.equal(modelRequests, 0); assert.equal(approvals.length, 0);
     assert.deepEqual(await controller.getHistory(), [], "killed incomplete Run must not appear as committed success");
-    const recoveredArtifactAbsence = scenario === "before-dispatch" ? await verifyCrashArtifactAbsent(config.workspace) : null;
+    const recoveredArtifactAbsence = scenario === "before-dispatch" ? await verifyCrashArtifactAbsent(config.authorizedDirectory) : null;
     await save(root, "recovered-state.json", { pid: process.pid, task, receipt: recovered, modelRequests, approvals,
       configHash: sha(configBytes), artifactAbsence: recoveredArtifactAbsence });
     if (scenario === "unrecorded-write") {
@@ -187,7 +187,7 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
       const refused = await controller.workTasks.reconcile({ id: task.id, expectedRevision: task.revision,
         observedOutcome: "still_unknown", decision: "continue", note: "Fixture negative control: effect remains unknown." });
       assert.equal(refused.ok, false); assert.deepEqual(value(await controller.workTasks.get(taskId)), task);
-      assert.equal(await readFile(join(config.workspace, ARTIFACT), "utf8"), CONTENT);
+      assert.equal(await readFile(join(config.authorizedDirectory, ARTIFACT), "utf8"), CONTENT);
       task = value(await controller.workTasks.reconcile({ id: task.id, expectedRevision: task.revision,
         observedOutcome: "applied", decision: "continue", note: "Fixture operator checked exact isolated disk bytes. Programmatic test of human-report API; not acceptance evidence or a real user GUI review." }));
       assert.equal(task.status, "paused"); assert.equal(modelRequests, 0);
@@ -215,7 +215,7 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
       }
       assert.equal(JSON.parse(latest.tools[0]!.resultPreview!).content, CONTENT);
       assert.equal(approvals.length, 3); assert.ok(approvals.every((a) => a.decision === "allow" && a.effective));
-      const disk = await readFile(join(config.workspace, ARTIFACT));
+      const disk = await readFile(join(config.authorizedDirectory, ARTIFACT));
       assert.equal(disk.toString(), CONTENT.replace("<!-- continue-here -->\n", RESUMED + "<!-- continue-here -->\n"));
       assert.equal(JSON.parse(latest.tools[2]!.resultPreview!).content, disk.toString());
       task = value(await controller.workTasks.submitDelivery({ id: task.id, expectedRevision: task.revision,
@@ -227,9 +227,9 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
       assert.equal(latest.tools[1]!.fileWrite!.sha256, sha(disk));
       assert.equal((await controller.runs.get(recovered.runId))?.tools[0]?.status, "unknown");
     }
-    assert.equal(await readFile(join(config.workspace, SENTINEL), "utf8"), "DO_NOT_MODIFY\n");
+    assert.equal(await readFile(join(config.authorizedDirectory, SENTINEL), "utf8"), "DO_NOT_MODIFY\n");
     assert.equal(sha(await readFile(configPath)), sha(configBytes));
-    const finalArtifactAbsence = scenario === "before-dispatch" ? await verifyCrashArtifactAbsent(config.workspace) : null;
+    const finalArtifactAbsence = scenario === "before-dispatch" ? await verifyCrashArtifactAbsent(config.authorizedDirectory) : null;
     await save(root, "after-report.json", { passed: true, task, oldReceipt: await controller.runs.get(recovered.runId),
       latestReceipt: await controller.runs.get(task.runIds.at(-1)!), modelRequests, approvals, prompts,
       artifactAbsence: finalArtifactAbsence,
@@ -259,7 +259,7 @@ async function scenario(root: string, fault: Scenario, mode: ModelMode) {
   await mkdir(join(root, "workspace/notes"), { recursive: true });
   await mkdir(join(root, "workspace/protected"));
   await writeFile(join(root, "workspace", SENTINEL), "DO_NOT_MODIFY\n");
-  await save(root, "config.json", { version: 1, workspace: join(root, "workspace"), modules: { "read-file": { enabled: true } } });
+  await save(root, "config.json", { version: 1, authorizedDirectory: join(root, "workspace"), modules: { "read-file": { enabled: true } } });
   async function launch(recovering: boolean) {
     const proc = spawn(process.execPath, [fileURLToPath(import.meta.url), "--child", root, fault, mode, recovering ? "recover" : "crash"],
       { env: process.env, stdio: ["ignore", "pipe", "pipe", "ipc"] });

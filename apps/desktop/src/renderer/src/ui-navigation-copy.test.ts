@@ -19,7 +19,7 @@ import { readAppSource } from "../test-support/app-source.js";
 const source = (path: string) => readFile(new URL(path, import.meta.url), "utf8");
 const render = (element: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(element);
 const noop = () => {};
-const info = { workspaceRoot: "/workspace", configPath: "/config.json", memory: { enabled: true, autoConsolidate: false, writePolicy: "review" }, workTasks: true } as AppInfo;
+const info = { workspaceRoot: "/workspace", configPath: "/config.json", memory: { enabled: true, autoConsolidate: false }, workTasks: true } as AppInfo;
 const maintenance: MemoryMaintenance = { stored: 0, pending: 0, expired: 0, disabled: 0, duplicateSuggestions: 0, capacity: { entries: 200, bytes: 1024, assertionsPerEntry: 10 }, consolidation: { enabled: false, state: "off" } };
 
 it("message exclusion explains the actual cloud inference boundary without claiming it disables saved keyword references", async () => {

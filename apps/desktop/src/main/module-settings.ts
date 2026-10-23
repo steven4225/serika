@@ -117,7 +117,7 @@ export async function changeAutonomySetting(configPath: string, input: AutonomyS
     if (input.enabled && current.shellSandbox) throw new Error("本机自主执行需要本机 Shell 模式；不会替换 Docker 配置");
     const config = JSON.parse(before);
     delete config.desktopAutonomy;
-    if (input.enabled) config.desktopAutonomy = { workspaceRoot: directory };
+    if (input.enabled) config.desktopAutonomy = { authorizedDirectory: directory };
     return JSON.stringify(config, null, 2) + "\n";
   });
 }
@@ -136,7 +136,7 @@ export async function changeTelegramAutonomySetting(configPath: string, input: i
     if (input.enabled && current.shellSandbox) throw new Error("本机自主执行需要本机 Shell 模式；不会替换 Docker 配置");
     const config = JSON.parse(before);
     delete config.telegramAutonomy;
-    if (input.enabled) config.telegramAutonomy = { workspaceRoot: binding.directory, botId: binding.botId, userId: binding.userId, chatId: binding.chatId, threadId: binding.threadId };
+    if (input.enabled) config.telegramAutonomy = { authorizedDirectory: binding.directory, botId: binding.botId, userId: binding.userId, chatId: binding.chatId, threadId: binding.threadId };
     return JSON.stringify(config, null, 2) + "\n";
   });
 }

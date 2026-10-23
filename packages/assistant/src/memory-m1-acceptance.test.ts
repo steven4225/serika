@@ -47,7 +47,7 @@ test("M1 ordinary automatic chat uses one writer without approval: 3 foreground 
   const root = await realpath(await mkdtemp(join(tmpdir(), "cm4-primary-")));
   const workspace = join(root, "workspace"), configPath = join(root, "config.json"), directory = join(root, "transcript");
   await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, writePolicy: "automatic", autoConsolidate: true } }, desktopAutonomy: { workspaceRoot: workspace } }));
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { memory: { enabled: true, autoConsolidate: true } }, desktopAutonomy: { authorizedDirectory: workspace } }));
   let calls = 0;
   const requests: Array<Parameters<MockLanguageModelV3["doStream"]>[0]> = [];
   const model = new MockLanguageModelV3({ doGenerate: async () => assert.fail("No auxiliary call below threshold"), doStream: async request => {

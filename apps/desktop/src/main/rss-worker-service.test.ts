@@ -124,7 +124,7 @@ it("does not canonicalize a symlink config and accidentally start another relati
   const workspace = join(entryDirectory, "workspace");
   const envFile = join(root, "worker.env");
   await mkdir(originalDirectory); await mkdir(entryDirectory); await mkdir(workspace);
-  await writeFile(join(originalDirectory, "config.json"), JSON.stringify({ version: 1, workspace: "./workspace", modules: { task: { enabled: true } }, automation: { hooks: [] } }));
+  await writeFile(join(originalDirectory, "config.json"), JSON.stringify({ version: 1, authorizedDirectory: "./workspace", modules: { task: { enabled: true } }, automation: { hooks: [] } }));
   await symlink(join(originalDirectory, "config.json"), configPath);
   await writeFile(envFile, "RUNLOOM_MODEL=mock\n");
   let calls = 0;

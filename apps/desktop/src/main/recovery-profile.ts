@@ -23,7 +23,7 @@ export async function readRecoverySelection(applicationHome: string, sourceConfi
   if (selection.sourceConfigPath !== sourceConfigPath) return null; // Explicit different launch remains authoritative.
   await validateRecoveryRoot(selection.recoveryRoot);
   const config = await readPrivate(selection.configPath);
-  if (config.workspace !== selection.workspaceRoot) throw new Error("恢复配置工作区不匹配；未混合数据");
+  if (config.authorizedDirectory !== selection.workspaceRoot) throw new Error("恢复配置工作区不匹配；未混合数据");
   return selection;
 }
 async function writePrivate(path: string, value: unknown) {
@@ -55,10 +55,10 @@ export async function prepareRecoveryProfile(options: { root: string; applicatio
   const configPath = join(options.root, "recovery-config.json"), workspaceRoot = join(options.root, "workspace");
   try {
     const existing = await readPrivate(configPath);
-    if (existing.workspace !== workspaceRoot) throw new Error("已有恢复配置归属不匹配");
+    if (existing.authorizedDirectory !== workspaceRoot) throw new Error("已有恢复配置归属不匹配");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    await writePrivate(configPath, { version: 1, workspace: workspaceRoot, modules: { "read-file": { enabled: true }, memory: { enabled: true, autoConsolidate: false, writePolicy: "review" },
+    await writePrivate(configPath, { version: 1, authorizedDirectory: workspaceRoot, modules: { "read-file": { enabled: true }, memory: { enabled: true, autoConsolidate: false },
       shell: { enabled: false }, task: { enabled: true }, checkpoint: { enabled: true }, pomodoro: { enabled: true } } });
   }
   const scope = { applicationHome: options.root, cwd: options.cwd, configPath, workspaceRoot };

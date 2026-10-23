@@ -13,7 +13,7 @@ test("capability configuration and pomodoro commands share the real timer withou
   const root = await mkdtemp(join(tmpdir(), "desktop-capabilities-"));
   await mkdir(join(root, "workspace"));
   await mkdir(join(root, "transcripts"));
-  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace: "./workspace", modules: { pomodoro: { enabled: true } } }));
+  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, authorizedDirectory: "./workspace", modules: { pomodoro: { enabled: true } } }));
   const output = new TeeOutput(() => {});
   const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(dirname(join(root, "config.json")), "workspace/.runloom"), threadId: "capabilities", configPath: join(root, "config.json") }, modelAlias: "mock", model: createDemoModel(), env: {}, cwd: root, output });
   const controller = createAssistantController(app);

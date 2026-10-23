@@ -18,7 +18,7 @@ test("module notifications arrive as structured messages and keep the output tex
   const root = await mkdtemp(join(tmpdir(), "desktop-module-notification-"));
   await mkdir(join(root, "workspace"));
   await mkdir(join(root, "transcripts"));
-  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace: "./workspace", modules: { pomodoro: { enabled: true } } }));
+  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, authorizedDirectory: "./workspace", modules: { pomodoro: { enabled: true } } }));
   const messages: MainToRenderer[] = [];
   const send = (message: MainToRenderer) => { messages.push(message); };
   const output = new TeeOutput(send);

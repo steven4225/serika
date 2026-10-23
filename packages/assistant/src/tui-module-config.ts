@@ -72,7 +72,6 @@ export interface ResolvedTuiModuleConfig {
   webSearchEnabled: boolean;
   webFeedEnabled: boolean;
   autoConsolidate: boolean;
-  memoryWritePolicy?: "review" | "automatic";
   todoistTimeZone: string | null;
   fileAuthorizations: readonly FileAuthorizationRule[];
   shellSandbox: DockerShellSandboxConfig | null;
@@ -112,7 +111,6 @@ const memoryModuleSchema = z
   .object({
     enabled: z.boolean(),
     autoConsolidate: z.boolean().optional(),
-    writePolicy: z.enum(["review", "automatic"]).optional(),
   })
   .strict();
 
@@ -165,7 +163,7 @@ const fileAuthorizationSchema = z
 const tuiModuleConfigV1Schema = z
   .object({
     version: z.literal(1),
-    workspace: nonEmptyString.optional(),
+    authorizedDirectory: nonEmptyString.optional(),
     modules: z
       .object({
         pomodoro: moduleToggleSchema.optional(),
@@ -179,8 +177,8 @@ const tuiModuleConfigV1Schema = z
         computer: computerConfigSchema.optional(),
     })
     .strict(),
-    telegramAutonomy: z.object({ workspaceRoot: nonEmptyString, botId: z.number().int().positive().safe(), userId: z.number().int().positive().safe(), chatId: z.number().int().positive().safe(), threadId: nonEmptyString }).strict().optional(),
-    desktopAutonomy: z.object({ workspaceRoot: nonEmptyString }).strict().optional(),
+    telegramAutonomy: z.object({ authorizedDirectory: nonEmptyString, botId: z.number().int().positive().safe(), userId: z.number().int().positive().safe(), chatId: z.number().int().positive().safe(), threadId: nonEmptyString }).strict().optional(),
+    desktopAutonomy: z.object({ authorizedDirectory: nonEmptyString }).strict().optional(),
     fileAuthorizations: z.array(fileAuthorizationSchema).optional(),
     contextCompaction: contextCompactionSchema.optional(),
     modelPricing: z.array(z.custom<ModelPrice>(validModelPrice)).max(16).refine(prices =>
@@ -203,13 +201,13 @@ const tuiModuleConfigV1Schema = z
 
 export interface TuiModuleConfigV1 {
   version: 1;
-  workspace?: string | undefined;
+  authorizedDirectory?: string | undefined;
   modules: {
     computer?: ComputerConfig | undefined;
     pomodoro?: { enabled: boolean } | undefined;
     "read-file"?: { enabled: boolean } | undefined;
     memory?:
-      | { enabled: boolean; autoConsolidate?: boolean | undefined; writePolicy?: "review" | "automatic" | undefined;
+      | { enabled: boolean; autoConsolidate?: boolean | undefined;
         }
       | undefined;
     checkpoint?: { enabled: boolean } | undefined;
@@ -232,8 +230,8 @@ export interface TuiModuleConfigV1 {
         }
       | undefined;
   };
-  telegramAutonomy?: Omit<TelegramAutonomyGrant, "directory"> & { workspaceRoot: string } | undefined;
-  desktopAutonomy?: { workspaceRoot: string } | undefined;
+  telegramAutonomy?: Omit<TelegramAutonomyGrant, "directory"> & { authorizedDirectory: string } | undefined;
+  desktopAutonomy?: { authorizedDirectory: string } | undefined;
   fileAuthorizations?: FileAuthorizationRule[] | undefined;
   contextCompaction?: ContextBudgetConfig | undefined;
   run?: { maxSteps?: number | undefined; totalTimeoutMs?: number | undefined } | undefined;
@@ -430,6 +428,16 @@ export async function readTuiModuleConfig(configPath: string): Promise<TuiModule
     throw new Error("Invalid TUI config JSON");
   }
 
+  if (typeof value === "object" && value !== null) {
+    const autonomyHasOldField = ["desktopAutonomy" in value ? value.desktopAutonomy : undefined, "telegramAutonomy" in value ? value.telegramAutonomy : undefined].some(grant =>
+      typeof grant === "object" && grant !== null && "workspaceRoot" in grant);
+    const modules = "modules" in value ? value.modules : undefined;
+    const memory = typeof modules === "object" && modules !== null && "memory" in modules ? modules.memory : undefined;
+    if ("workspace" in value || autonomyHasOldField || typeof memory === "object" && memory !== null && "writePolicy" in memory) {
+      throw new Error("Legacy TUI config fields require the offline home importer before startup");
+    }
+  }
+
   const parsed = tuiModuleConfigV1Schema.safeParse(value);
   if (!parsed.success) {
     throw new Error("Invalid TUI config schema");
@@ -476,11 +484,6 @@ async function resolveConfiguredMode(
     enabled.web && (config.modules.web?.feed?.enabled ?? false);
 
   const autoConsolidate = config.modules.memory?.autoConsolidate ?? false;
-  const explicitWritePolicy = config.modules.memory?.writePolicy;
-  let memoryWritePolicy: "review" | "automatic" = explicitWritePolicy ?? "review";
-  if (memoryWritePolicy === "automatic" && (!enabled.memory || !autoConsolidate)) {
-    throw new Error("memory.writePolicy automatic requires memory.enabled and autoConsolidate");
-  }
   if (autoConsolidate && !enabled.memory) {
     throw new Error(
       "memory.autoConsolidate requires memory.enabled to be true",
@@ -494,8 +497,8 @@ async function resolveConfiguredMode(
   }
   assertWorkspaceRequirement(
     enabled,
-    config.workspace,
-    "TUI config requires workspace when read-file, memory, checkpoint, task, or shell is enabled",
+    config.authorizedDirectory,
+    "TUI config requires authorizedDirectory when read-file, memory, checkpoint, task, or shell is enabled",
     args.dataDirectory,
   );
 
@@ -508,14 +511,14 @@ async function resolveConfiguredMode(
       ? undefined
       : await normalizeShellSandbox(
           sandboxDefinition,
-          config.workspace,
+          config.authorizedDirectory,
           dirname(absoluteConfigPath),
         );
   const authorizedDirectory =
     sandboxResolution?.directory ??
-    (config.workspace === undefined
+    (config.authorizedDirectory === undefined
       ? null
-      : await resolveWorkspace(config.workspace, dirname(absoluteConfigPath)));
+      : await resolveWorkspace(config.authorizedDirectory, dirname(absoluteConfigPath)));
   const shellSandbox = sandboxResolution?.shellSandbox ?? null;
   let computer: ComputerConfig | undefined;
   if (enabled.computer) {
@@ -530,7 +533,7 @@ async function resolveConfiguredMode(
     authorizedDirectory,
     enabled,
   );
-  if (config.telegramAutonomy || config.desktopAutonomy || fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || memoryWritePolicy === "automatic" || config.automation !== undefined) {
+  if (config.telegramAutonomy || config.desktopAutonomy || fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || config.automation !== undefined) {
     const configRealPath = await realpath(absoluteConfigPath);
     if (authorizedDirectory !== null && isPathWithin(authorizedDirectory, configRealPath)) {
       throw new Error(
@@ -538,17 +541,11 @@ async function resolveConfiguredMode(
       );
     }
   }
-  // v2: automatic writes are the default when consolidation is on, but only for a
-  // config outside the workspace (same trust boundary as an explicit "automatic").
-  if (explicitWritePolicy === undefined && enabled.memory && autoConsolidate &&
-    (authorizedDirectory === null || !isPathWithin(authorizedDirectory, await realpath(absoluteConfigPath)))) {
-    memoryWritePolicy = "automatic";
-  }
   const todoistTimeZone = resolveConfiguredTodoistTimeZone(enabled.todoist, config.modules.todoist);
 
   return {
-    ...(config.telegramAutonomy?.workspaceRoot === authorizedDirectory ? { telegramAutonomy: { directory: authorizedDirectory, botId: config.telegramAutonomy.botId, userId: config.telegramAutonomy.userId, chatId: config.telegramAutonomy.chatId, threadId: config.telegramAutonomy.threadId } } : {}),
-    ...(config.desktopAutonomy && config.desktopAutonomy.workspaceRoot === authorizedDirectory
+    ...(config.telegramAutonomy?.authorizedDirectory === authorizedDirectory ? { telegramAutonomy: { directory: authorizedDirectory, botId: config.telegramAutonomy.botId, userId: config.telegramAutonomy.userId, chatId: config.telegramAutonomy.chatId, threadId: config.telegramAutonomy.threadId } } : {}),
+    ...(config.desktopAutonomy && config.desktopAutonomy.authorizedDirectory === authorizedDirectory
       ? { desktopAutonomy: { directory: authorizedDirectory } } : {}),
     configPath: absoluteConfigPath,
     workspaceRoot: authorizedDirectory,
@@ -557,7 +554,6 @@ async function resolveConfiguredMode(
     webSearchEnabled,
     webFeedEnabled,
     autoConsolidate,
-    memoryWritePolicy,
     todoistTimeZone,
     fileAuthorizations,
     shellSandbox,

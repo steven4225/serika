@@ -46,7 +46,7 @@ for (const [relative, expectedRunAt] of [
     const workspace = join(root, "workspace");
     await mkdir(workspace);
     const config = join(root, "config.json");
-    await writeFile(config, JSON.stringify({ version: 1, workspace, modules: { task: { enabled: true } } }));
+    await writeFile(config, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { task: { enabled: true } } }));
     let calls = 0;
     const model = new MockLanguageModelV3({ doStream: async ({ prompt }) => {
       calls++;

@@ -79,7 +79,7 @@ export type AssistantEvent =
   | { type: "run-result"; phase: "primary" | "skill"; result: RunResult }
   | { type: "shell-progress"; phase: "primary" | "skill"; runId: string; progress: ShellProgress }
   | { type: "work-task-updated"; task: WorkTask }
-  | { type: "memory-updated"; reason: "proposals" | "review" | "write" }
+  | { type: "memory-updated"; reason: "write" }
   | { type: "memory-references-changed" }
   | { type: "output"; text: string }
   | { type: "error"; message: string };

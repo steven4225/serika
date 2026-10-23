@@ -327,7 +327,7 @@ export async function runContextContinuityAcceptance(options: { workTask?: boole
   await mkdir(join(root, "workspace", "protected"));
   await writeFile(join(root, "workspace", ARTIFACT), `# 个人助手日用流程\n\n目标：让任务的行动、事实核对、交付和用户验收都有可执行的边界。\n\n${END}\n`);
   await writeFile(join(root, "workspace", SENTINEL), "DO_NOT_MODIFY\n");
-  const config = JSON.stringify({ version: 1, workspace: join(root, "workspace"), modules: { "read-file": { enabled: true } },
+  const config = JSON.stringify({ version: 1, authorizedDirectory: join(root, "workspace"), modules: { "read-file": { enabled: true } },
     run: { totalTimeoutMs: 600000 }, contextCompaction: CONTINUITY_BUDGET }, null, 2);
   await writeFile(join(root, "config.json"), config);
   process.stdout.write(`Evidence directory: ${root}\n`);

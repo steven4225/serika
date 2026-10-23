@@ -70,7 +70,7 @@ export async function runCompletionAcceptance(label: "baseline" | "improved") {
     for (const path of readable) {
       try { originals.set(path, await readFile(join(workspace, path), "utf8")); } catch { /* New outputs do not exist yet. */ }
     }
-    const config = { version: 1, workspace, modules: { "read-file": { enabled: true }, shell: { enabled: caseId === "WT01", timeoutMs: 60000 } },
+    const config = { version: 1, authorizedDirectory: workspace, modules: { "read-file": { enabled: true }, shell: { enabled: caseId === "WT01", timeoutMs: 60000 } },
       run: { maxSteps: 12, totalTimeoutMs: 600000 }, contextCompaction: CONTINUITY_BUDGET };
     await writeFile(join(directory, "config.json"), JSON.stringify(config));
     const output = new PassThrough(); output.resume();
@@ -147,7 +147,7 @@ export async function runCompletionAcceptance(label: "baseline" | "improved") {
         corrections, outcome: failure !== null ? "failed" : corrections > 0 ? "corrected_completion" : "first_pass_completion",
         approvedToolCalls: [...approvals.values()].filter(item => item.allowed).length,
         deniedToolCalls: [...approvals.values()].filter(item => !item.allowed).length,
-        operatorFollowups: 0, quality: "not_accepted", evalChecks, configDigest: sha(JSON.stringify({ ...config, workspace: "<isolated-workspace>" })) };
+        operatorFollowups: 0, quality: "not_accepted", evalChecks, configDigest: sha(JSON.stringify({ ...config, authorizedDirectory: "<isolated-workspace>" })) };
       results.push(result);
       try {
         await writeFile(join(directory, "report.json"), JSON.stringify(result, null, 2));

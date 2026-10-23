@@ -15,9 +15,9 @@ const current: FormalMemory = {
 };
 
 it("memory page has no review queue, history tabs or version tools", () => {
-  const library = renderToStaticMarkup(createElement(MemoryPanel, { libraryAvailable: true, memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" }, temporaryThread: false, controllerIdle: true, refreshToken: 0 }));
+  const library = renderToStaticMarkup(createElement(MemoryPanel, { libraryAvailable: true, memory: { enabled: true, autoConsolidate: true }, temporaryThread: false, controllerIdle: true, refreshToken: 0 }));
   assert.match(library, /memory-library/);
-  const management = renderToStaticMarkup(createElement(MemoryPanel, { managementOnly: true, memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" }, temporaryThread: false, controllerIdle: true, refreshToken: 0 }));
+  const management = renderToStaticMarkup(createElement(MemoryPanel, { managementOnly: true, memory: { enabled: true, autoConsolidate: true }, temporaryThread: false, controllerIdle: true, refreshToken: 0 }));
   for (const html of [library, management]) {
     for (const label of ["待审核", "审核记录", "未保存内容与处理记录", "停用与历史记忆", "历史记录", "恢复", "有效期", "置顶"]) assert.equal(html.includes(label), false, label);
   }

@@ -116,7 +116,7 @@ describe("v2 pilot baseline: CLI Home text", () => {
       const workspace = join(root, "workspace");
       await mkdir(workspace);
       const configPath = join(root, "config.json");
-      await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { checkpoint: { enabled: true }, task: { enabled: true } } }));
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { checkpoint: { enabled: true }, task: { enabled: true } } }));
       const output = new PassThrough();
       let written = "";
       output.on("data", chunk => { written += String(chunk); });

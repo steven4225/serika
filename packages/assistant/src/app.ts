@@ -439,7 +439,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                   createMemoryModule(
                     memoryStore!,
                     () => transcript.read(),
-                    { threadId, transcript, ...(workspaceRoot === undefined ? {} : { workspaceRoot }), writePolicy: moduleConfig?.memoryWritePolicy ?? "review",
+                    { threadId, transcript, ...(workspaceRoot === undefined ? {} : { workspaceRoot }),
                       getCurrentUserMessage: () => currentRun.memorySource?.signal.aborted ? undefined : currentRun.memorySource?.message,
                      },
                   ),

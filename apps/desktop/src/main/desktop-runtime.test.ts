@@ -33,7 +33,7 @@ describe("normal desktop memory and history entry", () => {
   it("blocks new execution after a post-rename config acknowledgement fault until an explicit reread", async t => {
     const root = await mkdtemp(join(tmpdir(), "serika-config-uncertain-"));
     const workspace = join(root, "workspace"), configPath = join(root, "config.json"); await mkdir(workspace);
-    await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { shell: { enabled: true }, memory: { enabled: false } } }));
+    await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { shell: { enabled: true }, memory: { enabled: false } } }));
     let calls = 0;
     const host = await DesktopRuntime.create({ applicationHome: join(root, "profile"), cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
       model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: () => {} });
@@ -59,12 +59,12 @@ describe("normal desktop memory and history entry", () => {
     const root = await mkdtemp(join(tmpdir(), "serika-runtime-workspace-race-"));
     const workspace = join(root, "original"), other = join(root, "other"), configPath = join(root, "config.json");
     await mkdir(workspace); await mkdir(other);
-    const config = { version: 1, workspace, modules: { memory: { enabled: false }, shell: { enabled: false } } };
+    const config = { version: 1, authorizedDirectory: workspace, modules: { memory: { enabled: false }, shell: { enabled: false } } };
     await writeFile(configPath, JSON.stringify(config));
     let calls = 0, switched = false;
     const env: NodeJS.ProcessEnv = { RUNLOOM_CONFIG: configPath };
     Object.defineProperty(env, "RUNLOOM_TODOIST_TIMEZONE", { get() {
-      if (!switched) { switched = true; writeFileSync(configPath, JSON.stringify({ ...config, workspace: other })); }
+      if (!switched) { switched = true; writeFileSync(configPath, JSON.stringify({ ...config, authorizedDirectory: other })); }
       return undefined;
     } });
     const options = { applicationHome: join(root, "profile"), cwd: root, env, modelAlias: "mock",
@@ -138,7 +138,7 @@ describe("normal desktop memory and history entry", () => {
       assert.ok(events.some(event => event.type === "identity-changed" && event.info.runtimeRecovery?.state === "failed"));
       await assert.rejects(host.retryConnection(), /仍未连接/);
       const otherWorkspace = join(root, "other-workspace"); await mkdir(otherWorkspace);
-      await writeFile(identity.configPath!, JSON.stringify({ ...JSON.parse(before), workspace: otherWorkspace }));
+      await writeFile(identity.configPath!, JSON.stringify({ ...JSON.parse(before), authorizedDirectory: otherWorkspace }));
       await assert.rejects(host.retryConnection(), /仍未连接/, "retry cannot silently switch a trusted workspace");
       await writeFile(identity.configPath!, before);
       await host.retryConnection();
@@ -243,7 +243,7 @@ describe("normal desktop memory and history entry", () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-enable-test-"));
     const workspace = join(root, "workspace"); await mkdir(workspace);
     const configPath = join(root, "custom.json");
-    await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: false }, shell: { enabled: false } } }));
+    await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { memory: { enabled: false }, shell: { enabled: false } } }));
     const host = await DesktopRuntime.create({ applicationHome: join(root, "profile"), cwd: root,
       env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => response() }), send: () => {} });
     try {
@@ -296,13 +296,13 @@ describe("normal desktop memory and history entry", () => {
     } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
   });
 
-  it("moves legacy review memory to automatic saving on startup and preserves daily history across restart", async () => {
+  it("preserves explicit automatic consolidation and daily history across restart", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-legacy-setup-"));
     const profile = join(root, "profile");
     const workspace = join(root, "workspace");
     await mkdir(profile); await mkdir(workspace);
     const configPath = join(profile, "config.json");
-    const legacy = { version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true }, shell: { enabled: false, timeoutMs: 45000 } }, run: { totalTimeoutMs: 600000 } };
+    const legacy = { version: 1, authorizedDirectory: workspace, modules: { memory: { enabled: true, autoConsolidate: true }, shell: { enabled: false, timeoutMs: 45000 } }, run: { totalTimeoutMs: 600000 } };
     await writeFile(configPath, JSON.stringify(legacy));
     const options = { applicationHome: profile, cwd: root, env: {}, modelAlias: "mock",
       model: new MockLanguageModelV3({ doStream: async () => response() }), send: () => {} };
@@ -310,9 +310,9 @@ describe("normal desktop memory and history entry", () => {
     try {
       const initial = host.info();
       assert.equal(initial.configPath, configPath);
-      assert.equal(initial.memory.writePolicy, "automatic", "desktop has no review queue");
+      assert.equal(initial.memory.autoConsolidate, true);
       const saved = JSON.parse(await readFile(configPath, "utf8"));
-      assert.equal(saved.modules.memory.writePolicy, "automatic");
+      assert.equal(saved.modules.memory.autoConsolidate, true);
       assert.deepEqual(saved.modules.shell, legacy.modules.shell);
       assert.equal(saved.modules.memory.queryRewrite, undefined);
       assert.ok((await host.current.run("保留这条日用历史", { memoryConsolidation: "exclude" })).ok);
@@ -321,7 +321,7 @@ describe("normal desktop memory and history entry", () => {
       assert.ok(memories.ok); assert.equal(memories.value.entries.length, 0);
       await host.shutdown();
       host = await DesktopRuntime.create(options);
-      assert.equal(host.info().memory.writePolicy, "automatic");
+      assert.equal(host.info().memory.autoConsolidate, true);
       assert.equal(host.info().threadId, initial.threadId);
       assert.ok((await host.current.history()).some(message => message.role === "user" && message.parts.some(part => part.type === "text" && part.text === "保留这条日用历史")));
     } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }

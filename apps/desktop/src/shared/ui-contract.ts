@@ -114,7 +114,6 @@ export interface AppInfo {
   memory: {
     enabled: boolean;
     autoConsolidate: boolean;
-    writePolicy?: "review" | "automatic";
   };
   workTasks: boolean;
 }
@@ -150,7 +149,7 @@ export type MainToRenderer =
   | { type: "event"; phase: RunPhase; event: AgentEvent }
   | { type: "result"; phase: RunPhase; result: RunResult }
   | { type: "shell-progress"; phase: RunPhase; runId: string; progress: ShellProgressChunk }
-  | { type: "memory-updated"; reason: "proposals" | "review" | "write" }
+  | { type: "memory-updated"; reason: "write" }
   | { type: "memory-references-changed" }
   | { type: "work-task-updated"; task: WorkTask }
   | { type: "error"; message: string };

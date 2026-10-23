@@ -33,9 +33,9 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
   try {
     for (const mode of ["plain", "desktop", "telegram-desktop-only", "telegram", "foreign-grant", "other-thread", "tui"] as const) {
       const configPath = join(root, `${mode}.json`), threadId = mode === "other-thread" ? "other" : "thread";
-      await writeFile(configPath, JSON.stringify({ version: 1, workspace,
-        desktopAutonomy: { workspaceRoot: mode === "foreign-grant" ? join(root, "foreign") : workspace },
-        ...(mode === "telegram" || mode === "other-thread" ? { telegramAutonomy: { workspaceRoot: workspace, botId: 1, userId: 2, chatId: 3, threadId: "thread" } } : {}),
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace,
+        desktopAutonomy: { authorizedDirectory: mode === "foreign-grant" ? join(root, "foreign") : workspace },
+        ...(mode === "telegram" || mode === "other-thread" ? { telegramAutonomy: { authorizedDirectory: workspace, botId: 1, userId: 2, chatId: 3, threadId: "thread" } } : {}),
         modules: { memory: { enabled: true }, task: { enabled: true }, "read-file": { enabled: true }, shell: { enabled: true } } }));
       let selected: typeof calls[number] = calls[0], step = 0;
       const model = new MockLanguageModelV3({ doStream: async options => {
@@ -87,16 +87,16 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
       const result = await readFileFromWorkspace(workspace, path!, new AbortController().signal);
       rows[`path/${name}`] = result.ok ? "ok" : result.error.code;
     }
-    for (const inside of [false, true]) for (const policy of ["implicit", "automatic", "review", "files", "autonomy", "docker"] as const) {
+    for (const inside of [false, true]) for (const policy of ["implicit", "files", "autonomy", "docker"] as const) {
       const directory = inside ? workspace : root, configPath = join(directory, `policy-${policy}.json`);
-      await writeFile(configPath, JSON.stringify({ version: 1, workspace: inside ? "." : "./directory",
-        ...(policy === "autonomy" ? { desktopAutonomy: { workspaceRoot: workspace } } : {}),
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: inside ? "." : "./directory",
+        ...(policy === "autonomy" ? { desktopAutonomy: { authorizedDirectory: workspace } } : {}),
         ...(policy === "files" ? { fileAuthorizations: [{ tools: ["read_file"], allowedPaths: ["."] }] } : {}),
-        modules: { memory: { enabled: true, autoConsolidate: true, ...(policy === "automatic" || policy === "review" ? { writePolicy: policy } : {}) },
+        modules: { memory: { enabled: true, autoConsolidate: true },
           "read-file": { enabled: true }, ...(policy === "docker" ? { shell: { enabled: true, sandbox: { backend: "docker", image: "img", readablePaths: ["note.txt"], writablePaths: ["."] } } } : {}) } }));
       try {
         const config = await resolveTuiModuleConfig({ configPath, dataDirectory: join(root, "config-data") }, { cwd: root });
-        rows[`config/${inside ? "inside" : "outside"}/${policy}`] = { policy: config.memoryWritePolicy, fileRules: config.fileAuthorizations, docker: config.shellSandbox };
+        rows[`config/${inside ? "inside" : "outside"}/${policy}`] = { fileRules: config.fileAuthorizations, docker: config.shellSandbox };
       } catch (error) { rows[`config/${inside ? "inside" : "outside"}/${policy}`] = error instanceof Error ? error.message : "error"; }
     }
     let workerTools: string[] = [];
@@ -111,6 +111,12 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
     } finally { worker.dispose(); }
     const normalized = JSON.parse(JSON.stringify(rows).replaceAll(root, "<fixture>"));
     if (process.env.SERIKA_B0_CAPTURE) await writeFile(process.env.SERIKA_B0_CAPTURE, JSON.stringify(normalized, null, 2) + "\n");
-    assert.deepEqual(normalized, JSON.parse(await readFile(new URL("../src/permission-boundary.snapshot.json", import.meta.url), "utf8")));
+    const baseline: Record<string, unknown> = JSON.parse(await readFile(new URL("../src/permission-boundary.snapshot.json", import.meta.url), "utf8"));
+    // e removes mode metadata and explicit review/automatic config inputs; the stored baseline stays frozen.
+    for (const [key, value] of Object.entries(baseline)) {
+      if (/^config\/(inside|outside)\/(automatic|review)$/.test(key)) delete baseline[key];
+      else if (key.startsWith("config/") && typeof value === "object" && value !== null && "policy" in value) delete value.policy;
+    }
+    assert.deepEqual(normalized, baseline);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

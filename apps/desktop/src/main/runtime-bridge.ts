@@ -261,7 +261,6 @@ export class RuntimeBridge {
       memory: {
         enabled: this.#app.moduleConfig?.enabled.memory === true && this.#app.memoryStore !== undefined,
         autoConsolidate,
-        writePolicy: this.#app.moduleConfig?.memoryWritePolicy ?? "review",
       },
       workTasks: this.#app.workTasks !== undefined,
     };

@@ -49,7 +49,7 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
 
 - 工具副作用语义：未知结果不伪装成失败；非幂等工具不自动重试；审批先于执行持久化（见 AGENTS.md「Tool side-effect invariants」）。
 - verifier 概念。
-- 双时态记忆模型的内部语义，以及「事实只能来自用户原话」（`isExactUserQuote`）这条边界。
+- 当前 v6 记忆的来源校验、uncertain 原话保存与撤回语义，详见 `docs/context-memory-refactor-plan.md`。
 - 权限模型（会改成扩展形式，但判定规则不变）。
 - 现有测试：先保持全绿，再随代码迁移。
 - 常驻进程架构、AI SDK adapter 边界。
@@ -75,7 +75,7 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
 候选补充（参考 OpenClaw / Hermes，待确认后并入对应步骤）：
 
 - 4.5：home 首次启动自动创建，不要求用户配置。
-- 4.5：彻底移除记忆审核模式（CLI/工作区配置的 review 写入策略、候选存储与候选工具），与工作区去除一起做。
+- 4.5：d1+d2+e 完成记忆审核模式清理。候选存储、候选工具、双时态实现和语义缓存已由记忆计划 0–7 步替代，本轮删除无效配置及界面残留。
 - 4：用户画像设硬预算，会话开始时冻结注入；事实库改为工具按需检索。
 - 7：压缩前先沉淀（pre-compaction flush）。
 - 可选：桌面端与 Telegram 共用单一主会话，需要时分出线程。
@@ -105,11 +105,11 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
   - 已完成（权限扩展第一部分，判定规则不变）：新增扩展接口 `RuntimeExtension`（`runtime-extension.ts`：`beforeToolExecute`、`afterToolCall`、命令）和 `composeExtensions`。组合规则：执行前钩子按顺序问，第一个拒绝即返回，全部允许才执行；执行后钩子第一个给出决定的生效；命令重名在装配时报错；只有一个扩展提供的钩子原样使用。权限收进 `permission-extension.ts`：逐次确认（`createToolConfirmation`）、宿主固定免确认的三类调用（自身的 `capability_status`、记忆整理 Skill 声明的工具、工作区任务只读）、`/authorize`、`/authorize-shell`、`/authorize-web` 和 `/permissions`，从 `app.ts` 原样搬出（`app.ts` 少约 150 行）。防重复查询守卫也作为扩展挂上。`RuntimeApp.toolConfirmation` 和 Controller 的用法不变。「记住选择」会改变 AGENTS.md 里「`y` 从不被记住」这条已确认规则，方案待确认后再做。
   - 已完成（权限扩展第二部分：记住选择）：确认卡多一个「允许并在本次对话内记住」（终端输入 `r`），只在后端给出可记住范围时出现。有效期是本次对话：只存在这个对话的助手进程内存里，不落盘、不碰 SQLite；重启、切换对话或改设置重建助手后清空；只对授权时的那个 agent 有效。范围：读取类工具（声明 risk 为 read）按工具名；`write_file`/`edit_file` 按所在目录（不含子目录，两个工具分开记）；`web_fetch` 按网站来源（origin）。一律不能记：Shell（含 Docker 沙箱）、电脑操作 `computer_*`、命令配方 `recipe_*`、记忆 `memory_*`；以后接 MCP 时其工具也必须默认不可记。拒绝不记；「拒绝 web_search 后本 Run 不再 web_fetch/feed_read」仍然优先。Telegram 发起的 Run 既不用也不提供记住的授权。`/permissions` 列出已记住项，`/permissions forget <编号>` 单条清除。接口：`PendingToolApproval.remember?: { label }`，`resolveApproval`/`controller.confirm` 加 `remember?: boolean`（桌面 `ConfirmInput.remember?: true`，桥接层校验后才转发；对不可记的调用带 `remember` 会被拒绝而不是降级成普通允许）；`beginRun(autonomous, source)`。AGENTS.md 第 73 行规则已同步。长期记住留到 4.5 与授权目录列表一起设计。
   - 第 1 步返工（按问卷答复）：
-    - 取消审核概念：桌面端不再有候选/待审核界面与通道（删 `listMemoryCandidates`/`getMemoryCandidate`/`resolveMemoryCandidate`，Controller `memory` 组删 `listCandidates`/`getCandidate`/`resolveCandidate`）。自动模式下只保存宿主判定可自动接受的条目；不确定或有冲突的不保存为记忆，只作为内部待定记录留着（不展示、不注入上下文，免得用户明确说过的话直接丢掉；来源算已处理），对话里提示「没有自动保存，原记忆没有被覆盖」。内部待定记录满 64 条后，多出来的直接不存，不再拦住整理。桌面启动时把「已开自动整理、但写入策略不是 automatic」的旧配置改成 `automatic`（显式 `RUNLOOM_CONFIG` 不改写）。
+    - 取消审核概念：桌面端不再有候选/待审核界面与通道（删 `listMemoryCandidates`/`getMemoryCandidate`/`resolveMemoryCandidate`，Controller `memory` 组删 `listCandidates`/`getCandidate`/`resolveCandidate`）。自动模式下只保存宿主判定可自动接受的条目；不确定或有冲突的不保存为记忆，只作为内部待定记录留着（不展示、不注入上下文，免得用户明确说过的话直接丢掉；来源算已处理），对话里提示「没有自动保存，原记忆没有被覆盖」。内部待定记录满 64 条后，多出来的直接不存，不再拦住整理。该阶段曾在桌面启动时修补旧写入策略；4.5 e 已删除修补，旧配置须显式离线导入。
     - 双时间界面只留「编辑」和「删除」：编辑正文走 `correct`，删除确认一次后永久删除；去掉置顶、停用、有效期、撤回/恢复、实际变化、历史抽屉和适用/认知时间展示。聊天里自动记忆的「撤回」仍走 `retract`。
     - 手动补整理直接删除（面板、`consolidateMemory`、`listMemoryConsolidationSources`、Controller 的 `consolidate`/`listConsolidationSources` 和 history 模式）。整理重试用尽时提示「原话仍保留，这段太长没记住，可以分段再说」。
     - `RESIDENT_*` 白名单只删除了上述已删方法，没有新增。
-    - 遗留：CLI/工作区内配置仍可用旧的 review 模式，候选存储和 `memory_candidates_list`/`memory_apply_candidate` 工具还在（与工作区信任边界相关）→ 4.5 一并移除。不确定的冲突目前不保存，没有转折词的偏好更新（如先说不加糖、后来直接说加糖）不会生效；是否改成「新的覆盖旧的」、内部待定记录交给第 7 步的反思管线处理，待确认。
+    - 当前记忆实现以 `docs/context-memory-refactor-plan.md` 为准：v6 事实及 uncertain 原话保留，用户可撤回；没有候选审核入口、双时态实现或语义缓存。4.5 e 删除 `writePolicy`，后台抽取仍由 `autoConsolidate` 明确启用；旧字段仅由离线导入器消费。
   - 已完成（上下文组装器，行为不变）：`prepareModelContext` 从 `app.ts` 的内联闭包拆到 `context-assembler.ts`。按 agent 分流（dreaming 只看最近一批、文本 Skill 只看本次调用、自动整理只看当前用户消息、其他 agent 走八回合选择、主 agent 走主流程）由 `routeModelContext` 负责；主流程 `preparePrimaryContext` 是「引用前缀 → 八回合选择或压缩 → 两条放置规则（当前记忆引用放在当前用户消息前、前台任务引用只在原请求被裁掉时追加）」。引用前缀由 `createReferenceAssembler` 从来源列表组装：来源按给定顺序依次收集（读取与模型调用顺序不变），输出按固定槽位顺序（时间与任务、恢复观察、checkpoint、检索记忆、记忆画像、学到的技能、当前 WorkTask、前台任务），与原来一致；每个槽位只属于一个来源，重复认领在装配时报错；任一来源出错整次准备失败，不跳过。来源：`context-sources.ts`（时间、checkpoint/恢复观察、学到的技能、WorkTask、前台任务）和 `memory-reference-source.ts`（检索记忆与画像共用预算，合成一个来源，semantic 缓存在来源内）。记忆引用快照、学到的技能快照和准备诊断仍由 app 持有，组装器通过回调发布。`RuntimeExtension` 没有新增上下文字段（第 4 步需要组合时再加）；task worker 进程自己的分流未动。`app.ts` 1521 → 1390 行。
   - A2 方向（已确认）：模块从「一包工具」改成自带完整声明的扩展（工具、指令片段、权限事实、能力清单、命令、上下文来源），宿主只汇总，`app.ts`、`tool-confirmation.ts`、`capability-status.ts` 不再按工具名写死；模块只声明事实（授权范围取自哪个参数、确认卡内容、内置默认），判定规则不变。不设信任等级（现在只有内置模块）；以后接 MCP 时由 MCP 扩展把外部工具一律声明为每次确认、不可记住。内置模块不做成 MCP（副作用语义、宿主耦合、进程成本），工具描述与 MCP 的只读/幂等提示可直接对应。不改配置格式；verifier 读取 `shell_exec`/`write_file` 证据的部分不动。
   - 已完成（A2 第 1 步）：`permission-decisions.test.ts` 用改造前的代码生成权限判定快照 `permission-decisions.snapshot.ts`（47 个工具 × 普通/Docker/自主执行/Telegram/Run 文件授权/配置文件授权/Shell 授权/网页授权/拒绝搜索后/记住后/整理 agent 等情形，记录放行、拒绝或确认，是否提供「记住」及文案，普通情形含确认卡文本；另含 `/authorize*` 命令注册组合）。之后每迁一个模块，表必须完全一致；只有确认过的规则变更才允许重新生成。
@@ -120,7 +120,7 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
     - Shell + 命令配方：`confirmation` 声明改为完整确认卡（可异步，与 app 自定义卡同一约定），文件卡随之调整；`addInstructions` 增加函数形式 `({ autonomous }) => text`，`app.ts` 删除自主执行时对指令的 `replaceAll`，改为分别组装普通/自主两份指令（Shell 主机模式、文件两处措辞由模块自己给出）。`shell_exec` 声明 `remember: "never"`、`autonomy: "allow"`，只有 Docker 沙箱执行器声明 `runAuthorization: "tool"`（`/authorize-shell` 的放行与拒绝据此判断，`shellSandboxMode` 选项删除），Shell 确认卡移入模块；配方工具声明 `remember: "never"`，配方确认卡从 `app.ts` 移入配方模块并补了测试（之前没有）；Shell、配方指令移入模块。权限快照不变（快照测试里去掉配方卡，因为它原本来自 app 自定义卡、从未被快照覆盖）。仍留在宿主：开发任务那段（文件或 Shell 任一装配时出现）。
     - 电脑操作：三个工具声明 `remember: "never"`（`tool-confirmation.ts` 删除 `computer_` 前缀），`computer_check` 确认卡与指令片段从 `app.ts` 移入模块。权限快照不变。
     - 补正：`app.ts` 的自定义确认卡还覆盖了 `shell_exec`、`web_fetch`、`feed_read`、`web_search`（以及后面要迁的 Todoist、记忆、任务、checkpoint）。这几张卡移入 Shell、web 模块；Shell 模块之前搬的是 `tool-confirmation.ts` 内部的备用卡（实际运行时被 app 卡覆盖、用户看不到），现在改为 app 卡，备用卡删除。权限快照只有 `plain-host`/`plain-docker | shell_exec` 两行的卡片文本变成了 app 实际显示的卡片，判定没有变化。
-    - 记忆：全部 `memory_` 工具声明 `remember: "never"`（`tool-confirmation.ts` 删除 `memory_` 前缀）；权限事实新增 `defaults.approvalAgents`（列出的 agent 调用时不需 y/n），`memory_prepare_consolidation`、`memory_stage_candidates` 声明 `[AUTO_CONSOLIDATION_AGENT_ID]`，`tool-confirmation.ts` 的自动整理名单删除。记忆确认卡（候选预览、当前条目及线程作用域检查、通用卡）从 `app.ts` 移入模块，模块新增 `writePolicy`、`workspaceRoot` 选项；指令片段移入模块（`memory-instructions.ts`，整理提示词与主 agent 指令共用的提案规则也在这里），逐字比对一致。`app.ts` 两处按 `memory_` 前缀过滤工具名改为按注册归属判断。唯一可见差异：「In automatic memory mode, briefly acknowledge…」这句之前不论是否装配记忆都在指令里，现在只在装配记忆模块时出现，位置移到记忆段开头。权限快照不变。
+    - 记忆：全部 `memory_` 工具声明 `remember: "never"`（`tool-confirmation.ts` 删除 `memory_` 前缀）；权限事实新增 `defaults.approvalAgents`（列出的 agent 调用时不需 y/n），`memory_prepare_consolidation`、`memory_stage_candidates` 声明 `[AUTO_CONSOLIDATION_AGENT_ID]`，`tool-confirmation.ts` 的自动整理名单删除。记忆确认卡（候选预览、当前条目及线程作用域检查、通用卡）从 `app.ts` 移入模块，模块当时新增 `writePolicy`、`workspaceRoot` 选项，4.5 e 已删除无效的 `writePolicy`；指令片段移入模块（`memory-instructions.ts`，整理提示词与主 agent 指令共用的提案规则也在这里），逐字比对一致。`app.ts` 两处按 `memory_` 前缀过滤工具名改为按注册归属判断。唯一可见差异：「In automatic memory mode, briefly acknowledge…」这句之前不论是否装配记忆都在指令里，现在只在装配记忆模块时出现，位置移到记忆段开头。权限快照不变。
     - checkpoint：三个 `checkpoint_` 工具的确认卡从 `app.ts` 移入模块（模块新增 `workspaceRoot` 选项），指令片段移入模块，逐字比对一致。没有权限默认值（判定规则不变），权限快照不变。CLI 的 checkpoint 确认测试改为断言模块卡片（测试夹具之前只拿到通用卡）。
     - 任务：安排/提醒确认卡（`task_create`/`task_repeat_create` 带 arrangement 时、提醒的取消/暂停/恢复/停止、改期）从 `app.ts` 移入模块，模块新增 `automationStatus`（后台服务状态，`app.ts` 用 `taskAutomation.status` 提供）、`arrangementDestination`、`schedulableSkills`（已注册的文本 Skill，用于指令里的可定时 Skill 列表）选项；卡片时钟改用模块已有的 `speechClock`（`app.ts` 未传 `now`/`timeZone`，与原 `reminderClock` 相同）。两段指令移入模块，三种 Skill 组合逐字比对一致。没有权限默认值，权限快照不变（任务模块只声明读存储的卡片，不放进测试用的内置声明）。
     - Todoist：`todoist_list_tasks` 确认卡与指令移入模块；「读 Todoist 生成今日计划并保存」那段（`todoistPlanSaveInstructions`）改由模块在文件模块装配时（`isAssembled("read-file")`）加入，两种装配逐字比对一致。至此 `app.ts` 的自定义确认卡全部移入模块，`toolConfirmationPrompt` 删除，`createPermissionExtension` 去掉 `prompt` 选项（`createToolConfirmation` 的 `prompt` 目前只有测试在用，先保留）。没有权限默认值，权限快照不变。
@@ -171,7 +171,7 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
 - AI SDK adapter 边界、常驻进程架构。
 - 工具副作用语义：结果未知不能当成失败，非幂等工具不能自动重试。
 - 回执格式和 verifier 判定完全不动（A2 已确认，见 §4.1 第 3 步）。
-- 双时态记忆的内部语义、用户原话的来源校验（`isExactUserQuote`）。
+- 当前 v6 记忆的来源校验、uncertain 原话保存与撤回语义。
 - 权限判定规则不变，`permission-decisions.snapshot.ts` 必须完全一致（D2 除外，见下）。
 - 已落盘的 hash 格式、数据路径、配置文件格式。
 - 用户可见的功能、文案、顺序不变。

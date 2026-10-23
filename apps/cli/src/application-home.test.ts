@@ -101,7 +101,7 @@ test("a storage home does not grant workspace file access or load old workspace 
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-home-authority-")));
   try {
     const home = await resolveCliHome({ home: join(root, "home") }, { cwd: root, env: {}, initialize: true });
-    await writeFile(home.configPath!, JSON.stringify({ version: 1, workspace: root, modules: { memory: { enabled: true }, "read-file": { enabled: true } }, fileAuthorizations: [] }));
+    await writeFile(home.configPath!, JSON.stringify({ version: 1, authorizedDirectory: root, modules: { memory: { enabled: true }, "read-file": { enabled: true } }, fileAuthorizations: [] }));
     const snapshot = await checkTuiStartup(["--home", join(root, "home")], { cwd: root, env: {} });
     assert.equal(readinessExitCode(snapshot), 0);
     await mkdir(join(root, ".runloom"));
@@ -111,12 +111,6 @@ test("a storage home does not grant workspace file access or load old workspace 
     const app = await createRuntimeApp({ directory: directory!, assistant, modelAlias: "offline", model: new MockLanguageModelV3(), output: new PassThrough().resume(), cwd: root, env: {} });
     try { const memory = await app.memoryStore!.readV6!(); assert.ok(memory.ok); assert.equal(memory.value.entries.length, 0); } finally { app.dispose(); }
     assert.equal(await readFile(oldFile, "utf8"), "old data must not be read");
-    const config = JSON.parse(await readFile(home.configPath!, "utf8"));
-    config.modules.memory = { enabled: true, autoConsolidate: true, writePolicy: "automatic" };
-    await writeFile(home.configPath!, JSON.stringify(config));
-    const rejected = await checkTuiStartup(["--home", join(root, "home")], { cwd: root, env: {} });
-    assert.equal(readinessExitCode(rejected), 1);
-    assert.match(rejected.checks.find(item => item.id === "config")!.message, /must be outside the workspace/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -132,7 +126,7 @@ test("CLI entry creates only its selected home and --check stays read-only", asy
     const launched = spawnSync(process.execPath, [index, "--tui", "--home", home, "--thread", "cli"], { cwd: root, env, input: "/exit\n", encoding: "utf8" });
     assert.equal(launched.status, 0, launched.stderr);
     assert.deepEqual(await readdir(root), ["chosen"]);
-    assert.equal(JSON.parse(await readFile(join(home, "config.json"), "utf8")).workspace, undefined);
+    assert.equal(JSON.parse(await readFile(join(home, "config.json"), "utf8")).authorizedDirectory, undefined);
     assert.ok((await readdir(home)).includes("transcripts"));
   } finally { await rm(root, { recursive: true, force: true }); }
 });

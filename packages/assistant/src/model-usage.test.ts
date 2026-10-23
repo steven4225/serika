@@ -212,7 +212,7 @@ test("Demo: real Controller records chat/consolidation, compactor usage and summ
   const f = await fixture();
   const workspace = join(f.directory, "workspace"), directory = join(f.directory, "transcripts"), config = join(f.directory, "config.json");
   await mkdir(workspace);
-  await writeFile(config, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" } },
+  await writeFile(config, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { memory: { enabled: true, autoConsolidate: true } },
     contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, keepRecentTokens: 20 }, modelPricing: [price] }));
   let userId = "";
   const model = new MockLanguageModelV3({ doGenerate: async () => response('{"queries":["咖啡"]}'), doStream: async options => {

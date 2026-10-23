@@ -21,7 +21,7 @@ it("explicit rework uses a fresh approved Run and never accepts a prior write as
   const workspace = join(root, "workspace");
   await mkdir(workspace);
   const configPath = join(root, "config.json");
-  await writeFile(configPath, JSON.stringify({ version: 1, workspace,
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace,
     modules: { "read-file": { enabled: true } },
   }));
   const before = "A and B both omit the API.\nB documents the API.\n";

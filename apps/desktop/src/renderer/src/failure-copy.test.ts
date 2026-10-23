@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { presentFailure } from "./failure-copy.js";
 import { ErrorBanner, FailureAlert } from "./failure-notice.js";
-import { memoryCandidateEmptyCopy, savedMemoryEmptyCopy, savedMemoryNoticeText } from "./memory-copy.js";
+import { savedMemoryEmptyCopy, savedMemoryNoticeText } from "./memory-copy.js";
 import { MemorySavedNotice } from "./memory-saved-notice.js";
 
 it("failure copy never leaves a bare skill or memory code as the only message", () => {
@@ -37,13 +37,5 @@ it("memory notices name what was remembered and empty states stay plain", () => 
   assert.ok(html.indexOf("已记住：咖啡不加糖") < html.indexOf("<details"));
   assert.doesNotMatch(html.slice(0, html.indexOf("<details")), /memory-1/);
   assert.equal(savedMemoryEmptyCopy(), "还没有记住的内容。聊天时说出你的偏好，会记在这里。");
-  assert.match(memoryCandidateEmptyCopy("pending", "automatic"), /已经记住的，在「已保存」/);
-  assert.equal(memoryCandidateEmptyCopy("pending", "review"), "还没有需要你确认的内容。");
-  assert.doesNotMatch([
-    savedMemoryEmptyCopy(),
-    memoryCandidateEmptyCopy("pending", "review"),
-    memoryCandidateEmptyCopy("accepted", "automatic"),
-    memoryCandidateEmptyCopy("rejected", "automatic"),
-    memoryCandidateEmptyCopy("stale", "automatic"),
-  ].join("\n"), /候选|正式记忆|断言|revision/);
+  assert.doesNotMatch(savedMemoryEmptyCopy(), /候选|正式记忆|断言|revision/);
 });

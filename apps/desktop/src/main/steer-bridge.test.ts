@@ -41,7 +41,7 @@ it("wires a distinct typed Steer IPC route and strips renderer authority", async
 it("supersedes pending approval in the same Run, persists statuses, and never authorizes the replacement", async () => {
   const root = await mkdtemp(join(tmpdir(), "desktop-steer-"));
   await mkdir(join(root, "workspace"));
-  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, workspace: join(root, "workspace"), modules: { "read-file": { enabled: true } }, run: { totalTimeoutMs: 15_000 } }));
+  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, authorizedDirectory: join(root, "workspace"), modules: { "read-file": { enabled: true } }, run: { totalTimeoutMs: 15_000 } }));
   let calls = 0;
   let observedSteer = false;
   const model = new MockLanguageModelV3({ doStream: async options => {

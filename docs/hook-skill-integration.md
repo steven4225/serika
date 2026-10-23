@@ -6,7 +6,7 @@
 
 - **Before：** 记忆整理触发固定在程序里，不能用配置选择已登记 Skill；桌面没有统一入口查看这些规则或手动运行它们。
 - **After：** 外部可信配置可以登记 Skill、选择 Hook。桌面「工作区 → 自动安排」可查看能力与规则，手动执行无工具文本 Skill，预览并确认单次/每日/每周排期，暂停或取消后续执行，并在原收件箱读取实际结果。记忆仍按已提交用户原话验证，最终写入仍由既有策略决定。
-- **五分钟 Demo：** 使用隔离 workspace、固定 transcript 和真实模型，在桌面命令入口运行 `/skills`、`/hooks`；发送一条长期偏好，等整理结束，再新建对话询问该偏好。自动写入模式应能在正式记忆中看到记录，并在新对话的参考记忆里看到同一 ID。review 模式需先接受候选。此 Demo 需要宿主载入下面的配置，而不是向普通对话粘贴 JSON。
+- **五分钟 Demo：** 使用隔离 workspace、固定 transcript 和真实模型，在桌面命令入口运行 `/skills`、`/hooks`；发送一条长期偏好，等整理结束，再新建对话询问该偏好。自动写入模式应能在正式记忆中看到记录，并在新对话的参考记忆里看到同一 ID。当前没有记忆审核模式。此 Demo 需要宿主载入下面的配置，而不是向普通对话粘贴 JSON。
 
 ## 配置
 
@@ -17,12 +17,11 @@
 ```json
 {
   "version": 1,
-  "workspace": "/absolute/path/to/personal-workspace",
+  "authorizedDirectory": "/absolute/path/to/personal-workspace",
   "modules": {
     "memory": {
       "enabled": true,
-      "autoConsolidate": true,
-      "writePolicy": "automatic"
+      "autoConsolidate": true
     }
   },
   "automation": {
@@ -42,7 +41,7 @@
 }
 ```
 
-省略 `automation.hooks` 保留原记忆默认触发；显式 `hooks: []` 禁用所有自动触发，手动 Skill 仍可用。`autoConsolidate` 允许登记记忆执行能力，并不覆盖这个空数组。`writePolicy: "review"` 只提出候选，不自动接受。`automatic` 也不是所有提案都自动写入：不明确、缺分类、历史范围等仍留待审核。
+省略 `automation.hooks` 保留原记忆默认触发；显式 `hooks: []` 禁用所有自动触发，手动 Skill 仍可用。`autoConsolidate` 允许登记记忆执行能力，并不覆盖这个空数组。当前后台抽取不接收 `writePolicy`。v6 的来源校验、uncertain 原话保存及撤回规则仍生效，关闭 `autoConsolidate` 就不会抽取。旧配置须经离线导入器转换，不能直接启动。
 
 仅接受 `thread.ready` 和成功的 `primary.completed`。辅助 Skill 完成不会再触发主任务完成 Hook。普通聊天抢占后台 Skill，等其实际取消/收尾后再启动；手动运行和管理操作仍须空闲。没有待整理增量的新 Thread 不会为了空整理进入运行状态。
 
@@ -148,7 +147,7 @@ if (saved.value.task) {
 }
 ```
 
-worker 必须使用同一份可信配置，绝对路径位于 canonical workspace 外且配置的 workspace 完全匹配：
+worker 必须使用同一份可信配置，绝对路径位于 canonical workspace 外且配置的 `authorizedDirectory` 完全匹配：
 
 ```sh
 RUNLOOM_MODEL=command-code node --env-file=.env \

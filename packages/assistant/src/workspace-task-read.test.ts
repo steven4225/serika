@@ -27,7 +27,7 @@ async function fixture(allowDirectoryTaskReads: boolean) {
   const foreign = await createTaskStore(join(foreignWorkspace, ".runloom/tasks.json")).create({ prompt: "外部工作区私密提醒", runAt: new Date(Date.now() + 60_000).toISOString() });
   assert.ok(own.ok && foreign.ok);
   const configPath = join(root, "config.json");
-  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: {
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: {
     task: { enabled: true }, "read-file": { enabled: true }, shell: { enabled: true },
   } }));
   let currentCall = { name: "task_list", input: {} as unknown }, calls = 0, response = "";

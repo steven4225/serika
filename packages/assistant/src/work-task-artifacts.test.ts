@@ -83,7 +83,7 @@ it("Controller display queries are read-only, version-bound, survive restart and
   const workspace = join(root, "workspace");
   await mkdir(join(workspace, "notes"), { recursive: true });
   const config = join(root, "config.json");
-  await writeFile(config, JSON.stringify({ version: 1, workspace, modules: { "read-file": { enabled: true } } }));
+  await writeFile(config, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { "read-file": { enabled: true } } }));
   let calls = 0;
   const model = new MockLanguageModelV3({ doStream: async () => {
     ++calls;
@@ -167,7 +167,7 @@ it("Controller display queries are read-only, version-bound, survive restart and
     assert.equal((await controller.workTasks.getContinuation(input)).ok, false);
     assert.equal(calls, 2);
     await controller.shutdown();
-    await writeFile(config, JSON.stringify({ version: 1, workspace, modules: {} }));
+    await writeFile(config, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: {} }));
     controller = createAssistantController(await createRuntimeApp({ ...options, output: new PassThrough() }));
     const disabled = await controller.workTasks.getArtifact({ ...input, path: "notes/plan.md" });
     assert.ok(!disabled.ok); assert.equal(disabled.error.code, "WORK_TASK_INVALID_STATE");

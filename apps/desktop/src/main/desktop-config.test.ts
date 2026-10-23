@@ -16,26 +16,12 @@ import {
 } from "./desktop-config.js";
 
 describe("desktop TUI config", () => {
-  it("explicit review upgrade only changes policy and supports rollback", async () => {
-    const root = await mkdtemp(join(tmpdir(), "serika-memory-policy-upgrade-"));
-    try {
-      const workspace = join(root, "workspace"); await mkdir(workspace);
-      const configPath = join(root, "config.json");
-        const config = { version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "review" }, shell: { enabled: false } } };
-        const original = JSON.stringify(config);
-        await writeFile(configPath, original);
-        const undo = await enableDesktopMemory(configPath);
-        assert.deepEqual(JSON.parse(await readFile(configPath, "utf8")), { ...config, modules: { ...config.modules, memory: { ...config.modules.memory, writePolicy: "automatic" } } });
-        await undo();
-        assert.equal(await readFile(configPath, "utf8"), original);
-    } finally { await rm(root, { recursive: true, force: true }); }
-  });
   it("explicitly enables automatic source-checked memory without replacing existing module settings", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-enable-memory-"));
     try {
       const workspace = join(root, "workspace"); await mkdir(workspace);
       const configPath = join(root, "config.json");
-      const config = { version: 1, workspace, modules: {
+      const config = { version: 1, authorizedDirectory: workspace, modules: {
         memory: { enabled: false, autoConsolidate: false },
         shell: { enabled: false, timeoutMs: 45_000 }, pomodoro: { enabled: false },
       }, run: { maxSteps: 6 } };
@@ -43,15 +29,15 @@ describe("desktop TUI config", () => {
       await enableDesktopMemory(configPath);
       const enabled = JSON.parse(await readFile(configPath, "utf8"));
       assert.deepEqual(enabled, { ...config, modules: { ...config.modules,
-        memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" },
+        memory: { enabled: true, autoConsolidate: true },
       } });
       // Missing modules is a valid legacy config, not a reason to report an empty/disabled module forever.
-      await writeFile(configPath, JSON.stringify({ version: 1, workspace }));
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace }));
       await enableDesktopMemory(configPath);
       assert.equal(JSON.parse(await readFile(configPath, "utf8")).modules.memory.enabled, true);
       const invalid = JSON.stringify({ version: 1 });
       await writeFile(configPath, invalid);
-      await assert.rejects(enableDesktopMemory(configPath), /workspace/i);
+      await assert.rejects(enableDesktopMemory(configPath), /authorizedDirectory/i);
       assert.equal(await readFile(configPath, "utf8"), invalid);
     } finally { await rm(root, { recursive: true, force: true }); }
   });
@@ -75,7 +61,7 @@ describe("desktop TUI config", () => {
     assert.ok(DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS > 30_000);
     assert.ok(DESKTOP_DEFAULT_SHELL_TIMEOUT_MS > 30_000);
     assert.deepEqual(config.contextCompaction, defaultContextBudget());
-    assert.equal((config.modules as { memory: { writePolicy: string } }).memory.writePolicy, "automatic");
+    assert.equal((config.modules as { memory: { autoConsolidate: boolean } }).memory.autoConsolidate, true);
     const memory = (config.modules as { memory: { contextView?: { enabled: boolean }; semantic?: unknown } }).memory;
     assert.equal(memory.contextView, undefined);
     assert.equal(memory.semantic, undefined, "new defaults cannot install or silently enable an embedding service");
@@ -93,24 +79,12 @@ describe("desktop TUI config", () => {
     assert.equal((config.modules as { shell: { timeoutMs: number } }).shell.timeoutMs, 45_000);
   });
 
-  it("moves legacy review memory to automatic saving because the desktop has no review queue", () => {
-    const { config, patched } = withDesktopTimeouts({
-      version: 1,
-      modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "review" }, shell: { enabled: true, timeoutMs: 45_000 } },
-      run: { totalTimeoutMs: 600_000 },
-    });
-    assert.equal(patched, true);
-    assert.deepEqual((config.modules as { memory: unknown }).memory, { enabled: true, autoConsolidate: true, writePolicy: "automatic" });
-    const disabled = withDesktopTimeouts({ version: 1, modules: { memory: { enabled: false, writePolicy: "review" }, shell: { enabled: true, timeoutMs: 45_000 } }, run: { totalTimeoutMs: 600_000 } });
-    assert.equal(disabled.patched, false);
-  });
-
   it("does not silently enable derived profile or semantic indexing in existing daily configurations", async () => {
     const root = await mkdtemp(join(tmpdir(), "serika-existing-memory-config-"));
     try {
       const workspace = join(root, "workspace"); await mkdir(workspace);
       const configPath = join(root, "config.json");
-      const config = { version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" }, shell: { enabled: false } } };
+      const config = { version: 1, authorizedDirectory: workspace, modules: { memory: { enabled: true, autoConsolidate: true }, shell: { enabled: false } } };
       await writeFile(configPath, JSON.stringify(config));
       await resolveDesktopConfig({ env: {}, applicationHome: root, cwd: root });
       assert.deepEqual(JSON.parse(await readFile(configPath, "utf8")).modules.memory, config.modules.memory);
@@ -163,23 +137,6 @@ describe("desktop TUI config", () => {
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
-  it("moves existing review memory configs to automatic saving because the desktop has no review queue", async () => {
-    const root = await mkdtemp(join(tmpdir(), "serika-existing-memory-policy-"));
-    try {
-      const configPath = join(root, "config.json");
-      const workspace = join(root, "workspace"); await mkdir(workspace);
-      await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true, writePolicy: "review" } } }));
-      await resolveDesktopConfig({ env: {}, applicationHome: root });
-      assert.equal(JSON.parse(await readFile(configPath, "utf8")).modules.memory.writePolicy, "automatic");
-      await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true } } }));
-      await resolveDesktopConfig({ env: {}, applicationHome: root });
-      assert.equal(JSON.parse(await readFile(configPath, "utf8")).modules.memory.writePolicy, "automatic");
-      await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: false } } }));
-      await resolveDesktopConfig({ env: {}, applicationHome: root });
-      assert.equal(JSON.parse(await readFile(configPath, "utf8")).modules.memory.writePolicy, undefined, "without automatic consolidation nothing is promoted");
-    } finally { await rm(root, { recursive: true, force: true }); }
-  });
-
   it("writes a applicationHome config when none is provided", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-userdata-"));
     try {
@@ -205,7 +162,7 @@ describe("desktop TUI config", () => {
     try {
       const workspace = join(root, "workspace"); await mkdir(workspace);
       const configPath = join(root, "config.json");
-      await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: false }, pomodoro: { enabled: true }, shell: { enabled: false } } }));
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { memory: { enabled: false }, pomodoro: { enabled: true }, shell: { enabled: false } } }));
       await Promise.all([
         resolveDesktopConfig({ env: {}, applicationHome: root, cwd: root }),
         enableDesktopMemory(configPath, root),
@@ -213,12 +170,12 @@ describe("desktop TUI config", () => {
       ]);
       const config = JSON.parse(await readFile(configPath, "utf8"));
       assert.equal(config.modules.memory.enabled, true);
-      assert.equal(config.modules.memory.writePolicy, "automatic");
+      assert.equal(config.modules.memory.autoConsolidate, true);
       assert.equal(config.modules.pomodoro.enabled, false);
       assert.equal(config.modules.shell.enabled, false);
       assert.equal(config.modules.shell.timeoutMs, DESKTOP_DEFAULT_SHELL_TIMEOUT_MS);
       assert.equal(config.run.totalTimeoutMs, DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS);
-      assert.equal(config.workspace, workspace);
+      assert.equal(config.authorizedDirectory, workspace);
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
@@ -233,7 +190,7 @@ describe("desktop TUI config", () => {
       assert.equal(results.filter(result => result.generated).length, 1);
       assert.equal(results.some(result => result.patched), false);
       const config = JSON.parse(await readFile(join(root, "config.json"), "utf8"));
-      assert.ok([join(root, "first"), join(root, "second")].includes(config.workspace));
+      assert.ok([join(root, "first"), join(root, "second")].includes(config.authorizedDirectory));
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 });

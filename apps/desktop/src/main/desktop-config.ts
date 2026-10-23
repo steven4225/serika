@@ -37,18 +37,11 @@ export function withDesktopTimeouts(
   const timeoutMs = typeof previousShell.timeoutMs === "number" ? previousShell.timeoutMs : DESKTOP_DEFAULT_SHELL_TIMEOUT_MS;
   if (typeof previousShell.timeoutMs !== "number" || typeof previousShell.enabled !== "boolean") patched = true;
   modules.shell = { ...previousShell, enabled, timeoutMs };
-  // Desktop has no memory review queue: legacy review configs that already
-  // consolidate automatically are moved to the automatic write policy.
-  const memory = isRecord(modules.memory) ? modules.memory : undefined;
-  if (memory?.enabled === true && memory.autoConsolidate === true && memory.writePolicy !== "automatic") {
-    modules.memory = { ...memory, writePolicy: "automatic" };
-    patched = true;
-  }
   return {
     config: {
       ...config,
       version: 1,
-      ...(workspace !== undefined && typeof config.workspace !== "string" ? { workspace } : {}),
+      ...(workspace !== undefined && typeof config.authorizedDirectory !== "string" ? { authorizedDirectory: workspace } : {}),
       run,
       modules,
     },
@@ -59,7 +52,7 @@ export function withDesktopTimeouts(
 export function defaultDesktopConfig(workspace?: string): Record<string, unknown> {
   const modules: Record<string, unknown> = {
     pomodoro: { enabled: true },
-    memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" },
+    memory: { enabled: true, autoConsolidate: true },
     task: { enabled: true },
     shell: {
       enabled: workspace !== undefined,
@@ -72,7 +65,7 @@ export function defaultDesktopConfig(workspace?: string): Record<string, unknown
   }
   return {
     version: 1,
-    ...(workspace === undefined ? {} : { workspace }),
+    ...(workspace === undefined ? {} : { authorizedDirectory: workspace }),
     modules,
     run: { totalTimeoutMs: DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS },
     contextCompaction: defaultContextBudget(),
@@ -118,15 +111,14 @@ export async function resolveDesktopConfig(options: {
   return { configPath, generated, patched };
 }
 
-/** Explicit setup opts into source-checked automatic writes. Legacy review configs are upgraded by withDesktopTimeouts. */
+/** Explicit setup enables source-checked automatic consolidation. */
 export async function enableDesktopMemory(configPath: string, cwd = process.cwd(), dataDirectory?: string): Promise<() => Promise<void>> {
   const result = await updateDesktopConfig(configPath, cwd, async before => {
     const config = JSON.parse(before!);
     if (!isRecord(config) || config.modules !== undefined && !isRecord(config.modules)) throw new Error("无法读取模块配置");
     const modules = isRecord(config.modules) ? config.modules : {};
     const memory = isRecord(modules.memory) ? modules.memory : {};
-    const policyOnly = memory.enabled === true && memory.autoConsolidate === true && memory.writePolicy !== "automatic";
-    const next = { ...config, modules: { ...modules, memory: { ...memory, enabled: true, autoConsolidate: true, writePolicy: "automatic" } } };
+    const next = { ...config, modules: { ...modules, memory: { ...memory, enabled: true, autoConsolidate: true } } };
     return `${JSON.stringify(next, null, 2)}\n`;
   }, dataDirectory ? { dataDirectory } : {});
   return result.rollback ?? (async () => {});

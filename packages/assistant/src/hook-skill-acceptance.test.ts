@@ -90,8 +90,8 @@ async function fixture(hooks: HookRule[] | null = [], withExternalSkill = false,
     await writeFile(join(directory, "SKILL.md"), kind === "text" ? TEXT_INSTRUCTIONS : MEMORY_INSTRUCTIONS);
   }
   const configPath = join(root, "config.json");
-  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: {
-    memory: { enabled: true, autoConsolidate: true, writePolicy: "automatic" }, checkpoint: { enabled: true },
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: {
+    memory: { enabled: true, autoConsolidate: true }, checkpoint: { enabled: true },
   }, ...(compact ? { contextCompaction: { enabled: true, contextWindowTokens: 30000, maxOutputTokens: 1024,
     safetyMarginTokens: 512, keepRecentTokens: 256, summaryMaxOutputTokens: 1024 } } : {}),
   automation: { skills: withExternalSkill ? [{ id: skillId, directory }] : [], ...(hooks === null ? {} : { hooks }) } }));

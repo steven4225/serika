@@ -59,7 +59,7 @@ async function fixture(stream: (call: number, prompt?: string) => Promise<Return
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-telegram-unit-")));
   const workspace = join(root, "workspace"), applicationHome = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: shellEnabled }, task: { enabled: true } } }));
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: shellEnabled }, task: { enabled: true } } }));
   let calls = 0;
   let time = Date.now(), activations = 0;
   const host = await DesktopRuntime.create({ applicationHome, cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
@@ -1196,7 +1196,7 @@ it("independent TG authorization runs chat and WorkTasks through real file/Shell
     assert.equal(f.host.info().autonomy?.enabled, false);
     await assert.rejects(f.host.setTelegramAutonomyEnabled(setting(false, false)), /配置已变化/);
     const config = JSON.parse(await readFile(join(f.root, "config.json"), "utf8"));
-    assert.deepEqual(config.telegramAutonomy, { workspaceRoot: f.workspace, botId: 100, userId: 42, chatId: 42, threadId: owner.threadId });
+    assert.deepEqual(config.telegramAutonomy, { authorizedDirectory: f.workspace, botId: 100, userId: 42, chatId: 42, threadId: owner.threadId });
     // Foreign users and group chats never reach a model or execute.
     const calls = f.calls(); await f.gateway.receive(update(4, "非法任务", 99)); await f.gateway.receive(update(5, "非法任务", 42, "group"));
     assert.equal(f.calls(), calls);

@@ -119,7 +119,7 @@ describe("AssistantController", () => {
   it("persists WorkTask memory exclusion across restart without excluding later ordinary chat", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-task-memory-exclusion-"));
     const config = join(root, "config.json");
-    await writeFile(config, JSON.stringify({ version: 1, workspace: root,
+    await writeFile(config, JSON.stringify({ version: 1, authorizedDirectory: root,
       modules: { memory: { enabled: true, autoConsolidate: true } } }));
     const open = async () => {
       const instance = createAssistantController(await createRuntimeApp({

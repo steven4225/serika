@@ -214,9 +214,9 @@ macOS/Linux 正常保存使用同一 transcript 路径的跨进程 append 锁。
 2. 在已构建仓库运行 `pnpm --filter @serika/desktop exec tsx --test src/main/thread-history.test.ts`，验证累计超过 16 MiB 的历史能发现与搜索，文件字节和修改时间不变。这是大文件夹具，不声称日用文件已经超过 16 MiB。
 3. 运行 `node --test packages/assistant/dist/receipt-durability.test.js packages/assistant/dist/transcript-storage.test.js`，验证真实跨进程锁、同步失败不派发、结果未知不自动重做。注入 IO 失败不是机器断电证明。
 
-`RUNLOOM_THREAD` / `RUNLOOM_TRANSCRIPTS` 可显式覆盖，不改写默认身份；部分覆盖从匹配身份补齐，无匹配时用稳定隔离默认值。以相同覆盖重启才能回到同一对话。`RUNLOOM_WORKSPACE` 只在首次生成配置时生效，已有配置以文件实际 workspace 为准。
+`RUNLOOM_THREAD` / `RUNLOOM_TRANSCRIPTS` 可显式覆盖，不改写默认身份；部分覆盖从匹配身份补齐，无匹配时用稳定隔离默认值。以相同覆盖重启才能回到同一对话。`RUNLOOM_WORKSPACE` 只在首次生成配置时生效，已有配置以文件实际 `authorizedDirectory` 为准。
 
-新生成的 `runloom.json` 默认开启记忆、自动整理、`writePolicy: "automatic"`、一次有界同义查询改写和模型摘要压缩。只有符合自动写入策略、来源核对及冲突规则的提案才自动保存，其余候选留待处理；`writePolicy: "review"` 则要求人工接受后才成为正式记忆。已有配置的记忆开关/预算不自动修改；记忆页的「设置日用记忆」先展示配置预览，确认后校验配置并重建当前会话。坏配置不会覆盖成默认值。
+新生成的 `config.json` 默认开启记忆、`autoConsolidate` 自动整理和模型摘要压缩。v6 记忆校验用户原话来源，不确定的原话按现有 uncertain 规则保存，保存后可查看来源和撤回。产品没有记忆审核模式或候选审核工具；旧配置的 `workspace`、自主授权 `workspaceRoot` 和 `memory.writePolicy` 须先用离线导入器消费，新配置只接受 `authorizedDirectory` 及同名自主授权字段。已有配置的记忆开关/预算不自动修改；记忆页的「设置日用记忆」先展示配置预览，确认后校验配置并重建当前对话。坏配置不会覆盖成默认值。
 
 新配置的上下文默认使用「日常」档。设置 → 上下文中可在空闲时选择「日常／长任务」，下一次发送生效，保存失败不会显示已切换。已有旧配置显示为旧配置，只有显式选择模式后才升级；切换不改变压缩启用开关，也不增加工具授权或 Run 总时限。
 

@@ -5,14 +5,14 @@ import { AgentError } from "@serika/core";
 import { tool, type UIMessage } from "ai";
 import type { AgentModule } from "../module-host.js";
 import type { WorkspaceMemoryStore } from "../memory-types.js";
-import { MEMORY_READ_INSTRUCTIONS, type MemoryWritePolicy } from "../memory-instructions.js";
+import { MEMORY_READ_INSTRUCTIONS } from "../memory-instructions.js";
 import { bindMemoryWrite, memoryWriteSchema, MEMORY_PRIMARY_WRITE_INSTRUCTIONS } from "../memory-write.js";
 export type { MemoryEntry, WorkspaceMemoryStore } from "../memory-types.js";
 export type ConsolidationGetMessages = (signal: AbortSignal) => Promise<UIMessage[]>;
 export interface MemoryModuleOptions {
   transcript?: TranscriptAccess;
   threadId?: string; getCurrentUserMessage?: () => UIMessage | undefined; now?: () => Date;
-  workspaceRoot?: string; writePolicy?: MemoryWritePolicy;
+  workspaceRoot?: string;
 }
 
 /** C04: one host-bound writer, registered only on ordinary primary chat. */

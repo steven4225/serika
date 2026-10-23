@@ -29,8 +29,6 @@ export function capabilityStatus(input: CapabilityStatusInput) {
       const enabled = config?.enabled[id] === true;
       return { id, enabled, registeredTools,
         state: !enabled ? "disabled" as const : registeredTools.length ? "registered" as const : "not_registered" as const,
-        ...(id === "memory" && enabled && config?.memoryWritePolicy === "automatic"
-          ? { note: "记忆由宿主自动注入和整理，普通对话不注册直接写入工具。" } : {}),
       };
     }),
     tools: [...tools],

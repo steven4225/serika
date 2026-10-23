@@ -87,13 +87,13 @@ describe("createRuntimeApp", () => {
     } finally { app?.dispose(); service.dispose(); await rm(root, { recursive: true, force: true }); }
   });
 
-  for (const writePolicy of ["review", "automatic"] as const) {
-    it(`has exactly one conversation memory writer in ${writePolicy} mode`, async () => {
+  for (const autoConsolidate of [false, true]) {
+    it(`has one conversation memory writer with autoConsolidate ${autoConsolidate}`, async () => {
       const root = await mkdtemp(join(tmpdir(), "serika-memory-owner-"));
       await mkdir(join(root, "workspace"));
       const configPath = join(root, "config.json");
-      await writeFile(configPath, JSON.stringify({ version: 1, workspace: "./workspace", modules: {
-        memory: { enabled: true, autoConsolidate: true, writePolicy },
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: "./workspace", modules: {
+        memory: { enabled: true, autoConsolidate },
       } }));
       let names: string[] = [];
       let system = "";
@@ -117,7 +117,7 @@ describe("createRuntimeApp", () => {
         assert.equal(names.includes("memory_read"), true);
         assert.deepEqual(names.filter(name => name.startsWith("memory_")).sort(), ["memory_read", "memory_write"]);
         assert.equal(names.includes("memory_revise"), false);
-        assert.ok(app.memoryExtraction, "tool-free background lifecycle must be registered");
+        assert.equal(app.memoryExtraction !== undefined, autoConsolidate, "background extraction follows only explicit consolidation enablement");
         assert.ok(app.memoryStore, "desktop administrative operations retain their original store");
 
       } finally { await app.dispose(); await rm(root, { recursive: true, force: true }); }
@@ -134,7 +134,7 @@ describe("createRuntimeApp", () => {
       const workspace = join(root, "workspace");
       await mkdir(workspace);
       const configPath = join(root, "config.json");
-      await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: {
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: {
         "read-file": { enabled: config.files },
         web: { enabled: config.web, search: { enabled: config.search } },
       } }));
@@ -222,7 +222,7 @@ describe("createRuntimeApp", () => {
       const root = await mkdtemp(join(tmpdir(), "runloom-app-current-memory-"));
       const workspace = join(root, "workspace"); await mkdir(workspace);
       const configPath = join(root, "config.json");
-      await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true } },
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { memory: { enabled: true } },
         contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled } }));
       const prompts: string[][] = [];
       const model = new MockLanguageModelV3({ doStream: async options => {
@@ -267,7 +267,7 @@ describe("createRuntimeApp", () => {
       await mkdir(workspace);
       const configPath = join(root, "runloom.json");
       await writeFile(configPath, JSON.stringify({
-        version: 1, workspace: "./workspace", modules: { memory: { enabled: true } },
+        version: 1, authorizedDirectory: "./workspace", modules: { memory: { enabled: true } },
         contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled },
       }), "utf8");
       const app = await createRuntimeApp({
@@ -439,7 +439,7 @@ describe("createRuntimeApp", () => {
     const transcripts = join(root, "transcripts");
     const configPath = join(root, "runloom.json");
     await writeFile(configPath, JSON.stringify({
-      version: 1, workspace: "./workspace",
+      version: 1, authorizedDirectory: "./workspace",
       modules: { shell: { enabled: true, timeoutMs: 1_000 } },
       run: { totalTimeoutMs: 3_000 },
     }), "utf8");
