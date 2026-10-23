@@ -129,6 +129,7 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
       ["herdr_pi_read", "get", { action: "get" }], ["herdr_pi_read", "read", { action: "read" }], ["herdr_pi_read", "wait", { action: "wait" }],
       ["herdr_pi_control", "prompt", { action: "prompt", text: "offline task" }], ["herdr_pi_control", "input", { action: "input", key: "enter" }], ["herdr_pi_control", "stop", { action: "stop" }],
       ["computer_check", "check", {}], ["computer_observe", "observe", { bundleId: "com.example.Offline" }],
+      ["computer_observe", "unauthorized", { bundleId: "com.example.Unauthorized" }],
       ["computer_action", "action", { bundleId: "com.example.Offline", pid: 1, windowId: 1, observationId: "offline", elementToken: "offline", action: "click" }],
       ["terminal_exec", "browser", { command: "ego-browser --help" }],
     ] as const;
@@ -150,23 +151,27 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
             { type: "finish" as const, finishReason: { unified: call < 2 ? "tool-calls" as const : "stop" as const, raw: undefined }, usage }] }) };
         } }) });
       const controller = createAssistantController(app);
-      const approvals: { tool: string; remember: string | null }[] = [], events: string[] = [];
+      const approvals: { tool: string; remember: string | null }[] = [], events: string[] = [], outputs: unknown[] = [];
       const unsubscribe = controller.subscribe(event => {
         if (event.type === "approval" && event.approval.preview) {
           approvals.push({ tool: event.approval.toolName, remember: event.approval.remember?.label ?? null });
           controller.confirm({ approvalId: event.approval.approvalId, decision: "deny" });
         }
         if (event.type === "run-event" && event.event.type === "tool.call.failed") events.push(event.event.data.error.code);
+        if (event.type === "run-event" && event.event.type === "tool.call.completed") outputs.push(event.event.data.output);
       });
       try {
         for (selected of round3Calls) {
-          step = 0; approvals.length = 0; events.length = 0;
+          step = 0; approvals.length = 0; events.length = 0; outputs.length = 0;
           const done = new Promise<void>(resolve => { const off = controller.subscribe(event => { if (event.type === "state" && event.state.kind === "idle") { off(); resolve(); } }); });
           assert.ok((await controller.run("离线权限边界", source === "telegram" ? { source } : { desktopEntry: true })).ok); await done;
-          const readOnly = selected[0] === "herdr_pi_read";
+          const readOnly = ["herdr_pi_read", "computer_check", "computer_observe"].includes(selected[0]);
           assert.equal(approvals.length, readOnly ? 0 : 2);
           assert.deepEqual(events, readOnly ? [] : ["TOOL_DENIED", "TOOL_DENIED"]);
-          rows[`round3/${source}/${selected[0]}/${selected[1]}`] = { approvals: [...approvals], events: [...events], status: controller.getSnapshot().lastPrimaryResult?.status };
+          const rejected = selected[1] === "unauthorized";
+          if (rejected) assert.deepEqual(outputs, Array.from({ length: 2 }, () => ({ ok: false, error: { code: "COMPUTER_PRECHECK_FAILED", message: "Application is not allowed" } })));
+          rows[`round3/${source}/${selected[0]}/${selected[1]}`] = { approvals: [...approvals], events: [...events], status: controller.getSnapshot().lastPrimaryResult?.status,
+            ...(rejected ? { results: outputs } : {}) };
         }
       } finally { unsubscribe(); await controller.shutdown(); app.dispose(); }
     }

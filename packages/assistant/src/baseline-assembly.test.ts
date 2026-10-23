@@ -153,6 +153,9 @@ describe("v2 pilot baseline: assembled tools, instructions and capability report
 
 // Keep the historical files intact; compare every unaffected schema and rule.
 function assertStep3Assembly(actual: string, baseline: string, autonomous = false) {
+  baseline = baseline.replaceAll(
+    "批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。",
+    "computer_check 检查连接、computer_observe 观察明确授权的应用均免逐条确认；未授权应用直接拒绝，computer_action 每次确认且不可记住。不会启动驱动或授予系统权限。");
   const schemas = (text: string) => new Map([...text.matchAll(/## tool (\S+)\n\n([\s\S]*?)(?=\n\n## tool |\n\n# instructions)/g)].map(match => [match[1]!, match[2]!]));
   const before = schemas(baseline), after = schemas(actual), hadMemory = before.has("memory_add");
   for (const name of ["history_search", "history_read"]) { assert.ok(after.has(name)); after.delete(name); }

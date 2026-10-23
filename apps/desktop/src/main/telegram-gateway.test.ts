@@ -55,7 +55,7 @@ it("TG capability queries never present cached registration as current during ru
     assert.equal(f.calls(), 0);
   } finally { await f.cleanup(); }
 });
-async function fixture(stream: (call: number, prompt?: string) => Promise<ReturnType<typeof response>> = async () => response(), backgroundReady = true, shellEnabled = false, herdrFixture = false) {
+async function fixture(stream: (call: number, prompt?: string) => Promise<ReturnType<typeof response>> = async () => response(), backgroundReady = true, shellEnabled = false, herdrFixture = false, computerFixture = false) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-telegram-unit-")));
   const workspace = join(root, "workspace"), applicationHome = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
@@ -71,10 +71,20 @@ else if(args[3]==="read")console.log("离线 Pi 的只读输出");
 else process.exit(4);`);
     await chmod(join(bin, "herdr"), 0o700);
   }
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: shellEnabled }, ...(herdrFixture ? { terminal: { enabled: true, target: { authorizedDirectory: workspace, session: "offline", paneId: "p1", terminalId: "t1" } } } : {}), task: { enabled: true } } }));
+  const computerDriver = join(root, "computer-driver");
+  if (computerFixture) {
+    await writeFile(computerDriver, `#!${process.execPath}
+const name=process.argv[3];
+if(name==="list_apps")console.log(JSON.stringify({apps:[{pid:123,bundle_id:"com.example.Offline",running:true}]}));
+else if(name==="list_windows")console.log(JSON.stringify({windows:[{pid:123,window_id:456,title:"离线授权应用"}]}));
+else if(name==="get_window_state")console.log(JSON.stringify({pid:123,window_id:456,elements:[{element_index:0,role:"AXWindow"},{element_index:1,parent_index:0,role:"AXTextArea",value:"离线授权应用界面"}]}));
+else process.exit(4);`);
+    await chmod(computerDriver, 0o700);
+  }
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: shellEnabled }, ...(herdrFixture ? { terminal: { enabled: true, target: { authorizedDirectory: workspace, session: "offline", paneId: "p1", terminalId: "t1" } } } : {}), task: { enabled: true }, ...(computerFixture ? { computer: { enabled: true, executable: computerDriver, allowedBundleIds: ["com.example.Offline"] } } : {}) } }));
   let calls = 0;
   let time = Date.now(), activations = 0;
-  const host = await DesktopRuntime.create({ applicationHome, cwd: root, env: { RUNLOOM_CONFIG: configPath, ...(herdrFixture ? { PATH: bin, HOME: applicationHome } : {}) }, modelAlias: "mock",
+  const host = await DesktopRuntime.create({ applicationHome, cwd: root, env: { RUNLOOM_CONFIG: configPath, ...(herdrFixture ? { PATH: bin, HOME: applicationHome } : {}), ...(computerFixture ? { HOME: applicationHome } : {}) }, modelAlias: "mock",
     model: new MockLanguageModelV3({ doStream: async ({ prompt }) => stream(++calls, JSON.stringify(prompt)) }), send: () => {},
     taskAutomation: { status: async () => ({ available: true, registered: true, running: backgroundReady, ready: backgroundReady, todoistPlanningAvailable: false }), enable: async () => { activations++; return { enabled: backgroundReady, ready: backgroundReady }; } } });
   const store = new TelegramStore(join(applicationHome, "resident", "telegram.json"), applicationHome);
@@ -1474,5 +1484,31 @@ it("fixed-target Herdr read returns through offline Telegram without approval", 
     assert.equal(receipt?.tools[0]?.toolName, "herdr_pi_read");
     assert.equal(receipt?.tools[0]?.status, "completed");
     assert.equal(receipt?.tools[0]?.approvalRequestedAt, undefined);
+  } finally { await f.cleanup(); }
+});
+
+
+it("allowed Computer reads return through offline Telegram without approval and foreign apps are rejected", { skip: process.platform !== "darwin" }, async () => {
+  let observed = false;
+  const f = await fixture(async (n, prompt) => {
+    if (n === 1) return response({ name: "computer_check", input: {} }, "", "check");
+    if (n === 2) return response({ name: "computer_observe", input: { bundleId: "com.example.Offline", pid: 123, windowId: 456 } }, "", "observe");
+    if (n === 3) return response({ name: "computer_observe", input: { bundleId: "com.example.Foreign" } }, "", "foreign");
+    observed = prompt?.includes("离线授权应用界面") === true && prompt.includes("Application is not allowed");
+    return response(undefined, observed ? "离线授权应用界面；未授权应用已拒绝。" : "fixture result missing");
+  }, true, false, false, true);
+  try {
+    await f.bind();
+    assert.ok(f.sent.some(text => text.includes("Computer 连接检查及明确授权应用的观察免逐条确认")));
+    await f.gateway.receive(update(2, "读取授权应用"));
+    await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
+    assert.equal(observed, true);
+    assert.ok(f.sent.some(text => text.includes("离线授权应用界面")));
+    assert.equal(f.sent.some(text => text.includes("需要你确认")), false);
+    const input = f.store.snapshot().inputs.find(x => x.key === "42:2")!;
+    const receipt = await f.host.channelReceipt(f.store.snapshot().owner!.threadId, input.runId!);
+    assert.deepEqual(receipt?.tools.map(tool => [tool.toolName, tool.status, tool.approvalRequestedAt]), [
+      ["computer_check", "completed", undefined], ["computer_observe", "completed", undefined], ["computer_observe", "completed", undefined],
+    ]);
   } finally { await f.cleanup(); }
 });

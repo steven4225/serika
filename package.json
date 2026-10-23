@@ -15,8 +15,8 @@
     "build:runtime": "tsc -b",
     "clean": "tsc -b --clean",
     "typecheck": "tsc -b --pretty false && pnpm --filter @serika/desktop typecheck",
-    "test": "pnpm test:runtime && pnpm desktop:test",
-    "test:runtime": "pnpm build:runtime && node --test --test-concurrency=4 packages/core/dist/*.test.js packages/ai-sdk-adapter/dist/*.test.js packages/assistant/dist/*.test.js packages/assistant/dist/acceptance/*.test.js packages/assistant/dist/modules/*.test.js apps/cli/dist/*.test.js packages/assistant/scripts/cm-step7-migrate.test.mjs packages/assistant/scripts/home-import.test.mjs",
+    "test": "node scripts/test-home.mjs --home \"$SERIKA_TEST_HOME\" -- /bin/sh -c 'pnpm test:runtime && pnpm desktop:test'",
+    "test:runtime": "node scripts/test-home.mjs --home \"$SERIKA_TEST_HOME\" -- /bin/sh -c 'pnpm build:runtime && node --test --test-concurrency=4 packages/core/dist/*.test.js packages/ai-sdk-adapter/dist/*.test.js packages/assistant/dist/*.test.js packages/assistant/dist/acceptance/*.test.js packages/assistant/dist/modules/*.test.js apps/cli/dist/*.test.js packages/assistant/scripts/cm-step7-migrate.test.mjs packages/assistant/scripts/home-import.test.mjs scripts/test-home.test.mjs'",
     "test:all": "pnpm test",
     "demo": "pnpm build:runtime && node apps/cli/dist/index.js",
     "tui": "pnpm build:runtime && node apps/cli/dist/index.js --tui",
@@ -25,14 +25,15 @@
     "eval:live": "pnpm build:runtime && pnpm --filter @serika/eval eval:live",
     "eval:e2e": "pnpm build:runtime && pnpm --filter @serika/eval e2e",
     "eval:guards": "pnpm build:runtime && pnpm --filter @serika/eval guards",
-    "eval:test": "pnpm build:runtime && pnpm --filter @serika/eval test",
+    "eval:test": "node scripts/test-home.mjs --home \"$SERIKA_TEST_HOME\" -- /bin/sh -c 'pnpm build:runtime && pnpm --filter @serika/eval test'",
     "eval:view": "pnpm --filter @serika/eval run view",
     "task-worker": "pnpm build:runtime && node packages/assistant/dist/task-worker-entry.js",
     "desktop:test": "pnpm build:runtime && pnpm --filter @serika/desktop test",
     "desktop:check": "pnpm build:runtime && pnpm --filter @serika/desktop check",
     "desktop:dev": "pnpm build:runtime && pnpm --filter @serika/desktop dev",
     "desktop:daily": "pnpm --filter @serika/desktop daily",
-    "desktop:install": "pnpm --filter @serika/desktop install:local"
+    "desktop:install": "pnpm --filter @serika/desktop install:local",
+    "verify:cm6": "node scripts/test-home.mjs --home \"$SERIKA_TEST_HOME\" -- node packages/assistant/scripts/cm-step6-verify.mjs"
   },
   "devDependencies": {
     "@types/node": "26.1.1",

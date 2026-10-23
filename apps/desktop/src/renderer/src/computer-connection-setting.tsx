@@ -23,7 +23,7 @@ export function ComputerConnectionSetting({ info, busy }: { info: AppInfo; busy:
   return <section className="capability-confirm" aria-label="电脑控制连接">
     <strong>连接电脑控制驱动</strong>
     <p>选择已安装的 Cua Driver，并明确填写允许控制的应用 Bundle ID。驱动必须在授权目录之外。桌面和 Telegram 的每次观察与操作都需要确认，且不可记住。</p>
-    <p className="hint">不会安装驱动、启动服务或申请 macOS 权限。连接检查只读取运行应用列表；系统辅助功能权限需在 macOS 中由你设置。</p>
+    <p className="hint">不会安装驱动、启动服务或申请 macOS 权限。连接检查只读取运行应用列表。桌面和 TG 的连接检查及已授权应用观察免逐条确认，未授权应用直接拒绝；操作每次确认且不可记住。系统辅助功能权限需在 macOS 中由你设置。</p>
     <button className="ghost" disabled={locked} onClick={() => void perform(load)}>{view ? "刷新连接设置" : "设置连接"}</button>
     {view ? <>
       <label>驱动程序绝对路径<input disabled={locked} value={path} onChange={event => { setPath(event.target.value); setHealth(null); }} /></label>

@@ -284,9 +284,12 @@ export class TelegramGateway {
     this.#pairing = { code: code(), expiresAt: new Date(this.now() + 5 * 60_000).toISOString(), proposed: null };
     return this.status();
   }
-  #herdrReadNotice() {
-    return this.host.channelSnapshot().info.capabilities?.tools.includes("herdr_pi_read")
-      ? "例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。" : "";
+  #readToolNotice() {
+    const tools = this.host.channelSnapshot().info.capabilities?.tools ?? [];
+    return [
+      tools.includes("herdr_pi_read") ? "例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。" : "",
+      tools.includes("computer_observe") ? "例外：Computer 连接检查及明确授权应用的观察免逐条确认，未授权应用直接拒绝；操作每次确认且不可记住。" : "",
+    ].join("");
   }
   async confirmPairing(expectedCode: string) {
     const pairing = this.status().pairing;
@@ -302,7 +305,7 @@ export class TelegramGateway {
       this.#pairing = null;
       const permissions = this.host.channelTelegramAutonomyEnabled()
         ? "授权目录内文件和 Seatbelt 内命令免逐条确认，其他工具仍逐次确认。" : "工具仍逐次确认。";
-      await this.#reply(`binding:${thread.threadId}`, pairing.proposed.chatId, `已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。${permissions}${this.#herdrReadNotice()}执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。`);
+      await this.#reply(`binding:${thread.threadId}`, pairing.proposed.chatId, `已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。${permissions}${this.#readToolNotice()}执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。`);
       return this.status();
     } finally { this.#settings = false; }
   }
@@ -470,7 +473,7 @@ export class TelegramGateway {
       await this.setAutonomyPaused(false);
       return reject((this.host.channelTelegramAutonomyEnabled()
         ? "已恢复这个私聊的原有自主授权：文件和 Seatbelt 内命令免逐条确认，其他操作仍需确认。"
-        : "已解除暂停，但当前绑定没有有效自主授权；请在桌面明确授权。工具仍需确认。") + this.#herdrReadNotice());
+        : "已解除暂停，但当前绑定没有有效自主授权；请在桌面明确授权。工具仍需确认。") + this.#readToolNotice());
     }
     if (this.#ownedRunning()?.current.snapshot.pendingApproval && /^(?:可以|好|好的|行|同意|确认|yes|y|ok)[。.!！]?$/i.test(text)) {
       return reject("请点当前确认卡的按钮，或发送“允许 短码 / 拒绝 短码”；本条没有批准或调整任何操作。");
@@ -487,7 +490,7 @@ export class TelegramGateway {
       const enabled = this.host.channelTelegramAutonomyEnabled();
       const channelStatus = status ? { ...status, shell: { ...status.shell, authority: enabled ? "explicit_workspace_telegram_primary; no background inheritance" : "current_run_only",
         warning: enabled ? "当前绑定私聊的文件操作及 Seatbelt 内命令免逐条确认；默认断网、不可用时拒绝执行。本机联网命令及其他工具仍逐条确认。" : status.shell.mode === "docker" ? "沿用配置的挂载与网络限制；工具仍需确认。" : "当前私聊未授权自主执行，文件和本机命令仍需确认。" } } : undefined;
-      return reject(channelStatus ? formatCapabilityStatus(channelStatus) + "\n" + this.#herdrReadNotice() : "当前连接未提供能力状态；无法据此判断已注册或可用。");
+      return reject(channelStatus ? formatCapabilityStatus(channelStatus) + "\n" + this.#readToolNotice() : "当前连接未提供能力状态；无法据此判断已注册或可用。");
     }
     if (text === "/start" || text === "/help") return reject("直接提问或说“几分钟后提醒我…”；点确认卡下的按钮即可批准或取消。备用：允许 短码 / 拒绝 短码。/confirm 刷新当前确认，/details 查看详情，/capabilities 查看真实能力状态。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。工作任务用“任务：目标 → 开始 短码”。");
     if (/^(?:任务[:：]|\/task\s)/.test(text)) {

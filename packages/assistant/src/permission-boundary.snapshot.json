@@ -1111,37 +1111,13 @@
     "status": "completed"
   },
   "round3/desktop/computer_check/check": {
-    "approvals": [
-      {
-        "tool": "computer_check",
-        "remember": null
-      },
-      {
-        "tool": "computer_check",
-        "remember": null
-      }
-    ],
-    "events": [
-      "TOOL_DENIED",
-      "TOOL_DENIED"
-    ],
+    "approvals": [],
+    "events": [],
     "status": "completed"
   },
   "round3/desktop/computer_observe/observe": {
-    "approvals": [
-      {
-        "tool": "computer_observe",
-        "remember": null
-      },
-      {
-        "tool": "computer_observe",
-        "remember": null
-      }
-    ],
-    "events": [
-      "TOOL_DENIED",
-      "TOOL_DENIED"
-    ],
+    "approvals": [],
+    "events": [],
     "status": "completed"
   },
   "round3/desktop/computer_action/action": {
@@ -1245,37 +1221,13 @@
     "status": "completed"
   },
   "round3/telegram/computer_check/check": {
-    "approvals": [
-      {
-        "tool": "computer_check",
-        "remember": null
-      },
-      {
-        "tool": "computer_check",
-        "remember": null
-      }
-    ],
-    "events": [
-      "TOOL_DENIED",
-      "TOOL_DENIED"
-    ],
+    "approvals": [],
+    "events": [],
     "status": "completed"
   },
   "round3/telegram/computer_observe/observe": {
-    "approvals": [
-      {
-        "tool": "computer_observe",
-        "remember": null
-      },
-      {
-        "tool": "computer_observe",
-        "remember": null
-      }
-    ],
-    "events": [
-      "TOOL_DENIED",
-      "TOOL_DENIED"
-    ],
+    "approvals": [],
+    "events": [],
     "status": "completed"
   },
   "round3/telegram/computer_action/action": {
@@ -1311,5 +1263,17 @@
       "TOOL_DENIED"
     ],
     "status": "completed"
+  },
+  "round3/desktop/computer_observe/unauthorized": {
+    "approvals": [],
+    "events": [],
+    "status": "completed",
+    "results": []
+  },
+  "round3/telegram/computer_observe/unauthorized": {
+    "approvals": [],
+    "events": [],
+    "status": "completed",
+    "results": []
   }
 }

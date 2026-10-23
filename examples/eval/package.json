@@ -9,7 +9,7 @@
     "eval:live": "node run.mjs live",
     "e2e": "node run.mjs e2e",
     "guards": "node guards.mjs",
-    "test": "node --test *.test.mjs",
+    "test": "node ../../scripts/test-home.mjs --home \"$SERIKA_TEST_HOME\" -- /bin/sh -c 'node --test *.test.mjs'",
     "view": "node run.mjs view"
   },
   "dependencies": {

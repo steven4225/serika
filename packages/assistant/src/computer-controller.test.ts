@@ -31,8 +31,8 @@ async function waitFor(condition: () => boolean | Promise<boolean>) {
 }
 
 describe("Computer Controller fault boundaries (controlled driver, not native desktop)", () => {
-  for (const mode of ["deny", "cancel-approval", "disconnect", "cancel-dispatched"] as const) {
-    it(`retains honest receipts and never replays after ${mode}`, { skip: process.platform !== "darwin" }, async () => {
+  for (const source of ["desktop", "telegram"] as const) for (const mode of ["deny", "cancel-approval", "disconnect", "cancel-dispatched"] as const) {
+    it(`retains honest receipts and never replays after ${mode} on ${source}`, { skip: process.platform !== "darwin" }, async () => {
       const root = await mkdtemp(join(tmpdir(), "runloom-computer-controller-"));
       const workspace = join(root, "workspace");
       await mkdir(workspace);
@@ -86,6 +86,8 @@ process.stdin.on('end', () => {
       let oldApproval: string | undefined;
       controller.subscribe(event => {
         if (event.type !== "approval" || !event.approval.preview.trim() || approvals.has(event.approval.approvalId)) return;
+        assert.equal(event.approval.toolName, "computer_action");
+        assert.equal(event.approval.remember, undefined);
         approvals.add(event.approval.approvalId);
         if (event.approval.toolName === "computer_action") {
           oldApproval = event.approval.approvalId;
@@ -99,7 +101,9 @@ process.stdin.on('end', () => {
           constraints: [], acceptance: [{ id: "review", description: "Human checks the document",
             method: "human", verification: { kind: "human" }, required: true }] });
         assert.ok(created.ok);
-        const started = await controller.workTasks.run({ id: created.value.id, expectedRevision: created.value.revision });
+        const started = source === "desktop"
+          ? await controller.workTasks.run({ id: created.value.id, expectedRevision: created.value.revision })
+          : await controller.run("Observe then control the fixture", { source });
         assert.ok(started.ok);
         if (mode === "cancel-dispatched") {
           await waitFor(async () => readFile(effectPath, "utf8").then(() => true, () => false));
@@ -123,8 +127,11 @@ process.stdin.on('end', () => {
           assert.equal(controller.getSnapshot().toolActivity.find(tool => tool.toolName === "computer_action")?.outcomeUnknown, true);
         }
         assert.equal(modelCalls, mode === "deny" ? 3 : 2);
-        const task = await controller.workTasks.get(created.value.id);
-        assert.equal(task.ok && task.value.status, dispatched ? "needs_review" : "paused");
+        assert.equal(approvals.size, 1);
+        if (source === "desktop") {
+          const task = await controller.workTasks.get(created.value.id);
+          assert.equal(task.ok && task.value.status, dispatched ? "needs_review" : "paused");
+        }
         await controller.shutdown();
         controller = createAssistantController(await createRuntimeApp(options));
         assert.equal((await controller.runs.get(started.runId))?.tools.find(tool => tool.toolName === "computer_action")?.status, expected);

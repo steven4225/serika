@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { spawn } from "node:child_process";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -46,10 +46,10 @@ describe("TUI module configuration entry", () => {
     }, "permissions.json");
     const child = spawn(
       process.execPath,
-      [ENTRY, "--tui", "--config", configPath],
+      [ENTRY, "--tui", "--home", join(root, "home"), "--config", configPath],
       {
         cwd: root,
-        env: { ...process.env, RUNLOOM_MODEL: "mock" },
+        env: { ...process.env, SERIKA_HOME: join(root, "implicit-home"), RUNLOOM_MODEL: "mock" },
         stdio: ["pipe", "pipe", "pipe"],
       },
     );
@@ -67,6 +67,8 @@ describe("TUI module configuration entry", () => {
     const [code] = await once(child, "close");
 
     assert.equal(code, 0, stderr);
+    assert.ok((await stat(join(root, "home/transcripts"))).isDirectory());
+    await assert.rejects(stat(join(root, "implicit-home")), { code: "ENOENT" });
     assert.match(stdout, /\[permissions\]/);
     assert.match(stdout, /持久文件授权: 1 条/);
     assert.match(stdout, /tools=read_file paths=docs/);
@@ -84,7 +86,7 @@ describe("TUI module configuration entry", () => {
     }, "web.json");
     const child = spawn(
       process.execPath,
-      [ENTRY, "--tui", "--config", configPath],
+      [ENTRY, "--tui", "--home", join(root, "home"), "--config", configPath],
       {
         cwd: root,
         env: { ...process.env, RUNLOOM_MODEL: "mock" },
@@ -119,7 +121,7 @@ describe("TUI module configuration entry", () => {
     const { BRAVE_SEARCH_API_KEY: _searchKey, EXA_API_KEY: _exaKey, ...baseEnv } = process.env;
     const child = spawn(
       process.execPath,
-      [ENTRY, "--tui", "--config", configPath],
+      [ENTRY, "--tui", "--home", join(root, "home"), "--config", configPath],
       {
         cwd: root,
         env: { ...baseEnv, RUNLOOM_MODEL: "mock" },
@@ -153,7 +155,7 @@ describe("TUI module configuration entry", () => {
     const { TODOIST_API_TOKEN: _token, ...baseEnv } = process.env;
     const child = spawn(
       process.execPath,
-      [ENTRY, "--tui", "--config", configPath],
+      [ENTRY, "--tui", "--home", join(root, "home"), "--config", configPath],
       {
         cwd: root,
         env: { ...baseEnv, RUNLOOM_MODEL: "mock" },

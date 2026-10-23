@@ -36,7 +36,7 @@ export function capabilityStatus(input: CapabilityStatusInput) {
       warning: desktopAutonomy ? `当前工作区${entry === "telegram" ? "绑定 Telegram 私聊" : "桌面"}前台文件操作已授权，本机 Shell 仍逐条确认；其他入口不继承。Shell 使用进程的本机权限，工作区不是沙箱。` : config?.shellSandbox ? "沿用配置的挂载与网络限制。" : "工作目录不是操作系统隔离；主机命令仍需明确批准。" },
     computer: { configured: !!config?.computer, allowedBundleIds: config?.computer?.allowedBundleIds ?? [],
       service: "not_checked" as const, permissions: "not_checked" as const,
-      next: "配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。" },
+      next: "配置与工具注册不证明服务或系统权限就绪。computer_check 检查连接、computer_observe 观察明确授权的应用均免逐条确认；未授权应用直接拒绝，computer_action 每次确认且不可记住。不会启动驱动或授予系统权限。" },
     mcp: { state: "unsupported_dynamic_registration" as const,
       note: "当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。" },
   };
