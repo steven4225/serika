@@ -1,0 +1,222 @@
+{
+  "exitCodes": "Recorded from tool execution; counts and SHA recomputed from retained logs",
+  "runs": [
+    {
+      "name": "initial full tests",
+      "exitCode": 1,
+      "outputSha256": "7dd671d3ed2b9b97c569a5ad4840c7520f6ea408ea5413dab235acdd6378c50a",
+      "outputBytes": 167051,
+      "counts": [
+        [
+          "tests",
+          1133
+        ],
+        [
+          "pass",
+          1124
+        ],
+        [
+          "fail",
+          2
+        ],
+        [
+          "skipped",
+          7
+        ]
+      ]
+    },
+    {
+      "name": "targeted runtime final",
+      "exitCode": 0,
+      "outputSha256": "c216d19782529a3bd2c06b434ba1866eb7f27269f6ec2e4547a3385352a1908a",
+      "outputBytes": 5392,
+      "counts": [
+        [
+          "tests",
+          53
+        ],
+        [
+          "pass",
+          53
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "name": "targeted desktop final",
+      "exitCode": 0,
+      "outputSha256": "897c874803ed2d75db554cbc901c280372dd0ddf2b9c008ab16261a162525290",
+      "outputBytes": 12620,
+      "counts": [
+        [
+          "tests",
+          106
+        ],
+        [
+          "pass",
+          106
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "name": "failure rerun",
+      "exitCode": 0,
+      "outputSha256": "583fc6756046f5d29a07a8a2c5d67067c98ae2e2485ff2213fa8f3d6108c1663",
+      "outputBytes": 1130,
+      "counts": [
+        [
+          "tests",
+          8
+        ],
+        [
+          "pass",
+          8
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "name": "autoConsolidate on and off",
+      "exitCode": 0,
+      "outputSha256": "c42be442ae90efa24de3a9a06eed01cb8f594ed7946de27c482444f89ceee3a3",
+      "outputBytes": 2139,
+      "counts": [
+        [
+          "tests",
+          18
+        ],
+        [
+          "pass",
+          18
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "name": "importer final",
+      "exitCode": 0,
+      "outputSha256": "59ac7adf94599db0caca099eda8d98d3bf510730d9158405c396e6e236f29532",
+      "outputBytes": 615,
+      "counts": [
+        [
+          "tests",
+          4
+        ],
+        [
+          "pass",
+          4
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "name": "actual Controller archive",
+      "exitCode": 0,
+      "outputSha256": "8595a6fb7a443d40f26ba0a0c5e1041cba386a181b8cb197291e01bcbe3aba69",
+      "outputBytes": 215,
+      "counts": [
+        [
+          "tests",
+          1
+        ],
+        [
+          "pass",
+          1
+        ],
+        [
+          "fail",
+          0
+        ],
+        [
+          "skipped",
+          0
+        ]
+      ]
+    },
+    {
+      "name": "first static dry run",
+      "exitCode": 1,
+      "outputSha256": "e3f6293298f69edfcf61c2556f42794b2945938ec4065e8f70cab95b12fefdff",
+      "outputBytes": 93,
+      "counts": []
+    },
+    {
+      "name": "second static dry run",
+      "exitCode": 0,
+      "outputSha256": "6af57e97a4e3e3c28caec5f9304a60615848dad598eef0132437aba7b2bf5850",
+      "outputBytes": 508,
+      "counts": []
+    },
+    {
+      "name": "final static dry run",
+      "exitCode": 0,
+      "outputSha256": "26ee18030d88740788784ecb5ba481affe5e20c41b125d1821dc5a7a9a317960",
+      "outputBytes": 508,
+      "counts": []
+    },
+    {
+      "name": "final static execution",
+      "exitCode": 0,
+      "outputSha256": "8c97aa725b966df3a14fb973cfa1fb5739176b1628e62729c26efb98f36e221f",
+      "outputBytes": 600,
+      "counts": []
+    },
+    {
+      "name": "cold product readers and replay",
+      "exitCode": 0,
+      "outputSha256": "38f2dcd3e3e5df54741176003c4136c8cc45c0f29a9a9b1de1dd80caf8eb2121",
+      "outputBytes": 1651,
+      "counts": []
+    },
+    {
+      "name": "desktop cold readers",
+      "exitCode": 0,
+      "outputSha256": "d91cc1b047c23200055b82ee284cc5b49e2a48d49a1226f8965c4f357e5e45bc",
+      "outputBytes": 205,
+      "counts": []
+    },
+    {
+      "name": "static CLI preflight",
+      "exitCode": 0,
+      "outputSha256": "cb91a9a07acd6e4057448e3c5b4054fcc91e6416ba32c0c19f062179023fda39",
+      "outputBytes": 2415,
+      "counts": []
+    }
+  ]
+}

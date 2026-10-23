@@ -1,0 +1,12 @@
+✔ dry-run, full private backup/rehearsal/rollback, cold read and exact replay preserve IDs, sources, bytes and scope mapping (246.446125ms)
+✔ source drift and undeclared scope fail without creating a target (61.210958ms)
+✔ every persisted interruption requires explicit recovery, never marks incomplete data successful, then replay is write-free (2100.935958ms)
+✔ CLI requires explicit home, defaults to dry-run and recovers an actual killed child only on explicit invocation (720.620917ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3272.519208

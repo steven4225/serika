@@ -1,8 +1,8 @@
 {
   "verification": "real-electron-with-fake-model",
   "platform": "darwin",
-  "sourceCommit": "6b82c9fadcaa41cc5eeb073bbc060e9a5b135c50",
-  "scriptSha256": "9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f",
+  "sourceCommit": "aefef90849aa9bd47806b54574f00c94263f4225",
+  "scriptSha256": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
   "sourceWorktreeDirty": false,
   "realModelCalls": 0,
   "costUsd": 0,
@@ -15,7 +15,7 @@
       "observedErrorCount": 0,
       "screenshot": {
         "file": "startup.png",
-        "sha256": "3058b293a635dfb678b6a4a557c24dba432a28ef59e47b0947cd5a20ef78fc8a"
+        "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
       }
     },
     {
@@ -26,7 +26,7 @@
       "observedErrorCount": 0,
       "screenshot": {
         "file": "chat-reply.png",
-        "sha256": "350c6a5340eb1f50e56bc489adb281e7469e8d5924a49ba3665e0bd641d464cb"
+        "sha256": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497"
       }
     },
     {
@@ -39,7 +39,7 @@
       "observedErrorCount": 0,
       "screenshot": {
         "file": "remember-success-receipt.png",
-        "sha256": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe"
+        "sha256": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25"
       }
     },
     {
@@ -50,7 +50,7 @@
       "observedErrorCount": 0,
       "screenshot": {
         "file": "remember-on-memory-page.png",
-        "sha256": "aba28124197895be0e285e0add7a3708a005e648c5fe9a53052623bd91f30179"
+        "sha256": "96ad1c1d4704cffd99b1244c813ed3fe57d90c258a46daf7486af2909e2f68d6"
       }
     },
     {
@@ -61,7 +61,7 @@
       "observedErrorCount": 0,
       "screenshot": {
         "file": "restart-persistence.png",
-        "sha256": "72881feda4ca4fec646f95b6c94d8921b49350c847bed8ec6fbb689a5681c59c"
+        "sha256": "e8fafa742373076355d2d984d12b967efac3d3a7b35623d0cbcbaabe0feafe8b"
       }
     },
     {
@@ -117,75 +117,75 @@
       "name": "before-restart",
       "main": {
         "electron": "44.4.5",
-        "pid": 36959,
-        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-UrrhMs/primary/profile",
-        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-UrrhMs/home"
+        "pid": 2988,
+        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-9n3fAw/primary/profile",
+        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-9n3fAw/home"
       },
       "renderer": {
         "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
-        "url": "file:///private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm-step6-verification-vYtcSQ/smoke-source/apps/desktop/out/renderer/index.html"
+        "url": "file:///private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm-step6-verification-JtYt8I/smoke-source/apps/desktop/out/renderer/index.html"
       }
     },
     {
       "name": "after-restart",
       "main": {
         "electron": "44.4.5",
-        "pid": 37043,
-        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-UrrhMs/primary/profile",
-        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-UrrhMs/home"
+        "pid": 3089,
+        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-9n3fAw/primary/profile",
+        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-9n3fAw/home"
       },
       "renderer": {
         "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
-        "url": "file:///private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm-step6-verification-vYtcSQ/smoke-source/apps/desktop/out/renderer/index.html"
+        "url": "file:///private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm-step6-verification-JtYt8I/smoke-source/apps/desktop/out/renderer/index.html"
       }
     },
     {
       "name": "daily-path-guard",
       "main": {
         "electron": "44.4.5",
-        "pid": 37060,
-        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-UrrhMs/guard/profile",
-        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-UrrhMs/home"
+        "pid": 3105,
+        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-9n3fAw/guard/profile",
+        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-9n3fAw/home"
       },
       "renderer": {
         "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
-        "url": "file:///private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm-step6-verification-vYtcSQ/smoke-source/apps/desktop/out/renderer/index.html"
+        "url": "file:///private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm-step6-verification-JtYt8I/smoke-source/apps/desktop/out/renderer/index.html"
       }
     },
     {
       "name": "daily-config-copy",
       "main": {
         "electron": "44.4.5",
-        "pid": 37068,
-        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-UrrhMs/daily-config-copy/profile",
-        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-UrrhMs/home"
+        "pid": 3115,
+        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-9n3fAw/daily-config-copy/profile",
+        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-9n3fAw/home"
       },
       "renderer": {
         "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
-        "url": "file:///private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm-step6-verification-vYtcSQ/smoke-source/apps/desktop/out/renderer/index.html"
+        "url": "file:///private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm-step6-verification-JtYt8I/smoke-source/apps/desktop/out/renderer/index.html"
       }
     }
   ],
   "screenshots": [
     {
       "file": "startup.png",
-      "sha256": "3058b293a635dfb678b6a4a557c24dba432a28ef59e47b0947cd5a20ef78fc8a"
+      "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
     },
     {
       "file": "chat-reply.png",
-      "sha256": "350c6a5340eb1f50e56bc489adb281e7469e8d5924a49ba3665e0bd641d464cb"
+      "sha256": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497"
     },
     {
       "file": "remember-success-receipt.png",
-      "sha256": "6e2d77914843de67d1624c4ef226050e2da8600ca857709021b641a50295bbbe"
+      "sha256": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25"
     },
     {
       "file": "remember-on-memory-page.png",
-      "sha256": "aba28124197895be0e285e0add7a3708a005e648c5fe9a53052623bd91f30179"
+      "sha256": "96ad1c1d4704cffd99b1244c813ed3fe57d90c258a46daf7486af2909e2f68d6"
     },
     {
       "file": "restart-persistence.png",
-      "sha256": "72881feda4ca4fec646f95b6c94d8921b49350c847bed8ec6fbb689a5681c59c"
+      "sha256": "e8fafa742373076355d2d984d12b967efac3d3a7b35623d0cbcbaabe0feafe8b"
     },
     {
       "file": "undo-disappears.png",
@@ -205,9 +205,9 @@
     "pnpm-lock.yaml": "1cc34e21d41247254a23b1f298486a30e993694eef39fd2de217194081059605"
   },
   "artifactHashes": {
-    "out/main/index.js": "dea33b2190fdc599a5fde44e0c52924713a21df493b688924dfc4c696547756f",
+    "out/main/index.js": "5d9d94beed990006dbe1cc52b58a12fd02a950b664ec27b66abe3e7bdcdab9c5",
     "out/preload/index.cjs": "e95eb5c1150249b1799b345032280c51994c84636a2f1715af321a88c6ab6199",
-    "out/renderer/index.html": "024889bd51dc8a092be05ce51e33bbc886290d8f6c6924ea81e791d745d7f554"
+    "out/renderer/index.html": "ac3b08da85855d7d2c840a2335b785b06516782370742ecade04d2e4722457f9"
   },
   "rememberDiagnostic": {
     "libraryCount": 1,
@@ -220,16 +220,16 @@
     ]
   },
   "restart": {
-    "beforePid": 36959,
-    "afterPid": 37043,
-    "beforeMemorySha256": "875c474ce0b984cea7640ee4613811c1dfa6d98897bd0030084cfdf80fb93616",
-    "afterMemorySha256": "875c474ce0b984cea7640ee4613811c1dfa6d98897bd0030084cfdf80fb93616"
+    "beforePid": 2988,
+    "afterPid": 3089,
+    "beforeMemorySha256": "f822bd53dc10baa39cfea4ebf7a7eb3429fc77a5763237c28860175899af1d68",
+    "afterMemorySha256": "f822bd53dc10baa39cfea4ebf7a7eb3429fc77a5763237c28860175899af1d68"
   },
   "dailyGuard": {
     "beforeSentinelSha256": "fa5af83df857842e69dfba19dac89ba69c5dc68b1fdd6fc13e4bc777c0669461",
     "afterSentinelSha256": "fa5af83df857842e69dfba19dac89ba69c5dc68b1fdd6fc13e4bc777c0669461",
     "onlySentinelRemains": true,
-    "configuredWorkspace": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-UrrhMs/home/Library/Application Support/@aisdk-agent/desktop",
+    "configuredWorkspace": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-9n3fAw/home/Library/Application Support/@aisdk-agent/desktop",
     "error": "实验版本拒绝写入日用数据目录",
     "assertionBeforeRuntimeCreation": "apps/desktop/src/main/desktop-runtime.ts",
     "dailyTreeTraversed": false,

@@ -1,0 +1,764 @@
+{
+  "base": "a138c534c2c7e5eab96374df848c4284dfe7eea1",
+  "sourceCommit": "aefef90849aa9bd47806b54574f00c94263f4225",
+  "classification": "Product includes current JSON configurations; tests include acceptance, eval/smoke/verifier and package.json test-runner input; docs/evidence excluded from code totals.",
+  "totals": {
+    "product": {
+      "added": 53,
+      "deleted": 101,
+      "net": -48
+    },
+    "migration": {
+      "added": 258,
+      "deleted": 0,
+      "net": 258
+    },
+    "tests": {
+      "added": 298,
+      "deleted": 275,
+      "net": 23
+    },
+    "docsEvidence": {
+      "added": 106,
+      "deleted": 22,
+      "net": 84
+    }
+  },
+  "files": [
+    {
+      "path": "README.md",
+      "category": "docsEvidence",
+      "added": 6,
+      "deleted": 6,
+      "net": 0
+    },
+    {
+      "path": "apps/cli/src/application-home.test.ts",
+      "category": "tests",
+      "added": 2,
+      "deleted": 8,
+      "net": -6
+    },
+    {
+      "path": "apps/cli/src/cli-entry.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/cli/src/startup-check.test.ts",
+      "category": "tests",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/README.md",
+      "category": "docsEvidence",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/config/desktop.example.json",
+      "category": "product",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/scripts/electron-smoke.mjs",
+      "category": "tests",
+      "added": 8,
+      "deleted": 6,
+      "net": 2
+    },
+    {
+      "path": "apps/desktop/src/main/application-home.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/automation-bridge.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/background-chat.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/baseline-paths.test.ts",
+      "category": "tests",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/capabilities.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/conversation-draft-session.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-config.test.ts",
+      "category": "tests",
+      "added": 10,
+      "deleted": 53,
+      "net": -43
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-config.ts",
+      "category": "product",
+      "added": 5,
+      "deleted": 13,
+      "net": -8
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-flows.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-runtime-pomodoro.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/desktop-runtime.test.ts",
+      "category": "tests",
+      "added": 10,
+      "deleted": 10,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/foreground-autonomy.test.ts",
+      "category": "tests",
+      "added": 5,
+      "deleted": 5,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/formal-memory.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/home-message.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/module-notification.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/module-settings.test.ts",
+      "category": "tests",
+      "added": 5,
+      "deleted": 5,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/module-settings.ts",
+      "category": "product",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/recipes-bridge.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/recovery-profile.ts",
+      "category": "product",
+      "added": 3,
+      "deleted": 3,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/resident-inflight.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/resident-process.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/resident-transport.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/rss-worker-service.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/runtime-bridge.test.ts",
+      "category": "tests",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/runtime-bridge.ts",
+      "category": "product",
+      "added": 0,
+      "deleted": 1,
+      "net": -1
+    },
+    {
+      "path": "apps/desktop/src/main/runtime-ownership.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/steer-bridge.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/task-inbox.test.ts",
+      "category": "tests",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/telegram-gateway.test.ts",
+      "category": "tests",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/main/work-tasks.test.ts",
+      "category": "tests",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/daily-setup-panel.tsx",
+      "category": "product",
+      "added": 6,
+      "deleted": 8,
+      "net": -2
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/daily-setup.test.ts",
+      "category": "tests",
+      "added": 3,
+      "deleted": 27,
+      "net": -24
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/daily-setup.ts",
+      "category": "product",
+      "added": 1,
+      "deleted": 8,
+      "net": -7
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/failure-copy.test.ts",
+      "category": "tests",
+      "added": 2,
+      "deleted": 10,
+      "net": -8
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/memory-copy.ts",
+      "category": "product",
+      "added": 0,
+      "deleted": 20,
+      "net": -20
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/memory-factual-receipts.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/memory-preview.tsx",
+      "category": "product",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/memory-temporal.test.ts",
+      "category": "tests",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/memory.tsx",
+      "category": "product",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/reminder-midnight.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/task-continuation.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/ui-navigation-copy.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "apps/desktop/src/shared/ui-contract.ts",
+      "category": "product",
+      "added": 1,
+      "deleted": 2,
+      "net": -1
+    },
+    {
+      "path": "docs/architecture-v2.md",
+      "category": "docsEvidence",
+      "added": 6,
+      "deleted": 6,
+      "net": 0
+    },
+    {
+      "path": "docs/daily.example.json",
+      "category": "product",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "docs/hook-skill-integration.md",
+      "category": "docsEvidence",
+      "added": 5,
+      "deleted": 6,
+      "net": -1
+    },
+    {
+      "path": "docs/long-context-memory-acceptance.md",
+      "category": "docsEvidence",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-d1-d2-e/checker-input.diff",
+      "category": "docsEvidence",
+      "added": 13,
+      "deleted": 0,
+      "net": 13
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-d1-d2-e/checker-protocol.json",
+      "category": "docsEvidence",
+      "added": 6,
+      "deleted": 0,
+      "net": 6
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-d1-d2-e/smoke-input.diff",
+      "category": "docsEvidence",
+      "added": 58,
+      "deleted": 0,
+      "net": 58
+    },
+    {
+      "path": "docs/v2-pilot/evidence/architecture-v2-d1-d2-e/smoke-protocol.json",
+      "category": "docsEvidence",
+      "added": 8,
+      "deleted": 0,
+      "net": 8
+    },
+    {
+      "path": "examples/eval/cm-step6-live.mjs",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "examples/eval/e2e.mjs",
+      "category": "tests",
+      "added": 3,
+      "deleted": 3,
+      "net": 0
+    },
+    {
+      "path": "examples/eval/provider.mjs",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "package.json",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/scripts/cm-step6-verify.mjs",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/scripts/home-import.mjs",
+      "category": "migration",
+      "added": 258,
+      "deleted": 0,
+      "net": 258
+    },
+    {
+      "path": "packages/assistant/scripts/home-import.test.mjs",
+      "category": "tests",
+      "added": 108,
+      "deleted": 0,
+      "net": 108
+    },
+    {
+      "path": "packages/assistant/src/app-five-layer.test.ts",
+      "category": "tests",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/app.test.ts",
+      "category": "tests",
+      "added": 9,
+      "deleted": 9,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/app.ts",
+      "category": "product",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/assembly.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/assistant-controller.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/assistant-controller.ts",
+      "category": "product",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/baseline-assembly.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/baseline-home.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/baseline-paths.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/capability-status.ts",
+      "category": "product",
+      "added": 0,
+      "deleted": 2,
+      "net": -2
+    },
+    {
+      "path": "packages/assistant/src/computer-controller.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/context-continuity-acceptance.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/directory-authorization.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/hook-skill-acceptance.test.ts",
+      "category": "tests",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-instructions.ts",
+      "category": "product",
+      "added": 0,
+      "deleted": 3,
+      "net": -3
+    },
+    {
+      "path": "packages/assistant/src/memory-m1-acceptance.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/memory-management.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/model-usage.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/modules/memory-module.ts",
+      "category": "product",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/permission-boundary.test.ts",
+      "category": "tests",
+      "added": 15,
+      "deleted": 9,
+      "net": 6
+    },
+    {
+      "path": "packages/assistant/src/recipe-acceptance.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/reminder-loop.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/rss-controller.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/scheduled-skill-acceptance.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/scheduled-skill-real-acceptance.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/scheduled-skill.test.ts",
+      "category": "tests",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/scheduled-skill.ts",
+      "category": "product",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/steering-controller.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/steering-real-acceptance.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/task-inbox-controller.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/task-worker-entry.ts",
+      "category": "product",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/transcript-maintenance.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/tui-module-config.test.ts",
+      "category": "tests",
+      "added": 36,
+      "deleted": 48,
+      "net": -12
+    },
+    {
+      "path": "packages/assistant/src/tui-module-config.ts",
+      "category": "product",
+      "added": 25,
+      "deleted": 29,
+      "net": -4
+    },
+    {
+      "path": "packages/assistant/src/work-task-artifacts.test.ts",
+      "category": "tests",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/work-task-completion-acceptance.ts",
+      "category": "tests",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/work-task-completion.test.ts",
+      "category": "tests",
+      "added": 2,
+      "deleted": 2,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/work-task-crash-acceptance.ts",
+      "category": "tests",
+      "added": 8,
+      "deleted": 8,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/work-task-rework.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    },
+    {
+      "path": "packages/assistant/src/workspace-task-read.test.ts",
+      "category": "tests",
+      "added": 1,
+      "deleted": 1,
+      "net": 0
+    }
+  ]
+}
