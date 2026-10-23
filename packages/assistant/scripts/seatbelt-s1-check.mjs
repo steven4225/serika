@@ -182,6 +182,11 @@ if (args.includes('--child')) {
     const runtimeUnavailable = await missingRuntime.execute({directory,input:{command:'printf forbidden > runtime-fallback'},signal:new AbortController().signal,execution});
     assert.equal(runtimeUnavailable.ok,false); assert.equal(runtimeUnavailable.error.code,'SANDBOX_UNAVAILABLE');
     await assert.rejects(readFile(join(directory,'runtime-fallback')),{code:'ENOENT'}); report.checks.runtimeUnavailable=runtimeUnavailable;
+    const startupAbort = new AbortController(), startingRunner = new SeatbeltShellRunner(scope);
+    const starting = startingRunner.execute({directory,input:{command:'printf forbidden > cancelled-startup'},signal:startupAbort.signal,execution});
+    startupAbort.abort(); const startupCancelled = await starting;
+    assert.equal(startupCancelled.cancelled,true); await assert.rejects(readFile(join(directory,'cancelled-startup')),{code:'ENOENT'});
+    report.checks.cancelledDuringStartup=startupCancelled;
     const originalKill = process.kill; let settlementChecks = 0;
     process.kill = (pid, signal) => { if (pid < 0 && signal === 0) { settlementChecks++; throw Object.assign(new Error('Injected process-group observation failure'), {code:'EPERM'}); } return originalKill(pid, signal); };
     try {

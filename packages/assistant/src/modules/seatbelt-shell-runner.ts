@@ -73,6 +73,10 @@ async function executeSeatbeltShellCommand(options: {
   await writeFile(profile, policy, { mode: 0o600 });
   let settled = false;
   try {
+    if (signal.aborted) {
+      settled = true;
+      return { ok: true, exitCode: null, termination: "signalled", signal: null, cancelled: true, timedOut: false, output: "", truncated: false };
+    }
     const child = spawn("/usr/bin/sandbox-exec", ["-f", profile, "/bin/sh", "-c", input.command, "--home", scope.home], {
       cwd, env: seatbeltEnvironment({ temp, runtime }), detached: true, stdio: ["ignore", "pipe", "pipe"],
     });
