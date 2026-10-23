@@ -372,6 +372,14 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
         ? snapshot.state.runId : snapshot.lastPrimaryResult?.runId ?? null;
       latestCompletedPrimaryId = !activePrimary && snapshot.lastPrimaryResult?.status === "completed"
         ? snapshot.lastPrimaryResult.runId : null;
+      const recoveredRows = rowsFromToolActivity(snapshot.toolActivity, latestPrimaryId ?? undefined);
+      const recoveredTools = new Map(recoveredRows.filter(row => row.kind === "tool").map(row => [row.toolCallId, row]));
+      const rows = sameRun ? current.live.rows.map(row => {
+        if (row.kind !== "tool" || row.runId !== latestPrimaryId) return row;
+        const recovered = recoveredTools.get(row.toolCallId);
+        recoveredTools.delete(row.toolCallId);
+        return recovered && row.outcomeSource !== "full" ? { ...row, ...recovered } : row;
+      }) : recoveredRows;
       patch({
         state: snapshot.state,
         approval: snapshot.pendingApproval,
@@ -379,9 +387,9 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
         canSteer: snapshot.canSteer,
         steers: snapshot.steers,
         lastResult: !activePrimary && snapshot.lastPrimaryResult ? resultRow(snapshot.lastPrimaryResult) : null,
-        live: !activePrimary ? emptyLiveRun : sameRun ? current.live : {
-          rows: overlayShellProgress(rowsFromToolActivity(snapshot.toolActivity, latestPrimaryId ?? undefined), shellBuffer),
-          streaming: "",
+        live: !activePrimary ? emptyLiveRun : {
+          rows: overlayShellProgress(sameRun ? [...rows, ...recoveredTools.values()] : rows, shellBuffer),
+          streaming: sameRun ? current.live.streaming : "",
         },
       });
     },
@@ -507,6 +515,13 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
       };
 
       let generation = 0;
+      let lifecycleGeneration = 0;
+      const lifecycleKey = (state: UiState) => state.kind === "running"
+        ? `running:${state.phase}:${state.runId}:${state.background === true}` : state.kind;
+      let lifecycle = lifecycleKey(current.state);
+      const observeLifecycle = (next: string) => {
+        if (next !== lifecycle) { lifecycle = next; lifecycleGeneration += 1; }
+      };
       let readyToRefresh = false;
       let pending: Promise<UiSnapshot | null> | undefined;
       const refreshSnapshot = (recover = false): Promise<UiSnapshot | null> => {
@@ -517,6 +532,7 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
           if (cancelled() || generation !== expected) return null;
           const recoveredIdle = recover && snapshot.state.kind === "idle" &&
             (current.state.kind !== "idle" || snapshot.lastPrimaryResult?.runId !== (latestPrimaryId ?? undefined));
+          observeLifecycle(lifecycleKey(snapshot.state));
           store.applySnapshot(snapshot);
           if (recoveredIdle) {
             patch({ memoryRefresh: current.memoryRefresh + 1, contextRefresh: current.contextRefresh + 1, taskRefresh: current.taskRefresh + 1 });
@@ -542,11 +558,13 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
             void openNotificationResult().catch(cause => { if (!cancelled()) onError(String(cause)); });
             return;
           case "identity-changed":
+            observeLifecycle("identity-changed");
             return; // The outer App remounts this view for the new controller.
           case "state":
             {
-              const observed = generation;
-              store.onRunState(message.state, () => cancelled() || generation !== observed);
+              observeLifecycle(lifecycleKey(message.state));
+              const observed = lifecycleGeneration;
+              store.onRunState(message.state, () => cancelled() || lifecycleGeneration !== observed);
             }
             if (message.state.kind === "idle") {
               void store.reloadHistory().catch((cause: unknown) => onError(String(cause)));
@@ -574,6 +592,7 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
             return;
           case "result":
             if (!store.isCurrentPrimaryResult(message)) return;
+            observeLifecycle(`result:${message.result.runId}:${message.result.status}`);
             store.setCanSteer(false);
             host.settleSentAttachments(message.result);
             store.finishPrimaryRun(message.result);

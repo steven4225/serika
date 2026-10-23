@@ -673,7 +673,7 @@ const startupHarness = (overrides: Partial<Record<string, unknown>> = {}) => {
     calls.push(name);
     const value = answers[name];
     if (value instanceof Error) throw value;
-    return value;
+    return typeof value === "function" ? value() : value;
   };
   const bridge = {
     onMessage: (listener: (message: MainToRenderer) => void) => { calls.push("onMessage"); listeners.add(listener); return () => { calls.push("unsubscribe"); listeners.delete(listener); }; },
@@ -859,4 +859,50 @@ test("focus recovers a missed idle result and visibility refreshes the same resi
     if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow); else Reflect.deleteProperty(globalThis, "window");
     if (previousDocument) Object.defineProperty(globalThis, "document", previousDocument); else Reflect.deleteProperty(globalThis, "document");
   }
+});
+
+test("a same-Run snapshot repairs missed tool outcomes and missing tools without losing streamed text or full receipts", () => {
+  const store = newStore();
+  store.applySnapshot(snapshotOf({ state: running }));
+  const event = (type: "tool.call.requested" | "tool.call.completed", data: unknown): AgentEvent =>
+    ({ type, runId: "run-1", sequence: 1, occurredAt: "2026-01-01T00:00:00Z", data }) as AgentEvent;
+  store.onRunEvent({ type: "event", phase: "primary", event: event("tool.call.requested", { toolCallId: "missed", toolName: "read_file", input: { path: "a.txt" } }) });
+  store.onRunEvent({ type: "event", phase: "primary", event: event("tool.call.requested", { toolCallId: "full", toolName: "read_file", input: { path: "b.txt" } }) });
+  store.onRunEvent({ type: "event", phase: "primary", event: event("tool.call.completed", { toolCallId: "full", toolName: "read_file", output: { ok: true } }) });
+  store.onRunEvent({ type: "event", phase: "primary", event: { type: "message.delta", runId: "run-1", sequence: 2, occurredAt: "2026-01-01T00:00:00Z", data: { text: "keep stream" } } });
+  store.applySnapshot(snapshotOf({ state: running, toolActivity: [
+    { toolCallId: "missed", toolName: "read_file", status: "completed", summary: "{}", truncated: false },
+    { toolCallId: "full", toolName: "read_file", status: "completed", summary: "", truncated: true },
+    { toolCallId: "absent", toolName: "read_file", status: "failed", summary: "failed", truncated: false },
+  ] }));
+  const live = store.getState().live;
+  const missed = live.rows.find(row => row.kind === "tool" && row.toolCallId === "missed");
+  assert.equal(missed?.kind === "tool" ? missed.status : null, "ok");
+  assert.equal(missed?.kind === "tool" ? missed.inputPath : null, "a.txt");
+  assert.equal(live.rows.find(row => row.kind === "tool" && row.toolCallId === "full")?.kind, "tool");
+  assert.equal(live.rows.filter(row => row.kind === "tool" && row.status === "ok").length, 2);
+  assert.equal(live.rows.some(row => row.kind === "tool" && row.toolCallId === "absent" && row.status === "failed"), true);
+  assert.equal(live.streaming, "keep stream");
+});
+
+test("Steer hydration survives output and identical state messages but stops at a terminal result", async () => {
+  const f = startupHarness();
+  f.store.start(f.hostApi);
+  await settle();
+  const reads: Array<(snapshot: UiSnapshot) => void> = [];
+  f.answers.snapshot = () => new Promise<UiSnapshot>(resolve => { reads.push(resolve); });
+  f.send({ type: "state", state: running });
+  f.send({ type: "output", text: "ordinary output" });
+  f.send({ type: "state", state: { ...running } });
+  reads[0]!(snapshotOf({ state: running, canSteer: true }));
+  await settle();
+  assert.equal(f.store.getState().canSteer, true);
+  reads[1]!(snapshotOf({ state: running, canSteer: true }));
+  await settle();
+  f.send({ type: "state", state: { ...running } });
+  f.send({ type: "result", phase: "primary", result: result("run-1") });
+  reads[2]!(snapshotOf({ state: running, canSteer: true }));
+  await settle();
+  assert.equal(f.store.getState().canSteer, false);
+  f.store.dispose();
 });
