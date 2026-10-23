@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { chmod, cp, lstat, mkdir, open, readFile, readdir, realpath, rename, rm } from 'node:fs/promises';
+import { chmod, cp, lstat, mkdir, open, readFile, readdir, realpath, rename, rm, rmdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -141,14 +141,22 @@ async function buildTarget(source, home, spec, inspection) {
     documentScopes: inspection.memory.library.documents.map(item => ({ id: item.id, scope: 'user', disposition: '暂时在 user' })) };
 }
 
-export async function importHome({ source, home, specification, execute = false, recover = false, boundary = async () => {} }) {
+export async function importHome({ source, home, specification, execute = false, recover = false, cutover = false, boundary = async () => {} }) {
   assert.ok(home && source, 'Explicit source and --home are required');
-  source = resolve(source); home = resolve(home); guardPath(source); guardPath(home);
+  source = resolve(source); home = resolve(home); guardPath(source);
+  const defaultCutover = cutover && home === join(homedir(), '.serika');
+  if (!defaultCutover) guardPath(home);
+  let emptyTarget;
+  if (defaultCutover && await exists(home)) {
+    emptyTarget = await lstat(home);
+    assert.ok(emptyTarget.isDirectory() && !emptyTarget.isSymbolicLink(), 'Cutover home must be a directory, never a symlink');
+    assert.deepEqual(await readdir(home), [], 'Cutover home must be absent or empty');
+  }
   assert.ok(!within(source, home) && !within(home, source), 'Source and home must be disjoint');
   assert.equal((await lstat(source)).isSymbolicLink(), false, 'Source root cannot be a symlink');
   source = await realpath(source);
   assert.equal(await realpath(dirname(home)), dirname(home), 'Home parent cannot contain symlinks');
-  guardPath(source); guardPath(home);
+  guardPath(source); if (!defaultCutover) guardPath(home);
   const spec = structuredClone(specification);
   assert.equal(spec.version, 1); assert.ok(Number.isFinite(Date.parse(spec.importedAt)), 'Explicit fixed import time required');
   assert.ok(Array.isArray(spec.manifest) && spec.manifest.every(item => safeRelative(item.path)), 'Explicit relative source manifest required');
@@ -177,7 +185,7 @@ export async function importHome({ source, home, specification, execute = false,
     const actual = (await manifest(root)).filter(item => item.type !== 'directory').map(item => item.path).sort();
     assert.deepEqual(actual, [...targetFiles.map(item => item.path), 'imports/intent.json', 'imports/prepared.json', ...(await exists(join(root, 'imports/receipt.json')) ? ['imports/receipt.json'] : []), ...(await exists(join(root, 'imports/receipt.pending')) ? ['imports/receipt.pending'] : [])].sort(), 'Unexpected target files');
   };
-  if (await exists(home)) {
+  if (!emptyTarget && await exists(home)) {
     assert.deepEqual(await json(preparedPath), prepared, 'Target/source mapping conflict');
     await verifyTarget(home);
     if (await exists(receiptPath)) { const receipt = await json(receiptPath); assert.deepEqual(receipt, { ...prepared, status: 'passed' }); return { ...receipt, replay: true }; }
@@ -230,6 +238,11 @@ export async function importHome({ source, home, specification, execute = false,
   for (const item of (await manifest(staging)).filter(item => item.type === 'directory').reverse()) await sync(join(staging, item.path));
   await sync(staging);
   await boundary('before-publish');
+  if (emptyTarget) {
+    const current = await lstat(home);
+    assert.ok(current.isDirectory() && !current.isSymbolicLink() && current.ino === emptyTarget.ino && current.dev === emptyTarget.dev, 'Empty target changed; preserve staging');
+    await rmdir(home);
+  }
   assert.equal(await exists(home), false, 'Target appeared; preserve staging and refuse merge');
   await rename(staging, home); await sync(dirname(home));
   await boundary('after-publish');
@@ -244,10 +257,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   try {
     const args = process.argv.slice(2), options = {};
     for (let i = 0; i < args.length; i++) {
-      if (['--execute', '--recover'].includes(args[i])) options[args[i].slice(2)] = true;
+      if (['--execute', '--recover', '--cutover'].includes(args[i])) options[args[i].slice(2)] = true;
       else { assert.ok(['--source', '--home', '--manifest'].includes(args[i]), 'Unknown argument'); assert.ok(args[i + 1] && !args[i + 1].startsWith('--'), 'Missing argument'); options[args[i].slice(2)] = args[++i]; }
     }
-    assert.ok(options.source && options.home && options.manifest, 'Usage: home-import.mjs --source <static-copy> --home <new-home> --manifest <private-approved-plan.json> [--execute] [--recover]');
+    assert.ok(options.source && options.home && options.manifest, 'Usage: home-import.mjs --source <static-copy> --home <new-home> --manifest <private-approved-plan.json> [--execute] [--recover] [--cutover]');
     const manifestPath = await realpath(resolve(options.manifest)); guardPath(manifestPath);
     assert.equal((await lstat(resolve(options.manifest))).isSymbolicLink(), false, 'Manifest must not be a symlink');
     const result = await importHome({ ...options, specification: await json(manifestPath) });

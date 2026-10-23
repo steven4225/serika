@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { chmod, cp, lstat, mkdir, open, readFile, readdir, readlink, rename, rm, writeFile } from 'node:fs/promises';
+import { chmod, cp, lstat, mkdir, open, readFile, readdir, readlink, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 
@@ -75,13 +75,100 @@ export function migrateDocument(old, stamp) {
     archivedOnly: ['assertion history', 'administrative versions', 'legacy candidates', 'legacy coverage receipts'] };
 }
 
-export async function migrateCopy(root, { expectedSha = approvedSourceSha, stamp = new Date().toISOString() } = {}) {
+// Full entries stay in private review artifacts; stdout contains counts and status only.
+export function memoryDelta(baselineBytes, sourceBytes, expectedSha = approvedSourceSha) {
+  assert.equal(sha(baselineBytes), expectedSha, 'Reviewed baseline SHA mismatch');
+  const baseline = JSON.parse(baselineBytes), source = JSON.parse(sourceBytes);
+  assert.ok([4, 5].includes(source.version), 'Only v4/v5 source is supported');
+  const index = document => {
+    const result = new Map(document.entries.map(entry => [entry.id, entry]));
+    assert.equal(result.size, document.entries.length, 'Duplicate memory IDs');
+    return result;
+  };
+  const before = index(baseline), after = index(source), changes = [];
+  for (const id of [...new Set([...before.keys(), ...after.keys()])].sort()) {
+    const previous = before.get(id) ?? null, current = after.get(id) ?? null;
+    if (JSON.stringify(previous) !== JSON.stringify(current)) changes.push({ id,
+      change: previous === null ? 'added' : current === null ? 'deleted' : 'modified',
+      before: previous, after: current, decision: null });
+  }
+  const metadata = document => Object.fromEntries(Object.entries(document).filter(([key]) => key !== 'entries'));
+  const metadataChanged = JSON.stringify(metadata(baseline)) !== JSON.stringify(metadata(source));
+  return { version: 1, baselineSha256: expectedSha, sourceSha256: sha(sourceBytes), changes,
+    metadata: { before: metadata(baseline), after: metadata(source), changed: metadataChanged },
+    metadataDecision: metadataChanged ? null : 'accept-current' };
+}
+
+function applyMemoryDecisions(original, stamp, review, decisions) {
+  const expected = { ...review, metadataDecision: decisions.metadataDecision,
+    changes: review.changes.map((row, index) => ({ ...row, decision: decisions.changes?.[index]?.decision })) };
+  assert.deepEqual(decisions, expected, 'Decision file differs from the exact baseline/source delta');
+  assert.equal(decisions.metadataDecision, 'accept-current', 'Review current metadata before migrating');
+  const result = migrateDocument(original, stamp), entries = new Map(result.document.entries.map(entry => [entry.id, entry]));
+  for (const row of decisions.changes) {
+    const decision = row.decision;
+    assert.ok(decision && ['keep-reviewed', 'discard', 'accept-current'].includes(decision.action), 'Every delta row needs an explicit decision');
+    if (decision.action === 'keep-reviewed') {
+      assert.ok(row.before, 'New rows have no reviewed version');
+      assert.deepEqual(decision, { action: 'keep-reviewed' });
+    } else if (decision.action === 'discard') {
+      assert.deepEqual(decision, { action: 'discard' }); entries.delete(row.id);
+    } else {
+      assert.ok(row.after, 'Deleted rows have no current version');
+      assert.ok(['preference', 'note', 'document'].includes(decision.category), 'Explicit delta category required');
+      assert.deepEqual(decision, { action: 'accept-current', category: decision.category });
+      const reviewedRow = result.rows.find(item => item.id === row.id);
+      if (reviewedRow) assert.equal(decision.category, reviewedRow.disposition, 'Original fourteen-row disposition cannot change');
+      const entry = row.after;
+      const values = entry.assertions.filter(value => value.systemTime.to === null && value.state === 'asserted' &&
+        (value.validTime.from === null || value.validTime.from <= stamp) && (value.validTime.to === null || value.validTime.to > stamp));
+      assert.equal(values.length, 1, 'Accepted delta needs one current assertion');
+      assert.equal(entry.status, 'active'); assert.ok(!entry.expiresAt || entry.expiresAt > stamp);
+      const assertion = values[0];
+      entries.set(row.id, { id: entry.id, revision: entry.revision, text: assertion.text, uncertain: false, category: decision.category,
+        identity: { subject: 'user', attribute: entries.get(row.id)?.identity.attribute ?? '增量记录:' + entry.id, value: assertion.text }, scope: { kind: 'workspace' }, pinned: entry.pinned,
+        state: 'active', createdAt: entry.createdAt, updatedAt: stamp,
+        sources: assertion.sources.map(source => source.kind === 'conversation' ? { kind: 'conversation', threadId: source.threadId,
+          messageId: source.messageId, quote: source.quote, sentAt: source.sentAt ?? null } : { kind: 'manual' }),
+        replaces: [], supersededBy: null, withdrawal: null });
+    }
+  }
+  result.document.entries = [...entries.values()];
+  result.document.library.documents = result.document.library.documents.map(document => ({ ...document,
+    entryIds: document.entryIds.filter(id => entries.has(id)) })).filter(document => document.entryIds.length > 0);
+  for (const entry of entries.values()) if (entry.category === 'document' && !result.document.library.documents.some(document => document.entryIds.includes(entry.id)))
+    result.document.library.documents.push({ id: 'cm7-delta-' + entry.id, title: entry.text.split('\n')[0], folderId: null,
+      entryIds: [entry.id], scope: { kind: 'workspace' } });
+  result.delta = { baselineSha256: review.baselineSha256, sourceSha256: review.sourceSha256,
+    decisionsSha256: sha(JSON.stringify(decisions)), metadataDecision: decisions.metadataDecision,
+    changes: decisions.changes.map(({ id, change, decision }) => ({ id, change, decision })) };
+  return result;
+}
+
+export async function migrateCopy(root, { expectedSha = approvedSourceSha, stamp = new Date().toISOString(), reviewedBytes, decisions } = {}) {
   for (const relative of ['', 'workspace', 'workspace/.runloom', 'workspace/.runloom/memory.json']) {
     assert.equal((await lstat(join(root, relative))).isSymbolicLink(), false, 'Migration target cannot contain a symbolic link');
   }
   const file = join(root, 'workspace/.runloom/memory.json'), bytes = await readFile(file);
-  assert.equal(sha(bytes), expectedSha, 'Source SHA differs from reviewed source');
-  const before = await manifest(root), original = JSON.parse(bytes), migrated = migrateDocument(original, stamp);
+  const original = JSON.parse(bytes);
+  const review = reviewedBytes && memoryDelta(reviewedBytes, bytes, expectedSha);
+  if (!review) assert.equal(sha(bytes), expectedSha, 'Source SHA differs from reviewed source');
+  const before = await manifest(root);
+  const migrated = review && review.sourceSha256 !== expectedSha
+    ? applyMemoryDecisions(JSON.parse(reviewedBytes), stamp, review, decisions) : migrateDocument(original, stamp);
+  if (migrated.delta) {
+    migrated.legacy = { version: original.version, entries: original.entries.length,
+      assertions: original.entries.reduce((sum, entry) => sum + entry.assertions.length, 0), candidates: original.candidates?.length ?? 0,
+      pendingCandidates: original.candidates?.filter(item => item.status === 'pending').length ?? 0,
+      cursors: original.consolidationCursors?.length ?? 0, receipts: original.consolidationReceipts?.length ?? 0 };
+    const library = original.library ?? { revision: 0, folders: [], documents: [] };
+    for (const document of library.documents) {
+      assert.equal(document.scope.kind, 'workspace', 'Thread documents require explicit review');
+      assert.ok(document.entryIds.every(id => migrated.document.entries.some(entry => entry.id === id)), 'Current library points at a discarded row');
+    }
+    migrated.document.library = { ...structuredClone(library), revision: library.revision + 1, documents: [
+      ...structuredClone(library.documents), ...migrated.document.library.documents.filter(document => !library.documents.some(item => item.id === document.id))] };
+  }
   const { validateV6MemoryDocument, V6MemoryStore } = await import('../dist/memory-v6-store.js');
   validateV6MemoryDocument(migrated.document);
   // Legacy deletion/exclusion controls cannot silently disappear or regain authority.
@@ -130,15 +217,15 @@ export async function migrateCopy(root, { expectedSha = approvedSourceSha, stamp
   const directory = await open(dirname(file), 'r'); try { await directory.sync(); } finally { await directory.close(); }
   const store = new V6MemoryStore(join(join(root, 'workspace'), ".runloom/memory.json")), read = await store.readV6();
   assert.ok(read.ok); assert.deepEqual(read.value, validateV6MemoryDocument(migrated.document));
-  assert.deepEqual(read.value.entries.filter(entry => entry.category !== 'document').map(entry => entry.id.slice(0, 8)), ['978a1257','41f1d455','f6e52e58']);
   assert.equal(read.value.library.documents.length, migrated.document.library.documents.length);
   assert.deepEqual(read.value.library.folders, original.library?.folders ?? []);
   assert.deepEqual(read.value.library.documents.slice(0, original.library?.documents.length ?? 0), original.library?.documents ?? []);
   const after = await manifest(root);
   assert.deepEqual(after.filter(item => !['workspace/.runloom/memory.json','workspace/.runloom/memory.json.pre-v6'].includes(item.path)),
     before.filter(item => item.path !== 'workspace/.runloom/memory.json'), 'Only memory format and its retained old file may change');
-  return { migratedAt: stamp, oldSha256: expectedSha, newSha256: sha(await readFile(file)), rows: migrated.rows, legacy: migrated.legacy,
-    archivedOnly: migrated.archivedOnly, entries: read.value.entries.length, preferences: 3, projectDocuments: 3,
+  return { migratedAt: stamp, oldSha256: sha(bytes), newSha256: sha(await readFile(file)), rows: migrated.rows, legacy: migrated.legacy,
+    archivedOnly: migrated.archivedOnly, entries: read.value.entries.length, preferences: read.value.entries.filter(entry => entry.category === 'preference').length,
+    projectDocuments: read.value.entries.filter(entry => entry.category === 'document').length, delta: migrated.delta ?? null,
     originalLibrary: original.library ?? null, threads, beforeManifestSha256: sha(JSON.stringify(before)), afterManifestSha256: sha(JSON.stringify(after)) };
 }
 
@@ -150,9 +237,42 @@ async function logicalCounts(root) {
     transcriptFiles: (await manifest(join(root, 'transcripts'))).filter(item => item.type === 'file').length };
 }
 
-export async function runMigration({ source, output, expectedSha = approvedSourceSha }) {
+export async function runMigration({ source, output, expectedSha = approvedSourceSha, reviewedMemory, reviewDirectory, decisionsFile }) {
   source = resolve(source); output = resolve(output);
   assert.ok(output !== source && !output.startsWith(source + '/'), 'Output must be isolated');
+  const configBefore = await json(join(source, 'runloom.json'));
+  const sourceBytes = await readFile(join(configBefore.workspace, '.runloom/memory.json'));
+  let reviewedBytes, decisions;
+  if (sha(sourceBytes) !== expectedSha) {
+    assert.ok(reviewedMemory && reviewDirectory, 'Changed memory requires a private reviewed baseline and review directory');
+    reviewedBytes = await readFile(reviewedMemory);
+    const review = memoryDelta(reviewedBytes, sourceBytes, expectedSha);
+    let privateDirectory = resolve(reviewDirectory);
+    const checkout = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
+    assert.ok(privateDirectory !== checkout && !privateDirectory.startsWith(checkout + '/'), 'Memory review must stay outside the repository');
+    assert.ok(privateDirectory !== output && !privateDirectory.startsWith(output + '/'), 'Review directory must be separate from migration output');
+    await mkdir(privateDirectory, { recursive: true, mode: 0o700 });
+    assert.equal((await lstat(privateDirectory)).isSymbolicLink(), false, 'Review directory cannot be a symlink');
+    privateDirectory = await realpath(privateDirectory);
+    assert.ok(privateDirectory !== checkout && !privateDirectory.startsWith(checkout + '/'), 'Memory review must stay outside the repository');
+    for (let ancestor = privateDirectory; ; ancestor = dirname(ancestor)) {
+      try { await lstat(join(ancestor, '.git')); assert.fail('Memory review must stay outside every repository'); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+      if (ancestor === dirname(ancestor)) break;
+    }
+    await chmod(privateDirectory, 0o700);
+    const template = join(privateDirectory, 'memory-delta-' + review.sourceSha256 + '.json');
+    try { await writeFile(template, JSON.stringify(review, null, 2) + '\n', { flag: 'wx', mode: 0o600 }); }
+    catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      const stat = await lstat(template); assert.ok(stat.isFile() && !stat.isSymbolicLink(), 'Template must be a regular private file');
+      await chmod(template, 0o600); assert.deepEqual(await json(template), review, 'Preserve template; put decisions in a separate file');
+    }
+    if (!decisionsFile) return { status: 'awaiting-memory-decisions', reviewFile: template,
+      changes: Object.fromEntries(['added', 'modified', 'deleted'].map(kind => [kind, review.changes.filter(row => row.change === kind).length])) };
+    decisions = await json(decisionsFile);
+    applyMemoryDecisions(JSON.parse(reviewedBytes), new Date().toISOString(), review, decisions);
+  } else assert.ok(!decisionsFile, 'No delta decisions apply to an unchanged source');
   await mkdir(output, { recursive: false, mode: 0o700 });
   const staging = join(output, 'snapshot'), backup = join(output, 'backup.tar');
   const config = await json(join(source, 'runloom.json')), identity = await json(join(source, 'desktop-identity.json'));
@@ -183,7 +303,7 @@ export async function runMigration({ source, output, expectedSha = approvedSourc
   const restore = async target => { await rm(target, { recursive: true, force: true }); await mkdir(target, { mode: 0o700 }); execFileSync('tar', ['-xf', backup, '-C', target]); };
   const a = join(output, 'rehearsal'), b = join(output, 'rollback-control');
   await restore(a); await restore(b);
-  const rehearsal = await migrateCopy(a, { expectedSha });
+  const rehearsal = await migrateCopy(a, { expectedSha, reviewedBytes, decisions });
   await writeJson(join(output, 'rehearsal-migrated-manifest.json'), await manifest(a));
   await restore(a);
   assert.deepEqual(await manifest(a), await manifest(b));
@@ -191,7 +311,7 @@ export async function runMigration({ source, output, expectedSha = approvedSourc
   assert.deepEqual(await logicalCounts(a), counts); assert.deepEqual(await logicalCounts(b), counts);
   await writeJson(join(output, 'rollback-manifest.json'), await manifest(a));
   const target = join(output, 'v6-review'); await restore(target);
-  const realData = await migrateCopy(target, { expectedSha });
+  const realData = await migrateCopy(target, { expectedSha, reviewedBytes, decisions });
   const latest = await sourceManifest();
   const sourceChanges = latest.filter(item => JSON.stringify(item) !== JSON.stringify(before.find(old => old.path === item.path))).map(item => item.path);
   sourceChanges.push(...before.filter(item => !latest.some(current => current.path === item.path)).map(item => item.path));
@@ -207,11 +327,19 @@ export async function runMigration({ source, output, expectedSha = approvedSourc
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  assert.equal(process.argv.length, 4, 'Usage: node cm-step7-migrate.mjs <daily-data-directory> <new-private-output-directory>');
   try {
-    const report = await runMigration({ source: process.argv[2], output: process.argv[3] });
-    console.log(JSON.stringify({ runId: report.runId, status: report.status, sourceVersion: report.sourceVersion, backupFiles: report.backup.files,
-      preferences: report.realData.preferences, projectDocuments: report.realData.projectDocuments, rollback: report.rollback, realModelCalls: 0 }));
+    const args = process.argv.slice(2), options = {};
+    for (let index = 0; index < args.length; index++) {
+      assert.ok(['--source', '--output', '--home', '--reviewed-memory', '--review-directory', '--decisions'].includes(args[index]), 'Unknown argument');
+      assert.ok(args[index + 1] && !args[index + 1].startsWith('--'), 'Missing argument');
+      options[args[index].slice(2)] = args[++index];
+    }
+    assert.ok(options.source && options.output && options.home, 'Explicit --source, --output and --home required');
+    const report = await runMigration({ source: options.source, output: options.output,
+      reviewedMemory: options['reviewed-memory'], reviewDirectory: options['review-directory'], decisionsFile: options.decisions });
+    console.log(JSON.stringify({ status: report.status, changes: report.changes, runId: report.runId, sourceVersion: report.sourceVersion,
+      backupFiles: report.backup?.files, preferences: report.realData?.preferences, projectDocuments: report.realData?.projectDocuments, realModelCalls: 0 }));
+    if (report.status !== 'passed') process.exitCode = 2;
   } catch (error) {
     console.error(JSON.stringify({ status: 'failed', error: error instanceof SyntaxError ? 'INVALID_JSON' : error instanceof assert.AssertionError ? 'MIGRATION_CHECK_FAILED' : 'MIGRATION_IO_FAILED' }));
     process.exitCode = 1;

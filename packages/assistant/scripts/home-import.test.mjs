@@ -106,3 +106,38 @@ test('CLI requires explicit home, defaults to dry-run and recovers an actual kil
     assert.equal(JSON.parse(recovered.stdout).status, 'passed');
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
+
+
+test('cutover CLI admits only absent or empty default home under explicit flag; simulated HOME never reaches daily data', async () => {
+  const f = await fixture();
+  try {
+    const plan = join(f.root, 'plan.json'); await writeFile(plan, encoded(f.specification));
+    const script = new URL('./home-import.mjs', import.meta.url).pathname;
+    for (const kind of ['absent', 'empty', 'hidden', 'symlink', 'dangling', 'file']) {
+      const simulatedUser = join(f.root, kind); await mkdir(simulatedUser);
+      const home = join(simulatedUser, '.serika');
+      if (kind === 'empty' || kind === 'hidden') await mkdir(home);
+      if (kind === 'hidden') await writeFile(join(home, '.sentinel'), 'preserve');
+      if (kind === 'file') await writeFile(home, 'preserve');
+      if (kind === 'symlink' || kind === 'dangling') await symlink(kind === 'symlink' ? f.source : join(f.root, 'missing'), home);
+      const env = { PATH: process.env.PATH, HOME: simulatedUser };
+      const args = [script, '--source', f.source, '--home', home, '--manifest', plan];
+      const denied = spawnSync(process.execPath, args, { env, encoding: 'utf8' });
+      assert.equal(denied.status, 1, kind);
+      const result = spawnSync(process.execPath, [...args, '--cutover', '--execute'], { env, encoding: 'utf8' });
+      const allowed = ['absent', 'empty'].includes(kind);
+      assert.equal(result.status, allowed ? 0 : 1, kind + result.stderr);
+      if (allowed) {
+        assert.equal(JSON.parse(result.stdout).status, 'passed');
+        const repeated = spawnSync(process.execPath, [...args, '--cutover', '--execute'], { env, encoding: 'utf8' });
+        assert.equal(repeated.status, 1, 'Nonempty default home must be refused even for exact replay');
+      }
+      if (kind === 'hidden') assert.equal(await readFile(join(home, '.sentinel'), 'utf8'), 'preserve');
+      const nested = spawnSync(process.execPath, [script, '--source', f.source, '--home', join(home, 'nested'), '--manifest', plan, '--cutover'], { env, encoding: 'utf8' });
+      assert.equal(nested.status, 1);
+      const sourceDenied = spawnSync(process.execPath, [script, '--source', home, '--home', f.home, '--manifest', plan, '--cutover'], { env, encoding: 'utf8' });
+      assert.equal(sourceDenied.status, 1);
+    }
+    assert.deepEqual(await manifest(f.source), f.specification.manifest);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
