@@ -1,0 +1,5 @@
+$ node scripts/test-home.mjs --home "$SERIKA_TEST_HOME" -- node packages/assistant/scripts/cm-step6-verify.mjs
+{"command":["pnpm","typecheck"],"cwd":".","startedAt":"2026-10-23T15:50:34.778Z","finishedAt":"2026-10-23T15:50:35.671Z","exitCode":0,"signal":null,"outputSha256":"9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609","outputBytes":141,"counts":[]}
+{"command":["env","TZ=UTC","pnpm","test"],"cwd":".","startedAt":"2026-10-23T15:50:35.671Z","finishedAt":"2026-10-23T15:55:12.870Z","exitCode":1,"signal":null,"outputSha256":"d83ddc38569ce33c1c30fafc145550d7016bca3c627fdc6370423fbc3a945994","outputBytes":267370,"counts":[["tests",1160],["pass",1151],["fail",2],["cancelled",0],["skipped",7]]}
+{"testHomeGuard":"failed","evidence":"/private/tmp/serika-computer-read/unified-H/write-guard-fHLSh5/result.json","violations":0,"changes":0,"metadataUnchanged":true}
+[ELIFECYCLE] Command failed with exit code 1.

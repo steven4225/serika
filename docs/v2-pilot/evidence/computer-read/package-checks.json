@@ -1,0 +1,26 @@
+{
+  "runId": "09557960-502c-4fe0-80c6-964d31853b6c",
+  "generatedAt": "2026-10-23T16:11:48.076567+00:00",
+  "sourceDiffCheck": {
+    "command": [
+      "git",
+      "diff",
+      "63cc724",
+      "7587054",
+      "--check"
+    ],
+    "exitCode": 0
+  },
+  "evidenceDiffCheck": {
+    "command": [
+      "git",
+      "diff",
+      "--cached",
+      "--check"
+    ],
+    "exitCode": 2,
+    "trailingWhitespaceCount": 16,
+    "output": "docs/v2-pilot/evidence/computer-read/development/b0-copy.log:19: trailing whitespace.\n+  \ndocs/v2-pilot/evidence/computer-read/development/b0-copy.log:73: trailing whitespace.\n+  \ndocs/v2-pilot/evidence/computer-read/development/guard-fixed.log:47: trailing whitespace.\n+  \ndocs/v2-pilot/evidence/computer-read/development/guard-fixed.log:49: trailing whitespace.\n+  \ndocs/v2-pilot/evidence/computer-read/development/initial.log:49: trailing whitespace.\n+  \ndocs/v2-pilot/evidence/computer-read/development/initial.log:62: trailing whitespace.\n+  \ndocs/v2-pilot/evidence/computer-read/development/initial.log:82: trailing whitespace.\n+  \ndocs/v2-pilot/evidence/computer-read/development/initial.log:95: trailing whitespace.\n+  \ndocs/v2-pilot/evidence/computer-read/development/initial.log:113: trailing whitespace.\n+  \ndocs/v2-pilot/evidence/computer-read/development/initial.log:126: trailing whitespace.\n+  \ndocs/v2-pilot/evidence/computer-read/development/initial.log:144: trailing whitespace.\n+  \ndocs/v2-pilot/evidence/computer-read/development/initial.log:157: trailing whitespace.\n+  \ndocs/v2-pilot/evidence/computer-read/development/initial.log:175: trailing whitespace.\n+  \ndocs/v2-pilot/evidence/computer-read/development/initial.log:279: trailing whitespace.\n+  \ndocs/v2-pilot/evidence/computer-read/development/target2.log:19: trailing whitespace.\n+  \ndocs/v2-pilot/evidence/computer-read/development/target2.log:41: trailing whitespace.\n+  \n"
+  },
+  "explanation": "Retain original Node assertion logs byte-for-byte; all 16 findings are whitespace in archived failure logs, not product/test source."
+}

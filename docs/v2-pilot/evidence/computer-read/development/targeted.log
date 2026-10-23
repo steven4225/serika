@@ -1,0 +1,26 @@
+$ tsc -b
+▶ v2 pilot baseline: assembled tools, instructions and capability report
+  ✔ minimal assembly matches __baseline__/assembly-minimal.txt (81.562375ms)
+  ✔ full assembly matches __baseline__/assembly-full.txt (60.189083ms)
+  ✔ full-without-todoist assembly matches __baseline__/assembly-full-without-todoist.txt (52.79825ms)
+  ✔ full assembly in the autonomous desktop foreground matches __baseline__/assembly-full-desktop-autonomous.txt (59.601792ms)
+  ✔ the two full assemblies differ only by Todoist-owned content (0.579833ms)
+✔ v2 pilot baseline: assembled tools, instructions and capability report (255.390333ms)
+▶ Computer Controller fault boundaries (controlled driver, not native desktop)
+  ✔ retains honest receipts and never replays after deny on desktop (2165.552792ms)
+  ✔ retains honest receipts and never replays after cancel-approval on desktop (1733.879791ms)
+  ✔ retains honest receipts and never replays after disconnect on desktop (1796.388167ms)
+  ✔ retains honest receipts and never replays after cancel-dispatched on desktop (1854.693209ms)
+  ✔ retains honest receipts and never replays after deny on telegram (1831.430167ms)
+  ✔ retains honest receipts and never replays after cancel-approval on telegram (1568.79375ms)
+  ✔ retains honest receipts and never replays after disconnect on telegram (1862.484208ms)
+  ✔ retains honest receipts and never replays after cancel-dispatched on telegram (1872.086875ms)
+✔ Computer Controller fault boundaries (controlled driver, not native desktop) (14686.240791ms)
+ℹ tests 13
+ℹ suites 2
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14850.947583

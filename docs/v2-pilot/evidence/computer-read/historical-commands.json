@@ -1,0 +1,25 @@
+{
+  "runId": "30af31d3-3566-46ba-9fd8-4b092264672b",
+  "generatedAt": "2026-10-23T15:43:03.933947+00:00",
+  "method": "Extract only tool command arguments; no default-home file contents opened",
+  "historicalCommands": [
+    {
+      "timestamp": "2026-10-22T16:21:11.097Z",
+      "session": "rollout-2026-10-22T19-59-17-01a1637a-d763-77d3-9343-4b593bbe8a7f.jsonl",
+      "recordType": "tool command argument",
+      "commandExcerpt": "pnpm test:runtime > /tmp/serika-a1-runtime.log 2>&1"
+    },
+    {
+      "timestamp": "2026-10-22T17:32:40.671Z",
+      "session": "rollout-2026-10-22T19-59-17-01a1637a-d763-77d3-9343-4b593bbe8a7f.jsonl",
+      "recordType": "tool command argument",
+      "commandExcerpt": "node --test --test-concurrency=4 packages/assistant/dist/application-home.test.js packages/assistant/dist/task-worker-entry.test.js packages/assistant/dist/task-worker-service.test.js packages/assistant/dist/task-worker-health.test.js packages/assistant/dist/task-worker-context.test.js packages/assistant/dist/git-reality.test.js > /tmp/serika-a2-target-runtime.log 2>&1"
+    },
+    {
+      "timestamp": "2026-10-22T17:33:39.596Z",
+      "session": "rollout-2026-10-22T19-59-17-01a1637a-d763-77d3-9343-4b593bbe8a7f.jsonl",
+      "recordType": "tool command argument",
+      "commandExcerpt": "node --test --test-concurrency=4 apps/cli/dist/application-home.test.js packages/assistant/dist/task-worker-entry.test.js packages/assistant/dist/task-worker-service.test.js packages/assistant/dist/task-worker-health.test.js packages/assistant/dist/task-worker-context.test.js packages/assistant/dist/git-reality.test.js > /tmp/serika-a2-target-runtime2.log 2>&1"
+    }
+  ]
+}

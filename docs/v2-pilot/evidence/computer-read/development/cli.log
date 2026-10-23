@@ -1,0 +1,16 @@
+$ tsc -b
+▶ TUI module configuration entry
+  ✔ shows persistent rules through /permissions without starting a Run (185.406083ms)
+  ✔ exposes /authorize-web only when the web module is enabled (145.099167ms)
+  ✔ registers keyless Exa search when web search is enabled (147.145542ms)
+  ✔ always exposes /modules when every configurable module is disabled (149.559959ms)
+✔ TUI module configuration entry (627.898833ms)
+ℹ tests 4
+ℹ suites 1
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 673.296833
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-computer-read/cli-H/write-guard-BlMguY/result.json","violations":0,"changes":0,"metadataUnchanged":true}

@@ -1,0 +1,45 @@
+$ tsc -b --pretty false && pnpm --filter @serika/desktop typecheck
+$ tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit
+▶ createRuntimeApp
+  ✔ receipt file sync failure prevents model dispatch and a later Run in the real runtime (143.848209ms)
+  ✔ receipt directory sync failure prevents model dispatch and a later Run in the real runtime (131.616083ms)
+  ✔ preserves an injected timer across app reassembly, disabled modules and Thread changes (9.75525ms)
+  ✔ has one conversation memory writer with autoConsolidate false (67.026625ms)
+  ✔ has one conversation memory writer with autoConsolidate true (48.721584ms)
+  ✔ supplies research delivery checks only with enabled capabilities ({"web":false,"search":false,"files":true}) (52.3055ms)
+  ✔ supplies research delivery checks only with enabled capabilities ({"web":true,"search":false,"files":true}) (50.852542ms)
+  ✔ supplies research delivery checks only with enabled capabilities ({"web":true,"search":true,"files":true}) (48.939959ms)
+  ✔ supplies research delivery checks only with enabled capabilities ({"web":true,"search":false,"files":false}) (47.884166ms)
+  ✔ runs Computer reads automatically and denies actions before driver dispatch (551.552042ms)
+  ✔ sends current memory after obsolete empty-selection answers without persisting the reference (compaction false) (155.039541ms)
+  ✔ reports reference selection failure instead of the previous successful preparation (compaction false) (96.786417ms)
+  ✔ sends current memory after obsolete empty-selection answers without persisting the reference (compaction true) (149.850209ms)
+  ✔ reports reference selection failure instead of the previous successful preparation (compaction true) (95.826541ms)
+  ✔ assembles the demo runtime without TUI surfaces and runs one turn (59.890041ms)
+  ✔ assembles TUI surfaces from an explicit config and writes command output to the given stream (2.563208ms)
+  ✔ applies a configured total timeout to the primary TUI Run (66.723125ms)
+  ✔ forwards configured Shell progress before the final tool result (228.199125ms)
+✔ createRuntimeApp (2008.964292ms)
+▶ permission decision snapshot
+  ✔ matches the locked decisions of the current rules (181.721625ms)
+✔ permission decision snapshot (182.167417ms)
+▶ remembered conversation grants
+  ✔ remembers a read-risk tool by name across Runs, for the granting agent only (2.9635ms)
+  ✔ remembers file writes per directory without subdirectories or other file tools (0.506667ms)
+  ✔ remembers web_fetch per exact origin (0.267625ms)
+  ✔ never offers to remember shell, computer, recipe, memory or non-read tools (0.19725ms)
+  ✔ does not remember plain allows or denials (0.129458ms)
+  ✔ is neither used nor offered in a Telegram Run (0.109125ms)
+  ✔ keeps the web_search denial latch ahead of a remembered origin (0.109291ms)
+  ✔ accepts r in the terminal only when a grant is offered (0.137958ms)
+  ✔ lists and forgets single grants through /permissions (0.59375ms)
+✔ remembered conversation grants (6.020833ms)
+ℹ tests 28
+ℹ suites 3
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2170.442958
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-computer-read/app-fix-H/write-guard-lAwYyx/result.json","violations":0,"changes":0,"metadataUnchanged":true}

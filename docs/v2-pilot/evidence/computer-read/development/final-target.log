@@ -1,0 +1,86 @@
+$ tsc -b --pretty false && pnpm --filter @serika/desktop typecheck
+$ tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit
+▶ v2 pilot baseline: assembled tools, instructions and capability report
+  ✔ minimal assembly matches __baseline__/assembly-minimal.txt (80.538709ms)
+  ✔ full assembly matches __baseline__/assembly-full.txt (66.387291ms)
+  ✔ full-without-todoist assembly matches __baseline__/assembly-full-without-todoist.txt (58.512833ms)
+  ✔ full assembly in the autonomous desktop foreground matches __baseline__/assembly-full-desktop-autonomous.txt (58.787166ms)
+  ✔ the two full assemblies differ only by Todoist-owned content (0.494209ms)
+✔ v2 pilot baseline: assembled tools, instructions and capability report (265.530458ms)
+▶ Computer Controller fault boundaries (controlled driver, not native desktop)
+  ✔ retains honest receipts and never replays after deny on desktop (2167.700166ms)
+  ✔ retains honest receipts and never replays after cancel-approval on desktop (1883.960375ms)
+  ✔ retains honest receipts and never replays after disconnect on desktop (1872.981292ms)
+  ✔ retains honest receipts and never replays after cancel-dispatched on desktop (1851.95925ms)
+  ✔ retains honest receipts and never replays after deny on telegram (2172.309208ms)
+  ✔ retains honest receipts and never replays after cancel-approval on telegram (1552.155916ms)
+  ✔ retains honest receipts and never replays after disconnect on telegram (1901.977083ms)
+  ✔ retains honest receipts and never replays after cancel-dispatched on telegram (1753.902833ms)
+✔ Computer Controller fault boundaries (controlled driver, not native desktop) (15157.793542ms)
+▶ allowed local application computer tools
+  ✔ explicit health check probes only connection and filters unrelated app metadata; never reads UI or claims OS permission (3.971541ms)
+  ✔ health failures stay unverified, do not leak driver text or guess missing OS permission (0.297208ms)
+  ✔ excludes app menus and their tokens from the exact-window observation (1.8265ms)
+  ✔ fails closed on missing/ambiguous roots and over-limit exact window subtrees (1.988667ms)
+  ✔ rejects duplicate indices and excludes orphaned or cyclic nodes (0.51425ms)
+  ✔ stops the existing AgentLoop on an unknown action without another model call or replay (16.420791ms)
+  ✔ requires explicit driver and exact app whitelist (0.436584ms)
+  ✔ returns only the allowed app windows and never dispatches for a foreign app (0.4775ms)
+  ✔ observes then acts with a target-scoped token, consumes it and requires re-observation (0.507375ms)
+  ✔ rejects expired snapshots, changed ownership and tokens from replaced observations (0.461833ms)
+  ✔ rejects degraded, mismatched, oversized and truncated snapshots (1.246667ms)
+  ✔ inserts bounded text only into the observed element and disables screenshots (0.196709ms)
+  ✔ lets transport/unknown effects escape, does not repeat dispatch, and disposes tokens (0.786375ms)
+  ✔ allows a fresh read after a dispatched but not business-verified click without repeating the action (0.181833ms)
+  ✔ declares automatic reads and never-remembered actions (0.154834ms)
+✔ allowed local application computer tools (30.316542ms)
+▶ bounded Cua CLI transport
+  ✔ uses stdin JSON, not shell/argv text, and strips secrets and bypass flags (443.7975ms)
+  ✔ fails closed on invalid JSON, excessive output and cancelled child processes (676.749125ms)
+✔ bounded Cua CLI transport (1120.732ms)
+✔ returns clipped AX text as bounded read-only diagnostics with no action authority (0.368125ms)
+✔ b0 locks full host decisions, current Memory, configuration and filesystem boundaries (72773.358042ms)
+ℹ tests 32
+ℹ suites 4
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 72958.940333
+✔ approval preview guard rejects "" (5.381125ms)
+✔ approval preview guard rejects " \n\t " (0.343667ms)
+✔ approval delayed preview becomes enabled only with visible content and hides terminal y/n (2.272083ms)
+✔ structured computer preview also waits for backend publication before enabling allow (1.810334ms)
+✔ approval offers the conversation grant only when the backend offers one (1.266083ms)
+✔ computer connection check has an approvable visible preview while an empty publication stays blocked (1.003792ms)
+✔ offers explicit Computer setup without checking a driver or claiming Accessibility readiness on render (3.943709ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 179.72275
+▶ TUI module configuration entry
+  ✔ shows persistent rules through /permissions without starting a Run (175.488625ms)
+  ✔ exposes /authorize-web only when the web module is enabled (145.716334ms)
+  ✔ registers keyless Exa search when web search is enabled (146.573ms)
+  ✔ always exposes /modules when every configurable module is disabled (150.136375ms)
+✔ TUI module configuration entry (618.695792ms)
+{"testHomeGuard":"failed","evidence":"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-3EIFwn/home/write-guard-8mfzUj/result.json","violations":1,"changes":0,"metadataUnchanged":true}
+✔ fails the whole command on a node write, using a temporary protected fixture (41.740084ms)
+{"testHomeGuard":"failed","evidence":"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-9AaUl8/home/write-guard-EMchxS/result.json","violations":0,"changes":0,"metadataUnchanged":false}
+✔ fails the whole command on a shell write, using a temporary protected fixture (7.719583ms)
+{"testHomeGuard":"passed","evidence":"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-pass-gX89YQ/home/write-guard-1OMteq/result.json","violations":0,"changes":0,"metadataUnchanged":true}
+✔ requires an explicit temporary home and preserves successful isolated commands (78.722167ms)
+ℹ tests 7
+ℹ suites 1
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 665.718833
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-computer-read/final-target-H/write-guard-MUasYB/result.json","violations":0,"changes":0,"metadataUnchanged":true}

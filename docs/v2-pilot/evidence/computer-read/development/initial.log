@@ -1,0 +1,709 @@
+$ tsc -b --pretty false && pnpm --filter @serika/desktop typecheck
+$ tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit
+▶ v2 pilot baseline: assembled tools, instructions and capability report
+  ✖ minimal assembly matches __baseline__/assembly-minimal.txt (123.889792ms)
+  ✖ full assembly matches __baseline__/assembly-full.txt (84.846917ms)
+  ✖ full-without-todoist assembly matches __baseline__/assembly-full-without-todoist.txt (85.664667ms)
+  ✖ full assembly in the autonomous desktop foreground matches __baseline__/assembly-full-desktop-autonomous.txt (108.43775ms)
+  ✔ the two full assemblies differ only by Todoist-owned content (0.904084ms)
+✖ v2 pilot baseline: assembled tools, instructions and capability report (404.513292ms)
+▶ allowed local application computer tools
+  ✔ explicit health check probes only connection and filters unrelated app metadata; never reads UI or claims OS permission (7.419167ms)
+  ✔ health failures stay unverified, do not leak driver text or guess missing OS permission (0.563417ms)
+  ✔ excludes app menus and their tokens from the exact-window observation (1.620459ms)
+  ✔ fails closed on missing/ambiguous roots and over-limit exact window subtrees (1.735042ms)
+  ✔ rejects duplicate indices and excludes orphaned or cyclic nodes (1.154959ms)
+  ✔ stops the existing AgentLoop on an unknown action without another model call or replay (30.587667ms)
+  ✔ requires explicit driver and exact app whitelist (0.945458ms)
+  ✔ returns only the allowed app windows and never dispatches for a foreign app (0.373708ms)
+  ✔ observes then acts with a target-scoped token, consumes it and requires re-observation (1.116666ms)
+  ✔ rejects expired snapshots, changed ownership and tokens from replaced observations (1.019083ms)
+  ✔ rejects degraded, mismatched, oversized and truncated snapshots (2.933667ms)
+  ✔ inserts bounded text only into the observed element and disables screenshots (0.794875ms)
+  ✔ lets transport/unknown effects escape, does not repeat dispatch, and disposes tokens (3.67825ms)
+  ✔ allows a fresh read after a dispatched but not business-verified click without repeating the action (4.357583ms)
+  ✔ declares automatic reads and never-remembered actions (0.718583ms)
+✔ allowed local application computer tools (60.955042ms)
+▶ bounded Cua CLI transport
+  ✔ uses stdin JSON, not shell/argv text, and strips secrets and bypass flags (474.435792ms)
+  ✔ fails closed on invalid JSON, excessive output and cancelled child processes (843.597459ms)
+✔ bounded Cua CLI transport (1318.246291ms)
+✔ returns clipped AX text as bounded read-only diagnostics with no action authority (0.526541ms)
+✖ b0 locks full host decisions, current Memory, configuration and filesystem boundaries (73727.466583ms)
+ℹ tests 24
+ℹ suites 3
+ℹ pass 19
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 74059.788666
+
+✖ failing tests:
+
+test at packages/assistant/dist/baseline-assembly.test.js:130:9
+✖ minimal assembly matches __baseline__/assembly-minimal.txt (123.889792ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  ... Skipped lines
+  
+    '当前助手能力（配置／实际注册，不是健康检查）：\n' +
+      'pomodoro：未启用\n' +
+      'read-file：未启用\n' +
+      'checkpoint：未启用\n' +
+      'task：未启用\n' +
+  ...
+      'CUA：未配置；服务和系统权限尚未检查。\n' +
+  +   '配置与工具注册不证明服务或系统权限就绪。computer_check 检查连接、computer_observe 观察明确授权的应用均免逐条确认；未授权应用直接拒绝，computer_action 每次确认且不可记住。不会启动驱动或授予系统权限。\n' +
+  -   '配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n' +
+      '当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n' +
+      '工作目录不是操作系统隔离；主机命令仍需明确批准。\n' +
+      '命令配方未启用：需要明确启用当前主助手的 Shell；不会自行修改配置、安装或重启宿主。'
+  
+      at assertStep3Assembly (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:190:12)
+      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:133:13)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1869:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：未启用\nread-file：未启用\ncheckpoint：未启用\ntask：未启用\ntodoist：未启用\nshell：未启用\nweb：未启用\ncomputer：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。computer_check 检查连接、computer_observe 观察明确授权的应用均免逐条确认；未授权应用直接拒绝，computer_action 每次确认且不可记住。不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n工作目录不是操作系统隔离；主机命令仍需明确批准。\n命令配方未启用：需要明确启用当前主助手的 Shell；不会自行修改配置、安装或重启宿主。',
+    expected: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：未启用\nread-file：未启用\ncheckpoint：未启用\ntask：未启用\ntodoist：未启用\nshell：未启用\nweb：未启用\ncomputer：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n工作目录不是操作系统隔离；主机命令仍需明确批准。\n命令配方未启用：需要明确启用当前主助手的 Shell；不会自行修改配置、安装或重启宿主。',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at packages/assistant/dist/baseline-assembly.test.js:130:9
+✖ full assembly matches __baseline__/assembly-full.txt (84.846917ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  ... Skipped lines
+  
+    '当前助手能力（配置／实际注册，不是健康检查）：\n' +
+      'pomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\n' +
+      'read-file：已注册 read_file, list_directory, search_files, write_file, edit_file\n' +
+      'checkpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\n' +
+      'task：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\n' +
+  ...
+      'CUA：未配置；服务和系统权限尚未检查。\n' +
+  +   '配置与工具注册不证明服务或系统权限就绪。computer_check 检查连接、computer_observe 观察明确授权的应用均免逐条确认；未授权应用直接拒绝，computer_action 每次确认且不可记住。不会启动驱动或授予系统权限。\n' +
+  -   '配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n' +
+      '当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n' +
+      '工作目录不是操作系统隔离；主机命令仍需明确批准。\n' +
+      '复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。'
+  
+      at assertStep3Assembly (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:190:12)
+      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:133:13)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\nread-file：已注册 read_file, list_directory, search_files, write_file, edit_file\ncheckpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\ntask：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\ntodoist：已注册 todoist_list_tasks\nshell：已注册 shell_exec\nweb：已注册 web_fetch, feed_read, web_search\ncomputer：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。computer_check 检查连接、computer_observe 观察明确授权的应用均免逐条确认；未授权应用直接拒绝，computer_action 每次确认且不可记住。不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n工作目录不是操作系统隔离；主机命令仍需明确批准。\n复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。',
+    expected: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\nread-file：已注册 read_file, list_directory, search_files, write_file, edit_file\ncheckpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\ntask：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\ntodoist：已注册 todoist_list_tasks\nshell：已注册 shell_exec\nweb：已注册 web_fetch, feed_read, web_search\ncomputer：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n工作目录不是操作系统隔离；主机命令仍需明确批准。\n复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at packages/assistant/dist/baseline-assembly.test.js:130:9
+✖ full-without-todoist assembly matches __baseline__/assembly-full-without-todoist.txt (85.664667ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  ... Skipped lines
+  
+    '当前助手能力（配置／实际注册，不是健康检查）：\n' +
+      'pomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\n' +
+      'read-file：已注册 read_file, list_directory, search_files, write_file, edit_file\n' +
+      'checkpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\n' +
+      'task：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\n' +
+  ...
+      'CUA：未配置；服务和系统权限尚未检查。\n' +
+  +   '配置与工具注册不证明服务或系统权限就绪。computer_check 检查连接、computer_observe 观察明确授权的应用均免逐条确认；未授权应用直接拒绝，computer_action 每次确认且不可记住。不会启动驱动或授予系统权限。\n' +
+  -   '配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n' +
+      '当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n' +
+      '工作目录不是操作系统隔离；主机命令仍需明确批准。\n' +
+      '复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。'
+  
+      at assertStep3Assembly (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:190:12)
+      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:133:13)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\nread-file：已注册 read_file, list_directory, search_files, write_file, edit_file\ncheckpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\ntask：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\ntodoist：未启用\nshell：已注册 shell_exec\nweb：已注册 web_fetch, feed_read, web_search\ncomputer：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。computer_check 检查连接、computer_observe 观察明确授权的应用均免逐条确认；未授权应用直接拒绝，computer_action 每次确认且不可记住。不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n工作目录不是操作系统隔离；主机命令仍需明确批准。\n复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。',
+    expected: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\nread-file：已注册 read_file, list_directory, search_files, write_file, edit_file\ncheckpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\ntask：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\ntodoist：未启用\nshell：已注册 shell_exec\nweb：已注册 web_fetch, feed_read, web_search\ncomputer：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n工作目录不是操作系统隔离；主机命令仍需明确批准。\n复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at packages/assistant/dist/baseline-assembly.test.js:137:5
+✖ full assembly in the autonomous desktop foreground matches __baseline__/assembly-full-desktop-autonomous.txt (108.43775ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  ... Skipped lines
+  
+    '当前助手能力（配置／实际注册，不是健康检查）：\n' +
+      'pomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\n' +
+      'read-file：已注册 read_file, list_directory, search_files, write_file, edit_file\n' +
+      'checkpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\n' +
+      'task：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\n' +
+  ...
+      'CUA：未配置；服务和系统权限尚未检查。\n' +
+  +   '配置与工具注册不证明服务或系统权限就绪。computer_check 检查连接、computer_observe 观察明确授权的应用均免逐条确认；未授权应用直接拒绝，computer_action 每次确认且不可记住。不会启动驱动或授予系统权限。\n' +
+  -   '配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n' +
+      '当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n' +
+      '当前工作区桌面前台文件操作已授权，本机 Shell 仍逐条确认；其他入口不继承。Shell 使用进程的本机权限，工作区不是沙箱。\n' +
+      '复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。'
+  
+      at assertStep3Assembly (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:190:12)
+      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/baseline-assembly.test.js:140:9)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\nread-file：已注册 read_file, list_directory, search_files, write_file, edit_file\ncheckpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\ntask：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\ntodoist：已注册 todoist_list_tasks\nshell：已注册 shell_exec\nweb：已注册 web_fetch, feed_read, web_search\ncomputer：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。computer_check 检查连接、computer_observe 观察明确授权的应用均免逐条确认；未授权应用直接拒绝，computer_action 每次确认且不可记住。不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n当前工作区桌面前台文件操作已授权，本机 Shell 仍逐条确认；其他入口不继承。Shell 使用进程的本机权限，工作区不是沙箱。\n复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。',
+    expected: '当前助手能力（配置／实际注册，不是健康检查）：\npomodoro：已注册 pomodoro_start, pomodoro_status, pomodoro_cancel\nread-file：已注册 read_file, list_directory, search_files, write_file, edit_file\ncheckpoint：已注册 checkpoint_prepare, checkpoint_get, checkpoint_save\ntask：已注册 task_create, task_list, task_get, task_cancel, task_reschedule, task_ack, task_repeat_create, task_repeat_list, task_repeat_get, task_repeat_pause, task_repeat_resume, task_repeat_cancel\ntodoist：已注册 todoist_list_tasks\nshell：已注册 shell_exec\nweb：已注册 web_fetch, feed_read, web_search\ncomputer：未启用\nCUA：未配置；服务和系统权限尚未检查。\n配置与工具注册不证明服务或系统权限就绪。批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。\n当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。\n当前工作区桌面前台文件操作已授权，本机 Shell 仍逐条确认；其他入口不继承。Shell 使用进程的本机权限，工作区不是沙箱。\n复用能力：/recipes 查看已登记命令配方；登记、执行、停用、回退仍需本次批准，不会自动安装或重启宿主。',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at packages/assistant/dist/permission-boundary.test.js:25:1
+✖ b0 locks full host decisions, current Memory, configuration and filesystem boundaries (73727.466583ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  ... Skipped lines
+  
+    {
+      'config/inside/autonomy': 'TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace',
+      'config/inside/docker': 'TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace',
+      'config/inside/files': 'TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace',
+      'config/inside/implicit': {
+  ...
+      'round3/desktop/computer_check/check': {
+  +     approvals: [],
+  +     events: [],
+  -     approvals: [
+  -       {
+  -         remember: null,
+  -         tool: 'computer_check'
+  -       },
+  -       {
+  -         remember: null,
+  -         tool: 'computer_check'
+  -       }
+  -     ],
+  -     events: [
+  -       'TOOL_DENIED',
+  -       'TOOL_DENIED'
+  -     ],
+        status: 'completed'
+      },
+      'round3/desktop/computer_observe/observe': {
+  +     approvals: [],
+  +     events: [],
+  -     approvals: [
+  -       {
+  -         remember: null,
+  -         tool: 'computer_observe'
+  -       },
+  -       {
+  -         remember: null,
+  -         tool: 'computer_observe'
+  -       }
+  -     ],
+  -     events: [
+  -       'TOOL_DENIED',
+  -       'TOOL_DENIED'
+  -     ],
+        status: 'completed'
+      },
+  +   'round3/desktop/computer_observe/unauthorized': {
+  +     approvals: [],
+  +     events: [],
+  +     status: 'completed'
+  +   },
+      'round3/desktop/herdr_pi_control/input': {
+        approvals: [
+          {
+            remember: null,
+            tool: 'herdr_pi_control'
+  ...
+      'round3/telegram/computer_check/check': {
+  +     approvals: [],
+  +     events: [],
+  -     approvals: [
+  -       {
+  -         remember: null,
+  -         tool: 'computer_check'
+  -       },
+  -       {
+  -         remember: null,
+  -         tool: 'computer_check'
+  -       }
+  -     ],
+  -     events: [
+  -       'TOOL_DENIED',
+  -       'TOOL_DENIED'
+  -     ],
+        status: 'completed'
+      },
+      'round3/telegram/computer_observe/observe': {
+  +     approvals: [],
+  +     events: [],
+  -     approvals: [
+  -       {
+  -         remember: null,
+  -         tool: 'computer_observe'
+  -       },
+  -       {
+  -         remember: null,
+  -         tool: 'computer_observe'
+  -       }
+  -     ],
+  -     events: [
+  -       'TOOL_DENIED',
+  -       'TOOL_DENIED'
+  -     ],
+        status: 'completed'
+      },
+  +   'round3/telegram/computer_observe/unauthorized': {
+  +     approvals: [],
+  +     events: [],
+  +     status: 'completed'
+  +   },
+      'round3/telegram/herdr_pi_control/input': {
+        approvals: [
+          {
+            remember: null,
+            tool: 'herdr_pi_control'
+  
+      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/packages/assistant/dist/permission-boundary.test.js:252:16)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: {
+      'plain/commands': [ 'authorize', 'authorize-shell', 'capabilities', 'history', 'home', 'modules', 'permissions', 'recipes', 'task', 'workspace' ],
+      'plain/tools': [
+        'capability_status',  'edit_file',
+        'history_read',       'history_search',
+        'list_directory',     'memory_read',
+        'memory_write',       'read_file',
+        'recipe_list',        'recipe_manage',
+        'recipe_run',         'recipe_save',
+        'search_files',       'shell_exec',
+        'task_ack',           'task_cancel',
+        'task_create',        'task_get',
+        'task_list',          'task_repeat_cancel',
+        'task_repeat_create', 'task_repeat_get',
+        'task_repeat_list',   'task_repeat_pause',
+        'task_repeat_resume', 'task_reschedule',
+        'write_file'
+      ],
+      'plain/capability_status': { approvals: [], status: 'completed', events: [Array] },
+      'plain/memory_read': { approvals: [], status: 'completed', events: [Array] },
+      'plain/memory_write': { approvals: [], status: 'completed', events: [Array] },
+      'plain/saved-memory': [ [Object] ],
+      'plain/task_list': { approvals: [], status: 'completed', events: [Array] },
+      'plain/read_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'plain/write_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'plain/shell_exec': { approvals: [Array], status: 'completed', events: [Array] },
+      'desktop/commands': [ 'authorize', 'authorize-shell', 'capabilities', 'history', 'home', 'modules', 'permissions', 'recipes', 'task', 'workspace' ],
+      'desktop/tools': [
+        'capability_status',  'edit_file',
+        'history_read',       'history_search',
+        'list_directory',     'memory_read',
+        'read_file',          'recipe_list',
+        'recipe_manage',      'recipe_run',
+        'recipe_save',        'search_files',
+        'shell_exec',         'task_ack',
+        'task_cancel',        'task_create',
+        'task_get',           'task_list',
+        'task_repeat_cancel', 'task_repeat_create',
+        'task_repeat_get',    'task_repeat_list',
+        'task_repeat_pause',  'task_repeat_resume',
+        'task_reschedule',    'write_file'
+      ],
+      'desktop/capability_status': { approvals: [], status: 'completed', events: [Array] },
+      'desktop/memory_read': { approvals: [], status: 'completed', events: [Array] },
+      'desktop/memory_write': { approvals: [], status: 'failed', events: [] },
+      'desktop/saved-memory': [],
+      'desktop/task_list': { approvals: [], status: 'completed', events: [Array] },
+      'desktop/read_file': { approvals: [], status: 'completed', events: [Array] },
+      'desktop/write_file': { approvals: [], status: 'completed', events: [Array] },
+      'desktop/shell_exec': { approvals: [], status: 'completed', events: [Array] },
+      'telegram-desktop-only/commands': [ 'authorize', 'authorize-shell', 'capabilities', 'history', 'home', 'modules', 'permissions', 'recipes', 'task', 'workspace' ],
+      'telegram-desktop-only/tools': [
+        'capability_status',  'edit_file',
+        'history_read',       'history_search',
+        'list_directory',     'memory_read',
+        'memory_write',       'read_file',
+        'recipe_list',        'recipe_manage',
+        'recipe_run',         'recipe_save',
+        'search_files',       'shell_exec',
+        'task_ack',           'task_cancel',
+        'task_create',        'task_get',
+        'task_list',          'task_repeat_cancel',
+        'task_repeat_create', 'task_repeat_get',
+        'task_repeat_list',   'task_repeat_pause',
+        'task_repeat_resume', 'task_reschedule',
+        'write_file'
+      ],
+      'telegram-desktop-only/capability_status': { approvals: [], status: 'completed', events: [Array] },
+      'telegram-desktop-only/memory_read': { approvals: [], status: 'completed', events: [Array] },
+      'telegram-desktop-only/memory_write': { approvals: [], status: 'completed', events: [Array] },
+      'telegram-desktop-only/saved-memory': [ [Object] ],
+      'telegram-desktop-only/task_list': { approvals: [], status: 'completed', events: [Array] },
+      'telegram-desktop-only/read_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'telegram-desktop-only/write_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'telegram-desktop-only/shell_exec': { approvals: [Array], status: 'completed', events: [Array] },
+      'telegram/commands': [ 'authorize', 'authorize-shell', 'capabilities', 'history', 'home', 'modules', 'permissions', 'recipes', 'task', 'workspace' ],
+      'telegram/tools': [
+        'capability_status',  'edit_file',
+        'history_read',       'history_search',
+        'list_directory',     'memory_read',
+        'read_file',          'recipe_list',
+        'recipe_manage',      'recipe_run',
+        'recipe_save',        'search_files',
+        'shell_exec',         'task_ack',
+        'task_cancel',        'task_create',
+        'task_get',           'task_list',
+        'task_repeat_cancel', 'task_repeat_create',
+        'task_repeat_get',    'task_repeat_list',
+        'task_repeat_pause',  'task_repeat_resume',
+        'task_reschedule',    'write_file'
+      ],
+      'telegram/capability_status': { approvals: [], status: 'completed', events: [Array] },
+      'telegram/memory_read': { approvals: [], status: 'completed', events: [Array] },
+      'telegram/memory_write': { approvals: [], status: 'failed', events: [] },
+      'telegram/saved-memory': [],
+      'telegram/task_list': { approvals: [], status: 'completed', events: [Array] },
+      'telegram/read_file': { approvals: [], status: 'completed', events: [Array] },
+      'telegram/write_file': { approvals: [], status: 'completed', events: [Array] },
+      'telegram/shell_exec': { approvals: [], status: 'completed', events: [Array] },
+      'foreign-grant/commands': [ 'authorize', 'authorize-shell', 'capabilities', 'history', 'home', 'modules', 'permissions', 'recipes', 'task', 'workspace' ],
+      'foreign-grant/tools': [
+        'capability_status',  'edit_file',
+        'history_read',       'history_search',
+        'list_directory',     'memory_read',
+        'memory_write',       'read_file',
+        'recipe_list',        'recipe_manage',
+        'recipe_run',         'recipe_save',
+        'search_files',       'shell_exec',
+        'task_ack',           'task_cancel',
+        'task_create',        'task_get',
+        'task_list',          'task_repeat_cancel',
+        'task_repeat_create', 'task_repeat_get',
+        'task_repeat_list',   'task_repeat_pause',
+        'task_repeat_resume', 'task_reschedule',
+        'write_file'
+      ],
+      'foreign-grant/capability_status': { approvals: [], status: 'completed', events: [Array] },
+      'foreign-grant/memory_read': { approvals: [], status: 'completed', events: [Array] },
+      'foreign-grant/memory_write': { approvals: [], status: 'completed', events: [Array] },
+      'foreign-grant/saved-memory': [ [Object] ],
+      'foreign-grant/task_list': { approvals: [], status: 'completed', events: [Array] },
+      'foreign-grant/read_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'foreign-grant/write_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'foreign-grant/shell_exec': { approvals: [Array], status: 'completed', events: [Array] },
+      'other-thread/commands': [ 'authorize', 'authorize-shell', 'capabilities', 'history', 'home', 'modules', 'permissions', 'recipes', 'task', 'workspace' ],
+      'other-thread/tools': [
+        'capability_status',  'edit_file',
+        'history_read',       'history_search',
+        'list_directory',     'memory_read',
+        'memory_write',       'read_file',
+        'recipe_list',        'recipe_manage',
+        'recipe_run',         'recipe_save',
+        'search_files',       'shell_exec',
+        'task_ack',           'task_cancel',
+        'task_create',        'task_get',
+        'task_list',          'task_repeat_cancel',
+        'task_repeat_create', 'task_repeat_get',
+        'task_repeat_list',   'task_repeat_pause',
+        'task_repeat_resume', 'task_reschedule',
+        'write_file'
+      ],
+      'other-thread/capability_status': { approvals: [], status: 'completed', events: [Array] },
+      'other-thread/memory_read': { approvals: [], status: 'completed', events: [Array] },
+      'other-thread/memory_write': { approvals: [], status: 'completed', events: [Array] },
+      'other-thread/saved-memory': [ [Object] ],
+      'other-thread/task_list': { approvals: [], status: 'completed', events: [Array] },
+      'other-thread/read_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'other-thread/write_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'other-thread/shell_exec': { approvals: [Array], status: 'completed', events: [Array] },
+      'tui/commands': [ 'authorize', 'authorize-shell', 'capabilities', 'history', 'home', 'modules', 'permissions', 'recipes', 'task', 'workspace' ],
+      'tui/tools': [
+        'capability_status',  'edit_file',
+        'history_read',       'history_search',
+        'list_directory',     'memory_read',
+        'memory_write',       'read_file',
+        'recipe_list',        'recipe_manage',
+        'recipe_run',         'recipe_save',
+        'search_files',       'shell_exec',
+        'task_ack',           'task_cancel',
+        'task_create',        'task_get',
+        'task_list',          'task_repeat_cancel',
+        'task_repeat_create', 'task_repeat_get',
+        'task_repeat_list',   'task_repeat_pause',
+        'task_repeat_resume', 'task_reschedule',
+        'write_file'
+      ],
+      'tui/capability_status': { approvals: [], status: 'completed', events: [Array] },
+      'tui/memory_read': { approvals: [], status: 'completed', events: [Array] },
+      'tui/memory_write': { approvals: [], status: 'completed', events: [Array] },
+      'tui/saved-memory': [ [Object] ],
+      'tui/task_list': { approvals: [Array], status: 'completed', events: [Array] },
+      'tui/read_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'tui/write_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'tui/shell_exec': { approvals: [Array], status: 'completed', events: [Array] },
+      'terminal/desktop/terminal_exec': { approvals: [Array], events: [Array], status: 'completed' },
+      'terminal/telegram/terminal_exec': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/desktop/herdr_pi_read/get': { approvals: [], events: [], status: 'completed' },
+      'round3/desktop/herdr_pi_read/read': { approvals: [], events: [], status: 'completed' },
+      'round3/desktop/herdr_pi_read/wait': { approvals: [], events: [], status: 'completed' },
+      'round3/desktop/herdr_pi_control/prompt': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/desktop/herdr_pi_control/input': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/desktop/herdr_pi_control/stop': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/desktop/computer_check/check': { approvals: [], events: [], status: 'completed' },
+      'round3/desktop/computer_observe/observe': { approvals: [], events: [], status: 'completed' },
+      'round3/desktop/computer_observe/unauthorized': { approvals: [], events: [], status: 'completed' },
+      'round3/desktop/computer_action/action': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/desktop/terminal_exec/browser': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/telegram/herdr_pi_read/get': { approvals: [], events: [], status: 'completed' },
+      'round3/telegram/herdr_pi_read/read': { approvals: [], events: [], status: 'completed' },
+      'round3/telegram/herdr_pi_read/wait': { approvals: [], events: [], status: 'completed' },
+      'round3/telegram/herdr_pi_control/prompt': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/telegram/herdr_pi_control/input': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/telegram/herdr_pi_control/stop': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/telegram/computer_check/check': { approvals: [], events: [], status: 'completed' },
+      'round3/telegram/computer_observe/observe': { approvals: [], events: [], status: 'completed' },
+      'round3/telegram/computer_observe/unauthorized': { approvals: [], events: [], status: 'completed' },
+      'round3/telegram/computer_action/action': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/telegram/terminal_exec/browser': { approvals: [Array], events: [Array], status: 'completed' },
+      'path/valid': 'ok',
+      'path/absolute': 'INVALID_PATH',
+      'path/traversal': 'PATH_OUTSIDE_WORKSPACE',
+      'path/symlink': 'SYMLINK_NOT_ALLOWED',
+      'config/outside/implicit': { fileRules: [], docker: null },
+      'config/outside/files': { fileRules: [Array], docker: null },
+      'config/outside/autonomy': { fileRules: [], docker: null },
+      'config/outside/docker': { fileRules: [], docker: [Object] },
+      'config/inside/implicit': { fileRules: [], docker: null },
+      'config/inside/files': 'TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace',
+      'config/inside/autonomy': 'TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace',
+      'config/inside/docker': 'TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace',
+      worker: []
+    },
+    expected: {
+      'plain/commands': [ 'authorize', 'authorize-shell', 'capabilities', 'history', 'home', 'modules', 'permissions', 'recipes', 'task', 'workspace' ],
+      'plain/tools': [
+        'capability_status',  'edit_file',
+        'history_read',       'history_search',
+        'list_directory',     'memory_read',
+        'memory_write',       'read_file',
+        'recipe_list',        'recipe_manage',
+        'recipe_run',         'recipe_save',
+        'search_files',       'shell_exec',
+        'task_ack',           'task_cancel',
+        'task_create',        'task_get',
+        'task_list',          'task_repeat_cancel',
+        'task_repeat_create', 'task_repeat_get',
+        'task_repeat_list',   'task_repeat_pause',
+        'task_repeat_resume', 'task_reschedule',
+        'write_file'
+      ],
+      'plain/capability_status': { approvals: [], status: 'completed', events: [Array] },
+      'plain/memory_read': { approvals: [], status: 'completed', events: [Array] },
+      'plain/memory_write': { approvals: [], status: 'completed', events: [Array] },
+      'plain/saved-memory': [ [Object] ],
+      'plain/task_list': { approvals: [], status: 'completed', events: [Array] },
+      'plain/read_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'plain/write_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'plain/shell_exec': { approvals: [Array], status: 'completed', events: [Array] },
+      'desktop/commands': [ 'authorize', 'authorize-shell', 'capabilities', 'history', 'home', 'modules', 'permissions', 'recipes', 'task', 'workspace' ],
+      'desktop/tools': [
+        'capability_status',  'edit_file',
+        'history_read',       'history_search',
+        'list_directory',     'memory_read',
+        'read_file',          'recipe_list',
+        'recipe_manage',      'recipe_run',
+        'recipe_save',        'search_files',
+        'shell_exec',         'task_ack',
+        'task_cancel',        'task_create',
+        'task_get',           'task_list',
+        'task_repeat_cancel', 'task_repeat_create',
+        'task_repeat_get',    'task_repeat_list',
+        'task_repeat_pause',  'task_repeat_resume',
+        'task_reschedule',    'write_file'
+      ],
+      'desktop/capability_status': { approvals: [], status: 'completed', events: [Array] },
+      'desktop/memory_read': { approvals: [], status: 'completed', events: [Array] },
+      'desktop/memory_write': { approvals: [], status: 'failed', events: [] },
+      'desktop/saved-memory': [],
+      'desktop/task_list': { approvals: [], status: 'completed', events: [Array] },
+      'desktop/read_file': { approvals: [], status: 'completed', events: [Array] },
+      'desktop/write_file': { approvals: [], status: 'completed', events: [Array] },
+      'desktop/shell_exec': { approvals: [], status: 'completed', events: [Array] },
+      'telegram-desktop-only/commands': [ 'authorize', 'authorize-shell', 'capabilities', 'history', 'home', 'modules', 'permissions', 'recipes', 'task', 'workspace' ],
+      'telegram-desktop-only/tools': [
+        'capability_status',  'edit_file',
+        'history_read',       'history_search',
+        'list_directory',     'memory_read',
+        'memory_write',       'read_file',
+        'recipe_list',        'recipe_manage',
+        'recipe_run',         'recipe_save',
+        'search_files',       'shell_exec',
+        'task_ack',           'task_cancel',
+        'task_create',        'task_get',
+        'task_list',          'task_repeat_cancel',
+        'task_repeat_create', 'task_repeat_get',
+        'task_repeat_list',   'task_repeat_pause',
+        'task_repeat_resume', 'task_reschedule',
+        'write_file'
+      ],
+      'telegram-desktop-only/capability_status': { approvals: [], status: 'completed', events: [Array] },
+      'telegram-desktop-only/memory_read': { approvals: [], status: 'completed', events: [Array] },
+      'telegram-desktop-only/memory_write': { approvals: [], status: 'completed', events: [Array] },
+      'telegram-desktop-only/saved-memory': [ [Object] ],
+      'telegram-desktop-only/task_list': { approvals: [], status: 'completed', events: [Array] },
+      'telegram-desktop-only/read_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'telegram-desktop-only/write_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'telegram-desktop-only/shell_exec': { approvals: [Array], status: 'completed', events: [Array] },
+      'telegram/commands': [ 'authorize', 'authorize-shell', 'capabilities', 'history', 'home', 'modules', 'permissions', 'recipes', 'task', 'workspace' ],
+      'telegram/tools': [
+        'capability_status',  'edit_file',
+        'history_read',       'history_search',
+        'list_directory',     'memory_read',
+        'read_file',          'recipe_list',
+        'recipe_manage',      'recipe_run',
+        'recipe_save',        'search_files',
+        'shell_exec',         'task_ack',
+        'task_cancel',        'task_create',
+        'task_get',           'task_list',
+        'task_repeat_cancel', 'task_repeat_create',
+        'task_repeat_get',    'task_repeat_list',
+        'task_repeat_pause',  'task_repeat_resume',
+        'task_reschedule',    'write_file'
+      ],
+      'telegram/capability_status': { approvals: [], status: 'completed', events: [Array] },
+      'telegram/memory_read': { approvals: [], status: 'completed', events: [Array] },
+      'telegram/memory_write': { approvals: [], status: 'failed', events: [] },
+      'telegram/saved-memory': [],
+      'telegram/task_list': { approvals: [], status: 'completed', events: [Array] },
+      'telegram/read_file': { approvals: [], status: 'completed', events: [Array] },
+      'telegram/write_file': { approvals: [], status: 'completed', events: [Array] },
+      'telegram/shell_exec': { approvals: [], status: 'completed', events: [Array] },
+      'foreign-grant/commands': [ 'authorize', 'authorize-shell', 'capabilities', 'history', 'home', 'modules', 'permissions', 'recipes', 'task', 'workspace' ],
+      'foreign-grant/tools': [
+        'capability_status',  'edit_file',
+        'history_read',       'history_search',
+        'list_directory',     'memory_read',
+        'memory_write',       'read_file',
+        'recipe_list',        'recipe_manage',
+        'recipe_run',         'recipe_save',
+        'search_files',       'shell_exec',
+        'task_ack',           'task_cancel',
+        'task_create',        'task_get',
+        'task_list',          'task_repeat_cancel',
+        'task_repeat_create', 'task_repeat_get',
+        'task_repeat_list',   'task_repeat_pause',
+        'task_repeat_resume', 'task_reschedule',
+        'write_file'
+      ],
+      'foreign-grant/capability_status': { approvals: [], status: 'completed', events: [Array] },
+      'foreign-grant/memory_read': { approvals: [], status: 'completed', events: [Array] },
+      'foreign-grant/memory_write': { approvals: [], status: 'completed', events: [Array] },
+      'foreign-grant/saved-memory': [ [Object] ],
+      'foreign-grant/task_list': { approvals: [], status: 'completed', events: [Array] },
+      'foreign-grant/read_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'foreign-grant/write_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'foreign-grant/shell_exec': { approvals: [Array], status: 'completed', events: [Array] },
+      'other-thread/commands': [ 'authorize', 'authorize-shell', 'capabilities', 'history', 'home', 'modules', 'permissions', 'recipes', 'task', 'workspace' ],
+      'other-thread/tools': [
+        'capability_status',  'edit_file',
+        'history_read',       'history_search',
+        'list_directory',     'memory_read',
+        'memory_write',       'read_file',
+        'recipe_list',        'recipe_manage',
+        'recipe_run',         'recipe_save',
+        'search_files',       'shell_exec',
+        'task_ack',           'task_cancel',
+        'task_create',        'task_get',
+        'task_list',          'task_repeat_cancel',
+        'task_repeat_create', 'task_repeat_get',
+        'task_repeat_list',   'task_repeat_pause',
+        'task_repeat_resume', 'task_reschedule',
+        'write_file'
+      ],
+      'other-thread/capability_status': { approvals: [], status: 'completed', events: [Array] },
+      'other-thread/memory_read': { approvals: [], status: 'completed', events: [Array] },
+      'other-thread/memory_write': { approvals: [], status: 'completed', events: [Array] },
+      'other-thread/saved-memory': [ [Object] ],
+      'other-thread/task_list': { approvals: [], status: 'completed', events: [Array] },
+      'other-thread/read_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'other-thread/write_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'other-thread/shell_exec': { approvals: [Array], status: 'completed', events: [Array] },
+      'tui/commands': [ 'authorize', 'authorize-shell', 'capabilities', 'history', 'home', 'modules', 'permissions', 'recipes', 'task', 'workspace' ],
+      'tui/tools': [
+        'capability_status',  'edit_file',
+        'history_read',       'history_search',
+        'list_directory',     'memory_read',
+        'memory_write',       'read_file',
+        'recipe_list',        'recipe_manage',
+        'recipe_run',         'recipe_save',
+        'search_files',       'shell_exec',
+        'task_ack',           'task_cancel',
+        'task_create',        'task_get',
+        'task_list',          'task_repeat_cancel',
+        'task_repeat_create', 'task_repeat_get',
+        'task_repeat_list',   'task_repeat_pause',
+        'task_repeat_resume', 'task_reschedule',
+        'write_file'
+      ],
+      'tui/capability_status': { approvals: [], status: 'completed', events: [Array] },
+      'tui/memory_read': { approvals: [], status: 'completed', events: [Array] },
+      'tui/memory_write': { approvals: [], status: 'completed', events: [Array] },
+      'tui/saved-memory': [ [Object] ],
+      'tui/task_list': { approvals: [Array], status: 'completed', events: [Array] },
+      'tui/read_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'tui/write_file': { approvals: [Array], status: 'completed', events: [Array] },
+      'tui/shell_exec': { approvals: [Array], status: 'completed', events: [Array] },
+      'path/valid': 'ok',
+      'path/absolute': 'INVALID_PATH',
+      'path/traversal': 'PATH_OUTSIDE_WORKSPACE',
+      'path/symlink': 'SYMLINK_NOT_ALLOWED',
+      'config/outside/implicit': { fileRules: [], docker: null },
+      'config/outside/files': { fileRules: [Array], docker: null },
+      'config/outside/autonomy': { fileRules: [], docker: null },
+      'config/outside/docker': { fileRules: [], docker: [Object] },
+      'config/inside/implicit': { fileRules: [], docker: null },
+      'config/inside/files': 'TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace',
+      'config/inside/autonomy': 'TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace',
+      'config/inside/docker': 'TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace',
+      worker: [],
+      'terminal/desktop/terminal_exec': { approvals: [Array], events: [Array], status: 'completed' },
+      'terminal/telegram/terminal_exec': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/desktop/herdr_pi_read/get': { approvals: [], events: [], status: 'completed' },
+      'round3/desktop/herdr_pi_read/read': { approvals: [], events: [], status: 'completed' },
+      'round3/desktop/herdr_pi_read/wait': { approvals: [], events: [], status: 'completed' },
+      'round3/desktop/herdr_pi_control/prompt': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/desktop/herdr_pi_control/input': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/desktop/herdr_pi_control/stop': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/desktop/computer_check/check': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/desktop/computer_observe/observe': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/desktop/computer_action/action': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/desktop/terminal_exec/browser': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/telegram/herdr_pi_read/get': { approvals: [], events: [], status: 'completed' },
+      'round3/telegram/herdr_pi_read/read': { approvals: [], events: [], status: 'completed' },
+      'round3/telegram/herdr_pi_read/wait': { approvals: [], events: [], status: 'completed' },
+      'round3/telegram/herdr_pi_control/prompt': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/telegram/herdr_pi_control/input': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/telegram/herdr_pi_control/stop': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/telegram/computer_check/check': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/telegram/computer_observe/observe': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/telegram/computer_action/action': { approvals: [Array], events: [Array], status: 'completed' },
+      'round3/telegram/terminal_exec/browser': { approvals: [Array], events: [Array], status: 'completed' }
+    },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,28 @@
+{
+  "runId": "1197863a-6aa9-4c57-9c87-a2406e45b9f9",
+  "generatedAt": "2026-10-23T15:48:05.785Z",
+  "baseline": "63cc724540b0e17b40e4f930b5e9b082234a8fd9",
+  "sourceCommit": "15836fa3432bfc67717d7bde4b4a9699364dc3e5",
+  "status": "failed",
+  "frozen": {
+    "apps/desktop/scripts/electron-smoke.mjs": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+    "examples/eval/cm-step6-live.mjs": "6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546",
+    "packages/assistant/scripts/cm-step6-verify.mjs": "7fc93222da184d9f27cd9fc2601dde208e9a9690cc277b0c879d280d41840ffb",
+    "packages/assistant/scripts/seatbelt-s1-check.mjs": "af6f632dd35da6c3c527273ca614334714a4b7d679e1c98cce07183aad9f9d6a",
+    "packages/assistant/scripts/seatbelt-s1-audit.mjs": "4402c875108ce11ce926decb00cba5973632d8bb9d67e8e56edcbe130b02bfa4",
+    "apps/desktop/scripts/seatbelt-s1-electron.mjs": "ef5202c49d76aea439173c1553b8dcb402419982b4c09704ed554e5945437f1c",
+    "packages/assistant/scripts/v2-round1-verify.mjs": "5fdc8099ac5fa0f4c4442d40acc45aa8426c80991e1c460c95876b9f0034cced",
+    "packages/assistant/scripts/v2-round2-verify.mjs": "316945d04e36e3f489e801d65362bf6cd0289013db318994778dfe5b234e99df",
+    "packages/assistant/scripts/v2-round3-verify.mjs": "1807fd4ee0d7f09ad3469b8cda0d6291a699397cd81b8778f6a4f1ef66c137fe",
+    "packages/assistant/src/permission-decisions.snapshot.ts": "08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace",
+    "packages/assistant/src/modules/seatbelt-policy.ts": "62b259cba40fba3a458341ffc8c8d4f62841a69694c23e96c0d5ca6cae57b6a8",
+    "packages/assistant/src/modules/seatbelt-shell-runner.ts": "14163daa691c21324f3ef75cbd8159ceb28e814db74ddad4fe59e7a51c4ef57f",
+    "packages/assistant/src/modules/seatbelt-runtime.ts": "058a1a077ecef83929162a60a2d26a0c516e4c2d1afbc87dff4f8790ae28d62b"
+  },
+  "rows": {},
+  "metadataOnly": true,
+  "failure": {
+    "name": "AssertionError",
+    "message": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ []\n- [\n-   {\n-     error: {\n-       code: 'COMPUTER_PRECHECK_FAILED',\n-       message: 'Application is not allowed'\n-     },\n-     ok: false\n-   },\n-   {\n-     error: {\n-       code: 'COMPUTER_PRECHECK_FAILED',\n-       message: 'Application is not allowed'\n-     },\n-     ok: false\n-   }\n- ]\n"
+  }
+}

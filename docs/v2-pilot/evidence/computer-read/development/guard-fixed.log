@@ -1,0 +1,60 @@
+{"testHomeGuard":"failed","evidence":"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-Ukzslh/home/write-guard-Cd2Ui9/result.json","violations":0,"changes":1,"metadataUnchanged":true}
+✔ fails the whole command on a node write, using a temporary protected fixture (16.082375ms)
+{"testHomeGuard":"failed","evidence":"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-oSkaDR/home/write-guard-exhbLg/result.json","violations":0,"changes":0,"metadataUnchanged":false}
+✔ fails the whole command on a shell write, using a temporary protected fixture (6.418833ms)
+node:internal/assert/utils:146
+  throw error;
+  ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-pass-5wgOfr/home'
+- '/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-pass-5wgOfr/home'
+
+    at [eval]:1:31
+    at runScriptInThisContext (node:internal/vm:219:10)
+    at node:internal/process/execution:483:12
+    at [eval]-wrapper:6:24
+    at runScriptInContext (node:internal/process/execution:481:60)
+    at evalFunction (node:internal/process/execution:315:30)
+    at asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:11) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-pass-5wgOfr/home',
+  expected: '/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-pass-5wgOfr/home',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.4.0
+{"testHomeGuard":"failed","evidence":"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-pass-5wgOfr/home/write-guard-xnzwGf/result.json","violations":0,"changes":0,"metadataUnchanged":true}
+✖ requires an explicit temporary home and preserves successful isolated commands (76.302375ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 2
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 147.215917
+
+✖ failing tests:
+
+test at scripts/test-home.test.mjs:29:1
+✖ requires an explicit temporary home and preserves successful isolated commands (76.302375ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/a1-6/.codex/worktrees/cm-step0/aisdk-agent-framework/scripts/test-home.test.mjs:34:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+{"testHomeGuard":"failed","evidence":"/private/tmp/serika-computer-read/guard2-H/write-guard-qLk6L3/result.json","violations":0,"changes":0,"metadataUnchanged":true}

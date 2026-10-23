@@ -1,0 +1,133 @@
+{
+  "runId": "53a6d2bc-b29d-4450-91e0-8b97e8f58283",
+  "startedAt": "2026-10-23T15:48:05.747Z",
+  "home": "/private/tmp/serika-computer-read/audit-H",
+  "protectedRoot": "/Users/a1-6/.serika",
+  "command": [
+    "node",
+    "packages/assistant/scripts/computer-read-verify.mjs",
+    "--home",
+    "/private/tmp/serika-computer-read/audit-H",
+    "--output",
+    "/private/tmp/serika-computer-read/audit"
+  ],
+  "before": [
+    {
+      "path": "/Users/a1-6/.serika",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-22T17:32:47.918Z",
+      "mtimeNs": "1792690367918441762",
+      "ctimeNs": "1792690367918441762",
+      "inode": "27340943"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data",
+      "type": "directory",
+      "bytes": 160,
+      "mtime": "2026-10-22T17:33:49.361Z",
+      "mtimeNs": "1792690429361084723",
+      "ctimeNs": "1792690429361084723",
+      "inode": "27476230"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/task-worker-health.json",
+      "type": "file",
+      "bytes": 206,
+      "mtime": "2026-10-22T17:33:49.354Z",
+      "mtimeNs": "1792690429354202263",
+      "ctimeNs": "1792690429361084681",
+      "inode": "27485407"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/task-worker.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-22T17:32:47.922Z",
+      "mtimeNs": "1792690367922479596",
+      "ctimeNs": "1792690367922508305",
+      "inode": "27476231"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/tasks.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-22T17:32:47.976Z",
+      "mtimeNs": "1792690367976526321",
+      "ctimeNs": "1792690367976575487",
+      "inode": "27476243"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts",
+      "type": "directory",
+      "bytes": 64,
+      "mtime": "2026-10-22T16:21:12.239Z",
+      "mtimeNs": "1792686072239803868",
+      "ctimeNs": "1792686072239828868",
+      "inode": "27340946"
+    }
+  ],
+  "after": [
+    {
+      "path": "/Users/a1-6/.serika",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-22T17:32:47.918Z",
+      "mtimeNs": "1792690367918441762",
+      "ctimeNs": "1792690367918441762",
+      "inode": "27340943"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data",
+      "type": "directory",
+      "bytes": 160,
+      "mtime": "2026-10-22T17:33:49.361Z",
+      "mtimeNs": "1792690429361084723",
+      "ctimeNs": "1792690429361084723",
+      "inode": "27476230"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/task-worker-health.json",
+      "type": "file",
+      "bytes": 206,
+      "mtime": "2026-10-22T17:33:49.354Z",
+      "mtimeNs": "1792690429354202263",
+      "ctimeNs": "1792690429361084681",
+      "inode": "27485407"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/task-worker.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-22T17:32:47.922Z",
+      "mtimeNs": "1792690367922479596",
+      "ctimeNs": "1792690367922508305",
+      "inode": "27476231"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/tasks.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-22T17:32:47.976Z",
+      "mtimeNs": "1792690367976526321",
+      "ctimeNs": "1792690367976575487",
+      "inode": "27476243"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts",
+      "type": "directory",
+      "bytes": 64,
+      "mtime": "2026-10-22T16:21:12.239Z",
+      "mtimeNs": "1792686072239803868",
+      "ctimeNs": "1792686072239828868",
+      "inode": "27340946"
+    }
+  ],
+  "events": [],
+  "exitCode": 1,
+  "signal": null,
+  "status": "failed",
+  "violations": [],
+  "metadataUnchanged": true,
+  "finishedAt": "2026-10-23T15:48:05.912Z"
+}

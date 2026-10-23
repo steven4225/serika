@@ -1,0 +1,48 @@
+{
+  "capturedAt": "2026-10-23T15:35:14.724748+00:00",
+  "method": "lstat/scandir only; no file content read; no symlink traversal",
+  "entries": [
+    {
+      "path": "/Users/a1-6/.serika",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-22T17:32:47.918442+00:00",
+      "mtimeNs": 1792690367918441762
+    },
+    {
+      "path": "/Users/a1-6/.serika/data",
+      "type": "directory",
+      "bytes": 160,
+      "mtime": "2026-10-22T17:33:49.361085+00:00",
+      "mtimeNs": 1792690429361084723
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/task-worker-health.json",
+      "type": "file",
+      "bytes": 206,
+      "mtime": "2026-10-22T17:33:49.354202+00:00",
+      "mtimeNs": 1792690429354202263
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/task-worker.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-22T17:32:47.922480+00:00",
+      "mtimeNs": 1792690367922479596
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/tasks.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-22T17:32:47.976526+00:00",
+      "mtimeNs": 1792690367976526321
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts",
+      "type": "directory",
+      "bytes": 64,
+      "mtime": "2026-10-22T16:21:12.239804+00:00",
+      "mtimeNs": 1792686072239803868
+    }
+  ]
+}

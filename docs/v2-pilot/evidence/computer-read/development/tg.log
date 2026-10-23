@@ -1,0 +1,10 @@
+✔ allowed Computer reads return through offline Telegram without approval and foreign apps are rejected (3033.51875ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3695.47425
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-computer-read/tg-H/write-guard-3ZrsRS/result.json","violations":0,"changes":0,"metadataUnchanged":true}
