@@ -48,6 +48,7 @@
 | `/bin/sh -c 'node --test packages/assistant/scripts/cm-step7-migrate.test.mjs packages/assistant/scripts/home-import.test.mjs' --home /private/tmp/serika-cutover-tools-work/H` | 0，两轮各 7/7 |
 | `/bin/sh -c 'python3 /private/tmp/serika-cutover-tools-work/check-runbook.py' --home /private/tmp/serika-cutover-tools-work/H` | 0，16 项，未启动产品 |
 | `/bin/sh -c 'python3 /private/tmp/serika-cutover-tools-work/audit.py' --home /private/tmp/serika-cutover-tools-work/H` | 0，行数、冻结 SHA、权限行、完整 diff |
+| `git diff --check bb409fc HEAD`，完整原始 diff 附件 | 2，标准 patch 的上下文空行保留单空格；排除此附件检查所有其余变更为 0 |
 | 证据凭据前缀扫描 | 初版 Python 断言 1；核实 10 个文件路径误报、加词边界后 0，无凭据命中 |
 | `SERIKA_CM6_VERIFY_OUTPUT=/private/tmp/serika-cutover-tools-work/unified node packages/assistant/scripts/cm-step6-verify.mjs --home /private/tmp/serika-cutover-tools-work/verify-H` | 0，两时区全套、eval、冻结冒烟和离线审计通过 |
 
@@ -55,6 +56,7 @@
 
 ## 5. 偏差、出错与限制
 
+- 提交证据前 `git diff --cached --check` 把完整 `.diff` 附件中 26 个标准上下文空行的单空格标为 trailing whitespace；提交命令序列未在该非 0 结果处停止，随后仍提交并推送。对已提交附件单独复核退出 2；排除此原始附件检查所有其余变更退出 0。完整 diff 已与 Git 原输出逐字节核对，因此保留附件原样，并补本条记录；未改源码或重跑统一验证。
 - 本轮定向测试及文档检查未出现失败。证据扫描初版把 `task-...` 的 `sk-` 子串误报为密钥，Python 断言退出 1；核实 10 处全部是源码或 work-task 锁文件路径后，给模式加词边界，扫描退出 0，未改证据内容。第二轮针对删除/keep-reviewed/discard、原类别保护和私密权限补了断言；最终统一验证还覆盖提交后的全部代码。没有为通过检查修改冻结脚本、b0 或旧测试断言。
 - 审核依据须由用户提供第 7 步保留的原 v4/v5 文件；工具验证其固定 SHA。本轮为遵守不读日用数据，未读取本机真实 `~/.serika`、main 数据或旧私密副本，未执行任何真实裁决、导入、停机或切换。
 - 当前 default home 非空时没有自动恢复例外。发布后回执未知，保留数据及证据，交用户决定，不清空、不移动、不自动再写。
