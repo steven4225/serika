@@ -1,0 +1,11 @@
+$ tsc -b
+✔ startup discovery follows a Node upgrade and only grants actual loaded library directories (8.326375ms)
+✔ missing discovery and protected executable, library or config directories fail closed (5.151542ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 58.14125

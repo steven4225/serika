@@ -1,0 +1,31 @@
+$ tsc -b --pretty false && pnpm --filter @serika/desktop typecheck
+$ tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit
+✔ startup discovery follows a Node upgrade and only grants actual loaded library directories (10.418083ms)
+✔ missing discovery and protected executable, library or config directories fail closed (5.676959ms)
+▶ createShellModule
+  ✔ registers shell_exec and runs from a workspace-relative cwd (42.588542ms)
+  ✔ gives Docker sandbox execute a timeout budget that outlasts cleanup (0.197167ms)
+  ✔ uses a configured command timeout for host execution and tool metadata (53.350291ms)
+  ✔ emits bounded live output with tool call identity without changing the final result (66.446708ms)
+  ✔ keeps the configured Docker deadline ahead of cleanup and kill grace (0.182583ms)
+  ✔ returns a non-zero exit code and combined command output (35.488625ms)
+✔ createShellModule (198.992833ms)
+▶ executeShellCommand
+  ✔ keeps split UTF-8 characters intact in live progress (54.981583ms)
+  ✔ reports output truncation without buffering beyond the configured limit (37.479ms)
+  ✔ terminates a command that exceeds the timeout (53.190416ms)
+  ✔ terminates a running command when its AbortSignal is cancelled (53.419458ms)
+  ✔ returns a timed-out command result before a later tool-layer abort (53.563708ms)
+  ✔ does not pass application API keys into the command environment (35.35125ms)
+  ✔ rejects a cwd outside the workspace (0.54425ms)
+  ✔ declares never-remembered shell calls, sandbox-only Run authorization, cards and instructions (0.41425ms)
+✔ executeShellCommand (289.309666ms)
+✔ b0 locks full host decisions, current Memory, configuration and filesystem boundaries (40683.393041ms)
+ℹ tests 17
+ℹ suites 2
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 40856.759417

@@ -1,0 +1,8 @@
+phase	decision	reason	evidence	result
+ground	Preserve experiment worktree and 9ad2b9c baseline	User approved S05 and runtime discovery only	git branch/status/fetch; frozen hash checks	main and daily data untouched
+design	Discover loaded images with sanitized version probes; inspect Mach-O install names only for loaded libraries	Static dependency recursion does not prove runtime loading	seatbelt-runtime.ts	one SeatbeltRuntime, no fixed Cellar versions
+probe	Keep canonical and exact install-name library directories	Canonical-only read grants produced dyld library load SIGABRT	tool output; missing llhttp/pcre2 aliases	fixed via loaded-set-filtered otool paths, no broad Homebrew root
+probe	Scope successful find to ordinary readable fixture	Recursive find of root containing denied sensitive sentinels exits 1	iterations/find-sensitive-walk.json	negative protections retained; find readable exits 0
+review	Recheck cancellation immediately before sandbox dispatch	Startup discovery introduces an asynchronous wait	commit e03b1b5 and cancelledDuringStartup result	cancelled startup never writes its marker
+runbook	Use an explicit fixed new H; stop if default ~/.serika is mandatory	Importer guardPath rejects daily path; moving H breaks absolute bindings	cutover-runbook.md and home-import.mjs	no import/cutover executed
+verify	Use clean e03b1b5 for final Electron/native/TG and one unified run	User requires real Mac evidence and a single final unified invocation	formal JSON reports	pending unified completion

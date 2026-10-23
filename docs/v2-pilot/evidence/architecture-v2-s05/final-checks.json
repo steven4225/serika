@@ -1,0 +1,84 @@
+{
+  "runId": "9e686a1a-68cd-4430-9d3d-829e9cf416f3",
+  "generatedAt": "2026-10-23T10:07:50.853Z",
+  "sourceCommit": "e03b1b5a7ee20994c254fbc3b01d030b167a4e37",
+  "allFormalReportsPassed": true,
+  "allFormalReportsFromCleanSource": true,
+  "sourceProductChangedAfterVerification": false,
+  "b0ByteIdenticalToAcceptedS1": true,
+  "b0OnlyDesktopChangedFromOriginal": true,
+  "telegramRowByteIdentical": true,
+  "frozenFilesMatched": true,
+  "screenshotCount": 15,
+  "screenshotHashesMatched": true,
+  "secretPrefixScan": {
+    "textFiles": 23,
+    "matches": 0,
+    "matchedValuesNeverPrinted": true
+  },
+  "codeCounts": {
+    "product": {
+      "added": 126,
+      "removed": 70,
+      "net": 56,
+      "files": [
+        {
+          "path": "packages/assistant/src/modules/seatbelt-policy.ts",
+          "added": 6,
+          "removed": 56,
+          "kind": "product"
+        },
+        {
+          "path": "packages/assistant/src/modules/seatbelt-runtime.ts",
+          "added": 98,
+          "removed": 0,
+          "kind": "product"
+        },
+        {
+          "path": "packages/assistant/src/modules/seatbelt-shell-runner.ts",
+          "added": 22,
+          "removed": 14,
+          "kind": "product"
+        }
+      ]
+    },
+    "migration-tools": {
+      "added": 0,
+      "removed": 0,
+      "net": 0,
+      "files": []
+    },
+    "tests-verification": {
+      "added": 78,
+      "removed": 7,
+      "net": 71,
+      "files": [
+        {
+          "path": "apps/desktop/scripts/seatbelt-s1-electron.mjs",
+          "added": 5,
+          "removed": 0,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/scripts/seatbelt-s1-audit.mjs",
+          "added": 5,
+          "removed": 2,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/scripts/seatbelt-s1-check.mjs",
+          "added": 25,
+          "removed": 5,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/src/modules/seatbelt-runtime.test.ts",
+          "added": 43,
+          "removed": 0,
+          "kind": "tests-verification"
+        }
+      ]
+    }
+  },
+  "unifiedInvocations": 1
+}

@@ -1,0 +1,117 @@
+{
+  "runId": "01447453-971d-485c-93a5-f02d509f4c12",
+  "generatedAt": "2026-10-23T09:58:23.737Z",
+  "sourceCommit": "e03b1b5a7ee20994c254fbc3b01d030b167a4e37",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "4402c875108ce11ce926decb00cba5973632d8bb9d67e8e56edcbe130b02bfa4",
+  "baselineCommit": "bb5c6e6c1674b0a2bdb3b71f331abf6b33467ced",
+  "acceptedS1": {
+    "commit": "9ad2b9cf5560c2b9c57f6a3c57a85001b1452b8d",
+    "sha256": "d0b820f3eef8a8230d951e8e4da3d53cde0756b776b7645ffc00980dbbcc2e07",
+    "byteIdentical": true
+  },
+  "status": "passed",
+  "b0": {
+    "file": "packages/assistant/src/permission-boundary.snapshot.json",
+    "beforeSha256": "b988e469ca6c830690358de82db65b67a316e9c0256bfa993b3199f8c2e68670",
+    "afterSha256": "d0b820f3eef8a8230d951e8e4da3d53cde0756b776b7645ffc00980dbbcc2e07",
+    "approvedChangedKeys": [
+      "desktop/shell_exec"
+    ],
+    "actualChangedKeys": [
+      "desktop/shell_exec"
+    ],
+    "unapprovedChanges": [],
+    "completeFileExactlyApprovedPatch": true,
+    "telegram": {
+      "byteIdentical": true,
+      "beforeBytes": 538,
+      "afterBytes": 538,
+      "beforeSha256": "52f3b1dc3ba35898bef93898b912f53d9521ce23915532e14a69c9c6c73f54d3",
+      "afterSha256": "52f3b1dc3ba35898bef93898b912f53d9521ce23915532e14a69c9c6c73f54d3"
+    }
+  },
+  "frozen": {
+    "packages/assistant/src/permission-decisions.snapshot.ts": "08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace",
+    "apps/desktop/scripts/electron-smoke.mjs": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+    "examples/eval/cm-step6-live.mjs": "6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546"
+  },
+  "lineChanges": {
+    "product": {
+      "added": 126,
+      "removed": 70,
+      "net": 56,
+      "files": [
+        {
+          "path": "packages/assistant/src/modules/seatbelt-policy.ts",
+          "added": 6,
+          "removed": 56,
+          "kind": "product"
+        },
+        {
+          "path": "packages/assistant/src/modules/seatbelt-runtime.ts",
+          "added": 98,
+          "removed": 0,
+          "kind": "product"
+        },
+        {
+          "path": "packages/assistant/src/modules/seatbelt-shell-runner.ts",
+          "added": 22,
+          "removed": 14,
+          "kind": "product"
+        }
+      ]
+    },
+    "migration-tools": {
+      "added": 0,
+      "removed": 0,
+      "net": 0,
+      "files": []
+    },
+    "tests-verification": {
+      "added": 78,
+      "removed": 7,
+      "net": 71,
+      "files": [
+        {
+          "path": "apps/desktop/scripts/seatbelt-s1-electron.mjs",
+          "added": 5,
+          "removed": 0,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/scripts/seatbelt-s1-audit.mjs",
+          "added": 5,
+          "removed": 2,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/scripts/seatbelt-s1-check.mjs",
+          "added": 25,
+          "removed": 5,
+          "kind": "tests-verification"
+        },
+        {
+          "path": "packages/assistant/src/modules/seatbelt-runtime.test.ts",
+          "added": 43,
+          "removed": 0,
+          "kind": "tests-verification"
+        }
+      ]
+    }
+  },
+  "excludedNonCode": [
+    {
+      "path": "docs/v2-pilot/cutover-runbook.md",
+      "added": 142,
+      "removed": 0,
+      "kind": "evidence-docs"
+    },
+    {
+      "path": "docs/v2-pilot/pending.md",
+      "added": 6,
+      "removed": 0,
+      "kind": "evidence-docs"
+    }
+  ]
+}

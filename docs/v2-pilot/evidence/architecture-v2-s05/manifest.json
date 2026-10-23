@@ -1,0 +1,163 @@
+{
+  "runId": "ff2007f2-1d77-46fb-b7fd-063c4143c2db",
+  "generatedAt": "2026-10-23T10:07:50.854Z",
+  "sourceCommit": "e03b1b5a7ee20994c254fbc3b01d030b167a4e37",
+  "files": [
+    {
+      "file": "audit/audit.json",
+      "sha256": "77ee05806f37ccdab272c1294e77dd78c55424756dd817e3ad5c7a11f49c8406"
+    },
+    {
+      "file": "audit/b0.diff",
+      "sha256": "6a781230ad982b873e784f5a06aeb03c4377ec5eed26fd01d1042a131708376f"
+    },
+    {
+      "file": "decisions.tsv",
+      "sha256": "567ed847206f5174b735227721be6ef52171bd55c2d87c817874a3d9f147ebf8"
+    },
+    {
+      "file": "electron-smoke/chat-reply.png",
+      "sha256": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497"
+    },
+    {
+      "file": "electron-smoke/cleanup.json",
+      "sha256": "c62da29d9d3f7b865db18d50028c9750559bc2f569a6e8d730086ec1a6cfaf04"
+    },
+    {
+      "file": "electron-smoke/cm-step4-original-result.json",
+      "sha256": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9"
+    },
+    {
+      "file": "electron-smoke/cm-step5-run.json",
+      "sha256": "b56c7d1cfcdfc0126d3ffb7ab90956296c6f941a699eb0352c3374b578c2760c"
+    },
+    {
+      "file": "electron-smoke/cm-step6-run.json",
+      "sha256": "9edcfde9cab60409ad2e7a30679a5c58c319c80ffa335e1b2ab12479239ddb5d"
+    },
+    {
+      "file": "electron-smoke/daily-config-retired-fields.png",
+      "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+    },
+    {
+      "file": "electron-smoke/daily-path-refuses-writes.png",
+      "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+    },
+    {
+      "file": "electron-smoke/home-fixture.json",
+      "sha256": "eb8aaf841222e0923b3ee0ea0f405ca283325bb788377ca0ce5ba2f7593d3b08"
+    },
+    {
+      "file": "electron-smoke/README.md",
+      "sha256": "1ec7dad9eb4e8e9edf8c5b1452c28544550fca2e24e861c28e26ae92d1b8e14e"
+    },
+    {
+      "file": "electron-smoke/remember-on-memory-page.png",
+      "sha256": "3bb52cb933fd7dcc50bc1b6e3347060fb0ab3511ef1b00f70274538bf789ad3c"
+    },
+    {
+      "file": "electron-smoke/remember-success-receipt.png",
+      "sha256": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25"
+    },
+    {
+      "file": "electron-smoke/restart-persistence.png",
+      "sha256": "d2d38721d2d5114d238d7c0ad0032154f331e757bc9c05a8780ca663f725415f"
+    },
+    {
+      "file": "electron-smoke/result.json",
+      "sha256": "8bad3c06cd430dc746d36c8f5fddbddefc4a980c2092e68555512cfec01986d3"
+    },
+    {
+      "file": "electron-smoke/startup.png",
+      "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
+    },
+    {
+      "file": "electron-smoke/undo-disappears.png",
+      "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+    },
+    {
+      "file": "electron-smoke/verification.json",
+      "sha256": "830bdc6e00782763fcca10f68f0cb7fc43da28d74725109bbdb894de72b233c2"
+    },
+    {
+      "file": "electron/electron-result.json",
+      "sha256": "c153f4d10e220d279ec50d1cf1092950a71b3bcf4144b7c94c986b02688747b3"
+    },
+    {
+      "file": "electron/host-first-confirmation.png",
+      "sha256": "65554a7597adbaf7514838a6a09eedc72a74ad5fcc596e28cbae4f4ed52084f1"
+    },
+    {
+      "file": "electron/host-network-confirmation.png",
+      "sha256": "71f01088bb3a69c5efdb1089508a977209c1abf1a0e4fc3831cc7acb377bde4b"
+    },
+    {
+      "file": "electron/native-result.json",
+      "sha256": "8726e8c7c4bd318b356762bd009e46d1f5bbf3a024b335c67b74b784f4a7429a"
+    },
+    {
+      "file": "electron/policy-reference.sb",
+      "sha256": "a20ada065e2a27037e53a125b72c6e97d261043d3ced51dce11056a3eed9b677"
+    },
+    {
+      "file": "electron/S04-S09-files-network-denied.png",
+      "sha256": "d6a85e0924d4c7a13e8046a10b8f4cbc052ce75fb435f0edf8f59d621dfeac96"
+    },
+    {
+      "file": "electron/S05-system-commands.png",
+      "sha256": "371e19a0f1c3a03805f3afd551e8133616522075099c644e6edd0b95a20820fc"
+    },
+    {
+      "file": "electron/S13-after-cancel.png",
+      "sha256": "e3f12af8d44edeafb02e2cf174fe2185f7377e1807da0b50a96b926f6d3c15c5"
+    },
+    {
+      "file": "electron/S13-before-cancel.png",
+      "sha256": "8124235376ab8aa29b93b1db97c6d025780fe1c17758c1f3f9bda9be2044e443"
+    },
+    {
+      "file": "electron/S15-cross-process-denied.png",
+      "sha256": "a6fae6138dcb1e09f03cbdcd0bcb8c967a007d4f467a144bd06a91e5d0e67a36"
+    },
+    {
+      "file": "final-checks.json",
+      "sha256": "cedf74972994fe59bf2ba3a197051141e1b3d71ccd09c342255caa06f2700079"
+    },
+    {
+      "file": "iterations/find-sensitive-walk.json",
+      "sha256": "3e4dde1414131d38909dac9c57a9ea1a98f2ef3822b8c0599547d40f3f929e78"
+    },
+    {
+      "file": "targeted/targeted.log",
+      "sha256": "c764ffef215500c75a897fc25ed59c94add7fec5fb7ee100c184f2fd403fb444"
+    },
+    {
+      "file": "targeted/type-build-final.log",
+      "sha256": "e16a250926ffaa821b520b25a8eb03f406cfa62cfc7522b2d1e13686721c0d33"
+    },
+    {
+      "file": "targeted/upgrade-final.log",
+      "sha256": "57c2cf92506bb6d94a8c677e8e272c3177b041727fbda8ac5b7f4812c7ae6d98"
+    },
+    {
+      "file": "telegram/telegram-result.json",
+      "sha256": "22ce7a98eaaf375298bc907891fd6da092b8ba64fd0a6ea664803976504a60bf"
+    },
+    {
+      "file": "unified/commands.log",
+      "sha256": "6056045075954f5355f39b82beff0bf96ab156d993b7243bb43db71d2b2f0c7b"
+    },
+    {
+      "file": "unified/live.json",
+      "sha256": "115efec3d0d66e6814f0daed6ec7c463cc0af4de2d88d30348d598b7fb09ba4b"
+    },
+    {
+      "file": "unified/offline-audit.json",
+      "sha256": "1f0b8504f4e63f14ace15c12caf210f9947dfa893b190d4d845f9b84bb990529"
+    },
+    {
+      "file": "unified/verification.json",
+      "sha256": "db84b9d2b1e7c587c5f8846555092d5ca803bce4839c94c324ff78ca12672118"
+    }
+  ]
+}

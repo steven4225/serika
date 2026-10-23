@@ -1,0 +1,991 @@
+{
+  "runId": "c02160b3-8f7a-4725-9dac-a526c8a52038",
+  "startedAt": "2026-10-23T09:49:06.249Z",
+  "platform": "darwin",
+  "arch": "arm64",
+  "node": "v26.4.0",
+  "sourceCommit": "9ad2b9cf5560c2b9c57f6a3c57a85001b1452b8d",
+  "sourceWorktreeDirty": true,
+  "scriptSha256": "55519e5253fcc9939e58a39a8906d652125828ef9af362b8c225ba1adf705bae",
+  "realModelCalls": 0,
+  "status": "failed",
+  "commands": [
+    {
+      "name": "compile-process",
+      "exitCode": 0,
+      "signal": null,
+      "sourceSha256": "cdbf50631a971e6d0527157569a494253ccf4dd3a9d755899a137f7d6939fe43",
+      "stderr": ""
+    },
+    {
+      "name": "compile-cancel",
+      "exitCode": 0,
+      "signal": null,
+      "sourceSha256": "efc7e289b1ab9307808a5b1fabc28c5c104f7e0ea249186d23df13b1a0f14850",
+      "stderr": ""
+    },
+    {
+      "name": "compile-network",
+      "exitCode": 0,
+      "signal": null,
+      "sourceSha256": "0f6731afd56822635d69052786e6507eade3073079dc39af4a16cd1139e3c6ff",
+      "stderr": ""
+    },
+    {
+      "name": "cross-process-host-control",
+      "exitCode": 0,
+      "result": {
+        "numericProcargs2": {
+          "name": "PROBE_CREDENTIAL_CANARY",
+          "variableNameObserved": true,
+          "blocked": false,
+          "errno": 0
+        },
+        "processInfo": {
+          "blocked": false,
+          "errno": 0
+        },
+        "processPath": {
+          "blocked": false,
+          "errno": 0
+        },
+        "taskPort": {
+          "blocked": true,
+          "result": 5
+        },
+        "taskReadPort": {
+          "blocked": true,
+          "result": -1
+        },
+        "taskInspectPort": {
+          "blocked": true,
+          "result": -1
+        },
+        "taskNamePort": {
+          "blocked": false,
+          "result": 0
+        },
+        "numericProcInfo": {
+          "blocked": false,
+          "errno": 0
+        },
+        "numericProcargs": {
+          "blocked": false,
+          "errno": 0
+        },
+        "runtimeSysctl": {
+          "blocked": false,
+          "errno": 0
+        },
+        "externalSignal": {
+          "blocked": false,
+          "errno": 0
+        },
+        "machServices": [
+          {
+            "name": "com.apple.cfprefsd.agent",
+            "blocked": false,
+            "result": 0
+          },
+          {
+            "name": "com.apple.coreservices.appleevents",
+            "blocked": false,
+            "result": 0
+          }
+        ],
+        "descriptors": {
+          "extraOpen": 0,
+          "sockets": 0
+        }
+      }
+    },
+    {
+      "name": "S10-inherited-socket-positive-control",
+      "exitCode": 0,
+      "result": {
+        "numericProcargs2": {
+          "name": "PROBE_CREDENTIAL_CANARY",
+          "variableNameObserved": true,
+          "blocked": false,
+          "errno": 0
+        },
+        "processInfo": {
+          "blocked": false,
+          "errno": 0
+        },
+        "processPath": {
+          "blocked": false,
+          "errno": 0
+        },
+        "taskPort": {
+          "blocked": true,
+          "result": 5
+        },
+        "taskReadPort": {
+          "blocked": true,
+          "result": -1
+        },
+        "taskInspectPort": {
+          "blocked": true,
+          "result": -1
+        },
+        "taskNamePort": {
+          "blocked": false,
+          "result": 0
+        },
+        "numericProcInfo": {
+          "blocked": false,
+          "errno": 0
+        },
+        "numericProcargs": {
+          "blocked": false,
+          "errno": 0
+        },
+        "runtimeSysctl": {
+          "blocked": false,
+          "errno": 0
+        },
+        "externalSignal": {
+          "blocked": false,
+          "errno": 0
+        },
+        "machServices": [
+          {
+            "name": "com.apple.cfprefsd.agent",
+            "blocked": false,
+            "result": 0
+          },
+          {
+            "name": "com.apple.coreservices.appleevents",
+            "blocked": false,
+            "result": 0
+          }
+        ],
+        "descriptors": {
+          "extraOpen": 1,
+          "sockets": 1
+        }
+      }
+    },
+    {
+      "name": "S15",
+      "command": "/private/tmp/serika-s1-s05-dev-01/A/process --pid 5551 --home /private/tmp/serika-s1-s05-dev-01/H",
+      "result": {
+        "ok": true,
+        "exitCode": 0,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\n{\"numericProcargs2\":{\"name\":\"PROBE_CREDENTIAL_CANARY\",\"variableNameObserved\":false,\"blocked\":true,\"errno\":1},\"processInfo\":{\"blocked\":true,\"errno\":1},\"processPath\":{\"blocked\":true,\"errno\":1},\"taskPort\":{\"blocked\":true,\"result\":5},\"taskReadPort\":{\"blocked\":true,\"result\":-1},\"taskInspectPort\":{\"blocked\":true,\"result\":-1},\"taskNamePort\":{\"blocked\":true,\"result\":5},\"numericProcInfo\":{\"blocked\":true,\"errno\":1},\"numericProcargs\":{\"blocked\":true,\"errno\":1},\"runtimeSysctl\":{\"blocked\":false,\"errno\":0},\"externalSignal\":{\"blocked\":true,\"errno\":1},\"machServices\":[{\"name\":\"com.apple.cfprefsd.agent\",\"blocked\":true,\"result\":1100},{\"name\":\"com.apple.coreservices.appleevents\",\"blocked\":true,\"result\":1100}],\"descriptors\":{\"extraOpen\":0,\"sockets\":0}}\n",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S04-S09",
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node /private/tmp/serika-s1-s05-dev-01/A/checks.mjs --child checks --plan /private/tmp/serika-s1-s05-dev-01/A/plan.json --home /private/tmp/serika-s1-s05-dev-01/H",
+      "result": {
+        "ok": true,
+        "exitCode": 0,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\n{\"authorizedWrite\":true,\"privateTempWrite\":true,\"outsideWrite\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead\":{\"blocked\":true,\"code\":\"EPERM\"},\"homeRead\":{\"blocked\":true,\"code\":\"EPERM\"},\"envRead\":{\"blocked\":true,\"code\":\"EPERM\"},\"nestedEnvRead\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.netrc\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.netrc\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.npmrc\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.npmrc\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.pypirc\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.pypirc\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.git-credentials\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.git-credentials\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.docker/config.json\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.docker/config.json\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.aws/credentials\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.aws/credentials\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.gnupg/private\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.gnupg/private\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.ssh/credential\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.ssh/credential\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-read:/private/tmp/serika-s1-s05-dev-01/A/H/config.json\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-write:/private/tmp/serika-s1-s05-dev-01/A/H/config.json\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-read:/private/tmp/serika-s1-s05-dev-01/A/Library/Keychains/canary\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-write:/private/tmp/serika-s1-s05-dev-01/A/Library/Keychains/canary\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-read:/private/tmp/serika-s1-s05-dev-01/A/Library/Application Support/Browser/canary\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-write:/private/tmp/serika-s1-s05-dev-01/A/Library/Application Support/Browser/canary\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-read:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-write:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-read:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.lock\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-write:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.lock\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-read:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.replace.tmp\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-write:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.replace.tmp\":{\"blocked\":true,\"code\":\"EPERM\"},\"protectedAncestorRename\":{\"blocked\":true,\"code\":\"EPERM\"},\"symlinkWrite\":{\"blocked\":true,\"code\":\"EPERM\"},\"symlinkRead\":{\"blocked\":true,\"code\":\"EPERM\"},\"runtimeWrite\":{\"blocked\":true,\"code\":\"EPERM\"},\"environment\":[{\"name\":\"AWS_ACCESS_KEY_ID\",\"blocked\":true},{\"name\":\"DYLD_INSERT_LIBRARIES\",\"blocked\":true},{\"name\":\"NODE_OPTIONS\",\"blocked\":true},{\"name\":\"NO_PROXY\",\"blocked\":true},{\"name\":\"PROBE_CREDENTIAL_CANARY\",\"blocked\":true},{\"name\":\"SSH_AUTH_SOCK\",\"blocked\":true}],\"IPv4\":{\"blocked\":true,\"code\":\"EPERM\"},\"IPv6\":{\"blocked\":true,\"code\":\"EPERM\"},\"Unix\":{\"blocked\":true,\"code\":\"EPERM\"},\"nodeExecuted\":true}\n",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S09-native-sockets",
+      "command": "/private/tmp/serika-s1-s05-dev-01/A/network 60431 --home /private/tmp/serika-s1-s05-dev-01/H",
+      "result": {
+        "ok": true,
+        "exitCode": 0,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\n{\"TCP4\":{\"blocked\":true,\"errno\":1},\"UDP-DNS4\":{\"blocked\":true,\"errno\":1},\"bind-listen4\":{\"blocked\":true,\"errno\":1},\"TCP6\":{\"blocked\":true,\"errno\":1},\"UDP-DNS6\":{\"blocked\":true,\"errno\":1},\"bind-listen6\":{\"blocked\":true,\"errno\":1}}\n",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S09-DNS",
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node /private/tmp/serika-s1-s05-dev-01/A/checks.mjs --child dns --plan /private/tmp/serika-s1-s05-dev-01/A/plan.json --home /private/tmp/serika-s1-s05-dev-01/H",
+      "result": {
+        "ok": true,
+        "exitCode": null,
+        "signal": "SIGTRAP",
+        "termination": "signalled",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\nDNS runtime initialization\n",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S12-fork-exec",
+      "command": "{ /opt/homebrew/Cellar/node/26.4.0/bin/node /private/tmp/serika-s1-s05-dev-01/A/checks.mjs --child checks --plan /private/tmp/serika-s1-s05-dev-01/A/plan.json --home /private/tmp/serika-s1-s05-dev-01/H; } & wait",
+      "result": {
+        "ok": true,
+        "exitCode": 0,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\n{\"authorizedWrite\":true,\"privateTempWrite\":true,\"outsideWrite\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead\":{\"blocked\":true,\"code\":\"EPERM\"},\"homeRead\":{\"blocked\":true,\"code\":\"EPERM\"},\"envRead\":{\"blocked\":true,\"code\":\"EPERM\"},\"nestedEnvRead\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.netrc\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.netrc\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.npmrc\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.npmrc\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.pypirc\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.pypirc\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.git-credentials\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.git-credentials\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.docker/config.json\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.docker/config.json\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.aws/credentials\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.aws/credentials\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.gnupg/private\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.gnupg/private\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveRead:.ssh/credential\":{\"blocked\":true,\"code\":\"EPERM\"},\"sensitiveWrite:.ssh/credential\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-read:/private/tmp/serika-s1-s05-dev-01/A/H/config.json\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-write:/private/tmp/serika-s1-s05-dev-01/A/H/config.json\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-read:/private/tmp/serika-s1-s05-dev-01/A/Library/Keychains/canary\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-write:/private/tmp/serika-s1-s05-dev-01/A/Library/Keychains/canary\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-read:/private/tmp/serika-s1-s05-dev-01/A/Library/Application Support/Browser/canary\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-write:/private/tmp/serika-s1-s05-dev-01/A/Library/Application Support/Browser/canary\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-read:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-write:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-read:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.lock\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-write:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.lock\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-read:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.replace.tmp\":{\"blocked\":true,\"code\":\"EPERM\"},\"protected-write:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.replace.tmp\":{\"blocked\":true,\"code\":\"EPERM\"},\"protectedAncestorRename\":{\"blocked\":true,\"code\":\"EPERM\"},\"symlinkWrite\":{\"blocked\":true,\"code\":\"EPERM\"},\"symlinkRead\":{\"blocked\":true,\"code\":\"EPERM\"},\"runtimeWrite\":{\"blocked\":true,\"code\":\"EPERM\"},\"environment\":[{\"name\":\"AWS_ACCESS_KEY_ID\",\"blocked\":true},{\"name\":\"DYLD_INSERT_LIBRARIES\",\"blocked\":true},{\"name\":\"NODE_OPTIONS\",\"blocked\":true},{\"name\":\"NO_PROXY\",\"blocked\":true},{\"name\":\"PROBE_CREDENTIAL_CANARY\",\"blocked\":true},{\"name\":\"SSH_AUTH_SOCK\",\"blocked\":true}],\"IPv4\":{\"blocked\":true,\"code\":\"EPERM\"},\"IPv6\":{\"blocked\":true,\"code\":\"EPERM\"},\"Unix\":{\"blocked\":true,\"code\":\"EPERM\"},\"nodeExecuted\":true}\n",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S12-posix-spawn",
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node /private/tmp/serika-s1-s05-dev-01/A/checks.mjs --child spawn --plan /private/tmp/serika-s1-s05-dev-01/A/plan.json --home /private/tmp/serika-s1-s05-dev-01/H",
+      "result": {
+        "ok": true,
+        "exitCode": 0,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\n{\"detachedSpawn\":{\"blocked\":true,\"code\":\"EPERM\",\"exitCode\":null}}\n",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S13",
+      "command": "/private/tmp/serika-s1-s05-dev-01/A/cancel --temp /private/tmp/serika-s1-s05-dev-01/A --home /private/tmp/serika-s1-s05-dev-01/H",
+      "result": {
+        "ok": true,
+        "exitCode": null,
+        "signal": null,
+        "termination": "signalled",
+        "cancelled": true,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\n",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S05-git-fixture-init",
+      "exitCode": 0,
+      "stderr": ""
+    },
+    {
+      "name": "S05-shell",
+      "command": "printf shell-ok",
+      "result": {
+        "ok": true,
+        "exitCode": 0,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\nshell-ok",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S05-node",
+      "command": "node --version",
+      "result": {
+        "ok": true,
+        "exitCode": 0,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\nv26.4.0\n",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S05-git",
+      "command": "git --version",
+      "result": {
+        "ok": true,
+        "exitCode": 0,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\ngit version 2.55.0\n",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S05-ls",
+      "command": "ls .",
+      "result": {
+        "ok": true,
+        "exitCode": 0,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\nH\nLibrary\nafter-term.pid\nallowed.txt\ncancel\nchecks.mjs\nescape\nheartbeat\nnested\nnetwork\nplan.json\nprocess\nready.json\nsecret\ntrusted-parent\ntrusted[1].json\ntrusted[1].json.lock\ntrusted[1].json.replace.tmp\nunknown-once\n",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S05-cat",
+      "command": "cat allowed.txt",
+      "result": {
+        "ok": true,
+        "exitCode": 0,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\nallowed",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S05-grep",
+      "command": "grep allowed allowed.txt",
+      "result": {
+        "ok": true,
+        "exitCode": 0,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\nallowed\n",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S05-sed",
+      "command": "sed 's/allowed/checked/' allowed.txt",
+      "result": {
+        "ok": true,
+        "exitCode": 0,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\nchecked",
+        "truncated": false
+      }
+    },
+    {
+      "name": "S05-find",
+      "command": "find . -name allowed.txt",
+      "result": {
+        "ok": true,
+        "exitCode": 1,
+        "signal": null,
+        "termination": "exited",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\nfind: ./trusted-parent/nested: Operation not permitted\n./allowed.txt\nfind: ./.gnupg: Operation not permitted\nfind: ./Library: Operation not permitted\nfind: ./H: Operation not permitted\nfind: ./.ssh: Operation not permitted\nfind: ./.aws: Operation not permitted\n",
+        "truncated": false
+      }
+    }
+  ],
+  "checks": {
+    "S15": {
+      "numericProcargs2": {
+        "name": "PROBE_CREDENTIAL_CANARY",
+        "variableNameObserved": false,
+        "blocked": true,
+        "errno": 1
+      },
+      "processInfo": {
+        "blocked": true,
+        "errno": 1
+      },
+      "processPath": {
+        "blocked": true,
+        "errno": 1
+      },
+      "taskPort": {
+        "blocked": true,
+        "result": 5
+      },
+      "taskReadPort": {
+        "blocked": true,
+        "result": -1
+      },
+      "taskInspectPort": {
+        "blocked": true,
+        "result": -1
+      },
+      "taskNamePort": {
+        "blocked": true,
+        "result": 5
+      },
+      "numericProcInfo": {
+        "blocked": true,
+        "errno": 1
+      },
+      "numericProcargs": {
+        "blocked": true,
+        "errno": 1
+      },
+      "runtimeSysctl": {
+        "blocked": false,
+        "errno": 0
+      },
+      "externalSignal": {
+        "blocked": true,
+        "errno": 1
+      },
+      "machServices": [
+        {
+          "name": "com.apple.cfprefsd.agent",
+          "blocked": true,
+          "result": 1100
+        },
+        {
+          "name": "com.apple.coreservices.appleevents",
+          "blocked": true,
+          "result": 1100
+        }
+      ],
+      "descriptors": {
+        "extraOpen": 0,
+        "sockets": 0
+      }
+    },
+    "filesystem": {
+      "authorizedWrite": true,
+      "privateTempWrite": true,
+      "outsideWrite": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "homeRead": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "envRead": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "nestedEnvRead": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.netrc": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.netrc": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.npmrc": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.npmrc": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.pypirc": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.pypirc": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.git-credentials": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.git-credentials": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.docker/config.json": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.docker/config.json": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.aws/credentials": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.aws/credentials": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.gnupg/private": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.gnupg/private": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.ssh/credential": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.ssh/credential": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-read:/private/tmp/serika-s1-s05-dev-01/A/H/config.json": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-write:/private/tmp/serika-s1-s05-dev-01/A/H/config.json": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-read:/private/tmp/serika-s1-s05-dev-01/A/Library/Keychains/canary": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-write:/private/tmp/serika-s1-s05-dev-01/A/Library/Keychains/canary": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-read:/private/tmp/serika-s1-s05-dev-01/A/Library/Application Support/Browser/canary": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-write:/private/tmp/serika-s1-s05-dev-01/A/Library/Application Support/Browser/canary": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-read:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-write:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-read:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.lock": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-write:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.lock": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-read:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.replace.tmp": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-write:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.replace.tmp": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protectedAncestorRename": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "symlinkWrite": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "symlinkRead": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "runtimeWrite": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "environment": [
+        {
+          "name": "AWS_ACCESS_KEY_ID",
+          "blocked": true
+        },
+        {
+          "name": "DYLD_INSERT_LIBRARIES",
+          "blocked": true
+        },
+        {
+          "name": "NODE_OPTIONS",
+          "blocked": true
+        },
+        {
+          "name": "NO_PROXY",
+          "blocked": true
+        },
+        {
+          "name": "PROBE_CREDENTIAL_CANARY",
+          "blocked": true
+        },
+        {
+          "name": "SSH_AUTH_SOCK",
+          "blocked": true
+        }
+      ],
+      "IPv4": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "IPv6": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "Unix": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "nodeExecuted": true
+    },
+    "sockets": {
+      "TCP4": {
+        "blocked": true,
+        "errno": 1
+      },
+      "UDP-DNS4": {
+        "blocked": true,
+        "errno": 1
+      },
+      "bind-listen4": {
+        "blocked": true,
+        "errno": 1
+      },
+      "TCP6": {
+        "blocked": true,
+        "errno": 1
+      },
+      "UDP-DNS6": {
+        "blocked": true,
+        "errno": 1
+      },
+      "bind-listen6": {
+        "blocked": true,
+        "errno": 1
+      }
+    },
+    "DNS": {
+      "result": {
+        "ok": true,
+        "exitCode": null,
+        "signal": "SIGTRAP",
+        "termination": "signalled",
+        "cancelled": false,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\nDNS runtime initialization\n",
+        "truncated": false
+      },
+      "peerPackets": 0
+    },
+    "descendant": {
+      "authorizedWrite": true,
+      "privateTempWrite": true,
+      "outsideWrite": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "homeRead": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "envRead": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "nestedEnvRead": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.netrc": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.netrc": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.npmrc": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.npmrc": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.pypirc": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.pypirc": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.git-credentials": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.git-credentials": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.docker/config.json": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.docker/config.json": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.aws/credentials": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.aws/credentials": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.gnupg/private": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.gnupg/private": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveRead:.ssh/credential": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "sensitiveWrite:.ssh/credential": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-read:/private/tmp/serika-s1-s05-dev-01/A/H/config.json": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-write:/private/tmp/serika-s1-s05-dev-01/A/H/config.json": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-read:/private/tmp/serika-s1-s05-dev-01/A/Library/Keychains/canary": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-write:/private/tmp/serika-s1-s05-dev-01/A/Library/Keychains/canary": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-read:/private/tmp/serika-s1-s05-dev-01/A/Library/Application Support/Browser/canary": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-write:/private/tmp/serika-s1-s05-dev-01/A/Library/Application Support/Browser/canary": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-read:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-write:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-read:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.lock": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-write:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.lock": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-read:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.replace.tmp": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protected-write:/private/tmp/serika-s1-s05-dev-01/A/trusted[1].json.replace.tmp": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "protectedAncestorRename": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "symlinkWrite": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "symlinkRead": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "runtimeWrite": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "environment": [
+        {
+          "name": "AWS_ACCESS_KEY_ID",
+          "blocked": true
+        },
+        {
+          "name": "DYLD_INSERT_LIBRARIES",
+          "blocked": true
+        },
+        {
+          "name": "NODE_OPTIONS",
+          "blocked": true
+        },
+        {
+          "name": "NO_PROXY",
+          "blocked": true
+        },
+        {
+          "name": "PROBE_CREDENTIAL_CANARY",
+          "blocked": true
+        },
+        {
+          "name": "SSH_AUTH_SOCK",
+          "blocked": true
+        }
+      ],
+      "IPv4": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "IPv6": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "Unix": {
+        "blocked": true,
+        "code": "EPERM"
+      },
+      "nodeExecuted": true
+    },
+    "spawn": {
+      "detachedSpawn": {
+        "blocked": true,
+        "code": "EPERM",
+        "exitCode": null
+      }
+    },
+    "S13": {
+      "ready": {
+        "pid": 5605,
+        "pgid": 5598,
+        "setsidBlocked": true,
+        "setsidErrno": 1,
+        "setpgidBlocked": true,
+        "setpgidErrno": 1
+      },
+      "result": {
+        "ok": true,
+        "exitCode": null,
+        "signal": null,
+        "termination": "signalled",
+        "cancelled": true,
+        "timedOut": false,
+        "output": "Error opening /private/var/select/sh: Operation not permitted\n",
+        "truncated": false
+      },
+      "heartbeatStopped": true,
+      "descendantAlive": false,
+      "latePid": 5606,
+      "lateAlive": false
+    },
+    "S03": {
+      "ok": false,
+      "error": {
+        "code": "SANDBOX_UNAVAILABLE",
+        "message": "Seatbelt unavailable or directory/runtime outside the approved policy. No host fallback."
+      }
+    },
+    "unknown": {
+      "code": "TOOL_OUTCOME_UNKNOWN",
+      "retryable": false,
+      "settlementChecks": 1,
+      "faultInjection": "group observation EPERM after real command"
+    },
+    "networkPeerPackets": 0
+  },
+  "resolvedRuntime": {
+    "node": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+    "git": "/opt/homebrew/Cellar/git/2.55.0/bin/git",
+    "libraryDirectories": [
+      "/opt/homebrew/Cellar/ada-url/3.4.4/lib",
+      "/opt/homebrew/Cellar/brotli/1.2.0/lib",
+      "/opt/homebrew/Cellar/c-ares/1.34.8/lib",
+      "/opt/homebrew/Cellar/gettext/1.0/lib",
+      "/opt/homebrew/Cellar/hdrhistogram_c/0.11.10/lib",
+      "/opt/homebrew/Cellar/icu4c@78/78.3/lib",
+      "/opt/homebrew/Cellar/libffi/3.6.0/lib",
+      "/opt/homebrew/Cellar/libnghttp2/1.69.0/lib",
+      "/opt/homebrew/Cellar/libnghttp3/1.17.0/lib",
+      "/opt/homebrew/Cellar/libngtcp2/1.24.0/lib",
+      "/opt/homebrew/Cellar/libuv/1.52.1/lib",
+      "/opt/homebrew/Cellar/llhttp/9.4.2/lib",
+      "/opt/homebrew/Cellar/merve/1.2.2_1/lib",
+      "/opt/homebrew/Cellar/nbytes/0.1.4/lib",
+      "/opt/homebrew/Cellar/node/26.4.0/lib",
+      "/opt/homebrew/Cellar/openssl@3/3.6.5/lib",
+      "/opt/homebrew/Cellar/pcre2/10.47_1/lib",
+      "/opt/homebrew/Cellar/simdjson/4.6.4/lib",
+      "/opt/homebrew/Cellar/simdutf/9.0.0/lib",
+      "/opt/homebrew/Cellar/sqlite/3.53.4/lib",
+      "/opt/homebrew/Cellar/uvwasi/0.0.23/lib",
+      "/opt/homebrew/Cellar/zstd/1.5.7_1/lib",
+      "/opt/homebrew/opt/ada-url/lib",
+      "/opt/homebrew/opt/brotli/lib",
+      "/opt/homebrew/opt/c-ares/lib",
+      "/opt/homebrew/opt/gettext/lib",
+      "/opt/homebrew/opt/hdrhistogram_c/lib",
+      "/opt/homebrew/opt/icu4c@78/lib",
+      "/opt/homebrew/opt/libffi/lib",
+      "/opt/homebrew/opt/libnghttp2/lib",
+      "/opt/homebrew/opt/libnghttp3/lib",
+      "/opt/homebrew/opt/libngtcp2/lib",
+      "/opt/homebrew/opt/libuv/lib",
+      "/opt/homebrew/opt/llhttp/lib",
+      "/opt/homebrew/opt/merve/lib",
+      "/opt/homebrew/opt/nbytes/lib",
+      "/opt/homebrew/opt/node/lib",
+      "/opt/homebrew/opt/openssl@3/lib",
+      "/opt/homebrew/opt/pcre2/lib",
+      "/opt/homebrew/opt/simdjson/lib",
+      "/opt/homebrew/opt/simdutf/lib",
+      "/opt/homebrew/opt/sqlite/lib",
+      "/opt/homebrew/opt/uvwasi/lib",
+      "/opt/homebrew/opt/zstd/lib"
+    ]
+  },
+  "expandedSensitiveRoots": [
+    "/private/tmp/serika-s1-s05-dev-01/H",
+    "/private/tmp/serika-s1-s05-dev-01/sensitive",
+    "/private/tmp/serika-s1-s05-dev-01/A/H",
+    "/private/tmp/serika-s1-s05-dev-01/A/Library",
+    "/private/tmp/serika-s1-s05-dev-01/A/trusted-parent/nested",
+    "/Users/a1-6/.serika",
+    "/Users/a1-6/.ssh",
+    "/Users/a1-6/.aws",
+    "/Users/a1-6/.gnupg",
+    "/Users/a1-6/Library"
+  ],
+  "policyReference": {
+    "file": "policy-reference.sb",
+    "sha256": "dd540af18c9e16cd2fd25df498668f1e352c7f3d597d3d3947678678ee87548c",
+    "temporaryDirectoryIsReferenceOnly": true
+  },
+  "failure": {
+    "name": "AssertionError",
+    "message": "find\n\n1 !== 0\n"
+  },
+  "finishedAt": "2026-10-23T09:49:10.497Z",
+  "targetStopped": true
+}
