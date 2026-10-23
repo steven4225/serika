@@ -1,0 +1,267 @@
+{
+  "verification": "real-electron-with-fake-model",
+  "platform": "darwin",
+  "sourceCommit": "367550f5f2feed0af64f51a0001e7efa923013fe",
+  "scriptSha256": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+  "sourceWorktreeDirty": false,
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "checks": [
+    {
+      "name": "startup",
+      "result": "passed",
+      "unexpectedErrors": 0,
+      "expectedErrors": [],
+      "observedErrorCount": 0,
+      "screenshot": {
+        "file": "startup.png",
+        "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
+      }
+    },
+    {
+      "name": "chat-reply",
+      "result": "passed",
+      "unexpectedErrors": 0,
+      "expectedErrors": [],
+      "observedErrorCount": 0,
+      "screenshot": {
+        "file": "chat-reply.png",
+        "sha256": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497"
+      }
+    },
+    {
+      "name": "remember-success-receipt",
+      "result": "passed",
+      "source": "v6-record",
+      "undoAvailable": true,
+      "unexpectedErrors": 0,
+      "expectedErrors": [],
+      "observedErrorCount": 0,
+      "screenshot": {
+        "file": "remember-success-receipt.png",
+        "sha256": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25"
+      }
+    },
+    {
+      "name": "remember-on-memory-page",
+      "result": "passed",
+      "unexpectedErrors": 0,
+      "expectedErrors": [],
+      "observedErrorCount": 0,
+      "screenshot": {
+        "file": "remember-on-memory-page.png",
+        "sha256": "a2999ed80a57422e135025da61f2116806b73b7652e0e3e0d153aee816c9ef71"
+      }
+    },
+    {
+      "name": "restart-persistence",
+      "result": "passed",
+      "unexpectedErrors": 0,
+      "expectedErrors": [],
+      "observedErrorCount": 0,
+      "screenshot": {
+        "file": "restart-persistence.png",
+        "sha256": "e3ab47db1d01fab11ff4faf185c26d74cea80b46bc04a6c1d05a72f09506697a"
+      }
+    },
+    {
+      "name": "undo-disappears",
+      "result": "passed",
+      "unexpectedErrors": 0,
+      "expectedErrors": [],
+      "observedErrorCount": 0,
+      "screenshot": {
+        "file": "undo-disappears.png",
+        "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+      }
+    },
+    {
+      "name": "daily-path-refuses-writes",
+      "result": "passed",
+      "unexpectedErrors": 0,
+      "expectedErrors": [
+        "实验版本拒绝写入日用数据目录"
+      ],
+      "observedErrorCount": 1,
+      "screenshot": {
+        "file": "daily-path-refuses-writes.png",
+        "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+      }
+    },
+    {
+      "name": "daily-config-retired-fields",
+      "result": "passed",
+      "configSource": "样例",
+      "retiredFields": [
+        "modules.memory.queryRewrite",
+        "modules.memory.semantic",
+        "modules.memory.contextView",
+        "contextCompaction.mode",
+        "contextCompaction.warningRatio",
+        "herdrBinding",
+        "telegramAutonomy.toolApproval"
+      ],
+      "unexpectedErrors": 0,
+      "expectedErrors": [
+        "Invalid TUI config schema"
+      ],
+      "observedErrorCount": 1,
+      "screenshot": {
+        "file": "daily-config-retired-fields.png",
+        "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+      }
+    }
+  ],
+  "launches": [
+    {
+      "name": "before-restart",
+      "main": {
+        "electron": "44.4.5",
+        "pid": 95071,
+        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-NHaMbw/primary/profile",
+        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-NHaMbw/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm-step6-verification-6f9s4j/smoke-source/apps/desktop/out/renderer/index.html"
+      }
+    },
+    {
+      "name": "after-restart",
+      "main": {
+        "electron": "44.4.5",
+        "pid": 95157,
+        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-NHaMbw/primary/profile",
+        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-NHaMbw/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm-step6-verification-6f9s4j/smoke-source/apps/desktop/out/renderer/index.html"
+      }
+    },
+    {
+      "name": "daily-path-guard",
+      "main": {
+        "electron": "44.4.5",
+        "pid": 95186,
+        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-NHaMbw/guard/profile",
+        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-NHaMbw/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm-step6-verification-6f9s4j/smoke-source/apps/desktop/out/renderer/index.html"
+      }
+    },
+    {
+      "name": "daily-config-copy",
+      "main": {
+        "electron": "44.4.5",
+        "pid": 95196,
+        "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-NHaMbw/daily-config-copy/profile",
+        "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-NHaMbw/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/cm-step6-verification-6f9s4j/smoke-source/apps/desktop/out/renderer/index.html"
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "startup.png",
+      "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
+    },
+    {
+      "file": "chat-reply.png",
+      "sha256": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497"
+    },
+    {
+      "file": "remember-success-receipt.png",
+      "sha256": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25"
+    },
+    {
+      "file": "remember-on-memory-page.png",
+      "sha256": "a2999ed80a57422e135025da61f2116806b73b7652e0e3e0d153aee816c9ef71"
+    },
+    {
+      "file": "restart-persistence.png",
+      "sha256": "e3ab47db1d01fab11ff4faf185c26d74cea80b46bc04a6c1d05a72f09506697a"
+    },
+    {
+      "file": "undo-disappears.png",
+      "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+    },
+    {
+      "file": "daily-path-refuses-writes.png",
+      "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+    },
+    {
+      "file": "daily-config-retired-fields.png",
+      "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+    }
+  ],
+  "status": "passed",
+  "sourceHashes": {
+    "pnpm-lock.yaml": "1cc34e21d41247254a23b1f298486a30e993694eef39fd2de217194081059605"
+  },
+  "artifactHashes": {
+    "out/main/index.js": "bb38bb437ba6a472be5583d0c0b6e363084344a74d533f09dcf59b7fb9127ccf",
+    "out/preload/index.cjs": "e95eb5c1150249b1799b345032280c51994c84636a2f1715af321a88c6ab6199",
+    "out/renderer/index.html": "a07a4729f910ee7dae76841d6ef052d8354a789a8be2e887953b218246669fae"
+  },
+  "rememberDiagnostic": {
+    "libraryCount": 1,
+    "memoryCount": 1,
+    "toolResults": [
+      {
+        "toolName": "memory_write",
+        "status": "completed"
+      }
+    ]
+  },
+  "restart": {
+    "beforePid": 95071,
+    "afterPid": 95157,
+    "beforeMemorySha256": "5aafd96db087e6bd19b60964c8b91943165ca987cbaccadfc180d2bbadaee892",
+    "afterMemorySha256": "5aafd96db087e6bd19b60964c8b91943165ca987cbaccadfc180d2bbadaee892"
+  },
+  "dailyGuard": {
+    "beforeSentinelSha256": "fa5af83df857842e69dfba19dac89ba69c5dc68b1fdd6fc13e4bc777c0669461",
+    "afterSentinelSha256": "fa5af83df857842e69dfba19dac89ba69c5dc68b1fdd6fc13e4bc777c0669461",
+    "onlySentinelRemains": true,
+    "configuredWorkspace": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-electron-smoke-NHaMbw/home/Library/Application Support/@aisdk-agent/desktop",
+    "error": "实验版本拒绝写入日用数据目录",
+    "assertionBeforeRuntimeCreation": "apps/desktop/src/main/desktop-runtime.ts",
+    "dailyTreeTraversed": false,
+    "isolatedHome": true
+  },
+  "configSource": {
+    "kind": "样例",
+    "sha256": "8b6b4ee384e998228cfc59743ab26e669e31b1bd0b08b973457d36c3d543d366",
+    "file": "apps/desktop/scripts/fixtures/retired-config.json"
+  },
+  "retiredFields": [
+    "modules.memory.queryRewrite",
+    "modules.memory.semantic",
+    "modules.memory.contextView",
+    "contextCompaction.mode",
+    "contextCompaction.warningRatio",
+    "herdrBinding",
+    "telegramAutonomy.toolApproval"
+  ],
+  "configDiagnostics": {
+    "actualElectronError": "Invalid TUI config schema",
+    "parser": "readTuiModuleConfig",
+    "cleanedCopyAccepted": true,
+    "individuallyRejectedFields": [
+      "modules.memory.queryRewrite",
+      "modules.memory.semantic",
+      "modules.memory.contextView",
+      "contextCompaction.mode",
+      "contextCompaction.warningRatio",
+      "herdrBinding",
+      "telegramAutonomy.toolApproval"
+    ]
+  },
+  "temporaryDirectoryRemoved": true
+}

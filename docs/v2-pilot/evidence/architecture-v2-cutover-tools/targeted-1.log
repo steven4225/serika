@@ -1,0 +1,15 @@
+✔ reviewed migration retains decisions and metadata, rejects source drift and historical-only rows (4.067291ms)
+✔ real JSONL source validation, complete tar rollback and a separate migrated copy preserve bytes and counts (537.959083ms)
+✔ dry-run, full private backup/rehearsal/rollback, cold read and exact replay preserve IDs, sources, bytes and scope mapping (444.629667ms)
+✔ source drift and undeclared scope fail without creating a target (119.648042ms)
+✔ every persisted interruption requires explicit recovery, never marks incomplete data successful, then replay is write-free (2352.26275ms)
+✔ CLI requires explicit home, defaults to dry-run and recovers an actual killed child only on explicit invocation (1047.299625ms)
+✔ cutover CLI admits only absent or empty default home under explicit flag; simulated HOME never reaches daily data (4211.834625ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8620.32525

@@ -1,0 +1,182 @@
+{
+  "runId": "fe4edc30-9614-401e-8089-f22842ba4878",
+  "generatedAt": "2026-10-23T10:53:33.950780+00:00",
+  "sourceCommit": "367550f5f2feed0af64f51a0001e7efa923013fe",
+  "sourceWorktreeDirty": false,
+  "baselineCommit": "bb409fc0b3dbc337d8da6b99518933863d538b56",
+  "frozenFiles": {
+    "packages/assistant/src/permission-boundary.snapshot.json": {
+      "baselineSha256": "d0b820f3eef8a8230d951e8e4da3d53cde0756b776b7645ffc00980dbbcc2e07",
+      "sourceSha256": "d0b820f3eef8a8230d951e8e4da3d53cde0756b776b7645ffc00980dbbcc2e07",
+      "byteIdentical": true
+    },
+    "packages/assistant/src/permission-decisions.snapshot.ts": {
+      "baselineSha256": "08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace",
+      "sourceSha256": "08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace",
+      "byteIdentical": true
+    },
+    "apps/desktop/scripts/electron-smoke.mjs": {
+      "baselineSha256": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+      "sourceSha256": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+      "byteIdentical": true
+    },
+    "examples/eval/cm-step6-live.mjs": {
+      "baselineSha256": "6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546",
+      "sourceSha256": "6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546",
+      "byteIdentical": true
+    }
+  },
+  "b0ChangesFromS0": [
+    "desktop/shell_exec"
+  ],
+  "telegramRow": {
+    "byteIdenticalToB0": true,
+    "bytes": 538,
+    "sha256": "52f3b1dc3ba35898bef93898b912f53d9521ce23915532e14a69c9c6c73f54d3"
+  },
+  "lineChanges": [
+    {
+      "path": "docs/v2-pilot/cutover-runbook.md",
+      "category": "docs",
+      "added": 104,
+      "removed": 27,
+      "net": 77
+    },
+    {
+      "path": "packages/assistant/scripts/cm-step7-migrate.mjs",
+      "category": "migration",
+      "added": 142,
+      "removed": 14,
+      "net": 128
+    },
+    {
+      "path": "packages/assistant/scripts/cm-step7-migrate.test.mjs",
+      "category": "tests",
+      "added": 62,
+      "removed": 2,
+      "net": 60
+    },
+    {
+      "path": "packages/assistant/scripts/home-import.mjs",
+      "category": "migration",
+      "added": 20,
+      "removed": 7,
+      "net": 13
+    },
+    {
+      "path": "packages/assistant/scripts/home-import.test.mjs",
+      "category": "tests",
+      "added": 35,
+      "removed": 0,
+      "net": 35
+    }
+  ],
+  "totals": {
+    "product": {
+      "added": 0,
+      "removed": 0,
+      "net": 0
+    },
+    "migration": {
+      "added": 162,
+      "removed": 21,
+      "net": 141
+    },
+    "tests": {
+      "added": 97,
+      "removed": 2,
+      "net": 95
+    },
+    "docs": {
+      "added": 104,
+      "removed": 27,
+      "net": 77
+    }
+  },
+  "runbook": {
+    "beforeSha256": "88d6ef1d9a3f0d4bac22b7c99750b4372a36012accb4bce01008b2eb04141e32",
+    "afterSha256": "a0f0a3e3c836622ba47a8dc0a28438faaa2cb87daa2fd14ee80acb2a981f1156",
+    "completeDiffSha256": "79802dcacfe2d93a57967f1e58bec9ce071e3fb8310dbe12e32bb7ef6f2fb8b4"
+  },
+  "sourceHashes": {
+    "docs/v2-pilot/cutover-runbook.md": "a0f0a3e3c836622ba47a8dc0a28438faaa2cb87daa2fd14ee80acb2a981f1156",
+    "packages/assistant/scripts/cm-step7-migrate.mjs": "814942c4fee7138c20998ac81de0f8e8932d1d3d972d7d76e74eafab4dcb55f5",
+    "packages/assistant/scripts/cm-step7-migrate.test.mjs": "54ce9d44482dfc05dd8324a2640405a788abfcd0496091d02efd8762fb4d6ac3",
+    "packages/assistant/scripts/home-import.mjs": "0b5e62a2588a61b2ec403f69359f972a50ee3a8e2ae33beb258eb5374202de2f",
+    "packages/assistant/scripts/home-import.test.mjs": "108f43daee786e7444c638b09f94366e4dfbe8021409b634f9d9c5ec24165a8e"
+  },
+  "targetedLogs": {
+    "targeted-1.log": "8c4a7834ecea09b29ecf0c5a53a84749917ad087571c36f2c13a41c428a64eed",
+    "targeted-2.log": "6c6bf803bc1b129a7f63220295fd9206767db1a41ac726e73960f6e0b4157ef3"
+  },
+  "runbookCheck": {
+    "checks": [
+      {
+        "check": "shell-0",
+        "exitCode": 0
+      },
+      {
+        "check": "shell-1",
+        "exitCode": 0
+      },
+      {
+        "check": "js-1-0",
+        "exitCode": 0
+      },
+      {
+        "check": "shell-2",
+        "exitCode": 0
+      },
+      {
+        "check": "shell-3",
+        "exitCode": 0
+      },
+      {
+        "check": "js-3-0",
+        "exitCode": 0
+      },
+      {
+        "check": "generate-only-launcher-in-temporary-directory",
+        "exitCode": 0
+      },
+      {
+        "check": "generated-launcher-syntax",
+        "exitCode": 0
+      },
+      {
+        "check": "generated-launcher-syntax",
+        "exitCode": 0
+      },
+      {
+        "check": "quoted-release-path",
+        "exitCode": 0
+      },
+      {
+        "check": "shell-4",
+        "exitCode": 0
+      },
+      {
+        "check": "shell-5",
+        "exitCode": 0
+      },
+      {
+        "check": "shell-6",
+        "exitCode": 0
+      },
+      {
+        "check": "js-6-0",
+        "exitCode": 0
+      },
+      {
+        "check": "shell-7",
+        "exitCode": 0
+      },
+      {
+        "check": "shell-8",
+        "exitCode": 0
+      }
+    ],
+    "productProcessesStarted": 0,
+    "dailyPathsAccessed": false
+  }
+}
