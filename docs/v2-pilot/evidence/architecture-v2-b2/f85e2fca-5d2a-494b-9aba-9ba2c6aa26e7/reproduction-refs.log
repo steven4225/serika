@@ -1,0 +1,28 @@
+✖ b2 protects real nested submodule controls without blocking config branch commits (816.071833ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 927.670917
+
+✖ failing tests:
+
+test at packages/assistant/dist/directory-access.test.js:223:1
+✖ b2 protects real nested submodule controls without blocking config branch commits (816.071833ms)
+  AssertionError [ERR_ASSERTION]: git config --local core.hooksPath /tmp/intruder: Error opening /private/var/select/sh: Operation not permitted
+  
+      at run (file:///Users/a1-6/Code/agents/serika-v2/packages/assistant/dist/directory-access.test.js:261:28)
+      at async TestContext.<anonymous> (file:///Users/a1-6/Code/agents/serika-v2/packages/assistant/dist/directory-access.test.js:264:13)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 0,
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+{"testHomeGuard":"failed","evidence":"/private/tmp/serika-b2-r3-fix-home/write-guard-Fx14cN/result.json","violations":0,"changes":0,"metadataUnchanged":true}

@@ -1,0 +1,56 @@
+{
+  "runId": "6ebe0cba-2a3e-4c63-8469-e343740455ba",
+  "platform": "darwin",
+  "checks": [
+    {
+      "command": "git status --short",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n M tracked\n"
+    },
+    {
+      "command": "git log -1 --oneline",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n6b7ae54 initial\n"
+    },
+    {
+      "command": "git diff -- tracked",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\ndiff --git a/tracked b/tracked\nindex fe4f02a..21fb1ec 100644\n--- a/tracked\n+++ b/tracked\n@@ -1 +1 @@\n-first\n\\ No newline at end of file\n+changed\n\\ No newline at end of file\n"
+    },
+    {
+      "command": "git add tracked",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n"
+    },
+    {
+      "command": "git commit -qm changed",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n"
+    },
+    {
+      "command": "git config --local user.name Intruder",
+      "exitCode": 255,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\nerror: could not lock config file .git/config: Operation not permitted\n"
+    },
+    {
+      "command": "printf bad > .git/config.worktree",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n--home: .git/config.worktree: Operation not permitted\n"
+    },
+    {
+      "command": "printf bad > .git/hooks/x",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n--home: .git/hooks/x: Operation not permitted\n"
+    },
+    {
+      "command": "mv .git moved-git",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\nmv: rename .git to moved-git: Operation not permitted\n"
+    },
+    {
+      "command": "cat .ssh/sentinel",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\ncat: .ssh/sentinel: Operation not permitted\n"
+    }
+  ]
+}

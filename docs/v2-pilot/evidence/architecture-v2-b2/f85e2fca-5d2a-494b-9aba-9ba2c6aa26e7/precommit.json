@@ -1,0 +1,52 @@
+{
+  "runId": "f7e78144-fe3b-43b4-b111-df60433b3326",
+  "timestamp": "2026-10-24T15:01:44.159Z",
+  "diffCheck": {
+    "exitCode": 0,
+    "output": ""
+  },
+  "credentialPrefixScan": {
+    "exitCode": 1,
+    "matchedFiles": []
+  },
+  "smoke": {
+    "sourceCommit": "3f897b75a68d3dbff35c9926258d5661340272ca",
+    "sourceWorktreeDirty": false,
+    "passed": 8,
+    "total": 8,
+    "screenshots": [
+      {
+        "file": "startup.png",
+        "matches": true
+      },
+      {
+        "file": "chat-reply.png",
+        "matches": true
+      },
+      {
+        "file": "remember-success-receipt.png",
+        "matches": true
+      },
+      {
+        "file": "remember-on-memory-page.png",
+        "matches": true
+      },
+      {
+        "file": "restart-persistence.png",
+        "matches": true
+      },
+      {
+        "file": "undo-disappears.png",
+        "matches": true
+      },
+      {
+        "file": "daily-path-refuses-writes.png",
+        "matches": true
+      },
+      {
+        "file": "daily-config-retired-fields.png",
+        "matches": true
+      }
+    ]
+  }
+}

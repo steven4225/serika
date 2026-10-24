@@ -1,0 +1,193 @@
+{
+  "runId": "a2acf3be-cc93-459b-8c05-f6fa3d127ec1",
+  "platform": "darwin",
+  "realSubmoduleLevels": 2,
+  "checks": [
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer",
+      "command": "mv '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer' '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer-moved'",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\nmv: rename /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer to /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer-moved: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer",
+      "command": "git config --local core.hooksPath /tmp/intruder",
+      "exitCode": 255,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\nerror: could not lock config file /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/config: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer",
+      "command": "printf bad > '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/config'",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n--home: /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/config: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer",
+      "command": "printf bad > '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/config.lock'",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n--home: /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/config.lock: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer",
+      "command": "printf bad > '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/config.worktree'",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n--home: /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/config.worktree: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer",
+      "command": "printf bad > '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/config.worktree.lock'",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n--home: /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/config.worktree.lock: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer",
+      "command": "printf bad > '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/hooks/x'",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n--home: /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/hooks/x: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer",
+      "command": "git switch -c config",
+      "exitCode": 128,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\nfatal: cannot lock ref 'refs/heads/config': Unable to create '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/refs/heads/config.lock': Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer",
+      "command": "git branch hooks",
+      "exitCode": 128,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\nfatal: cannot update the ref 'refs/heads/hooks': unable to append to '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/logs/refs/heads/hooks': Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer",
+      "command": "git status --short",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n M tracked\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer",
+      "command": "git log -1 --oneline",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\na4b405a add inner\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer",
+      "command": "git diff -- tracked",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\ndiff --git a/tracked b/tracked\nindex fe4f02a..ef44271 100644\n--- a/tracked\n+++ b/tracked\n@@ -1 +1 @@\n-first\n\\ No newline at end of file\n+submodule changed\n\\ No newline at end of file\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer",
+      "command": "git switch -c b2-change",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\nSwitched to a new branch 'b2-change'\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer",
+      "command": "git add tracked",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer",
+      "command": "git commit -qm submodule-change",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer/libs/inner",
+      "command": "mv '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner' '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner-moved'",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\nmv: rename /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner to /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner-moved: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer/libs/inner",
+      "command": "git config --local core.hooksPath /tmp/intruder",
+      "exitCode": 255,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\nerror: could not lock config file /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner/config: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer/libs/inner",
+      "command": "printf bad > '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner/config'",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n--home: /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner/config: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer/libs/inner",
+      "command": "printf bad > '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner/config.lock'",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n--home: /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner/config.lock: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer/libs/inner",
+      "command": "printf bad > '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner/config.worktree'",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n--home: /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner/config.worktree: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer/libs/inner",
+      "command": "printf bad > '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner/config.worktree.lock'",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n--home: /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner/config.worktree.lock: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer/libs/inner",
+      "command": "printf bad > '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner/hooks/x'",
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n--home: /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner/hooks/x: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer/libs/inner",
+      "command": "git switch -c config",
+      "exitCode": 128,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\nfatal: cannot lock ref 'refs/heads/config': Unable to create '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner/refs/heads/config.lock': Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer/libs/inner",
+      "command": "git branch hooks",
+      "exitCode": 128,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\nfatal: cannot update the ref 'refs/heads/hooks': unable to append to '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/.git/modules/group/refs/heads/outer/modules/libs/inner/logs/refs/heads/hooks': Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer/libs/inner",
+      "command": "git status --short",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n M tracked\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer/libs/inner",
+      "command": "git log -1 --oneline",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n6b7ae54 initial\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer/libs/inner",
+      "command": "git diff -- tracked",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\ndiff --git a/tracked b/tracked\nindex fe4f02a..ef44271 100644\n--- a/tracked\n+++ b/tracked\n@@ -1 +1 @@\n-first\n\\ No newline at end of file\n+submodule changed\n\\ No newline at end of file\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer/libs/inner",
+      "command": "git switch -c b2-change",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\nSwitched to a new branch 'b2-change'\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer/libs/inner",
+      "command": "git add tracked",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo/deps/outer/libs/inner",
+      "command": "git commit -qm submodule-change",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n"
+    },
+    {
+      "directory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-submodules-WagQ46/repo",
+      "command": "git switch -c config && printf main-change > tracked && git add tracked && git commit -qm main-config-branch",
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\nSwitched to a new branch 'config'\n"
+    }
+  ]
+}

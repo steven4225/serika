@@ -1,0 +1,21 @@
+{
+  "runId": "1062fa40-ea46-4d56-a2a1-010eecc95a87",
+  "generatedAt": "2026-10-24T15:00:57.905Z",
+  "sourceCommit": "3f897b75a68d3dbff35c9926258d5661340272ca",
+  "codeChanges": "60\t0\tpackages/assistant/src/directory-access.test.ts\n2\t1\tpackages/assistant/src/modules/seatbelt-policy.ts\n6\t2\tpackages/assistant/src/protected-paths.ts\n1\t1\tscripts/b2-verify.mjs",
+  "frozenDiff": "",
+  "round3SnapshotDiff": "",
+  "productScanner": {
+    "exitCode": 1,
+    "output": ""
+  },
+  "otherScanner": {
+    "exitCode": 0,
+    "output": "scripts/b2-scaling-probe.mjs:40:  const scanned = typeof protection.scanProtectedPaths === 'function' ? await protection.scanProtectedPaths([workspace]) : { controlPaths: [], credentialPaths: [] };\n"
+  },
+  "rules": [
+    "  modulesControl: \"(^|/)[.]git/modules/(.*/)?(config($|[.]lock$|[.]worktree($|[.]lock$))|hooks($|/))\",",
+    "  gitMetadataDirectories: \"(^|/)[.]git/(modules|worktrees)($|/)\","
+  ],
+  "frozenSmokeSha256": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34"
+}
