@@ -35,11 +35,13 @@ async function launch(upgraded) {
     await expect(page.getByPlaceholder('和 Serika 聊天')).toBeEnabled();
     const info = await page.evaluate(() => window.runloom.info());
     assert.deepEqual(info.authorizedDirectories, [{ path: project, access: 'readwrite' }]); assert.equal(info.projectDirectory, project);
+    assert.deepEqual(await page.locator('[role="alert"]:visible, [class*="error"]:visible, [class*="warning"]:visible').allTextContents(), []);
     report.launches.push({ main, renderer, result: 'v2-started', directories: info.authorizedDirectories });
   } else {
     const message = '配置为 v1，请运行 node packages/assistant/scripts/config-upgrade.mjs --config <配置文件> --upgrade 升级';
-    await expect(page.getByText(`Runtime 无法启动：${message}`, { exact: true })).toBeVisible();
-    report.launches.push({ main, renderer, result: 'v1-rejected', message });
+    const alert = page.getByRole("alert").filter({ hasText: message });
+    await expect(alert).toBeVisible();
+    report.launches.push({ main, renderer, result: 'v1-rejected', message, visibleError: await alert.innerText() });
     assert.equal(sha(await readFile(configPath)), report.originalSha256);
   }
 }
