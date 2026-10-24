@@ -127,3 +127,28 @@ it("b2 native Git can read controls and commit but cannot rewrite controls or re
     if (process.env.SERIKA_B2_NATIVE_CAPTURE) await writeFile(process.env.SERIKA_B2_NATIVE_CAPTURE, JSON.stringify({ runId: randomUUID(), platform: process.platform, checks }, null, 2) + "\n");
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+it("b2 protects real targets of credential and Git control aliases in files and native Seatbelt", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "serika-b2-control-alias-")));
+  try {
+    const repo = join(root, "repo"), home = join(root, "H"); await mkdir(join(repo, ".git"), { recursive: true }); await mkdir(home);
+    await writeFile(join(repo, "git-target"), "trusted"); await symlink("../git-target", join(repo, ".git/config"));
+    await writeFile(join(repo, "credential-target"), "credential"); await symlink("credential-target", join(repo, ".env"));
+    const access = new DirectoryAccess({ load: async () => [{ path: repo, access: "readwrite" }], protectedPaths: [] });
+    assert.equal((await access.resolve({ path: join(repo, "git-target"), write: false })).ok, true);
+    for (const [path, write] of [["git-target", true], ["credential-target", false]] satisfies [string, boolean][]) {
+      const result = await access.resolve({ path, directory: repo, write }); assert.equal(result.ok, false); if (!result.ok) assert.equal(result.code, "PROTECTED_PATH");
+    }
+    const host = createModuleHost([createReadFileModule(access)], { notify() {} });
+    const search = host.tools.find(item => item.metadata.name === "search_files")!;
+    assert.deepEqual(await search.tool.execute!({ query: "credential", path: "." }, { toolCallId: "alias", messages: [], context: {} }), { ok: true, matches: [], truncated: false, skippedOversize: 0 });
+    if (process.platform === "darwin") {
+      const runner = new SeatbeltShellRunner({ home, directories: access, protectedPaths: [] });
+      for (const command of ["printf bad > git-target", "cat credential-target"]) {
+        const result = await runner.execute({ directory: repo, input: { command }, signal: new AbortController().signal, execution: { timeoutMs: 30_000, maxOutputBytes: 65_536, killGraceMs: 250 } });
+        assert.ok(result.ok, JSON.stringify(result)); assert.notEqual(result.exitCode, 0, result.output);
+      }
+    }
+    assert.equal(await readFile(join(repo, "git-target"), "utf8"), "trusted");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

@@ -1,11 +1,11 @@
 import type { DirectoryAccess, DirectoryAuthorization } from "../directory-access.js";
 import { spawn } from "node:child_process";
 import { constants } from "node:fs";
-import { access, lstat, mkdir, mkdtemp, realpath, readdir, rm, writeFile } from "node:fs/promises";
+import { access, lstat, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { homedir, release, tmpdir, userInfo } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { StringDecoder } from "node:string_decoder";
-import { gitControlPaths, serikaCodeRoot } from "../protected-paths.js";
+import { scanProtectedPaths, serikaCodeRoot } from "../protected-paths.js";
 import { AgentError } from "@serika/core";
 import { seatbeltPolicy } from "./seatbelt-policy.js";
 import { resolveSeatbeltRuntime, seatbeltEnvironment, type SeatbeltRuntime } from "./seatbelt-runtime.js";
@@ -48,7 +48,7 @@ async function executeSeatbeltShellCommand(options: {
   const { input, scope, signal } = options;
   if (!input.command.trim() || input.command.includes("\0")) return { ok: false, error: { code: "INVALID_COMMAND", message: "Command must be nonempty and contain no NUL" } };
   if (signal.aborted) return { ok: true, exitCode: null, termination: "signalled", signal: null, cancelled: true, timedOut: false, output: "", truncated: false };
-  let directory: string, cwd: string, directories: readonly DirectoryAuthorization[], linkedPaths: string[], controlPaths: string[];
+  let directory: string, cwd: string, directories: readonly DirectoryAuthorization[], scanned: Awaited<ReturnType<typeof scanProtectedPaths>>;
   try {
     if (process.platform !== "darwin" || process.arch !== "arm64" || release() !== "27.0.0") return unavailable();
     await access("/usr/bin/sandbox-exec", constants.X_OK);
@@ -59,17 +59,7 @@ async function executeSeatbeltShellCommand(options: {
     directory = selected.root;
     cwd = await canonicalDirectory(selected.target);
     directories = await scope.directories.declarations();
-    linkedPaths = []; controlPaths = [];
-    async function inspect(path: string): Promise<void> {
-      const stats = await lstat(path);
-      if (stats.isSymbolicLink()) return;
-      if (stats.isFile() && stats.nlink > 1) linkedPaths.push(path);
-      if (stats.isDirectory()) {
-        if (path.endsWith("/.git")) controlPaths.push(...gitControlPaths(path));
-        for (const name of await readdir(path)) await inspect(join(path, name));
-      }
-    }
-    for (const item of directories) await inspect(item.path);
+    scanned = await scanProtectedPaths(directories.map(item => item.path));
     if (["/", "/Users", "/opt/homebrew", homedir(), userInfo().homedir, dirname(runtime.node)].includes(directory)) return unavailable();
     const forbidden = [...scope.protectedPaths,
       ...["Library", ".serika"].map(name => join(userInfo().homedir, name))];
@@ -82,7 +72,7 @@ async function executeSeatbeltShellCommand(options: {
   await mkdir(temp, { mode: 0o700 });
   const profile = join(control, "policy.sb");
   const codeRoot = serikaCodeRoot;
-  const policy = seatbeltPolicy({ directories, temp, runtime, userHome: userInfo().homedir, protectedPaths: [...scope.protectedPaths, ...scope.directories.options.protectedPaths, ...controlPaths, codeRoot, ...(scope.configPath ? [scope.configPath, `${scope.configPath}.lock`] : [])], credentialPaths: [...(scope.directories.options.credentialPaths ?? []), ...linkedPaths],
+  const policy = seatbeltPolicy({ directories, temp, runtime, userHome: userInfo().homedir, protectedPaths: [...scope.protectedPaths, ...scope.directories.options.protectedPaths, ...scanned.controlPaths, codeRoot, ...(scope.configPath ? [scope.configPath, `${scope.configPath}.lock`] : [])], credentialPaths: [...(scope.directories.options.credentialPaths ?? []), ...scanned.credentialPaths],
     ...(scope.configPath ? { configPath: scope.configPath } : {}) });
   await writeFile(profile, policy, { mode: 0o600 });
   let settled = false;

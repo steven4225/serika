@@ -57,3 +57,21 @@ export function configuredProtectedPaths(options: {
 }
 
 export const gitControlPaths = (gitDirectory: string): string[] => ["config", "config.lock", "hooks"].map(name => join(gitDirectory, name));
+
+export async function scanProtectedPaths(roots: readonly string[]): Promise<ProtectedPaths> {
+  const { lstat, readdir, realpath } = await import("node:fs/promises");
+  const controlPaths: string[] = [], credentialPaths: string[] = [];
+  const canonical = async (path: string) => { try { return await realpath(path); } catch (error) { if (error instanceof Error && "code" in error && error.code === "ENOENT") return path; throw error; } };
+  async function visit(path: string): Promise<void> {
+    const stats = await lstat(path);
+    if (isProtectedPath({ path, write: false, controlPaths: [], credentialPaths: [] })) credentialPaths.push(await canonical(path));
+    else if (path.endsWith("/.git")) {
+      for (const control of gitControlPaths(path)) controlPaths.push(await canonical(control));
+    } else if (new RegExp(protectedNames.control).test(path)) controlPaths.push(await canonical(path));
+    if (stats.isSymbolicLink()) return;
+    if (stats.isFile() && stats.nlink > 1) credentialPaths.push(path);
+    if (stats.isDirectory()) for (const name of await readdir(path)) await visit(join(path, name));
+  }
+  for (const root of roots) await visit(root);
+  return { controlPaths, credentialPaths };
+}

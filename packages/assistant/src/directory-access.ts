@@ -1,4 +1,4 @@
-import { configuredProtectedPaths, isProtectedPath } from "./protected-paths.js";
+import { configuredProtectedPaths, isProtectedPath, scanProtectedPaths } from "./protected-paths.js";
 import { realpathSync } from "node:fs";
 import type { AssistantAssembly } from "./assembly.js";
 import { resolveTuiModuleConfig, type ResolvedTuiModuleConfig } from "./tui-module-config.js";
@@ -91,7 +91,8 @@ export class DirectoryAccess {
     const target = inspected.path;
     const selected = declarations.filter(item => within(item.path, target)).sort((a, b) => b.path.length - a.path.length)[0];
     if (selected === undefined) return deny("PATH_OUTSIDE_WORKSPACE", "Path is outside authorized directories");
-    if (isProtectedPath({ path: target, write: request.write, controlPaths: this.options.protectedPaths, credentialPaths: this.options.credentialPaths ?? [] })) {
+    const scanned = await scanProtectedPaths(declarations.map(item => item.path));
+    if (isProtectedPath({ path: target, write: request.write, controlPaths: [...this.options.protectedPaths, ...scanned.controlPaths], credentialPaths: [...(this.options.credentialPaths ?? []), ...scanned.credentialPaths] })) {
       return deny("PROTECTED_PATH", "Protected credentials cannot be accessed and trusted controls cannot be modified");
     }
     if (request.write && selected.access === "read") return deny("READ_ONLY_DIRECTORY", "The deepest matching directory is read-only");
