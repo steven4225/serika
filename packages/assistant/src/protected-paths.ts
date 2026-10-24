@@ -14,6 +14,8 @@ export interface ProtectedPaths {
 // The same expressions are consumed by JavaScript and the Seatbelt compiler.
 export const protectedNames = {
   control: "(^|/)[.]git($|/(config($|[.]lock$|[.]worktree($|[.]lock$)|/)|worktrees/[^/]+/config[.]worktree($|[.]lock$)|hooks($|/)))|(^|/)Serika[.]command$",
+  modulesControl: "(^|/)[.]git/modules/(.*/)?(config($|[.]lock$|[.]worktree($|[.]lock$))|hooks($|/))",
+  gitMetadataDirectories: "(^|/)[.]git/(modules|worktrees)($|/)",
   credential: "(^|/)([.]env($|[.])|[.](ssh|aws|gnupg)(/|$)|[.](netrc|npmrc|pypirc|git-credentials)($|/)|[.]docker/config[.]json($|/))",
 };
 
@@ -23,13 +25,15 @@ export function isProtectedPath(options: ProtectedPaths & { path: string; write:
   const path = resolve(options.path);
   if (new RegExp(protectedNames.credential).test(path) || options.credentialPaths.some(root => within(root, path))) return true;
   return options.write && (new RegExp(protectedNames.control).test(path) ||
+    new RegExp(protectedNames.modulesControl).test(path) ||
     [...options.controlPaths, ...options.credentialPaths].some(root => within(root, path) || within(path, root)));
 }
 
 export function protectedPathFilter(options: ProtectedPaths & { write: boolean }): string {
   const paths = options.write ? [...options.controlPaths, ...options.credentialPaths] : options.credentialPaths;
-  const patterns = options.write ? Object.values(protectedNames) : [protectedNames.credential];
-  return `(require-any ${paths.map(path => `(subpath ${JSON.stringify(path)})`).join(" ")} ${patterns.map(pattern => `(regex #${JSON.stringify(pattern)})`).join(" ")})`;
+  const regex = (pattern: string) => `(regex #${JSON.stringify(pattern)})`;
+  const controls = options.write ? `${regex(protectedNames.control)} ${regex(protectedNames.modulesControl)}` : "";
+  return `(require-any ${paths.map(path => `(subpath ${JSON.stringify(path)})`).join(" ")} ${regex(protectedNames.credential)} ${controls})`;
 }
 
 export function configuredProtectedPaths(options: {

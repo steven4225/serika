@@ -154,3 +154,63 @@ it("b2 resolves Git controls from target ancestors including gitfile and commond
     assert.equal(ordinary.ok, false); if (!ordinary.ok) assert.equal(ordinary.code, "PROTECTED_PATH");
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+it("b2 protects real nested submodule controls and preserves main repository config branch commits", { skip: process.platform !== "darwin" }, async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "serika-b2-submodules-")));
+  const checks: { directory: string; command: string; exitCode: number | null; output: string }[] = [];
+  try {
+    const home = join(root, "H"), repo = join(root, "repo"), middle = join(root, "middle"), leaf = join(root, "leaf");
+    await mkdir(home);
+    const git = (cwd: string, args: string[]) => execFileSync("/usr/bin/git", args, { cwd,
+      env: { ...process.env, HOME: home, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" }, encoding: "utf8" }).trim();
+    const configure = (cwd: string) => {
+      for (const [key, value] of [["user.name", "Test"], ["user.email", "test@example.invalid"], ["maintenance.auto", "false"], ["gc.auto", "0"]]) git(cwd, ["config", key!, value!]);
+    };
+    for (const directory of [leaf, middle, repo]) {
+      await mkdir(directory); git(directory, ["init", "-q"]); configure(directory);
+      await writeFile(join(directory, "tracked"), "first"); git(directory, ["add", "tracked"]); git(directory, ["commit", "-qm", "initial"]);
+    }
+    git(middle, ["-c", "protocol.file.allow=always", "submodule", "add", "-q", leaf, "libs/inner"]);
+    git(middle, ["commit", "-qam", "add inner"]);
+    git(repo, ["-c", "protocol.file.allow=always", "submodule", "add", "-q", "--name", "group/refs/heads/outer", middle, "deps/outer"]);
+    git(repo, ["commit", "-qam", "add outer"]);
+    git(repo, ["-c", "protocol.file.allow=always", "submodule", "update", "--init", "--recursive", "-q"]);
+    const directories = new DirectoryAccess({ load: async () => [{ path: repo, access: "readwrite" }], protectedPaths: [] });
+    const runner = new SeatbeltShellRunner({ home, directories, protectedPaths: [] });
+    for (const directory of [join(repo, "deps/outer"), join(repo, "deps/outer/libs/inner")]) {
+      configure(directory);
+      const metadata = git(directory, ["rev-parse", "--absolute-git-dir"]), config = await readFile(join(metadata, "config"), "utf8");
+      const run = async (command: string, allowed: boolean) => {
+        const result = await runner.execute({ directory, input: { command }, signal: new AbortController().signal,
+          execution: { timeoutMs: 30_000, maxOutputBytes: 65_536, killGraceMs: 250 } });
+        assert.ok(result.ok, JSON.stringify(result)); checks.push({ directory, command, exitCode: result.exitCode, output: result.output });
+        if (allowed) assert.equal(result.exitCode, 0, command + ": " + result.output);
+        else assert.notEqual(result.exitCode, 0, command + ": " + result.output);
+      };
+      await run(`mv '${metadata}' '${metadata}-moved'`, false);
+      await run("git config --local core.hooksPath /tmp/intruder", false);
+      for (const name of ["config", "config.lock", "config.worktree", "config.worktree.lock", "hooks/x"]) {
+        const path = join(metadata, name);
+        await run(`printf bad > '${path}'`, false);
+        const result = await directories.resolve({ path, write: true });
+        assert.equal(result.ok, false, path); if (!result.ok) assert.equal(result.code, "PROTECTED_PATH");
+      }
+      assert.equal(await readFile(join(metadata, "config"), "utf8"), config);
+      await assert.rejects(readFile(join(metadata, "hooks/x")), { code: "ENOENT" });
+      assert.equal((await directories.resolve({ path: join(metadata, "config"), write: false })).ok, true);
+      await run("git switch -c config", false);
+      await run("git branch hooks", false);
+      await writeFile(join(directory, "tracked"), "submodule changed");
+      for (const command of ["git status --short", "git log -1 --oneline", "git diff -- tracked", "git switch -c b2-change", "git add tracked", "git commit -qm submodule-change"]) await run(command, true);
+      assert.equal(git(directory, ["branch", "--show-current"]), "b2-change");
+      assert.equal(git(directory, ["log", "-1", "--format=%s"]), "submodule-change");
+    }
+    const main = await runner.execute({ directory: repo, input: { command: "git switch -c config && printf main-change > tracked && git add tracked && git commit -qm main-config-branch" }, signal: new AbortController().signal,
+      execution: { timeoutMs: 30_000, maxOutputBytes: 65_536, killGraceMs: 250 } });
+    assert.ok(main.ok, JSON.stringify(main)); checks.push({ directory: repo, command: "git switch -c config && printf main-change > tracked && git add tracked && git commit -qm main-config-branch", exitCode: main.exitCode, output: main.output });
+    assert.equal(main.exitCode, 0, main.output); assert.equal(git(repo, ["branch", "--show-current"]), "config");
+    assert.equal(git(repo, ["log", "-1", "--format=%s"]), "main-config-branch");
+    if (process.env.SERIKA_B2_SUBMODULE_CAPTURE) await writeFile(process.env.SERIKA_B2_SUBMODULE_CAPTURE,
+      JSON.stringify({ runId: randomUUID(), platform: process.platform, realSubmoduleLevels: 2, checks }, null, 2) + "\n");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

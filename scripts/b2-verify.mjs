@@ -30,7 +30,7 @@ assert.equal(report.snapshot.originalRows, 111); assert.deepEqual(report.snapsho
 for (const command of [['pnpm', 'typecheck'], ['pnpm', 'test']]) {
   const log = join(output, `${command[1]}.log`), fd = openSync(log, 'w');
   const result = spawnSync(command[0], command.slice(1), { cwd: repo, stdio: ['ignore', fd, fd],
-    env: { ...process.env, SERIKA_TEST_HOME: home, SERIKA_B2_RECORD_CONCURRENT_HOME: '1', SERIKA_B0_CAPTURE: join(output, 'b0-capture.json'), SERIKA_B2_CAPTURE: join(output, 'b2-capture.json'), SERIKA_B2_NATIVE_CAPTURE: join(output, 'native-git.json') } });
+    env: { ...process.env, SERIKA_TEST_HOME: home, SERIKA_B2_RECORD_CONCURRENT_HOME: '1', SERIKA_B0_CAPTURE: join(output, 'b0-capture.json'), SERIKA_B2_CAPTURE: join(output, 'b2-capture.json'), SERIKA_B2_NATIVE_CAPTURE: join(output, 'native-git.json'), SERIKA_B2_SUBMODULE_CAPTURE: join(output, 'native-submodules.json') } });
   closeSync(fd);
   const text = await readFile(log, 'utf8');
   report.commands.push({ command: command.join(' '), exitCode: result.status, signal: result.signal,
