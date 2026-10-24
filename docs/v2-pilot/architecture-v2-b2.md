@@ -5,8 +5,8 @@
 ## 1. 改了什么
 
 - 唯一名单位于 packages/assistant/src/protected-paths.ts，文件工具与 Seatbelt 同用 modulesControl；不设 refs 例外，不枚举 Git 元数据，不增加扫描结果。
-- 原实现实测在真实子模块中 git config --local 写入成功（exit 0）。最初排除 /refs/ 的候选又被真实合法模块名 group/refs/heads/outer 绕过；按用户后续裁决删除该例外。原生命令失败记录见证据的 reproduction-repro.log、reproduction-refs.log。
-- 另实测模块 gitdir 可整体 mv（exit 0）。Seatbelt 增加仅针对目录的 file-write-unlink 禁令，防止 modules/worktrees 元数据目录置换；未禁止普通文件的 add/commit。复现见 reproduction-rename.log。
+- 原实现实测在真实子模块中 git config --local 写入成功（exit 0）。最初排除 /refs/ 的候选又被真实合法模块名 group/refs/heads/outer 绕过；按用户后续裁决删除该例外。原生命令失败记录见证据 reproduction.json 的 repro、refs 原输出。
+- 另实测模块 gitdir 可整体 mv（exit 0）。Seatbelt 增加仅针对目录的 file-write-unlink 禁令，防止 modules/worktrees 元数据目录置换；未禁止普通文件的 add/commit。复现见 reproduction.json 的 rename 原输出。
 
 新规则原文：
 
@@ -96,6 +96,8 @@ Darwin 27.0.0 arm64，Node v26.4.0。原生测试使用 SeatbeltShellRunner、�
 ```
 
 没有读取这些未跟踪文件，没有对旧目录作其他操作。
+
+归档说明：Node 失败输出带有空白行缩进，最初以原始 .log 归档时触发 diff --check；现改用 JSON 字符串无损保存，并逐项保留原字节 SHA，未裁剪或改写运行输出。
 
 ## 5. 与计划不符的地方及理由
 

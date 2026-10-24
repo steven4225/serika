@@ -24,19 +24,11 @@
     },
     {
       "file": "precommit.json",
-      "sha256": "0c182bb33dfd5420f5ef90d1401a3e4661222d9fa2acb2921a5b20b9b4e1c742"
+      "sha256": "a47f9876888e7f18fe36ac6b2834dac3960eca7613240c5cd2e1978d93dbd793"
     },
     {
-      "file": "reproduction-refs.log",
-      "sha256": "4c18a3ef526b48268f686de0978b49236087606da7538dc7f0c749efa23a5240"
-    },
-    {
-      "file": "reproduction-rename.log",
-      "sha256": "1ee0daa6b2376818946846b1b744fcc2b02ad8ef1581dffc8585253501947da0"
-    },
-    {
-      "file": "reproduction-repro.log",
-      "sha256": "a72d7012c8ec5887eb83b0ba56409f68cf739952b32170de7eeff11c24b3319b"
+      "file": "reproduction.json",
+      "sha256": "ecb4b19a0c39b6295c9a27bc322828afb1ec6e9162e6d77285ef52dfaa06a392"
     },
     {
       "file": "verification.json",
