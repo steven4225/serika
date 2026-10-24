@@ -1,0 +1,31 @@
+{
+  "runId": "d5253dc3-d330-4b7d-bc7e-583c5d6d7951",
+  "sourceCommit": "fff50a74bcce3c7b686d0d0e72047b96e61820ed",
+  "verificationSourceCommit": "fff50a74bcce3c7b686d0d0e72047b96e61820ed",
+  "verificationSourceWorktreeDirty": false,
+  "realModelCalls": 0,
+  "testDataOnly": true,
+  "artifacts": {
+    "docs/v2-pilot/evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/audit.json": "0b7313eb182d28b66b5f7cf9b5127b4afd74f6281cceeb016cfa3af2ab759572",
+    "docs/v2-pilot/evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/audit.mjs": "7835829ffe0bcc89fdc0c38266994fdac32e76cac1f75bee75747f314b3d16ba",
+    "docs/v2-pilot/evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/b0-capture.json": "df86fb2a063d245446eb08f409e0d03858afd4bf53eb4ca6c5122c87a67cd58a",
+    "docs/v2-pilot/evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/b2-capture.json": "7955927ef11a35a12d2af1a8ee7ddf32bc355368991daa1813695ce4b3394fbc",
+    "docs/v2-pilot/evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/config-upgrade/result.json": "67318b93d13c9c76fb55668879aa20c95ad239e82ee17a791bf5985aad6139ae",
+    "docs/v2-pilot/evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/directory-settings/result.json": "03eba62047e2cb243e8ec73cfb9a2b1b88dbdd0d21e90140324dacb236b5e366",
+    "docs/v2-pilot/evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/electron-smoke.log": "ad599da9baa03b42cb940aea74b323394a4532aa92abbe86991da47531d10fc8",
+    "docs/v2-pilot/evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/native-git.json": "32b0c1ccab40be3520d5666c0065dcab496808c66ee64f8d44ba540fb626e04c",
+    "docs/v2-pilot/evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/test.log": "f3dbca6f8c7589142dd64720486177feb09aae77802eb5eeab9e8b54611aae62",
+    "docs/v2-pilot/evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/typecheck.log": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+    "docs/v2-pilot/evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/verification.json": "cd9d8b15739207dc286ec1821dfe8f5e513f1d24d7a8bba55308707c10698918",
+    "docs/v2-pilot/evidence/electron-smoke/b2-review-493db20f-4224-4d84-8c33-95f9101ed246/chat-reply.png": "1a8ea49b0e7918c60d15405f1c8ce104f5b0037a0c505d53b05f565f6f5139c3",
+    "docs/v2-pilot/evidence/electron-smoke/b2-review-493db20f-4224-4d84-8c33-95f9101ed246/daily-config-retired-fields.png": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+    "docs/v2-pilot/evidence/electron-smoke/b2-review-493db20f-4224-4d84-8c33-95f9101ed246/daily-path-refuses-writes.png": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e",
+    "docs/v2-pilot/evidence/electron-smoke/b2-review-493db20f-4224-4d84-8c33-95f9101ed246/home-fixture.json": "5099ba2081337e84a812986975835600bcba11e72cc267e433f89a5684c536a4",
+    "docs/v2-pilot/evidence/electron-smoke/b2-review-493db20f-4224-4d84-8c33-95f9101ed246/remember-on-memory-page.png": "a08f4830ae76c7ad3a88d24a41975b9a43640d7eac8fd0fab7be09b96335335b",
+    "docs/v2-pilot/evidence/electron-smoke/b2-review-493db20f-4224-4d84-8c33-95f9101ed246/remember-success-receipt.png": "515b601d876e9e22d24a63590a54922dfc57c309c4210136b2d099887678baf6",
+    "docs/v2-pilot/evidence/electron-smoke/b2-review-493db20f-4224-4d84-8c33-95f9101ed246/restart-persistence.png": "c58b3b8efa6aeb82e95c4a79695f67504b0125f5876ee66abc5b281e289259f4",
+    "docs/v2-pilot/evidence/electron-smoke/b2-review-493db20f-4224-4d84-8c33-95f9101ed246/result.json": "045689b0a8b3bce30b40ea8a1d85a469111b924032b1c2493279ce3e396e8e9e",
+    "docs/v2-pilot/evidence/electron-smoke/b2-review-493db20f-4224-4d84-8c33-95f9101ed246/startup.png": "434b09b0417fa8622c75340d9d6c42843901bb9ed8fd30df2ced1ec5073a34f8",
+    "docs/v2-pilot/evidence/electron-smoke/b2-review-493db20f-4224-4d84-8c33-95f9101ed246/undo-disappears.png": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+  }
+}

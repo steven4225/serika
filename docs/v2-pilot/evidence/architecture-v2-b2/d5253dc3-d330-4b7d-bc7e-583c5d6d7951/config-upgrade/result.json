@@ -1,0 +1,95 @@
+{
+  "runId": "5fbe1d38-4961-45c0-a8cb-278702ec174c",
+  "verification": "test-data-real-electron-original-preload-ipc-no-model-requests",
+  "sourceCommit": "a6347e2a016431106196ce685a1e957ef0ab6f3a",
+  "sourceWorktreeDirty": false,
+  "realModelCalls": 0,
+  "modelRequests": 0,
+  "scriptSha256": "f4f742088381bf9076e337eba5d9bd22574f72ee946f0eba63e71d61a8984923",
+  "originalSha256": "e2d82410df8c0cc3b849548d9d31fe41050cd18e7cfebd1225d2eecec16576ea",
+  "launches": [
+    {
+      "main": {
+        "electron": "44.4.5",
+        "pid": 25199,
+        "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/profile",
+        "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Code/agents/serika-v2/apps/desktop/out/renderer/index.html"
+      },
+      "result": "v1-rejected",
+      "message": "配置为 v1，请运行 node packages/assistant/scripts/config-upgrade.mjs --config <配置文件> --upgrade 升级",
+      "visibleError": "Error: Error invoking remote method 'runloom:info': Error: Runtime 无法启动：配置为 v1，请运行 node packages/assistant/scripts/config-upgrade.mjs --config <配置文件> --upgrade 升级"
+    },
+    {
+      "main": {
+        "electron": "44.4.5",
+        "pid": 25321,
+        "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/profile",
+        "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Code/agents/serika-v2/apps/desktop/out/renderer/index.html"
+      },
+      "result": "v2-started",
+      "directories": [
+        {
+          "path": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/project",
+          "access": "readwrite"
+        }
+      ]
+    },
+    {
+      "main": {
+        "electron": "44.4.5",
+        "pid": 25492,
+        "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/profile",
+        "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Code/agents/serika-v2/apps/desktop/out/renderer/index.html"
+      },
+      "result": "v1-rejected",
+      "message": "配置为 v1，请运行 node packages/assistant/scripts/config-upgrade.mjs --config <配置文件> --upgrade 升级",
+      "visibleError": "Error: Error invoking remote method 'runloom:info': Error: Runtime 无法启动：配置为 v1，请运行 node packages/assistant/scripts/config-upgrade.mjs --config <配置文件> --upgrade 升级"
+    }
+  ],
+  "status": "passed",
+  "dryRunDiff": "--- v1\n+++ v2\n- \"version\": 1\n+ \"version\": 2\n- \"authorizedDirectory\": \"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/project\"\n+ \"authorizedDirectories\": [{\"path\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/project\",\"access\":\"readwrite\"}]\n+ \"projectDirectory\": \"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/project\"\n",
+  "upgrade": {
+    "version": 1,
+    "operation": "config-v1-to-v2",
+    "id": "f1046123-292e-4e85-b117-3f5365ef81fc",
+    "configPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/home/.serika/config.json",
+    "backupPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/home/.serika/config.json.v1-f1046123-292e-4e85-b117-3f5365ef81fc.backup",
+    "originalSha256": "e2d82410df8c0cc3b849548d9d31fe41050cd18e7cfebd1225d2eecec16576ea",
+    "upgradedSha256": "643ad26c378364145f7e3b388266616b479591dea2a0523492d960a61a75bfeb",
+    "originalMode": 384,
+    "receiptPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/home/.serika/config.json.v2-f1046123-292e-4e85-b117-3f5365ef81fc.receipt.json"
+  },
+  "rollback": {
+    "version": 1,
+    "operation": "config-v2-to-v1-rollback",
+    "configPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/home/.serika/config.json",
+    "upgradeReceiptPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/home/.serika/config.json.v2-f1046123-292e-4e85-b117-3f5365ef81fc.receipt.json",
+    "originalSha256": "e2d82410df8c0cc3b849548d9d31fe41050cd18e7cfebd1225d2eecec16576ea",
+    "restoredSha256": "e2d82410df8c0cc3b849548d9d31fe41050cd18e7cfebd1225d2eecec16576ea",
+    "identical": true,
+    "rollbackReceiptPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/home/.serika/config.json.v2-f1046123-292e-4e85-b117-3f5365ef81fc.receipt.json.14c3c7c0-707a-4901-b5a8-b7f283896390.rollback.json"
+  },
+  "restoredSha256": "e2d82410df8c0cc3b849548d9d31fe41050cd18e7cfebd1225d2eecec16576ea",
+  "rollbackReceipt": {
+    "version": 1,
+    "operation": "config-v2-to-v1-rollback",
+    "configPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/home/.serika/config.json",
+    "upgradeReceiptPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-iawTP6/home/.serika/config.json.v2-f1046123-292e-4e85-b117-3f5365ef81fc.receipt.json",
+    "originalSha256": "e2d82410df8c0cc3b849548d9d31fe41050cd18e7cfebd1225d2eecec16576ea",
+    "restoredSha256": "e2d82410df8c0cc3b849548d9d31fe41050cd18e7cfebd1225d2eecec16576ea",
+    "identical": true
+  },
+  "temporaryDirectoryRemoved": true
+}

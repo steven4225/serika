@@ -1,0 +1,111 @@
+{
+  "runId": "d5253dc3-d330-4b7d-bc7e-583c5d6d7951",
+  "sourceCommit": "fff50a74bcce3c7b686d0d0e72047b96e61820ed",
+  "frozenDiff": "",
+  "snapshot": {
+    "originalRows": 111,
+    "reviewedRows": 127,
+    "currentRows": 129,
+    "changedOriginal": [],
+    "changedReviewed": [],
+    "added": {
+      "b2/read/control": "ok",
+      "b2/read/credential": "PROTECTED_PATH"
+    }
+  },
+  "queries": [
+    {
+      "command": [
+        "rg",
+        "-n",
+        "credentialNames|controlNames|netrc|npmrc|pypirc|git-credentials",
+        "packages/assistant/src/directory-access.ts",
+        "packages/assistant/src/modules/seatbelt-policy.ts",
+        "packages/assistant/src/modules/seatbelt-runtime.ts"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "command": [
+        "rg",
+        "-n",
+        "TuiModuleConfigV1|tuiModuleConfigV1Schema",
+        "packages/assistant/src",
+        "apps/desktop/src",
+        "apps/cli/src"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "command": [
+        "rg",
+        "-n",
+        "(config|moduleConfig)[?]?[.]authorizedDirectory\\b",
+        "packages/assistant/src",
+        "apps/desktop/src",
+        "apps/cli/src"
+      ],
+      "exitCode": 1,
+      "output": ""
+    }
+  ],
+  "commits": [
+    {
+      "sha": "7e4e741de73c7403bd716080514f5ad9a4ea42ef",
+      "subject": "fix(b2): add explicit config v2 upgrade and unify protected paths",
+      "added": 663,
+      "deleted": 239
+    },
+    {
+      "sha": "ac587a20f2dc73744f9a4db996f21e6f8838a3f7",
+      "subject": "test(b2): add approved B2-06 protected-path read scenarios",
+      "added": 3,
+      "deleted": 1
+    },
+    {
+      "sha": "26bbf5ec2f5f04c994be9d5d2275a2410cec4568",
+      "subject": "fix(b2): protect canonical targets of trusted control and credential aliases",
+      "added": 56,
+      "deleted": 19
+    },
+    {
+      "sha": "1fcb0648b8076571d4e4bba544446b8edd254b73",
+      "subject": "fix(b2): handle Git metadata files and complete smoke fixture conversion",
+      "added": 22,
+      "deleted": 7
+    },
+    {
+      "sha": "a6347e2a016431106196ce685a1e957ef0ab6f3a",
+      "subject": "test(b2): check v1 instruction through the desktop startup alert",
+      "added": 4,
+      "deleted": 2
+    },
+    {
+      "sha": "fff50a74bcce3c7b686d0d0e72047b96e61820ed",
+      "subject": "docs(b2): disclose credential read restrictions in file tool instructions",
+      "added": 1,
+      "deleted": 1
+    }
+  ],
+  "lines": {
+    "product": {
+      "added": 294,
+      "deleted": 69
+    },
+    "tests": {
+      "added": 425,
+      "deleted": 178
+    },
+    "snapshot": {
+      "added": 3,
+      "deleted": 1
+    },
+    "docs": {
+      "added": 9,
+      "deleted": 3
+    }
+  },
+  "frozenSmokeSha256": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34"
+}
