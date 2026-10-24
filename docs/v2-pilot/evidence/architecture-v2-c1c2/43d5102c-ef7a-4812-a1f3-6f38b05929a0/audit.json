@@ -1,0 +1,805 @@
+{
+  "runId": "43d5102c-ef7a-4812-a1f3-6f38b05929a0",
+  "sourceCommit": "09096afdf5799c2e808228344822e7f0d0051098",
+  "baseCommit": "033b1fb33aee81647f40a3bce66399a086f16842",
+  "paths": {
+    "authorizedDirectory": "/Users/a1-6/Serika-workspaces/personal",
+    "desktopAutonomy.authorizedDirectory": "/Users/a1-6/Serika-workspaces/personal",
+    "telegramAutonomy.authorizedDirectory": "/Users/a1-6/Serika-workspaces/personal"
+  },
+  "commits": {
+    "c1": {
+      "commit": "c4aa37e7129520d217c4d12de0433a4da3037610",
+      "files": [
+        {
+          "path": "apps/cli/src/index.ts",
+          "kind": "product",
+          "added": 3,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/main/desktop-runtime.ts",
+          "kind": "product",
+          "added": 11,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/main/project-selection.test.ts",
+          "kind": "test",
+          "added": 36,
+          "deleted": 0
+        },
+        {
+          "path": "apps/desktop/src/main/resident-protocol.ts",
+          "kind": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/main/runtime-bridge.ts",
+          "kind": "product",
+          "added": 1,
+          "deleted": 0
+        },
+        {
+          "path": "apps/desktop/src/main/runtime-ownership.ts",
+          "kind": "product",
+          "added": 1,
+          "deleted": 0
+        },
+        {
+          "path": "apps/desktop/src/renderer/src/capabilities.tsx",
+          "kind": "product",
+          "added": 20,
+          "deleted": 0
+        },
+        {
+          "path": "apps/desktop/src/shared/ipc-forwards.ts",
+          "kind": "product",
+          "added": 1,
+          "deleted": 0
+        },
+        {
+          "path": "apps/desktop/src/shared/ui-contract.ts",
+          "kind": "product",
+          "added": 2,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/api.ts",
+          "kind": "product",
+          "added": 2,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/app.ts",
+          "kind": "product",
+          "added": 6,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/assistant-controller.test.ts",
+          "kind": "test",
+          "added": 1,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/context-sources.ts",
+          "kind": "product",
+          "added": 8,
+          "deleted": 3
+        },
+        {
+          "path": "packages/assistant/src/project.test.ts",
+          "kind": "test",
+          "added": 54,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/project.ts",
+          "kind": "product",
+          "added": 58,
+          "deleted": 0
+        }
+      ],
+      "groups": {
+        "product": {
+          "added": 114,
+          "deleted": 7,
+          "net": 107
+        },
+        "tool": {
+          "added": 0,
+          "deleted": 0,
+          "net": 0
+        },
+        "test": {
+          "added": 91,
+          "deleted": 0,
+          "net": 91
+        },
+        "docs": {
+          "added": 0,
+          "deleted": 0,
+          "net": 0
+        }
+      }
+    },
+    "c2": {
+      "commit": "09096afdf5799c2e808228344822e7f0d0051098",
+      "files": [
+        {
+          "path": "apps/cli/src/application-home.test.ts",
+          "kind": "test",
+          "added": 5,
+          "deleted": 5
+        },
+        {
+          "path": "apps/cli/src/index.ts",
+          "kind": "product",
+          "added": 1,
+          "deleted": 0
+        },
+        {
+          "path": "apps/cli/src/tui.ts",
+          "kind": "product",
+          "added": 2,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/README.md",
+          "kind": "docs",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/scripts/electron-scope-smoke.mjs",
+          "kind": "tool",
+          "added": 78,
+          "deleted": 0
+        },
+        {
+          "path": "apps/desktop/src/main/application-home.test.ts",
+          "kind": "test",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/main/background-chat.test.ts",
+          "kind": "test",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/main/backup.test.ts",
+          "kind": "test",
+          "added": 4,
+          "deleted": 4
+        },
+        {
+          "path": "apps/desktop/src/main/backup.ts",
+          "kind": "product",
+          "added": 3,
+          "deleted": 3
+        },
+        {
+          "path": "apps/desktop/src/main/baseline-hashes.test.ts",
+          "kind": "test",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/main/desktop-runtime.test.ts",
+          "kind": "test",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/main/formal-memory.test.ts",
+          "kind": "test",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/main/runtime-ownership.test.ts",
+          "kind": "test",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "apps/desktop/src/main/smoke-model.ts",
+          "kind": "product",
+          "added": 10,
+          "deleted": 2
+        },
+        {
+          "path": "apps/desktop/src/renderer/src/memory-factual-receipts.test.ts",
+          "kind": "test",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "apps/desktop/src/renderer/src/memory-preview.tsx",
+          "kind": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "docs/v2-pilot/cutover-runbook.md",
+          "kind": "docs",
+          "added": 35,
+          "deleted": 22
+        },
+        {
+          "path": "examples/eval/cm-step4.mjs",
+          "kind": "tool",
+          "added": 5,
+          "deleted": 5
+        },
+        {
+          "path": "examples/eval/cm-step6-live.test.mjs",
+          "kind": "test",
+          "added": 28,
+          "deleted": 3
+        },
+        {
+          "path": "examples/eval/guards.mjs",
+          "kind": "tool",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "package.json",
+          "kind": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/scripts/cm-step7-migrate.mjs",
+          "kind": "tool",
+          "added": 2,
+          "deleted": 3
+        },
+        {
+          "path": "packages/assistant/scripts/home-import.mjs",
+          "kind": "tool",
+          "added": 2,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/scripts/home-import.test.mjs",
+          "kind": "test",
+          "added": 8,
+          "deleted": 7
+        },
+        {
+          "path": "packages/assistant/scripts/memory-scope-rehearsal.mjs",
+          "kind": "tool",
+          "added": 74,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/scripts/memory-upgrade.mjs",
+          "kind": "tool",
+          "added": 162,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/scripts/memory-upgrade.test.mjs",
+          "kind": "test",
+          "added": 86,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/api.ts",
+          "kind": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/app-five-layer.test.ts",
+          "kind": "test",
+          "added": 10,
+          "deleted": 9
+        },
+        {
+          "path": "packages/assistant/src/app.test.ts",
+          "kind": "test",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/app.ts",
+          "kind": "product",
+          "added": 9,
+          "deleted": 8
+        },
+        {
+          "path": "packages/assistant/src/assistant-controller.test.ts",
+          "kind": "test",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "packages/assistant/src/assistant-controller.ts",
+          "kind": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/baseline-hashes.test.ts",
+          "kind": "test",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/consolidation-runtime.test.ts",
+          "kind": "test",
+          "added": 3,
+          "deleted": 3
+        },
+        {
+          "path": "packages/assistant/src/context-assembler.ts",
+          "kind": "product",
+          "added": 21,
+          "deleted": 11
+        },
+        {
+          "path": "packages/assistant/src/context-background.test.ts",
+          "kind": "test",
+          "added": 6,
+          "deleted": 6
+        },
+        {
+          "path": "packages/assistant/src/context-source.ts",
+          "kind": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/controller-memory.ts",
+          "kind": "product",
+          "added": 5,
+          "deleted": 5
+        },
+        {
+          "path": "packages/assistant/src/dreaming.test.ts",
+          "kind": "test",
+          "added": 4,
+          "deleted": 4
+        },
+        {
+          "path": "packages/assistant/src/dreaming.ts",
+          "kind": "product",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "packages/assistant/src/experimental-data.ts",
+          "kind": "product",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/hook-skill-acceptance.test.ts",
+          "kind": "test",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "packages/assistant/src/memory-context-scope.test.ts",
+          "kind": "test",
+          "added": 83,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/memory-extraction.ts",
+          "kind": "product",
+          "added": 31,
+          "deleted": 21
+        },
+        {
+          "path": "packages/assistant/src/memory-factual-receipts.test.ts",
+          "kind": "test",
+          "added": 6,
+          "deleted": 6
+        },
+        {
+          "path": "packages/assistant/src/memory-factual-receipts.ts",
+          "kind": "product",
+          "added": 5,
+          "deleted": 5
+        },
+        {
+          "path": "packages/assistant/src/memory-health.test.ts",
+          "kind": "test",
+          "added": 4,
+          "deleted": 4
+        },
+        {
+          "path": "packages/assistant/src/memory-health.ts",
+          "kind": "product",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "packages/assistant/src/memory-import.test.ts",
+          "kind": "test",
+          "added": 29,
+          "deleted": 18
+        },
+        {
+          "path": "packages/assistant/src/memory-import.ts",
+          "kind": "product",
+          "added": 3,
+          "deleted": 2
+        },
+        {
+          "path": "packages/assistant/src/memory-library.test.ts",
+          "kind": "test",
+          "added": 37,
+          "deleted": 19
+        },
+        {
+          "path": "packages/assistant/src/memory-library.ts",
+          "kind": "product",
+          "added": 6,
+          "deleted": 6
+        },
+        {
+          "path": "packages/assistant/src/memory-m1-acceptance.test.ts",
+          "kind": "test",
+          "added": 14,
+          "deleted": 14
+        },
+        {
+          "path": "packages/assistant/src/memory-management.test.ts",
+          "kind": "test",
+          "added": 4,
+          "deleted": 4
+        },
+        {
+          "path": "packages/assistant/src/memory-management.ts",
+          "kind": "product",
+          "added": 3,
+          "deleted": 3
+        },
+        {
+          "path": "packages/assistant/src/memory-merge.test.ts",
+          "kind": "test",
+          "added": 17,
+          "deleted": 17
+        },
+        {
+          "path": "packages/assistant/src/memory-merge.ts",
+          "kind": "product",
+          "added": 7,
+          "deleted": 7
+        },
+        {
+          "path": "packages/assistant/src/memory-read-tools.ts",
+          "kind": "product",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "packages/assistant/src/memory-reference-source.ts",
+          "kind": "product",
+          "added": 4,
+          "deleted": 4
+        },
+        {
+          "path": "packages/assistant/src/memory-snapshot.ts",
+          "kind": "product",
+          "added": 4,
+          "deleted": 4
+        },
+        {
+          "path": "packages/assistant/src/memory-store.test.ts",
+          "kind": "test",
+          "added": 7,
+          "deleted": 7
+        },
+        {
+          "path": "packages/assistant/src/memory-types.ts",
+          "kind": "product",
+          "added": 13,
+          "deleted": 9
+        },
+        {
+          "path": "packages/assistant/src/memory-v6-store.test.ts",
+          "kind": "test",
+          "added": 0,
+          "deleted": 118
+        },
+        {
+          "path": "packages/assistant/src/memory-v7-store.test.ts",
+          "kind": "test",
+          "added": 159,
+          "deleted": 0
+        },
+        {
+          "path": "packages/assistant/src/{memory-v6-store.ts => memory-v7-store.ts}",
+          "kind": "product",
+          "added": 119,
+          "deleted": 87
+        },
+        {
+          "path": "packages/assistant/src/memory-write.ts",
+          "kind": "product",
+          "added": 10,
+          "deleted": 6
+        },
+        {
+          "path": "packages/assistant/src/modules/memory-module.test.ts",
+          "kind": "test",
+          "added": 10,
+          "deleted": 10
+        },
+        {
+          "path": "packages/assistant/src/modules/memory-module.ts",
+          "kind": "product",
+          "added": 5,
+          "deleted": 5
+        },
+        {
+          "path": "packages/assistant/src/permission-boundary.test.ts",
+          "kind": "test",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "packages/assistant/src/scheduled-skill-acceptance.test.ts",
+          "kind": "test",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "packages/assistant/src/steering-controller.test.ts",
+          "kind": "test",
+          "added": 1,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/task-worker-context-acceptance.test.ts",
+          "kind": "test",
+          "added": 2,
+          "deleted": 1
+        },
+        {
+          "path": "packages/assistant/src/task-worker-context.test.ts",
+          "kind": "test",
+          "added": 4,
+          "deleted": 4
+        },
+        {
+          "path": "packages/assistant/src/task-worker-context.ts",
+          "kind": "product",
+          "added": 3,
+          "deleted": 3
+        },
+        {
+          "path": "packages/assistant/src/task-worker-delivery.test.ts",
+          "kind": "test",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "packages/assistant/src/testing.ts",
+          "kind": "product",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "packages/assistant/src/transcript-access.ts",
+          "kind": "product",
+          "added": 2,
+          "deleted": 2
+        },
+        {
+          "path": "packages/assistant/src/transcript-maintenance.test.ts",
+          "kind": "test",
+          "added": 4,
+          "deleted": 4
+        }
+      ],
+      "groups": {
+        "product": {
+          "added": 280,
+          "deleted": 208,
+          "net": 72
+        },
+        "tool": {
+          "added": 324,
+          "deleted": 10,
+          "net": 314
+        },
+        "test": {
+          "added": 555,
+          "deleted": 288,
+          "net": 267
+        },
+        "docs": {
+          "added": 36,
+          "deleted": 23,
+          "net": 13
+        }
+      }
+    }
+  },
+  "frozen": [
+    {
+      "path": "apps/desktop/scripts/electron-smoke.mjs",
+      "beforeSha256": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+      "afterSha256": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+      "identical": true
+    },
+    {
+      "path": "examples/eval/cm-step6-live.mjs",
+      "beforeSha256": "6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546",
+      "afterSha256": "6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/scripts/cm-step6-verify.mjs",
+      "beforeSha256": "7fc93222da184d9f27cd9fc2601dde208e9a9690cc277b0c879d280d41840ffb",
+      "afterSha256": "7fc93222da184d9f27cd9fc2601dde208e9a9690cc277b0c879d280d41840ffb",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/scripts/v2-round1-verify.mjs",
+      "beforeSha256": "5fdc8099ac5fa0f4c4442d40acc45aa8426c80991e1c460c95876b9f0034cced",
+      "afterSha256": "5fdc8099ac5fa0f4c4442d40acc45aa8426c80991e1c460c95876b9f0034cced",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/scripts/v2-round2-verify.mjs",
+      "beforeSha256": "316945d04e36e3f489e801d65362bf6cd0289013db318994778dfe5b234e99df",
+      "afterSha256": "316945d04e36e3f489e801d65362bf6cd0289013db318994778dfe5b234e99df",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/scripts/v2-round3-verify.mjs",
+      "beforeSha256": "1807fd4ee0d7f09ad3469b8cda0d6291a699397cd81b8778f6a4f1ef66c137fe",
+      "afterSha256": "1807fd4ee0d7f09ad3469b8cda0d6291a699397cd81b8778f6a4f1ef66c137fe",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/permission-decisions.snapshot.ts",
+      "beforeSha256": "08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace",
+      "afterSha256": "08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/permission-boundary.snapshot.json",
+      "beforeSha256": "a2bbdba40020eff88836ad53d060bcf619db6a42f98cb3ae083295668c2617de",
+      "afterSha256": "a2bbdba40020eff88836ad53d060bcf619db6a42f98cb3ae083295668c2617de",
+      "identical": true
+    },
+    {
+      "path": "apps/desktop/src/main/__baseline__/desktop-hashes.json",
+      "beforeSha256": "e0fd304871bc3c37fc3e0b52c29a89d268912c6fb195f26a9577eda05cb5ed62",
+      "afterSha256": "e0fd304871bc3c37fc3e0b52c29a89d268912c6fb195f26a9577eda05cb5ed62",
+      "identical": true
+    },
+    {
+      "path": "apps/desktop/src/main/__baseline__/desktop-paths.txt",
+      "beforeSha256": "6c635bfaea09a0447714ada6bcf123bb71f35daddfb6b7490bbae44094ee5ca4",
+      "afterSha256": "6c635bfaea09a0447714ada6bcf123bb71f35daddfb6b7490bbae44094ee5ca4",
+      "identical": true
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/__baseline__/home-task-rows.json",
+      "beforeSha256": "e01427b7d520615cf9611d049bec4f2eed58c2577afb467ba6fb360fa74e3971",
+      "afterSha256": "e01427b7d520615cf9611d049bec4f2eed58c2577afb467ba6fb360fa74e3971",
+      "identical": true
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/__baseline__/home-view.json",
+      "beforeSha256": "deb233a52e81d196342ce5e7968694f99d5a5ea71ae8549b16c9ef39988e4adc",
+      "afterSha256": "deb233a52e81d196342ce5e7968694f99d5a5ea71ae8549b16c9ef39988e4adc",
+      "identical": true
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/__baseline__/reminder-cards.json",
+      "beforeSha256": "dec2c857e89258b0ba8958b12739170f8958800a78dc6e517dd39cf8517f4887",
+      "afterSha256": "dec2c857e89258b0ba8958b12739170f8958800a78dc6e517dd39cf8517f4887",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/assembly-full-desktop-autonomous.txt",
+      "beforeSha256": "1aee4b01210eebf3ea8b22ec2f14612814b6bdd7237025c6b89d466c29f3358a",
+      "afterSha256": "1aee4b01210eebf3ea8b22ec2f14612814b6bdd7237025c6b89d466c29f3358a",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/assembly-full-without-todoist.txt",
+      "beforeSha256": "0899c67a7b101494abef1fc02cd573543aeebbb4a65d590930cc8b85605803d3",
+      "afterSha256": "0899c67a7b101494abef1fc02cd573543aeebbb4a65d590930cc8b85605803d3",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/assembly-full.txt",
+      "beforeSha256": "f44f13205cfebc29c98e6d6c7ae41d74c894ac3a54c801ec856eb38450007f1a",
+      "afterSha256": "f44f13205cfebc29c98e6d6c7ae41d74c894ac3a54c801ec856eb38450007f1a",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/assembly-minimal.txt",
+      "beforeSha256": "426957a55b19e739bb49cbafac903f46029dfc222474d75afb6fb3a48e927873",
+      "afterSha256": "426957a55b19e739bb49cbafac903f46029dfc222474d75afb6fb3a48e927873",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/hashes.json",
+      "beforeSha256": "6064e6bcb0a64490eb72d1fc05dee61eca6cbf1c00be3bb9353f6d9201ebb571",
+      "afterSha256": "6064e6bcb0a64490eb72d1fc05dee61eca6cbf1c00be3bb9353f6d9201ebb571",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/home-app.txt",
+      "beforeSha256": "9a2b499b5f5f44c15965ba4d44fa143ec25667a254d6ba79c7af4bf4c3e4f78f",
+      "afterSha256": "9a2b499b5f5f44c15965ba4d44fa143ec25667a254d6ba79c7af4bf4c3e4f78f",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/home-snapshots.json",
+      "beforeSha256": "6b9336a9058890e7c7fcbf63b5cb9a2af6c3049f0b22bbc7ac8ba541adadd203",
+      "afterSha256": "6b9336a9058890e7c7fcbf63b5cb9a2af6c3049f0b22bbc7ac8ba541adadd203",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/home.txt",
+      "beforeSha256": "b8363d6db8dfcaf95fa5575cfbe560031d3d3b181765d5a15a146c7de9220000",
+      "afterSha256": "b8363d6db8dfcaf95fa5575cfbe560031d3d3b181765d5a15a146c7de9220000",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/paths.txt",
+      "beforeSha256": "cadbd6c0e0feafe585e6ea7c5f0f1ef3ec068fc5464e19e9c99c6ec4d292b634",
+      "afterSha256": "cadbd6c0e0feafe585e6ea7c5f0f1ef3ec068fc5464e19e9c99c6ec4d292b634",
+      "identical": true
+    }
+  ],
+  "frozenDiff": "",
+  "permissionSnapshotRows": 129,
+  "permissionSnapshotDiff": "",
+  "pendingPermissionApprovals": [],
+  "legacyRuntimeMatches": [],
+  "remainingLegacyMatches": [
+    "examples/eval/memory-sequence-acceptance.test.mjs:47:    row => { row.after.formal[0].scope = { kind: 'workspace' }; },",
+    "examples/eval/memory-transition-acceptance.test.mjs:8:  revision: value === 'unsweetened' ? 1 : 2, enabled: true, status: 'active', temporalState: 'applicable', scope: { kind: 'workspace' },",
+    "examples/eval/memory-transition-acceptance.test.mjs:77:    change: { operation: 'add', scope: { kind: 'workspace' }, factIdentity: { attribute: 'coffee', scenario: 'personal', value: 'sweetened' } } }];",
+    "examples/eval/memory-transition-acceptance.test.mjs:88:    change: { operation: 'add', scope: { kind: 'workspace' }, kind: 'preference', text: '私人场景我喝咖啡加糖。' } }];",
+    "examples/eval/memory-everyday-acceptance.mjs:36:  const scope = test.category === 'thread' ? { kind: 'thread', threadId: evidence.threadId } : { kind: 'workspace' };",
+    "examples/eval/memory-everyday-acceptance.test.mjs:10:    status: 'active', temporalState: 'applicable', scope: { kind: 'workspace' }, assertion: { factIdentity: identity(value) }, ...extra });",
+    "apps/desktop/src/main/resident-transport.test.ts:221:    const forged = await client.current.changeMemoryLibrary({ operation: \"save-document\", id: randomUUID(), title: \"forged\", folderId: null, text: \"no scope authority\", entries: [], expectedRevision: view.value.revision, scope: { kind: \"workspace\" } } as Parameters<typeof client.current.changeMemoryLibrary>[0]);",
+    "apps/desktop/src/main/formal-memory.test.ts:28:    assert.ok(!(await bridge.updateMemory({ id: entry.entry.id, expectedRevision: 1, pinned: true, scope: { kind: \"workspace\" } } as never)).ok);",
+    "packages/assistant/scripts/home-import.test.mjs:23:      category: index ? 'document' : 'preference', scope: { kind: 'workspace' }, pinned: false, state: 'active', createdAt: stamp, updatedAt: stamp,",
+    "packages/assistant/scripts/home-import.test.mjs:26:  document.library.documents.push({ id: 'doc', title: '项目', folderId: null, entryIds: [document.entries[1].id], scope: { kind: 'workspace' } });",
+    "packages/assistant/scripts/cm-step7-migrate.test.mjs:12:  scope: [4, 5, 6, 7].includes(index) ? { kind: 'thread', threadId: 't' } : { kind: 'workspace' }, pinned: index === 0, status: 'active', expiresAt: null,",
+    "packages/assistant/scripts/cm-step7-migrate.test.mjs:20:  old.library = { revision: 7, folders: [{ id: 'folder', name: '资料' }], documents: [{ id: 'existing', title: '原文档', folderId: 'folder', entryIds: [old.entries[9].id], scope: { kind: 'workspace' } }] };",
+    "packages/assistant/scripts/home-import.mjs:1:import { validateLegacyV6MemoryDocument as validateV6MemoryDocument } from \"./memory-upgrade.mjs\";",
+    "packages/assistant/scripts/home-import.mjs:50:const validators = { 'memory.json': validateV6MemoryDocument, 'tasks.json': validateTaskDocument,",
+    "packages/assistant/scripts/home-import.mjs:82:  const memory = validateV6MemoryDocument(await json(join(root, 'workspace/.runloom/memory.json')));",
+    "packages/assistant/scripts/cm-step7-migrate.mjs:53:      scope: { kind: 'workspace' }, pinned: original.pinned, state: 'active', createdAt: original.createdAt, updatedAt: stamp,",
+    "packages/assistant/scripts/cm-step7-migrate.mjs:68:      title: titles[number], folderId: null, entryIds: [entry.id], scope: { kind: 'workspace' } });",
+    "packages/assistant/scripts/cm-step7-migrate.mjs:129:        identity: { subject: 'user', attribute: entries.get(row.id)?.identity.attribute ?? '增量记录:' + entry.id, value: assertion.text }, scope: { kind: 'workspace' }, pinned: entry.pinned,",
+    "packages/assistant/scripts/cm-step7-migrate.mjs:141:      entryIds: [entry.id], scope: { kind: 'workspace' } });",
+    "packages/assistant/scripts/cm-step7-migrate.mjs:172:  const { validateLegacyV6MemoryDocument: validateV6MemoryDocument } = await import('./memory-upgrade.mjs');",
+    "packages/assistant/scripts/cm-step7-migrate.mjs:173:  validateV6MemoryDocument(migrated.document);",
+    "packages/assistant/scripts/cm-step7-migrate.mjs:210:  validateV6MemoryDocument(migrated.document);",
+    "packages/assistant/scripts/cm-step7-migrate.mjs:218:  const read = { value: validateV6MemoryDocument(await json(file)) }; assert.deepEqual(read.value, validateV6MemoryDocument(migrated.document));",
+    "apps/desktop/src/renderer/src/memory-library.test.ts:10:    documents: [{ id: \"doc\", title: \"Character\", folderId: \"character\", preview: \"温暖直接\", active: true, missing: false, updatedAt: null, scope: { kind: \"workspace\" } },",
+    "apps/desktop/src/renderer/src/memory-library.test.ts:11:      { id: \"inactive\", title: \"old\", folderId: \"learning\", preview: \"\", active: false, missing: false, updatedAt: null, scope: { kind: \"workspace\" } }] } }));",
+    "packages/assistant/src/memory-library.test.ts:90:  assert.equal(code(await store.changeLibrary({ ...newDoc(0), scope: { kind: \"workspace\" } } as MemoryLibraryAction)), \"INVALID_INPUT\");",
+    "packages/assistant/scripts/memory-upgrade.mjs:17:function legacyScope(scope) { assert.deepEqual(scope, { kind: 'workspace' }, '旧版 scope 必须严格为 workspace'); }",
+    "packages/assistant/scripts/memory-upgrade.mjs:37:    entries: checked.entries.map(entry => ({ ...entry, scope: { kind: 'workspace' } })),",
+    "packages/assistant/scripts/memory-upgrade.mjs:38:    library: { ...checked.library, documents: checked.library.documents.map(document => ({ ...document, scope: { kind: 'workspace' } })) },",
+    "packages/assistant/scripts/memory-upgrade.test.mjs:20:    category: index < 3 ? 'preference' : 'document', identity: { subject: 'user', attribute: `attribute-${index}`, value: `value-${index}` }, scope: { kind: 'workspace' }, pinned: index === 0, state: 'active', createdAt: stamp, updatedAt: stamp,",
+    "packages/assistant/scripts/memory-upgrade.test.mjs:23:    library: { revision: 3, folders: [{ id: 'folder', name: 'fixture' }], documents: entries.slice(3).map(entry => ({ id: `document-${entry.id}`, title: 'fixture', folderId: 'folder', entryIds: [entry.id], scope: { kind: 'workspace' } })) },",
+    "packages/assistant/scripts/memory-upgrade.test.mjs:75:  for (const change of [doc => { doc.unexpected = true; }, doc => { doc.entries[0].scope = { kind: 'workspace', projectId: 'forged' }; }, doc => { doc.progress[0].projectId = null; }, doc => { doc.importReceipts[0].projectId = null; }]) { const copy = fixtureDocument(); change(copy); assert.throws(() => validateLegacyV6MemoryDocument(copy)); }",
+    "apps/desktop/src/renderer/src/memory-temporal.test.ts:13:  scope: { kind: \"workspace\" }, expiresAt: \"2026-10-01T12:00:00.000Z\", source,"
+  ],
+  "runbookDiff": "diff --git a/docs/v2-pilot/cutover-runbook.md b/docs/v2-pilot/cutover-runbook.md\nindex 57c301a..6f218c3 100644\n--- a/docs/v2-pilot/cutover-runbook.md\n+++ b/docs/v2-pilot/cutover-runbook.md\n@@ -220,50 +220,63 @@ env -i HOME=\"$HOME\" PATH='/usr/bin:/bin:/usr/sbin:/sbin' \\\n \n ## 7. 升级到 v2-release-2\n \n-本节用于已切日用的 v1 配置升级，不重复导入旧数据。由用户在发版时执行；审核测试只使用临时发布目录和测试配置。先按 §1.1 在新提交目录独立构建审核通过的 `v2-release-2`，保留旧发布目录、固定入口和 Node。`pnpm build` 会保留 `packages/assistant/scripts/config-upgrade.mjs`，生成其依赖的 `packages/assistant/dist/`，并把本次构建的 Node 绝对路径写入 `dist/node-runtime.json`；桌面 v1 提示使用该 Node，CLI 提示使用当前 Node。\n+本节将配置 v1→v2、记忆 v6→v7 合并为一次离线升级，由用户在发版时执行。本轮审核只演练副本，不升级日用数据。先按 §1.1 独立构建审核通过的 `v2-release-2`，保留旧发布目录、固定入口和 Node。构建生成 `packages/assistant/dist/node-runtime.json`；桌面的升级提示使用其中的 Node 绝对路径，CLI 使用当前 Node。\n \n-### 7.1 停止 Serika 并预览转换\n+### 7.1 停止 Serika、完整备份、两项 dry-run\n \n-先取消 Run 并等待 idle，停用当前 H 的 resident/worker 服务，退出桌面和使用同一 H 的 CLI/TUI。按 §2 核对实际 job、PID 和子进程均已退出。不能确认全部写入者已停止就不升级。新发布版遇到 v1 会明确拒绝启动，不会静默转换。\n+先取消 Run 并等待 idle，停用当前 H 的 resident/worker 服务，退出桌面和使用同一 H 的 CLI/TUI。按 §2 核对实际 job、PID 和子进程均已退出。不能确认全部写入者已停止就不升级。运行时遇到旧配置或旧记忆会拒绝启动，并给出绝对路径升级命令，不静默转换。\n \n-以下变量使用新发布目录的实际绝对路径；所有升级命令均可在任意 cwd 执行。私密记录目录须为新目录，权限 0700，记录和回执不进入仓库。\n+以下变量填新发布目录的实际绝对路径。记录目录须为新目录，权限 0700，完整 H 备份、记录和回执不进入仓库。\n \n ```sh\n RELEASE=\"$HOME/Applications/Serika-releases/<审核通过的完整40位提交>\"\n NODE=\"$(/usr/bin/plutil -extract nodeExecutable raw -o - \"$RELEASE/packages/assistant/dist/node-runtime.json\")\"\n-UPGRADE=\"$RELEASE/packages/assistant/scripts/config-upgrade.mjs\"\n+CONFIG_UPGRADE=\"$RELEASE/packages/assistant/scripts/config-upgrade.mjs\"\n+MEMORY_UPGRADE=\"$RELEASE/packages/assistant/scripts/memory-upgrade.mjs\"\n CONFIG=\"$HOME/.serika/config.json\"\n+MEMORY=\"$HOME/.serika/data/memory.json\"\n+PROJECT='/Users/a1-6/Code/agents/serika-v2'\n UPGRADE_RECORD=\"$HOME/Serika-v2-release-2-upgrade-YYYYMMDD\"\n umask 077\n mkdir -m 700 \"$UPGRADE_RECORD\"\n-test -x \"$NODE\" && test -f \"$UPGRADE\" && test -f \"$RELEASE/packages/assistant/dist/flock.js\" || exit 1\n-/usr/bin/shasum -a 256 \"$CONFIG\" > \"$UPGRADE_RECORD/config-before.sha256\"\n-\"$NODE\" \"$UPGRADE\" --config \"$CONFIG\" --dry-run > \"$UPGRADE_RECORD/dry-run.diff\"\n-cat \"$UPGRADE_RECORD/dry-run.diff\"\n-/usr/bin/shasum -a 256 -c \"$UPGRADE_RECORD/config-before.sha256\"\n+test -x \"$NODE\" && test -f \"$CONFIG_UPGRADE\" && test -f \"$MEMORY_UPGRADE\" || exit 1\n+/usr/bin/ditto \"$HOME/.serika\" \"$UPGRADE_RECORD/home-backup\"\n+/usr/bin/diff -qr \"$HOME/.serika\" \"$UPGRADE_RECORD/home-backup\" || exit 1\n+/usr/bin/shasum -a 256 \"$CONFIG\" \"$MEMORY\" > \"$UPGRADE_RECORD/before.sha256\"\n+\"$NODE\" \"$CONFIG_UPGRADE\" --config \"$CONFIG\" --dry-run > \"$UPGRADE_RECORD/config-dry-run.diff\"\n+\"$NODE\" \"$MEMORY_UPGRADE\" --memory \"$MEMORY\" --project \"$PROJECT\" --dry-run > \"$UPGRADE_RECORD/memory-dry-run.json\"\n+cat \"$UPGRADE_RECORD/config-dry-run.diff\" \"$UPGRADE_RECORD/memory-dry-run.json\"\n+/usr/bin/shasum -a 256 -c \"$UPGRADE_RECORD/before.sha256\"\n ```\n \n-每条命令必须退出 0。预览只能将 `version: 1` 改为 `2`，将旧 `authorizedDirectory` 改为 `authorizedDirectories: [{ path, access: \"readwrite\" }]` 和同路径 `projectDirectory`；旧目录为空时变为 `[]` 与 `null`。其他配置保持。核对原文件 SHA 仍等于 `config-before.sha256`，有意外差异就停止。\n+每条命令必须退出 0。配置预览只将 `version: 1` 改为 `2`，将旧授权目录转为同路径 `readwrite` 目录项和 `projectDirectory`；其他配置保持。日用 personal 授权目录不改为 serika-v2。**如需在 Serika 中访问 serika-v2 项目文件，由用户在设置里手动添加授权目录；选择项目不会授予文件权限。**\n \n-### 7.2 升级、启动与核对\n+记忆预览须逐条核对：三条已确认偏好→`user`；三份文档及已确认的 main 分支 note→上述 Serika 项目。当前基准为总计 7 条、偏好 3、文档条目 3、文档库 3。其余 ID 列入 `unknown`，工具退出非零并停止；先由用户逐项决定，再以 `--mapping <绝对路径JSON>` 传入 `{id,scope}` 数组，不能默认归 user。归属表不输出正文，来源 Thread/消息与原字节备份保留。两项 dry-run 后核对 SHA 未变，有意外差异就停止。\n+\n+### 7.2 配置 upgrade → 记忆 upgrade → 启动核对\n \n ```sh\n-\"$NODE\" \"$UPGRADE\" --config \"$CONFIG\" --upgrade > \"$UPGRADE_RECORD/upgrade.json\"\n-cat \"$UPGRADE_RECORD/upgrade.json\"\n+\"$NODE\" \"$CONFIG_UPGRADE\" --config \"$CONFIG\" --upgrade > \"$UPGRADE_RECORD/config-upgrade.json\"\n+\"$NODE\" \"$MEMORY_UPGRADE\" --memory \"$MEMORY\" --project \"$PROJECT\" --upgrade > \"$UPGRADE_RECORD/memory-upgrade.json\"\n+cat \"$UPGRADE_RECORD/config-upgrade.json\" \"$UPGRADE_RECORD/memory-upgrade.json\"\n \"$RELEASE/Serika.command\" --inspect\n ```\n \n-退出 0 后，保留输出中的 `backupPath` 和 `receiptPath`：工具先备份完整原字节，再写升级回执并替换配置。核对备份 SHA 等于回执 `originalSha256` 和升级前记录，当前配置 SHA 等于 `upgradedSha256`。在桌面核对 H、历史、草稿、记忆可读，目录列表及读写标记和原授权相符，无 v1 提示或启动错误；先不发送消息或启动整理。通过后才由用户恢复原先启用的服务和日用入口。\n+若 dry-run 使用 mapping，记忆 upgrade 必须带同一 `--mapping`。两项工具均先持久化完整原文件备份和含 SHA 的回执，再原子替换文件。保留各自 `backupPath`、`receiptPath`；核对备份 SHA 为 `originalSha256`，当前文件 SHA 为 `upgradedSha256`。\n+\n+启动后先不发送新消息或启动整理。核对 H、历史、草稿、配置 v2、记忆 v7，以及 7 条总量／3 偏好／3 文档／文档库 3。选 personal 时三份文档不在主上下文、`memory_read` 或文档索引；选 serika-v2 时可见；三条 user 偏好两边均生效。目录授权列表和原授权相符，无升级提示或启动错误。通过后由用户恢复原先启用的服务和日用入口。\n \n-### 7.3 出问题时回滚\n+### 7.3 出问题时按相反顺序回滚\n \n-先再次停止新版本全部写入者并保留错误证据。将 `RECEIPT` 填为上一条升级输出的 `receiptPath`，不要用 `upgrade.json` 代替工具回执。\n+再次停止新版本全部写入者并保留错误证据。填两次升级输出中的实际 `receiptPath`，不能用重定向保存的输出文件代替工具回执。先记忆，后配置：\n \n ```sh\n-RECEIPT='<upgrade 输出的 receiptPath 绝对路径>'\n-\"$NODE\" \"$UPGRADE\" --config \"$CONFIG\" --rollback \"$RECEIPT\" > \"$UPGRADE_RECORD/rollback.json\"\n-cat \"$UPGRADE_RECORD/rollback.json\"\n-/usr/bin/shasum -a 256 \"$CONFIG\"\n+MEMORY_RECEIPT='<memory upgrade 输出的 receiptPath 绝对路径>'\n+CONFIG_RECEIPT='<config upgrade 输出的 receiptPath 绝对路径>'\n+\"$NODE\" \"$MEMORY_UPGRADE\" --memory \"$MEMORY\" --rollback \"$MEMORY_RECEIPT\" > \"$UPGRADE_RECORD/memory-rollback.json\"\n+\"$NODE\" \"$CONFIG_UPGRADE\" --config \"$CONFIG\" --rollback \"$CONFIG_RECEIPT\" > \"$UPGRADE_RECORD/config-rollback.json\"\n+cat \"$UPGRADE_RECORD/memory-rollback.json\" \"$UPGRADE_RECORD/config-rollback.json\"\n+/usr/bin/shasum -a 256 -c \"$UPGRADE_RECORD/before.sha256\"\n ```\n \n-退出 0、`identical: true` 且 `originalSha256`、`restoredSha256`、升级前记录三者完全相等才算配置回滚通过；保留 `rollbackReceiptPath`。随后改用保留的旧发布入口，先核对再恢复原服务。回滚后新版本仍应显示 v1 升级提示。配置已被修改、备份损坏或 SHA 不符时工具会拒绝覆盖；此时保留现场，由用户核对，不能自动重试或直接覆盖备份。此命令只回滚配置；若升级后已产生其他业务数据变化，按对应完整备份另行判断恢复范围。\n+两项退出 0、`identical: true`，各自 `originalSha256`、`restoredSha256`、升级前记录完全相等才算回滚通过；保留两个 `rollbackReceiptPath`。随后用旧发布入口核对，再恢复原服务。新版本仍应拒绝旧格式。文件已被修改、备份损坏或 SHA 不符时工具拒绝覆盖：保留现场，由用户根据完整 H 备份判断恢复范围，不自动重试或覆盖。启动核对若产生业务数据写入，也需先裁决差量，不能直接抹去。\n"
+}

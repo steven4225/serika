@@ -1,0 +1,400 @@
+{
+  "runId": "b37f9bc2-bbf6-41d1-ba6b-9d5d24917b52",
+  "generatedAt": "2026-10-24T16:20:38.425526+00:00",
+  "artifactType": "collected-command-logs-not-a-new-test-execution",
+  "sourceCommitAtCollection": "09096afdf5799c2e808228344822e7f0d0051098",
+  "commands": [
+    {
+      "name": "c1-tests",
+      "command": "pnpm test",
+      "observedExitCode": 0,
+      "originalLocalLog": "/tmp/serika-c1-tests-fixed.log",
+      "originalLogSha256": "842b6da3d4f227ccd18fea1673687195aaa8f9585f8d10dd85c2927520dbe1c5",
+      "originalLogBytes": 240310,
+      "excerpt": "c1-tests.txt",
+      "excerptSha256": "04ec7488685f58826103f8ff278f15e164fb5225278bba6056dce7efa981dfaa",
+      "counts": [
+        {
+          "tests": 1173,
+          "pass": 1166,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 7
+        },
+        {
+          "tests": 659,
+          "pass": 659,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 12,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "outerGuards": [
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-c1-tests-fixed-5twC1u/write-guard-AHDMN3/result.json",
+          "violations": 0,
+          "changes": 78,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-c1-tests-fixed-5twC1u/write-guard-mcfKGT/result.json",
+          "violations": 0,
+          "changes": 130,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-c1-tests-fixed-5twC1u/write-guard-NohovH/result.json",
+          "violations": 0,
+          "changes": 208,
+          "metadataUnchanged": false
+        }
+      ],
+      "expectedIsolatedGuardSelfTests": [
+        {
+          "testHomeGuard": "failed",
+          "evidence": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-wzBq2d/home/write-guard-Bwt7tL/result.json",
+          "violations": 1,
+          "changes": 0,
+          "metadataUnchanged": true
+        },
+        {
+          "testHomeGuard": "failed",
+          "evidence": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-uVNtRt/home/write-guard-Cik4R6/result.json",
+          "violations": 0,
+          "changes": 0,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-pass-zin0IJ/home/write-guard-rzhD2i/result.json",
+          "violations": 0,
+          "changes": 0,
+          "metadataUnchanged": true
+        }
+      ]
+    },
+    {
+      "name": "typecheck",
+      "command": "pnpm typecheck",
+      "observedExitCode": 0,
+      "originalLocalLog": "/tmp/serika-c2-typecheck-delivery.log",
+      "originalLogSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "originalLogBytes": 141,
+      "excerpt": "typecheck.txt",
+      "excerptSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "counts": [],
+      "outerGuards": [],
+      "expectedIsolatedGuardSelfTests": []
+    },
+    {
+      "name": "shanghai-tests",
+      "command": "TZ=Asia/Shanghai pnpm test",
+      "observedExitCode": 0,
+      "originalLocalLog": "/tmp/serika-c2-tests-shanghai.log",
+      "originalLogSha256": "e3538fd99f91c9df4c6529d826b03d4b33f883812256e3124c9bb9c2c0d99abd",
+      "originalLogBytes": 241919,
+      "excerpt": "shanghai-tests.txt",
+      "excerptSha256": "5524f36990ca32528fe37e4ca13bbbaa29912e58b26a644eec501355475985e7",
+      "counts": [
+        {
+          "tests": 1185,
+          "pass": 1178,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 7
+        },
+        {
+          "tests": 659,
+          "pass": 659,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 12,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "outerGuards": [
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-c2-shanghai.WjQ5Ms/write-guard-13NXB9/result.json",
+          "violations": 0,
+          "changes": 87,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-c2-shanghai.WjQ5Ms/write-guard-7s2qto/result.json",
+          "violations": 0,
+          "changes": 186,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-c2-shanghai.WjQ5Ms/write-guard-ghiJ1I/result.json",
+          "violations": 0,
+          "changes": 276,
+          "metadataUnchanged": false
+        }
+      ],
+      "expectedIsolatedGuardSelfTests": [
+        {
+          "testHomeGuard": "failed",
+          "evidence": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-0vXjbW/home/write-guard-hblsBK/result.json",
+          "violations": 1,
+          "changes": 0,
+          "metadataUnchanged": true
+        },
+        {
+          "testHomeGuard": "failed",
+          "evidence": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-DJc3R3/home/write-guard-4Wwd9b/result.json",
+          "violations": 0,
+          "changes": 0,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-pass-6Ic78d/home/write-guard-aehb7j/result.json",
+          "violations": 0,
+          "changes": 0,
+          "metadataUnchanged": true
+        }
+      ]
+    },
+    {
+      "name": "utc-tests",
+      "command": "TZ=UTC pnpm test",
+      "observedExitCode": 0,
+      "originalLocalLog": "/tmp/serika-c2-tests-utc-serial.log",
+      "originalLogSha256": "1ad05cb583a0c4f853c35efcbc6ae44ac298a8e3092b32bb97ff809c2f7741f2",
+      "originalLogBytes": 241808,
+      "excerpt": "utc-tests.txt",
+      "excerptSha256": "5f99ff6801422c6e4d3989ae5cf0968c36950b541e95fe4f8138ef79b8e66f99",
+      "counts": [
+        {
+          "tests": 1185,
+          "pass": 1178,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 7
+        },
+        {
+          "tests": 659,
+          "pass": 659,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 12,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "outerGuards": [
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-c2-serial-utc.VX0Xm1/write-guard-qObRC5/result.json",
+          "violations": 0,
+          "changes": 70,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-c2-serial-utc.VX0Xm1/write-guard-zt4Qo8/result.json",
+          "violations": 0,
+          "changes": 134,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-c2-serial-utc.VX0Xm1/write-guard-8T92d1/result.json",
+          "violations": 0,
+          "changes": 204,
+          "metadataUnchanged": false
+        }
+      ],
+      "expectedIsolatedGuardSelfTests": [
+        {
+          "testHomeGuard": "failed",
+          "evidence": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-lzPdF1/home/write-guard-9MNXJW/result.json",
+          "violations": 1,
+          "changes": 0,
+          "metadataUnchanged": true
+        },
+        {
+          "testHomeGuard": "failed",
+          "evidence": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-tVCd7O/home/write-guard-DLXW3d/result.json",
+          "violations": 0,
+          "changes": 0,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-pass-HzIXEr/home/write-guard-k2TBJa/result.json",
+          "violations": 0,
+          "changes": 0,
+          "metadataUnchanged": true
+        }
+      ]
+    },
+    {
+      "name": "eval",
+      "command": "pnpm eval:test",
+      "observedExitCode": 0,
+      "originalLocalLog": "/tmp/serika-c2-eval-final2.log",
+      "originalLogSha256": "3e73d6e90c42c75562ef118a232a3f382495dce1cfc934e2bd80e7ef2c27fcb4",
+      "originalLogBytes": 20504,
+      "excerpt": "eval.txt",
+      "excerptSha256": "8b653c5d75247a47c57de9ceb8781446b6c24793d5cbcd31c1eae8455be6651b",
+      "counts": [
+        {
+          "tests": 101,
+          "pass": 101,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "outerGuards": [
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-c2-eval-final2.UHeHWq/write-guard-wKcJfe/result.json",
+          "violations": 0,
+          "changes": 10,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-c2-eval-final2.UHeHWq/write-guard-NZmWQJ/result.json",
+          "violations": 0,
+          "changes": 14,
+          "metadataUnchanged": false
+        }
+      ],
+      "expectedIsolatedGuardSelfTests": []
+    },
+    {
+      "name": "m1",
+      "command": "node examples/eval/cm-step4.mjs",
+      "observedExitCode": 0,
+      "originalLocalLog": "/tmp/serika-c2-m1.log",
+      "originalLogSha256": "d79b82e417a93f3c43c8c86adc187f390057f1e0dcf5ac281062861bbe2b1587",
+      "originalLogBytes": 226,
+      "excerpt": "m1.txt",
+      "excerptSha256": "d79b82e417a93f3c43c8c86adc187f390057f1e0dcf5ac281062861bbe2b1587",
+      "counts": [],
+      "outerGuards": [
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-c2-m1-independent/write-guard-04Eqar/result.json",
+          "violations": 0,
+          "changes": 0,
+          "metadataUnchanged": true
+        }
+      ],
+      "expectedIsolatedGuardSelfTests": []
+    },
+    {
+      "name": "electron",
+      "command": "pnpm build; node apps/desktop/scripts/electron-scope-smoke.mjs",
+      "observedExitCode": 0,
+      "originalLocalLog": "/tmp/serika-c2-electron3.log",
+      "originalLogSha256": "11edc84ce342a92f9c3215aef6221e3fc22694f223256771c0f2881f85887654",
+      "originalLogBytes": 3014,
+      "excerpt": "electron.txt",
+      "excerptSha256": "f894e4f18d836392a51c4c29853cf325d4fbc4da2912e95152f82dbc6b7ab0f5",
+      "counts": [],
+      "outerGuards": [
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-c2-electron-independent-3/write-guard-JMg0LR/result.json",
+          "violations": 0,
+          "changes": 119,
+          "metadataUnchanged": false
+        }
+      ],
+      "expectedIsolatedGuardSelfTests": []
+    },
+    {
+      "name": "parallel-utc-timeout",
+      "command": "TZ=UTC pnpm test (concurrent verification workload)",
+      "observedExitCode": 1,
+      "originalLocalLog": "/tmp/serika-c2-tests-utc-complete.log",
+      "originalLogSha256": "07ff6468b4b6e17d87bbc7ea19c3b9ece684027056ecbbee090e41e7b33c016e",
+      "originalLogBytes": 167436,
+      "excerpt": "parallel-utc-timeout.txt",
+      "excerptSha256": "752c34bd976855b438f4df2d496c22ccaac5b3a9c805ce3882dd4e58706eb33d",
+      "counts": [
+        {
+          "tests": 1185,
+          "pass": 1177,
+          "fail": 0,
+          "cancelled": 1,
+          "skipped": 7
+        }
+      ],
+      "outerGuards": [
+        {
+          "testHomeGuard": "failed",
+          "evidence": "/private/tmp/serika-c2-utc-complete.UyF0Jw/write-guard-RjyFQE/result.json",
+          "violations": 0,
+          "changes": 145,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "failed",
+          "evidence": "/private/tmp/serika-c2-utc-complete.UyF0Jw/write-guard-HOEuyL/result.json",
+          "violations": 0,
+          "changes": 145,
+          "metadataUnchanged": false
+        }
+      ],
+      "expectedIsolatedGuardSelfTests": [
+        {
+          "testHomeGuard": "failed",
+          "evidence": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-LFnoqo/home/write-guard-JENGMr/result.json",
+          "violations": 1,
+          "changes": 0,
+          "metadataUnchanged": true
+        },
+        {
+          "testHomeGuard": "failed",
+          "evidence": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-0SYEUM/home/write-guard-5o48Na/result.json",
+          "violations": 0,
+          "changes": 0,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-pass-QQgsg4/home/write-guard-SGO8u9/result.json",
+          "violations": 0,
+          "changes": 0,
+          "metadataUnchanged": true
+        }
+      ]
+    }
+  ],
+  "offlineAuditSha256": "7d445210533401b5e143ce2b199ba5a54b7ade6b8c23ddbe80df0c2506366a62",
+  "notes": [
+    "Exit codes are observed process results; counts/guard records and excerpts are parsed from the original logs.",
+    "Guard self-test failures use isolated fixture homes; outer guards describe this verification process.",
+    "Original private home manifests/configuration/content are not included."
+  ]
+}

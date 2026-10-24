@@ -1,0 +1,126 @@
+{
+  "runId": "ad8e06a3-2b61-4cf9-965a-6fac69776235",
+  "sourceCommit": "09096afdf5799c2e808228344822e7f0d0051098",
+  "scriptSha256": "0fa2c150571d9bf270bba181e26c6947b264cbf1cd00b459be8cd38c95d78c6e",
+  "verification": "daily-copy-offline-upgrade-production-runtime-fake-model-rollback",
+  "realModelCalls": 0,
+  "sourceBackupStable": true,
+  "backupFiles": 151,
+  "backupSymlinks": 3,
+  "sourceManifestSha256": "c96776ae0bfb6f808442bc263b289c6e8395bf66c8f5334694b18d8ed7cce8ed",
+  "rollbackAllFilesAndModesIdentical": true,
+  "counts": {
+    "entries": 7,
+    "preferences": 3,
+    "documents": 3,
+    "libraryDocuments": 3
+  },
+  "assignments": [
+    {
+      "id": "978a1257-96f3-43e4-9991-7468dab39116",
+      "category": "preference",
+      "scope": {
+        "kind": "user"
+      }
+    },
+    {
+      "id": "41f1d455-ef45-4a87-9f4f-d47435067e35",
+      "category": "preference",
+      "scope": {
+        "kind": "user"
+      }
+    },
+    {
+      "id": "671b1ca0-e533-4ae7-9fdb-f655af8b39eb",
+      "category": "document",
+      "scope": {
+        "kind": "project",
+        "projectId": "c75df0de260942d378512045ce4080d921f0cb281a75021bea108fa99907a76a"
+      }
+    },
+    {
+      "id": "0a0f2df1-6496-4e69-ab94-8b6fc2e54dd7",
+      "category": "document",
+      "scope": {
+        "kind": "project",
+        "projectId": "c75df0de260942d378512045ce4080d921f0cb281a75021bea108fa99907a76a"
+      }
+    },
+    {
+      "id": "f6e52e58-8fb2-4d03-aabc-70482681be29",
+      "category": "preference",
+      "scope": {
+        "kind": "user"
+      }
+    },
+    {
+      "id": "8291bb0f-cbf3-4d8a-83fd-802c45db1293",
+      "category": "document",
+      "scope": {
+        "kind": "project",
+        "projectId": "c75df0de260942d378512045ce4080d921f0cb281a75021bea108fa99907a76a"
+      }
+    },
+    {
+      "id": "99c79249-c065-498b-b5a1-980f083f209c",
+      "category": "note",
+      "scope": {
+        "kind": "project",
+        "projectId": "c75df0de260942d378512045ce4080d921f0cb281a75021bea108fa99907a76a"
+      }
+    }
+  ],
+  "project": {
+    "id": "c75df0de260942d378512045ce4080d921f0cb281a75021bea108fa99907a76a",
+    "directory": "/Users/a1-6/Code/agents/serika-v2"
+  },
+  "checks": [
+    {
+      "project": "personal",
+      "visibleEntries": 3,
+      "userPreferences": 3,
+      "documentIndex": 0,
+      "memoryReadDocuments": 0,
+      "sourceUnchanged": true,
+      "mainContextPass": true,
+      "memoryReadPass": true,
+      "libraryPass": true
+    },
+    {
+      "project": "serika-v2",
+      "visibleEntries": 7,
+      "userPreferences": 3,
+      "documentIndex": 3,
+      "memoryReadDocuments": 3,
+      "sourceUnchanged": true,
+      "mainContextPass": true,
+      "memoryReadPass": true,
+      "libraryPass": true
+    },
+    {
+      "project": "none",
+      "visibleEntries": 3,
+      "userPreferences": 3,
+      "documentIndex": 0,
+      "memoryReadDocuments": 0,
+      "sourceUnchanged": true,
+      "mainContextPass": true,
+      "memoryReadPass": true,
+      "libraryPass": true
+    }
+  ],
+  "memory": {
+    "before": "003ab92ca701275eaa2dc4d55741049d037d81e97ce125280f15ab9c835195aa",
+    "upgraded": "feddf3ccf89d24e4a18fc16d0f39548e9a0ca638cb56b0d1e079d2f6c952eae3",
+    "restored": "003ab92ca701275eaa2dc4d55741049d037d81e97ce125280f15ab9c835195aa",
+    "identical": true
+  },
+  "config": {
+    "before": "f52db4681f8fe352c0d78ac1f328640130ba1d26ac78b3bac468dc15da300cef",
+    "upgraded": "512c667b9d7d6e1c06aad7f588bd53abf49ca8f7ea7875b578a89d20ffdc7565",
+    "restored": "f52db4681f8fe352c0d78ac1f328640130ba1d26ac78b3bac468dc15da300cef",
+    "identical": true
+  },
+  "sourceAndAllEntryFieldsExceptScopeUnchanged": true,
+  "status": "passed"
+}

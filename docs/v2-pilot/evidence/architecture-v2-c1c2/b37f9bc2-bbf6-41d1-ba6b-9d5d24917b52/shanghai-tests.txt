@@ -1,0 +1,30 @@
+{"testHomeGuard":"failed","evidence":"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-0vXjbW/home/write-guard-hblsBK/result.json","violations":1,"changes":0,"metadataUnchanged":true}
+{"testHomeGuard":"failed","evidence":"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-DJc3R3/home/write-guard-4Wwd9b/result.json","violations":0,"changes":0,"metadataUnchanged":false}
+{"testHomeGuard":"passed","evidence":"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-pass-6Ic78d/home/write-guard-aehb7j/result.json","violations":0,"changes":0,"metadataUnchanged":true}
+ℹ tests 1185
+ℹ suites 108
+ℹ pass 1178
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 7
+ℹ todo 0
+ℹ duration_ms 130860.697375
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-c2-shanghai.WjQ5Ms/write-guard-13NXB9/result.json","violations":0,"changes":87,"metadataUnchanged":false}
+ℹ tests 659
+ℹ suites 30
+ℹ pass 659
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 257520.765875
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 116.438333
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-c2-shanghai.WjQ5Ms/write-guard-7s2qto/result.json","violations":0,"changes":186,"metadataUnchanged":false}
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-c2-shanghai.WjQ5Ms/write-guard-ghiJ1I/result.json","violations":0,"changes":276,"metadataUnchanged":false}

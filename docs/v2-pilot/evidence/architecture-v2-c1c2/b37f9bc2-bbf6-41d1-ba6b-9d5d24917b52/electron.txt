@@ -1,0 +1,2 @@
+{"runId":"214f3533-9b5f-435a-a740-08e5c2c02c47","status":"passed","checks":7,"evidence":"/Users/a1-6/Code/agents/serika-v2/docs/v2-pilot/evidence/architecture-v2-c1c2/214f3533-9b5f-435a-a740-08e5c2c02c47/electron"}
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-c2-electron-independent-3/write-guard-JMg0LR/result.json","violations":0,"changes":119,"metadataUnchanged":false}

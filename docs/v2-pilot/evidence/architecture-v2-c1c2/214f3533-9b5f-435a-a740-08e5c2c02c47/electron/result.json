@@ -1,0 +1,174 @@
+{
+  "runId": "214f3533-9b5f-435a-a740-08e5c2c02c47",
+  "verification": "real-electron-original-preload-ipc-fake-model-v7",
+  "platform": "darwin",
+  "sourceCommit": "09096afdf5799c2e808228344822e7f0d0051098",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "635faefcb5369dabceefd3e5cf201427b913ccba014e74eedab2c215c282e5c3",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "launches": [
+    {
+      "name": "initial",
+      "main": {
+        "electron": "44.4.5",
+        "pid": 60507,
+        "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-TO8MEu/profile",
+        "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-TO8MEu/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Code/agents/serika-v2/apps/desktop/out/renderer/index.html"
+      }
+    },
+    {
+      "name": "restarted",
+      "main": {
+        "electron": "44.4.5",
+        "pid": 76457,
+        "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-TO8MEu/profile",
+        "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-TO8MEu/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Code/agents/serika-v2/apps/desktop/out/renderer/index.html"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "ui-project-selection",
+      "result": "passed",
+      "authorizedDirectories": [
+        {
+          "path": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-TO8MEu/personal",
+          "access": "readwrite"
+        }
+      ],
+      "project": "serika-v2",
+      "screenshot": {
+        "file": "ui-project-selection.png",
+        "sha256": "edf1a842ed9331c6ab2bf4b55f630f45b60e4c93ff212c97dc5a689d9e8bfed8"
+      }
+    },
+    {
+      "name": "remember-and-retract",
+      "result": "passed",
+      "screenshot": {
+        "file": "remember-and-retract.png",
+        "sha256": "7da272ba3121ba2cd9dfa6b9986a7069ffbebb52a805f5b48a92a12e71f6d076"
+      }
+    },
+    {
+      "name": "serika-project-visible",
+      "result": "passed",
+      "projectMemoryVisible": true,
+      "userPreferences": 3,
+      "visibleProjectDocuments": 3,
+      "memoryReadInvocations": 5,
+      "unchangedAuthorizations": true,
+      "screenshot": {
+        "file": "serika-project-visible.png",
+        "sha256": "57e937c19abfa0d18ee72b55df673cd3e74cc8954c1bee70cad7fa7c1eeb2e3d"
+      }
+    },
+    {
+      "name": "personal-project-isolated",
+      "result": "passed",
+      "projectMemoryVisible": false,
+      "userPreferences": 3,
+      "visibleProjectDocuments": 0,
+      "memoryReadInvocations": 5,
+      "unchangedAuthorizations": true,
+      "screenshot": {
+        "file": "personal-project-isolated.png",
+        "sha256": "0974468eff84f9b5862673f711043f0d45f3fc3d0643c70e2648cf696973b568"
+      }
+    },
+    {
+      "name": "no-project-isolated",
+      "result": "passed",
+      "projectMemoryVisible": false,
+      "userPreferences": 3,
+      "visibleProjectDocuments": 0,
+      "memoryReadInvocations": 5,
+      "unchangedAuthorizations": true,
+      "screenshot": {
+        "file": "no-project-isolated.png",
+        "sha256": "86ed1d61d53ed22772dfd88dfc0b5889ea678afcaa1c3b2c7e4d2bf7e7a2fe7f"
+      }
+    },
+    {
+      "name": "return-to-serika-visible",
+      "result": "passed",
+      "projectMemoryVisible": true,
+      "userPreferences": 3,
+      "visibleProjectDocuments": 3,
+      "memoryReadInvocations": 5,
+      "unchangedAuthorizations": true,
+      "screenshot": {
+        "file": "return-to-serika-visible.png",
+        "sha256": "caf6c27eae3addb0882c6a759fa5892aabf276f56466132f8941e4d021b74d45"
+      }
+    },
+    {
+      "name": "restart-project-and-memory",
+      "result": "passed",
+      "projectMemoryVisible": true,
+      "userPreferences": 3,
+      "visibleProjectDocuments": 3,
+      "memoryReadInvocations": 5,
+      "unchangedAuthorizations": true,
+      "screenshot": {
+        "file": "restart-project-and-memory.png",
+        "sha256": "e4b6091501c2087ce92738e90e6a6876b1e950cfd96d7faa4fb32b0acfe16617"
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "ui-project-selection.png",
+      "sha256": "edf1a842ed9331c6ab2bf4b55f630f45b60e4c93ff212c97dc5a689d9e8bfed8"
+    },
+    {
+      "file": "remember-and-retract.png",
+      "sha256": "7da272ba3121ba2cd9dfa6b9986a7069ffbebb52a805f5b48a92a12e71f6d076"
+    },
+    {
+      "file": "serika-project-visible.png",
+      "sha256": "57e937c19abfa0d18ee72b55df673cd3e74cc8954c1bee70cad7fa7c1eeb2e3d"
+    },
+    {
+      "file": "personal-project-isolated.png",
+      "sha256": "0974468eff84f9b5862673f711043f0d45f3fc3d0643c70e2648cf696973b568"
+    },
+    {
+      "file": "no-project-isolated.png",
+      "sha256": "86ed1d61d53ed22772dfd88dfc0b5889ea678afcaa1c3b2c7e4d2bf7e7a2fe7f"
+    },
+    {
+      "file": "return-to-serika-visible.png",
+      "sha256": "caf6c27eae3addb0882c6a759fa5892aabf276f56466132f8941e4d021b74d45"
+    },
+    {
+      "file": "restart-project-and-memory.png",
+      "sha256": "e4b6091501c2087ce92738e90e6a6876b1e950cfd96d7faa4fb32b0acfe16617"
+    }
+  ],
+  "status": "passed",
+  "artifactHashes": {
+    "out/main/index.js": "03fe6a3a2f299137da5b28507a9f19ad0a44a64ffe81457d606824b2dbaafad1",
+    "out/preload/index.cjs": "b7414942c8798ff88d355633af7bd00fb1b89b29f77bb1b46ba555416a4968e6",
+    "out/renderer/index.html": "692b3f0d423a22003b513d799fccde66dbe02b6b8714dd6ad81188ddec779315"
+  },
+  "restart": {
+    "beforePid": 60507,
+    "afterPid": 76457,
+    "beforeMemorySha256": "2135b5f5b658b8c066a835213d6b2d6ab02b2c0032382cf8e54efd51ec5cb29e",
+    "afterMemorySha256": "2135b5f5b658b8c066a835213d6b2d6ab02b2c0032382cf8e54efd51ec5cb29e",
+    "projectRestored": true,
+    "unchangedAuthorizations": true
+  },
+  "temporaryDirectoryRemoved": true,
+  "rendererErrors": []
+}

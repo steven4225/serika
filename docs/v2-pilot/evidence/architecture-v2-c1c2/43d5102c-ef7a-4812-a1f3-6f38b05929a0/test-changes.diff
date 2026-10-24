@@ -1,0 +1,1857 @@
+diff --git a/apps/cli/src/application-home.test.ts b/apps/cli/src/application-home.test.ts
+index 862674b..2201bf9 100644
+--- a/apps/cli/src/application-home.test.ts
++++ b/apps/cli/src/application-home.test.ts
+@@ -49,7 +49,7 @@ test("fresh CLI homes keep real memory writes, tasks and transcripts apart acros
+         prompts.push(JSON.stringify(request.prompt));
+         const toolName = save && calls < 2 ? ["memory_write", "task_create"][calls] : undefined;
+         calls++;
+-        const input = toolName === "memory_write" ? { operation: "add", text: quote, category: "preference", sourceQuote: quote,
++        const input = toolName === "memory_write" ? { operation: "add", scope: "user", text: quote, category: "preference", sourceQuote: quote,
+           identity: { subject: "user", attribute: "coffee", value: "不加糖" } } : { prompt: "提醒喝水", runAt: "2099-01-01T09:00:00+08:00" };
+         return { stream: simulateReadableStream({ chunks: [
+           { type: "stream-start", warnings: [] },
+@@ -73,12 +73,12 @@ test("fresh CLI homes keep real memory writes, tasks and transcripts apart acros
+     };
+     const a = await open(first, true), b = await open(second, false);
+     await a.run(`${quote}，请记住；并提醒喝水`);
+-    const memory = await a.app.memoryStore!.readV6!(); assert.ok(memory.ok);
++    const memory = await a.app.memoryStore!.readV7!(); assert.ok(memory.ok);
+     assert.equal(memory.value.entries[0]!.text, quote);
+     assert.equal(memory.value.entries[0]!.sources[0]!.kind, "conversation");
+     const tasks = await createTaskStore(assistantDataPaths(first.dataDirectory!).tasks).list(); assert.ok(tasks.ok);
+     assert.equal(tasks.value.tasks.length, 1);
+-    const empty = await b.app.memoryStore!.readV6!(); assert.ok(empty.ok); assert.equal(empty.value.entries.length, 0);
++    const empty = await b.app.memoryStore!.readV7!(); assert.ok(empty.ok); assert.equal(empty.value.entries.length, 0);
+     assert.deepEqual(await b.app.store.getMessages("same"), []);
+     const otherTasks = await createTaskStore(assistantDataPaths(second.dataDirectory!).tasks).list(); assert.ok(otherTasks.ok); assert.equal(otherTasks.value.tasks.length, 0);
+     const configBytes = await readFile(first.configPath!, "utf8");
+@@ -89,7 +89,7 @@ test("fresh CLI homes keep real memory writes, tasks and transcripts apart acros
+     assert.equal(await readFile(first.configPath!, "utf8"), configBytes);
+     const overview = await reopened.controller.automation.getOverview(); assert.ok(overview.ok);
+     assert.equal(overview.value.tasksEnabled, true);
+-    const cold = await reopened.app.memoryStore!.readV6!(); assert.ok(cold.ok); assert.equal(cold.value.entries[0]!.text, quote);
++    const cold = await reopened.app.memoryStore!.readV7!(); assert.ok(cold.ok); assert.equal(cold.value.entries[0]!.text, quote);
+     assert.equal((await readdir(root)).includes("workspace"), false);
+   } finally {
+     for (const controller of controllers.reverse()) await controller.shutdown();
+@@ -109,7 +109,7 @@ test("a storage home does not grant workspace file access or load old workspace
+     await writeFile(oldFile, "old data must not be read");
+     const { directory, home: _home, ...assistant } = home;
+     const app = await createRuntimeApp({ directory: directory!, assistant, modelAlias: "offline", model: new MockLanguageModelV3(), output: new PassThrough().resume(), cwd: root, env: {} });
+-    try { const memory = await app.memoryStore!.readV6!(); assert.ok(memory.ok); assert.equal(memory.value.entries.length, 0); } finally { app.dispose(); }
++    try { const memory = await app.memoryStore!.readV7!(); assert.ok(memory.ok); assert.equal(memory.value.entries.length, 0); } finally { app.dispose(); }
+     assert.equal(await readFile(oldFile, "utf8"), "old data must not be read");
+   } finally { await rm(root, { recursive: true, force: true }); }
+ });
+diff --git a/apps/desktop/src/main/application-home.test.ts b/apps/desktop/src/main/application-home.test.ts
+index ed71ab5..a9618fd 100644
+--- a/apps/desktop/src/main/application-home.test.ts
++++ b/apps/desktop/src/main/application-home.test.ts
+@@ -43,7 +43,7 @@ it("isolates two homes sharing a project without aliases; changing project prese
+     const channel = new TelegramStore(join(paths1.stateDirectory, "telegram.json"), firstHome);
+     await channel.load(); await channel.update(data => { data.offset = 5; });
+     await assert.rejects(readFile(join(paths2.stateDirectory, "telegram.json")), { code: "ENOENT" });
+-    assert.ok((await createMemoryStore(join(firstHome, "data/memory.json")).add({ text: "first home only" })).ok);
++    assert.ok((await createMemoryStore(join(firstHome, "data/memory.json")).add({ scope: { kind: "user" }, text: "first home only" })).ok);
+     const secondMemory = await second.current.listMemories();
+     assert.ok(secondMemory.ok); assert.deepEqual(secondMemory.value.entries, []);
+     const tasks = createTaskStore(join(firstHome, "data/tasks.json"));
+diff --git a/apps/desktop/src/main/background-chat.test.ts b/apps/desktop/src/main/background-chat.test.ts
+index df6aa27..9b6e2a6 100644
+--- a/apps/desktop/src/main/background-chat.test.ts
++++ b/apps/desktop/src/main/background-chat.test.ts
+@@ -77,7 +77,7 @@ test("desktop chat preempts real background consolidation without approving tool
+     assert.equal((await bridge.run("下一句马上发送", { memoryConsolidation: "exclude" })).ok, true);
+     await until(() => bridge!.snapshot().state.kind === "idle");
+     assert.equal(calls, 3);
+-    const cursor = await app.memoryStore!.readV6!();
++    const cursor = await app.memoryStore!.readV7!();
+     assert.equal(cursor.ok, true);
+     if (cursor.ok) assert.equal(cursor.value.progress.length, 0);
+     const history = await bridge.history();
+diff --git a/apps/desktop/src/main/backup.test.ts b/apps/desktop/src/main/backup.test.ts
+index bc840ab..d9378fa 100644
+--- a/apps/desktop/src/main/backup.test.ts
++++ b/apps/desktop/src/main/backup.test.ts
+@@ -24,7 +24,7 @@ async function fixture() {
+   await writeFile(join(transcripts, `${digest("foreign")}.jsonl`), record("foreign", "PRIVATE-FOREIGN") + "\n");
+   await writeFile(join(workspace, ".env"), "API_KEY=PRIVATE-CONFIG");
+   await writeFile(join(workspace, "project.txt"), "PROJECT-FILE");
+-  assert.ok((await createMemoryStore(join(workspace, "data/memory.json")).add({ text: "saved memory" })).ok);
++  assert.ok((await createMemoryStore(join(workspace, "data/memory.json")).add({ scope: { kind: "user" }, text: "saved memory" })).ok);
+   const records = createExecutionRecordStore(transcripts);
+   for (const threadId of ["daily", "foreign"]) {
+     await records.startRun({ runId: `run-${threadId}`, threadId, phase: "primary", startedAt: new Date(0).toISOString() });
+@@ -50,7 +50,7 @@ it("backup only registered assistant data; restoration is an offline copy with s
+     const memory = archive.entries.find(entry => entry.path === "workspace/.runloom/memory.json")!;
+     assert.equal(memory.text, await readFile(join(f.workspace, "data/memory.json"), "utf8"));
+     assert.equal(memory.sha256, digest(memory.text));
+-    assert.equal(JSON.parse(memory.text).version, 6);
++    assert.equal(JSON.parse(memory.text).version, 7);
+     assert.equal(saved.threads, 1);
+     const serialized = JSON.stringify(archive);
+     for (const excluded of ["PRIVATE-FOREIGN", "PRIVATE-CONFIG", "PROJECT-FILE", "run-foreign"]) assert(!serialized.includes(excluded));
+@@ -215,7 +215,7 @@ it("rejects valid JSON that exceeds the original Store read limit before preview
+ it("rejects short configured credentials in assistant text rather than silently exporting them", async () => {
+   const f = await fixture();
+   try {
+-    assert.ok((await createMemoryStore(join(f.workspace, "data/memory.json")).add({ text: "短凭据 k!3x" })).ok);
++    assert.ok((await createMemoryStore(join(f.workspace, "data/memory.json")).add({ scope: { kind: "user" }, text: "短凭据 k!3x" })).ok);
+     await assert.rejects(exportBackup({ ...f, knownSecrets: ["k!3x"] }), /凭据/);
+     await assert.rejects(readFile(f.destination), { code: "ENOENT" });
+   } finally { await rm(f.root, { recursive: true, force: true }); }
+@@ -264,7 +264,7 @@ it("export filters excluded message, snapshot and receipt payloads while preserv
+     await rm(join(f.workspace, "data/memory.json"));
+     const memory = createMemoryStore(join(f.workspace, "data/memory.json"));
+     const secret = "PRIVATE-EXCLUDED-PAYLOAD";
+-    const saved = await memory.writeV6!([{ operation: "add", text: secret, category: "note", source: { kind: "conversation", threadId: "daily", messageId: "user", quote: secret, sentAt: null } }]); assert.ok(saved.ok);
++    const saved = await memory.writeV7!([{ operation: "add", scope: { kind: "user" }, text: secret, category: "note", source: { kind: "conversation", threadId: "daily", messageId: "user", quote: secret, sentAt: null } }]); assert.ok(saved.ok);
+     const store = new JsonlAgentStore({ directory: f.transcripts });
+     await store.save("daily", [{ id: "user", role: "user", parts: [{ type: "text", text: secret }] },
+       { id: "tool", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "write_file", toolCallId: "private-call", state: "output-error", input: { path: "private.txt", content: secret }, errorText: "TOOL_OUTCOME_UNKNOWN" }] }]);
+diff --git a/apps/desktop/src/main/baseline-hashes.test.ts b/apps/desktop/src/main/baseline-hashes.test.ts
+index 42dcb24..859f385 100644
+--- a/apps/desktop/src/main/baseline-hashes.test.ts
++++ b/apps/desktop/src/main/baseline-hashes.test.ts
+@@ -58,7 +58,7 @@ describe("v2 pilot baseline: desktop persisted hash golden samples", () => {
+       Object.assign(expected, JSON.parse(actual));
+       await writeFile(snapshotFile, JSON.stringify(expected, null, 2) + "\n");
+     }
+-    // The v1 Memory backup sample is historical; v6 backup bytes/hash are exercised in backup.test.ts.
++    // The v1 Memory backup sample is historical; v7 backup bytes/hash are exercised in backup.test.ts.
+     delete expected["backup entry sha256"];
+     assert.equal(actual, JSON.stringify(expected, null, 2) + "\n");
+   });
+diff --git a/apps/desktop/src/main/desktop-runtime.test.ts b/apps/desktop/src/main/desktop-runtime.test.ts
+index b4f5480..0f8d44a 100644
+--- a/apps/desktop/src/main/desktop-runtime.test.ts
++++ b/apps/desktop/src/main/desktop-runtime.test.ts
+@@ -262,7 +262,7 @@ describe("normal desktop memory and history entry", () => {
+     const model = new MockLanguageModelV3({ doStream: async () => {
+       if (written) return response();
+       written = true;
+-      return response("memory_write", { operation: "add", text: "我的复盘长期偏好：先结论，再两条步骤。", category: "preference", sourceQuote: "我的复盘长期偏好：先结论，再两条步骤。", identity: { subject: "user", attribute: "review_format", value: "先结论，再两条步骤" } });
++      return response("memory_write", { operation: "add", scope: "user", text: "我的复盘长期偏好：先结论，再两条步骤。", category: "preference", sourceQuote: "我的复盘长期偏好：先结论，再两条步骤。", identity: { subject: "user", attribute: "review_format", value: "先结论，再两条步骤" } });
+     } });
+     const options = { applicationHome: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock", model, send: (event: MainToRenderer) => events.push(event) };
+     let host = await DesktopRuntime.create(options);
+diff --git a/apps/desktop/src/main/formal-memory.test.ts b/apps/desktop/src/main/formal-memory.test.ts
+index 6fbc5e9..6acbc4e 100644
+--- a/apps/desktop/src/main/formal-memory.test.ts
++++ b/apps/desktop/src/main/formal-memory.test.ts
+@@ -20,7 +20,7 @@ it("formal Memory bridge edits actual current versions, validates IPC, preserves
+   const controller = createAssistantController(app); output.attach(controller);
+   const bridge = new RuntimeBridge(app, controller, { modelAlias: "mock", temporaryThread: false, temporaryDirectory: false }, output, message => messages.push(message));
+   try {
+-    const entry = await app.memoryStore!.add({ text: "复盘先给结论" }); assert.ok(entry.ok); if (!entry.ok) return;
++    const entry = await app.memoryStore!.add({ scope: { kind: "user" }, text: "复盘先给结论" }); assert.ok(entry.ok); if (!entry.ok) return;
+     const list = await bridge.listMemories(); assert.ok(list.ok); if (!list.ok) return;
+     assert.equal(list.value.entries.length, 1);
+     for (const bad of [null, [], "string", { offset: -1 }, { limit: 100 }]) assert.ok(!(await bridge.listMemories(bad as never)).ok);
+diff --git a/apps/desktop/src/main/runtime-ownership.test.ts b/apps/desktop/src/main/runtime-ownership.test.ts
+index 47a4d5e..713356d 100644
+--- a/apps/desktop/src/main/runtime-ownership.test.ts
++++ b/apps/desktop/src/main/runtime-ownership.test.ts
+@@ -70,7 +70,7 @@ test("opens restored history and memory, continues, reopens the selected recover
+   let owner = await RuntimeOwnership.create(options);
+   try {
+     const original = owner.info(), memory = createMemoryStore(join(f.options.applicationHome, "data/memory.json"));
+-    const saved = await memory.add({ text: "复盘先写结论，再两条步骤" }); assert(saved.ok);
++    const saved = await memory.add({ scope: { kind: "user" }, text: "复盘先写结论，再两条步骤" }); assert(saved.ok);
+     const transcript = new JsonlAgentStore({ directory: original.directory });
+     const messages = [{ id: "old-user", role: "user" as const, parts: [{ type: "text" as const, text: "旧对话可恢复" }] }];
+     await transcript.save(original.threadId, messages);
+diff --git a/apps/desktop/src/renderer/src/memory-factual-receipts.test.ts b/apps/desktop/src/renderer/src/memory-factual-receipts.test.ts
+index 5a7cf22..e77acf8 100644
+--- a/apps/desktop/src/renderer/src/memory-factual-receipts.test.ts
++++ b/apps/desktop/src/renderer/src/memory-factual-receipts.test.ts
+@@ -27,10 +27,10 @@ test("real bridge history page renders committed host memory receipt; unreadable
+       { id: "older", role: "user" as const, parts: [{ type: "text" as const, text: "你好" }] },
+       { id: "user-source", role: "user" as const, parts: [{ type: "text" as const, text }] },
+     ];
+-    assert.ok((await app.memoryStore!.writeV6!([{ operation: "add", text, category: "preference", scope: { kind: "workspace" },
++    assert.ok((await app.memoryStore!.writeV7!([{ operation: "add", text, category: "preference", scope: { kind: "user" },
+       source: { kind: "conversation", threadId: "receipts", messageId: "user-source", quote: text, sentAt: null } }])).ok);
+     const duringRun = await bridge.historyPage();
+-    assert.equal(duringRun.memoryReceiptError, undefined, "the source can still be uncommitted while v6 is already saved");
++    assert.equal(duringRun.memoryReceiptError, undefined, "the source can still be uncommitted while v7 is already saved");
+     assert.equal(duringRun.memoryReceipts?.[0]?.text, "已保存");
+     await app.store.save("receipts", messages);
+     const page = await bridge.historyPage();
+diff --git a/examples/eval/cm-step6-live.test.mjs b/examples/eval/cm-step6-live.test.mjs
+index 5eb2168..00ecc0f 100644
+--- a/examples/eval/cm-step6-live.test.mjs
++++ b/examples/eval/cm-step6-live.test.mjs
+@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
+ import { join } from 'node:path';
+ import { generateText, simulateReadableStream } from 'ai';
+ import { MockLanguageModelV3 } from 'ai/test';
+-import { meteredModel, safeFailure, chargedUsd, noAutomaticRetryMentioned, pastReadSucceeded, goalMentioned, goalContentMentioned, summaryGoalMentioned, oldGoalMentioned, summarizeBatch, uncertainMentioned, runChat } from './cm-step6-live.mjs';
++import { meteredModel, safeFailure, chargedUsd, noAutomaticRetryMentioned, pastReadSucceeded, goalMentioned, goalContentMentioned, summaryGoalMentioned, oldGoalMentioned, summarizeBatch, uncertainMentioned } from './cm-step6-live.mjs';
+ import { configureCliModel } from '@serika/assistant/internal/model-config.js';
+ import { evaluateM1, m1Cases } from './cm-step4.mjs';
+
+@@ -121,7 +121,7 @@ test('M1 live evidence separates literal-value rejection reasons and retains onl
+   const result = await evaluateM1({ cases: cases.map(item => ({ id: item.id, saved: 1,
+     messages: [...(item.proposal ? [{ id: 'a', role: 'assistant', parts: [{ type: 'text', text: '以后使用中文' }] }] : []),
+       { id: 'u', role: 'user', parts: [{ type: 'text', text: item.quote }] }],
+-    proposals: [{ operation: 'add', category: 'preference', sourceMessageId: 'u', sourceQuote: item.sourceQuote, text: item.text,
++    proposals: [{ operation: 'add', scope: 'user', category: 'preference', sourceMessageId: 'u', sourceQuote: item.sourceQuote, text: item.text,
+       identity: { subject: 'user', attribute: 'fixture', value: item.value }, ...(item.proposal ? { proposal: item.proposal } : {}) }],
+   })) });
+   assert.equal(result.calls, 0); assert.equal(result.fixtureCalls, 12);
+@@ -234,7 +234,32 @@ test('actual Controller archives the primary reply before a background summary f
+     const spec = effectiveCompactionFidelitySpec('CE03');
+     const store = new JsonlAgentStore({ directory: join(root, 'transcripts') });
+     await store.save('eval', compactionFidelityHistory(spec, 0).messages);
+-    const result = await runChat({ model, modelAlias: 'archive-fixture', root, spec, question: spec.turns[0], label: 'cold-process', answerArchive });
++    const { createRuntimeApp, createAssistantController } = await import('@serika/assistant');
++    const { PassThrough } = await import('node:stream');
++    const configPath = join(root, 'config.json');
++    await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [], modules: { memory: { enabled: false }, 'read-file': { enabled: false } }, contextCompaction: spec.contextBudget,
++      modelContextWindows: [{ provider: 'openai-compatible.chat', modelId: model.modelId, contextWindowTokens: spec.contextBudget.contextWindowTokens }], run: { maxSteps: 1, totalTimeoutMs: 120000 } }));
++    const app = await createRuntimeApp({ directory: join(root, 'transcripts'), assistant: { threadId: 'eval', configPath }, model, modelAlias: 'archive-fixture', output: new PassThrough().resume(), env: {}, cwd: root });
++    const controller = createAssistantController(app);
++    let result;
++    try {
++      await controller.runs.list(); await app.background.pause();
++      const before = (await controller.runs.listModelUsage()).calls.length;
++      assert.ok((await controller.run(spec.turns[0])).ok);
++      const deadline = Date.now() + 5000;
++      while (controller.getSnapshot().state.kind !== 'idle') { assert.ok(Date.now() < deadline); await new Promise(resolve => setTimeout(resolve, 5)); }
++      const primary = controller.getSnapshot().lastPrimaryResult;
++      await writeFile(answerArchive, JSON.stringify({ reply: primary?.text, stage: 'primary-returned', backgroundSettled: false }));
++      let backgroundFailure = false;
++      while (true) {
++        const diagnostics = await controller.getContextDiagnostics(); assert.ok(diagnostics.ok);
++        if (diagnostics.value.background?.error) { backgroundFailure = true; break; }
++        if (!diagnostics.value.background?.queued && !diagnostics.value.background?.running) break;
++        assert.ok(Date.now() < deadline); await new Promise(resolve => setTimeout(resolve, 5));
++      }
++      result = { usageCalls: (await controller.runs.listModelUsage()).calls.length - before, reply: primary?.text,
++        checks: { completed: primary?.status === 'completed', backgroundSettled: !backgroundFailure }, passed: !backgroundFailure };
++    } finally { await controller.shutdown(); }
+     assert.equal(backgroundCalls, 1); assert.equal(result.usageCalls, 2); assert.equal(result.reply, reply); assert.equal(observedArchive.backgroundSettled, false);
+     assert.equal(result.checks.completed, true); assert.equal(result.checks.backgroundSettled, false); assert.equal(result.passed, false);
+     assert.equal(JSON.parse(await readFile(answerArchive, 'utf8')).reply, reply);
+diff --git a/packages/assistant/scripts/home-import.test.mjs b/packages/assistant/scripts/home-import.test.mjs
+index 669a176..431249e 100644
+--- a/packages/assistant/scripts/home-import.test.mjs
++++ b/packages/assistant/scripts/home-import.test.mjs
+@@ -6,7 +6,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile, symlink, realpath } from 'node
+ import { tmpdir } from 'node:os';
+ import { join, resolve } from 'node:path';
+ import { JsonlAgentStore } from '../../core/dist/index.js';
+-import { V6MemoryStore } from '../dist/memory-v6-store.js';
++import { validateLegacyV6MemoryDocument } from './memory-upgrade.mjs';
+ import { manifest } from './cm-step7-migrate.mjs';
+ import { convertImportConfig, importHome } from './home-import.mjs';
+
+@@ -18,10 +18,11 @@ async function fixture() {
+   const workspace = join(source, 'workspace'), directory = join(source, 'transcripts/t');
+   await mkdir(join(workspace, '.runloom'), { recursive: true });
+   await new JsonlAgentStore({ directory }).save('t', [{ id: 'u', role: 'user', parts: [{ type: 'text', text: '先给结论。项目记录。' }] }]);
+-  const memory = new V6MemoryStore(join(workspace, '.runloom/memory.json'));
+-  assert.ok((await memory.writeV6([{ operation: 'add', text: '先给结论。', category: 'preference', source: { kind: 'conversation', threadId: 't', messageId: 'u', quote: '先给结论。', sentAt: null } },
+-    { operation: 'add', text: '项目记录。', category: 'document', source: { kind: 'manual' } }], undefined, { now: new Date(stamp) })).ok);
+-  const document = (await memory.readV6()).value;
++  const document = validateLegacyV6MemoryDocument({ version: 6, lastWrittenAt: stamp,
++    entries: ['先给结论。', '项目记录。'].map((text, index) => ({ id: `entry-${index}`, revision: 1, text, uncertain: false,
++      category: index ? 'document' : 'preference', scope: { kind: 'workspace' }, pinned: false, state: 'active', createdAt: stamp, updatedAt: stamp,
++      sources: index ? [{kind:'manual'}] : [{ kind: 'conversation', threadId: 't', messageId: 'u', quote: text, sentAt: null }], replaces: [], supersededBy: null, withdrawal: null })),
++    excludedSources: [], progress: [], suppressed: [], importReceipts: [], library: {revision:0,folders:[],documents:[]} });
+   document.library.documents.push({ id: 'doc', title: '项目', folderId: null, entryIds: [document.entries[1].id], scope: { kind: 'workspace' } });
+   await writeFile(join(workspace, '.runloom/memory.json'), encoded(document));
+   await writeFile(join(source, 'config.json'), encoded({ version: 1, workspace, desktopAutonomy: { workspaceRoot: workspace },
+@@ -39,7 +40,7 @@ async function fixture() {
+   return { root, source, home, specification };
+ }
+
+-test('dry-run, full private backup/rehearsal/rollback, cold read and exact replay preserve IDs, sources, bytes and scope mapping', async () => {
++test('dry-run, full private backup/rehearsal/rollback, offline read and exact replay preserve IDs, sources, bytes and scope mapping', async () => {
+   const f = await fixture();
+   try {
+     const before = await manifest(f.source), preview = await importHome(f);
+@@ -55,7 +56,7 @@ test('dry-run, full private backup/rehearsal/rollback, cold read and exact repla
+     const config = JSON.parse(await readFile(join(f.home, 'config.json')));
+     assert.equal(config.workspace, undefined); assert.equal(config.desktopAutonomy, undefined); assert.equal(config.modules.memory.writePolicy, undefined);
+     assert.equal(config.modules.memory.autoConsolidate, false); assert.equal(config.modules.shell.enabled, false);
+-    const imported = await new V6MemoryStore(join(f.home, 'data/memory.json')).readV6(); assert.ok(imported.ok); assert.equal(imported.value.entries.length, 2);
++    const imported = { value: validateLegacyV6MemoryDocument(JSON.parse(await readFile(join(f.home, 'data/memory.json'), 'utf8'))) }; assert.equal(imported.value.entries.length, 2);
+     const identity = JSON.parse(await readFile(join(f.home, 'desktop/desktop-identity.json')));
+     assert.equal(identity.profiles[0].activeThreadId, 't'); assert.equal(identity.profiles[0].threads[0].transcriptDirectory, join(f.home, 'transcripts/t'));
+     const messages = await new JsonlAgentStore({ directory: identity.profiles[0].threads[0].transcriptDirectory }).getModelMessages('t'); assert.equal(messages[0].id, 'u');
+diff --git a/packages/assistant/scripts/memory-upgrade.test.mjs b/packages/assistant/scripts/memory-upgrade.test.mjs
+new file mode 100644
+index 0000000..d692509
+--- /dev/null
++++ b/packages/assistant/scripts/memory-upgrade.test.mjs
+@@ -0,0 +1,86 @@
++import assert from 'node:assert/strict';
++import { createHash } from 'node:crypto';
++import { execFile } from 'node:child_process';
++import { chmod, link, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
++import { tmpdir } from 'node:os';
++import { join } from 'node:path';
++import { promisify } from 'node:util';
++import { test } from 'node:test';
++import { fileURLToPath } from 'node:url';
++import { tryAcquireFlock } from '../dist/flock.js';
++import { V7MemoryStore } from '../dist/memory-v7-store.js';
++import { identifyProject } from '../dist/project.js';
++import { planMemoryUpgrade, validateLegacyV6MemoryDocument } from './memory-upgrade.mjs';
++const exec = promisify(execFile), script = fileURLToPath(new URL('./memory-upgrade.mjs', import.meta.url));
++const sha = bytes => createHash('sha256').update(bytes).digest('hex'), encoded = value => JSON.stringify(value, null, 4) + '\n\n';
++const ids = ['978a1257-96f3-43e4-9991-7468dab39116', '41f1d455-ef45-4a87-9f4f-d47435067e35', 'f6e52e58-8fb2-4d03-aabc-70482681be29', '671b1ca0-e533-4ae7-9fdb-f655af8b39eb', '0a0f2df1-6496-4e69-ab94-8b6fc2e54dd7', '8291bb0f-cbf3-4d8a-83fd-802c45db1293'];
++const stamp = '2026-10-24T01:00:00.000Z';
++function fixtureDocument() {
++  const entries = ids.map((id, index) => ({ id, revision: 2, text: `PRIVATE_FIXTURE_BODY_${index}`, uncertain: false,
++    category: index < 3 ? 'preference' : 'document', identity: { subject: 'user', attribute: `attribute-${index}`, value: `value-${index}` }, scope: { kind: 'workspace' }, pinned: index === 0, state: 'active', createdAt: stamp, updatedAt: stamp,
++    sources: [{ kind: 'conversation', threadId: 'thread', messageId: `message-${index}`, quote: `PRIVATE_FIXTURE_BODY_${index}`, sentAt: stamp }], replaces: [], supersededBy: null, withdrawal: null }));
++  return { version: 6, lastWrittenAt: stamp, entries, excludedSources: [], progress: [{ threadId: 'thread', throughMessageId: 'message-5', prefixHash: 'prefix', pending: [], retry: null }], suppressed: [],
++    library: { revision: 3, folders: [{ id: 'folder', name: 'fixture' }], documents: entries.slice(3).map(entry => ({ id: `document-${entry.id}`, title: 'fixture', folderId: 'folder', entryIds: [entry.id], scope: { kind: 'workspace' } })) },
++    importReceipts: [{ operationId: 'old-import', requestHash: 'a'.repeat(64), threadId: 'thread', items: [{ id: entries[0].id, status: 'saved' }], committedAt: stamp }] };
++}
++async function fixture(t) {
++  const root = await realpath(await mkdtemp(join(tmpdir(), 'serika-memory-upgrade-test-'))); t.after(() => rm(root, { recursive: true, force: true }));
++  const projectPath = join(root, 'project'); await mkdir(projectPath); await mkdir(join(projectPath, '.git'));
++  const memoryPath = join(root, 'memory.json'), document = fixtureDocument(), original = Buffer.from(encoded(document));
++  await writeFile(memoryPath, original); await chmod(memoryPath, 0o640);
++  const cli = (...args) => exec(process.execPath, [script, '--memory', memoryPath, '--project', projectPath, ...args]);
++  return { root, projectPath, memoryPath, document, original, cli };
++}
++
++test('offline dry-run is read-only; upgrade preserves all sources and counts, cold opens v7, and rollback restores exact SHA and mode', async t => {
++  const f = await fixture(t), before = await readdir(f.root), project = await identifyProject(f.projectPath);
++  const preview = JSON.parse((await f.cli('--dry-run')).stdout);
++  assert.equal(preview.ok, true); assert.deepEqual(preview.counts, { entries: 6, preferences: 3, documents: 3, libraryDocuments: 3 });
++  assert.ok(preview.entries.slice(0, 3).every(row => row.scope.kind === 'user'));
++  assert.ok(preview.entries.slice(3).every(row => row.scope.projectId === project.id));
++  assert.doesNotMatch(JSON.stringify(preview), /PRIVATE_FIXTURE_BODY/); assert.deepEqual(await readdir(f.root), before); assert.deepEqual(await readFile(f.memoryPath), f.original);
++  const receipt = JSON.parse((await f.cli('--upgrade')).stdout), upgraded = JSON.parse(await readFile(f.memoryPath, 'utf8'));
++  assert.deepEqual(await readFile(receipt.backupPath), f.original); assert.equal(receipt.originalSha256, sha(f.original)); assert.equal(receipt.upgradedSha256, sha(await readFile(f.memoryPath)));
++  assert.equal(upgraded.version, 7); assert.equal(upgraded.entries.length, 6); assert.equal(upgraded.library.documents.length, 3);
++  assert.deepEqual(upgraded.progress, f.document.progress.map(item => ({ ...item, projectId: null })));
++  assert.deepEqual(upgraded.importReceipts, f.document.importReceipts.map(item => ({ ...item, projectId: null })));
++  for (let i = 0; i < upgraded.entries.length; i++) { const { scope: _scope, ...entry } = upgraded.entries[i], { scope: _old, ...old } = f.document.entries[i]; assert.deepEqual(entry, old); }
++  const cold = await new V7MemoryStore(f.memoryPath, project.id).readV7(); assert.equal(cold.ok, true);
++  assert.equal((await stat(f.memoryPath)).mode & 0o777, 0o640); assert.equal((await stat(receipt.backupPath)).mode & 0o777, 0o600);
++  const restored = JSON.parse((await f.cli('--rollback', receipt.receiptPath)).stdout);
++  assert.equal(restored.identical, true); assert.equal(restored.originalSha256, restored.restoredSha256); assert.equal(restored.restoredSha256, sha(f.original)); assert.deepEqual(await readFile(f.memoryPath), f.original);
++  await assert.rejects(f.cli('--rollback', receipt.receiptPath), /记忆已变化/);
++});
++
++test('unknown preference is listed without content and blocks upgrade until an exact explicit mapping is provided', async t => {
++  const f = await fixture(t), unknown = { ...f.document.entries[0], id: 'unknown-preference' };
++  f.document.entries.push(unknown); await writeFile(f.memoryPath, encoded(f.document)); const original = await readFile(f.memoryPath);
++  await assert.rejects(f.cli('--dry-run'), error => { const result = JSON.parse(error.stdout); assert.equal(result.ok, false); assert.deepEqual(result.unknown, [{ id: unknown.id, category: 'preference' }]); assert.doesNotMatch(error.stdout, /PRIVATE_FIXTURE_BODY/); return true; });
++  await assert.rejects(f.cli('--upgrade'), /未裁决归属/); assert.deepEqual(await readFile(f.memoryPath), original);
++  const mappingPath = join(f.root, 'mapping.json'); await writeFile(mappingPath, JSON.stringify([{ id: unknown.id, scope: { kind: 'user' } }]));
++  assert.equal(JSON.parse((await f.cli('--mapping', mappingPath, '--upgrade')).stdout).ok, true);
++});
++
++test('additional approved note maps to Serika; suppression needs its own scope and document chunks cannot disagree', async t => {
++  const f = await fixture(t), project = await identifyProject(f.projectPath), note = { ...f.document.entries[0], id: '99c79249-c065-498b-b5a1-980f083f209c', category: 'note' };
++  f.document.entries.push(note); f.document.suppressed.push({ threadId: 'deleted-thread', messageId: 'deleted-message', identity: { subject: 'user', attribute: 'deleted' } });
++  const pending = planMemoryUpgrade(f.document, project); assert.equal(pending.report.entries.at(-1).scope.projectId, project.id); assert.deepEqual(pending.report.unknown, [{ id: 'suppressed:0', category: 'suppressed' }]);
++  const mapped = planMemoryUpgrade(f.document, project, [{ id: 'suppressed:0', scope: { kind: 'project', projectId: project.id } }]); assert.equal(mapped.after.suppressed[0].scope.projectId, project.id);
++  f.document.library.documents[0].entryIds.push(f.document.entries[0].id); assert.throws(() => planMemoryUpgrade(f.document, project), /分块归属不一致/);
++});
++
++test('legacy validation rejects new/unknown fields and normalizes only old schema defaults', () => {
++  const original = fixtureDocument(); delete original.entries[0].uncertain; delete original.excludedSources; delete original.progress[0].pending;
++  const checked = validateLegacyV6MemoryDocument(original); assert.equal(checked.entries[0].uncertain, false); assert.deepEqual(checked.excludedSources, []); assert.deepEqual(checked.progress[0].pending, []);
++  for (const change of [doc => { doc.unexpected = true; }, doc => { doc.entries[0].scope = { kind: 'workspace', projectId: 'forged' }; }, doc => { doc.progress[0].projectId = null; }, doc => { doc.importReceipts[0].projectId = null; }]) { const copy = fixtureDocument(); change(copy); assert.throws(() => validateLegacyV6MemoryDocument(copy)); }
++});
++
++test('held lock, symlink, hardlink, changed current bytes and corrupt backup fail without overwriting', async t => {
++  const f = await fixture(t), lock = await tryAcquireFlock(`${f.memoryPath}.lock`); assert.ok(lock);
++  try { await assert.rejects(f.cli('--upgrade'), /其他进程修改/); } finally { await lock.release(); }
++  const alias = join(f.root, 'alias.json'); await symlink(f.memoryPath, alias); await assert.rejects(exec(process.execPath, [script, '--memory', alias, '--project', f.projectPath, '--upgrade'])); await rm(alias);
++  await link(f.memoryPath, alias); await assert.rejects(f.cli('--upgrade'), /无硬链接/); await rm(alias);
++  const receipt = JSON.parse((await f.cli('--upgrade')).stdout), upgraded = await readFile(f.memoryPath);
++  await writeFile(f.memoryPath, Buffer.concat([upgraded, Buffer.from(' ')])); await assert.rejects(f.cli('--rollback', receipt.receiptPath), /记忆已变化/);
++  await writeFile(f.memoryPath, upgraded); await writeFile(receipt.backupPath, 'corrupt'); await assert.rejects(f.cli('--rollback', receipt.receiptPath), /备份 SHA 不符/); assert.deepEqual(await readFile(f.memoryPath), upgraded);
++});
+diff --git a/packages/assistant/src/app-five-layer.test.ts b/packages/assistant/src/app-five-layer.test.ts
+index 1bfa27f..1649205 100644
+--- a/packages/assistant/src/app-five-layer.test.ts
++++ b/packages/assistant/src/app-five-layer.test.ts
+@@ -8,7 +8,7 @@ import { PassThrough } from "node:stream";
+ import { simulateReadableStream } from "ai";
+ import { MockLanguageModelV3 } from "ai/test";
+ import { createRuntimeApp } from "./app.js";
+-import { createMemoryStore } from "./memory-v6-store.js";
++import { createMemoryStore } from "./memory-v7-store.js";
+ import { createAssistantController } from "./assistant-controller.js";
+ import { memorySnapshot } from "./memory-snapshot.js";
+ import { memoryReadTools } from "./memory-read-tools.js";
+@@ -19,10 +19,11 @@ test("production five-layer runtime persists references, reopens the same prefix
+   await mkdir(workspace);
+   await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: true, autoConsolidate: true } },
+     automation: { dreaming: { enabled: true } }, desktopAutonomy: { authorizedDirectory: workspace } }));
+-  const store = createMemoryStore(join(workspace, ".runloom/memory.json")), documentId = randomUUID();
++  const project = { id: "five-layer-project", directory: workspace, name: "workspace", kind: "folder" as const };
++  const store = createMemoryStore(join(workspace, ".runloom/memory.json"), project.id), documentId = randomUUID();
+   assert.ok((await store.changeLibrary!({ operation: "save-document", id: documentId, title: "reference document", text: "DOCUMENT_BODY_ONLY_ON_READ", folderId: null, expectedRevision: 0, entries: [] })).ok);
+-  for (let i = 0; i < 3; i++) assert.ok((await store.add({ text: `overflow_marker_${i} ` + "x".repeat(1800) })).ok);
+-  assert.ok((await store.add({ text: "DISABLED_SECRET", enabled: false })).ok);
++  for (let i = 0; i < 3; i++) assert.ok((await store.add({ scope: { kind: "user" }, text: `overflow_marker_${i} ` + "x".repeat(1800) })).ok);
++  assert.ok((await store.add({ scope: { kind: "user" }, text: "DISABLED_SECRET", enabled: false })).ok);
+   const prompts: Array<Parameters<MockLanguageModelV3["doStream"]>[0]> = [];
+   const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } };
+   const model = new MockLanguageModelV3({ doGenerate: async () => { throw new Error("No retrieval or dreaming model call is allowed"); }, doStream: async options => {
+@@ -33,10 +34,10 @@ test("production five-layer runtime persists references, reopens the same prefix
+       { type: "text-delta" as const, id: "answer", delta: "done" }, { type: "text-end" as const, id: "answer" },
+       ]), { type: "finish" as const, finishReason: { unified: query ? "tool-calls" as const : "stop" as const, raw: undefined }, usage }] }) };
+   } });
+-  const open = () => createRuntimeApp({ directory, assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "thread", configPath }, modelAlias: "fixture", model, output: new PassThrough(), env: {}, cwd: root, desktopAutonomyHost: { home: join(root, "H") } });
++  const open = () => createRuntimeApp({ directory, assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "thread", configPath }, project, modelAlias: "fixture", model, output: new PassThrough(), env: {}, cwd: root, desktopAutonomyHost: { home: join(root, "H") } });
+   let app = await open();
+   const run = async (id: string) => {
+-    const request = { id, role: "user" as const, parts: [{ type: "text" as const, text: id }] };
++    const request = { id, role: "user" as const, parts: [{ type: "text" as const, text: id }], metadata: { memoryProjectId: project.id } };
+     app.beginForegroundExecution?.("desktop", request);
+     try { const handle = await app.runtime.run({ agentId: app.agentId, threadId: "thread", messages: [request], signal: AbortSignal.timeout(5000) });
+       assert.equal((await handle.result).status, "completed");
+@@ -76,10 +77,10 @@ test("snapshot budgets include whole serialized entries, pin priority and tempor
+ });
+
+ test("memory reads recheck disabled documents and retracted overflow instead of returning stale bodies", async () => {
+-  const root = await mkdtemp(join(tmpdir(), "serika-read-recheck-")), store = createMemoryStore(join(root, ".runloom/memory.json"));
++  const root = await mkdtemp(join(tmpdir(), "serika-read-recheck-")), store = createMemoryStore(join(root, ".runloom/memory.json"), "read-recheck-project");
+   try {
+-    const added = await store.add({ text: "RETRACTED_READ_SECRET" }); assert.ok(added.ok);
+-    assert.ok((await store.writeV6!([{ id: added.entry.id, expectedRevision: added.entry.revision!, operation: "retract", source: { kind: "manual" } }])).ok);
++    const added = await store.add({ scope: { kind: "user" }, text: "RETRACTED_READ_SECRET" }); assert.ok(added.ok);
++    assert.ok((await store.writeV7!([{ id: added.entry.id, expectedRevision: added.entry.revision!, operation: "retract", source: { kind: "manual" } }])).ok);
+     const id = randomUUID();
+     assert.ok((await store.changeLibrary!({ operation: "save-document", id, title: "document", text: "DISABLED_READ_SECRET", folderId: null, expectedRevision: 0, entries: [] })).ok);
+     const material = await store.readReferenceMaterial!(new AbortController().signal, new Date()); assert.ok(material.ok);
+diff --git a/packages/assistant/src/app.test.ts b/packages/assistant/src/app.test.ts
+index a21482b..9673e95 100644
+--- a/packages/assistant/src/app.test.ts
++++ b/packages/assistant/src/app.test.ts
+@@ -252,7 +252,7 @@ else {fs.writeFileSync(${JSON.stringify(marker)},'dispatched');console.log('{}')
+           assert.equal((await handle.result).status, "completed");
+         };
+         await run("first", "reports before saving");
+-        assert.ok((await app.memoryStore!.add({ text: "reports use three steps" })).ok);
++        assert.ok((await app.memoryStore!.add({ scope: { kind: "user" }, text: "reports use three steps" })).ok);
+         await run("next", "reports after saving");
+         const prompt = prompts[1]!;
+         const old = prompt.findIndex(message => message.includes("Earlier selected entries: []"));
+diff --git a/packages/assistant/src/assistant-controller.test.ts b/packages/assistant/src/assistant-controller.test.ts
+index 3477dcd..3ba86ca 100644
+--- a/packages/assistant/src/assistant-controller.test.ts
++++ b/packages/assistant/src/assistant-controller.test.ts
+@@ -14,8 +14,8 @@ import { EXECUTION_RECORD_FILE } from "./execution-record-store.js";
+ import { createExecutionRecordStore } from "./execution-record-store.js";
+ import { createWorkTaskStore } from "./work-task-store.js";
+ import { createToolConfirmation, type PendingToolApproval } from "./tool-confirmation.js";
+-import { type WorkspaceMemoryStore } from "./memory-types.js";
+-import { createMemoryStore } from "./memory-v6-store.js";
++import { type ScopedMemoryStore } from "./memory-types.js";
++import { createMemoryStore } from "./memory-v7-store.js";
+
+ function deferred<T>(): {
+   promise: Promise<T>;
+diff --git a/packages/assistant/src/baseline-hashes.test.ts b/packages/assistant/src/baseline-hashes.test.ts
+index ca895c6..6663180 100644
+--- a/packages/assistant/src/baseline-hashes.test.ts
++++ b/packages/assistant/src/baseline-hashes.test.ts
+@@ -14,7 +14,7 @@ import { recipeHash } from "./recipe-store.js";
+ import { rssItemKey } from "./rss-subscriptions.js";
+ import { createBuiltinSkill } from "./skill-catalog.js";
+ import { createDreamingService } from "./dreaming.js";
+-import { createMemoryStore } from "./memory-v6-store.js";
++import { createMemoryStore } from "./memory-v7-store.js";
+ import type { WorkTask, WorkTaskStore } from "./work-task-store.js";
+ import type { ExecutionRecordStore, ExecutionRunRecord } from "./execution-record-store.js";
+ import { taskResultLink, taskResultWorkspaceKey } from "./task-result-link.js";
+diff --git a/packages/assistant/src/consolidation-runtime.test.ts b/packages/assistant/src/consolidation-runtime.test.ts
+index 609599f..c52f445 100644
+--- a/packages/assistant/src/consolidation-runtime.test.ts
++++ b/packages/assistant/src/consolidation-runtime.test.ts
+@@ -4,7 +4,7 @@ import { mkdtemp, rm, mkdir, writeFile, readFile, readdir } from "node:fs/promis
+ import { tmpdir } from "node:os";
+ import { join } from "node:path";
+ import { MockLanguageModelV3 } from "ai/test";
+-import { createMemoryStore } from "./memory-v6-store.js";
++import { createMemoryStore } from "./memory-v7-store.js";
+ import { createMemoryExtraction, extractionThreshold } from "./memory-extraction.js";
+ import { DEFAULT_CONTEXT_BUDGET_CONFIG, defaultContextBudget } from "./context-budget.js";
+ import { observeModelUsage } from "./model-usage-observer.js";
+@@ -23,14 +23,14 @@ test("background extraction commits memory with progress and never appends a syn
+   let updated!: () => void; const update = new Promise<void>(resolve => { updated = resolve; });
+   const model = new MockLanguageModelV3({ doGenerate: async options => {
+     assert.equal(options.tools?.length ?? 0, 0);
+-    return { content: [{ type: "text", text: JSON.stringify({ proposals: [{ operation: "add", category: "preference", text: "我喝咖啡不加糖", sourceMessageId: "u", sourceQuote: "我喝咖啡不加糖", identity: { subject: "user", attribute: "coffee", value: "不加糖" } }], outcomes: [{ messageId: "u", status: "extracted" }] }) }], finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
++    return { content: [{ type: "text", text: JSON.stringify({ proposals: [{ operation: "add", scope: "user", category: "preference", text: "我喝咖啡不加糖", sourceMessageId: "u", sourceQuote: "我喝咖啡不加糖", identity: { subject: "user", attribute: "coffee", value: "不加糖" } }], outcomes: [{ messageId: "u", status: "extracted" }] }) }], finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
+   } });
+   const store = createMemoryStore(join(root, ".runloom/memory.json")), extraction = createMemoryExtraction({ store, threadId: "t", getMessages: async () => messages, model: observeModelUsage(model, { records: createExecutionRecordStore(root), threadId: "t", enabled: () => true, callLog: new ModelCallLog(root), scope: () => ({ purpose: "memory_consolidation" }) }), budget: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, summaryMaxOutputTokens: 1024 }, updated });
+   try {
+     extraction.idle();
+     await update;
+     await extraction.pause();
+-    const document = await store.readV6!(); assert.ok(document.ok);
++    const document = await store.readV7!(); assert.ok(document.ok);
+     assert.equal(document.value.entries.length, 1); assert.equal(document.value.progress[0]!.throughMessageId, "u");
+     assert.equal(messages.length, 2); assert.equal(extraction.diagnostics().calls, 1);
+     assert.equal(extraction.diagnostics().completed, 1);
+diff --git a/packages/assistant/src/context-background.test.ts b/packages/assistant/src/context-background.test.ts
+index 630a9c5..ade18c3 100644
+--- a/packages/assistant/src/context-background.test.ts
++++ b/packages/assistant/src/context-background.test.ts
+@@ -9,7 +9,7 @@ import { MockLanguageModelV3 } from "ai/test";
+ import { ContextCompactor } from "./context-compactor.js";
+ import { blockLimits, fitMessage } from "./context-blocks.js";
+ import { availableInputTokens, defaultContextBudget, effectiveContextBudget, estimateContextBudget } from "./context-budget.js";
+-import { createMemoryStore } from "./memory-v6-store.js";
++import { createMemoryStore } from "./memory-v7-store.js";
+ import { createTranscriptAccess } from "./transcript-access.js";
+ import { createCompactionChecklist } from "./compaction-records.js";
+ import { createExecutionRecordStore } from "./execution-record-store.js";
+@@ -73,16 +73,16 @@ test("privacy exclusions survive restart, preserve original chat and redact memo
+   try {
+     const store = new JsonlAgentStore({ directory: join(root, "transcripts") }), memory = createMemoryStore(join(root, ".runloom/memory.json"));
+     const text = "Secret preference alpha", source = msg("source", "user", text);
+-    const saved = await memory.writeV6!([{ operation: "add", text, category: "preference", source: { kind: "conversation", threadId: "t", messageId: "source", quote: text, sentAt: null } }]); assert.ok(saved.ok);
++    const saved = await memory.writeV7!([{ operation: "add", scope: { kind: "user" }, text, category: "preference", source: { kind: "conversation", threadId: "t", messageId: "source", quote: text, sentAt: null } }]); assert.ok(saved.ok);
+     await store.save("t", [source, { ...msg("later", "user", "Continue"), metadata: { contextSnapshot: [msg("stale", "assistant", text)] } }]);
+     let invalidated = 0;
+     const access = createTranscriptAccess({ store, threadId: "t", memory, invalidated: () => { invalidated++; } });
+     await access.exclude({ messageId: "source", reason: "privacy" }); assert.equal(invalidated, 1);
+     assert.match(JSON.stringify(await store.getMessages("t")), /Secret preference alpha/);
+     assert.doesNotMatch(JSON.stringify(await access.read()), /Secret preference alpha/);
+-    const read = await memory.readV6!(); assert.ok(read.ok); assert.doesNotMatch(JSON.stringify(read.value), /Secret preference alpha/);
++    const read = await memory.readV7!(); assert.ok(read.ok); assert.doesNotMatch(JSON.stringify(read.value), /Secret preference alpha/);
+     assert.equal(read.value.entries[0]?.state, "retracted");
+-    const undo = await memory.writeV6!([{ operation: "undo", id: read.value.entries[0]!.id, expectedRevision: read.value.entries[0]!.revision, source: { kind: "manual" } }]); assert.equal(undo.ok, false);
++    const undo = await memory.writeV7!([{ operation: "undo", id: read.value.entries[0]!.id, expectedRevision: read.value.entries[0]!.revision, source: { kind: "manual" } }]); assert.equal(undo.ok, false);
+     const reopened = createTranscriptAccess({ store: new JsonlAgentStore({ directory: join(root, "transcripts") }), threadId: "t", memory: createMemoryStore(join(root, ".runloom/memory.json")), invalidated() {} });
+     const tools = historyTools(reopened, budgets[0]!);
+     for (const [index, input] of [[0, { query: text, start: 0 }], [1, { id: "source", start: 0 }]] as const) {
+@@ -111,7 +111,7 @@ test("oversized leading assistant and user material is extracted chronologically
+     let calls = 0;
+     const model = new MockLanguageModelV3({ doGenerate: async ({ prompt }) => {
+       calls++;
+-      const current = await store.readV6!(); assert.ok(current.ok); assert.notEqual(current.value.progress[0]?.throughMessageId, "long");
++      const current = await store.readV7!(); assert.ok(current.ok); assert.notEqual(current.value.progress[0]?.throughMessageId, "long");
+       assert.ok(JSON.stringify(prompt).length < 26624 * 2);
+       const text = prompt.flatMap(message => message.role === "user" ? message.content.flatMap(part => part.type === "text" ? [part.text] : []) : []).join("\n");
+       const block = JSON.parse(text.slice("Original block:\n".length).split("\nTask:")[0]!) as Array<{ id: string; text: string }>;
+@@ -122,7 +122,7 @@ test("oversized leading assistant and user material is extracted chronologically
+     const extraction = createMemoryExtraction({ store, threadId: "t", getMessages: async () => messages, model, budget: budgets[0]!, updated() {} });
+     extraction.afterMask("long"); extraction.idle();
+     await settle(() => !extraction.diagnostics().running); await extraction.pause();
+-    const result = await store.readV6!(); assert.ok(result.ok);
++    const result = await store.readV7!(); assert.ok(result.ok);
+     assert.ok(calls > 1); assert.equal(assistantSeen, assistantText); assert.equal(result.value.progress[0]?.throughMessageId, "long"); assert.equal(result.value.progress[0]?.pending.length, 0);
+     await extraction.close();
+   } finally { await rm(root, { recursive: true, force: true }); }
+diff --git a/packages/assistant/src/dreaming.test.ts b/packages/assistant/src/dreaming.test.ts
+index 0219b6f..e29ead7 100644
+--- a/packages/assistant/src/dreaming.test.ts
++++ b/packages/assistant/src/dreaming.test.ts
+@@ -6,7 +6,7 @@ import { afterEach, describe, it } from "node:test";
+ import { createDreamingService, type DreamingBatch, type DreamingResult } from "./dreaming.js";
+ import type { WorkTask, WorkTaskStore } from "./work-task-store.js";
+ import type { ExecutionRecordStore, ExecutionRunRecord } from "./execution-record-store.js";
+-import type { MemoryEntry, WorkspaceMemoryStore } from "./memory-types.js";
++import type { MemoryEntry, ScopedMemoryStore } from "./memory-types.js";
+
+ const directories: string[] = [];
+ afterEach(async () => { await Promise.all(directories.splice(0).map(d => rm(d, { recursive: true, force: true }))); });
+@@ -227,7 +227,7 @@ describe("host-managed dreaming experience skills", () => {
+     const f = await fixture();
+     let memory: MemoryEntry = { id: "memory-a", revision: 1, text: "复盘偏好", enabled: true, status: "active" };
+     for (const run of f.runs.values()) run.memoryReferences = [{ id: memory.id, revision: 1 }];
+-    const memoryStore = { get: async () => ({ ok: true, entry: structuredClone(memory) }) } as unknown as WorkspaceMemoryStore;
++    const memoryStore = { get: async () => ({ ok: true, entry: structuredClone(memory) }) } as unknown as ScopedMemoryStore;
+     const service = createDreamingService({ filePath: join(f.root, ".runloom/dreaming.json"), workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
+     const batch = value(await service.prepare()); assert.ok(batch);
+     const committed = value(await service.commit(batch, response(batch)));
+@@ -243,7 +243,7 @@ describe("host-managed dreaming experience skills", () => {
+     const f = await fixture();
+     let memory: MemoryEntry = { id: "legacy-dependency", revision: 1, text: "复盘方法", enabled: true, status: "active" };
+     for (const run of f.runs.values()) run.memoryReferences = [{ id: memory.id, revision: 1 }];
+-    const memoryStore = { get: async () => ({ ok: true, entry: structuredClone(memory) }) } as unknown as WorkspaceMemoryStore;
++    const memoryStore = { get: async () => ({ ok: true, entry: structuredClone(memory) }) } as unknown as ScopedMemoryStore;
+     const service = createDreamingService({ filePath: join(f.root, ".runloom/dreaming.json"), workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
+     const batch = value(await service.prepare()); assert.ok(batch);
+     const learned = value(await service.commit(batch, response(batch))), id = learned.skillIds[0]!;
+@@ -268,7 +268,7 @@ describe("host-managed dreaming experience skills", () => {
+     // Individually eligible experiences must still fail if one learned method
+     // would combine different versions of the same logical Memory.
+     const memoryStore = { get: async () => ({ ok: true, entry: { id: "memory-a", revision: ++memoryReads % 2 ? 1 : 2,
+-      text: "复盘偏好", enabled: true, status: "active" } }) } as unknown as WorkspaceMemoryStore;
++      text: "复盘偏好", enabled: true, status: "active" } }) } as unknown as ScopedMemoryStore;
+     const service = createDreamingService({ filePath: join(f.root, ".runloom/dreaming.json"), workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
+     const batch = value(await service.prepare()); assert.ok(batch);
+     const mixed = await service.commit(batch, response(batch)); assert.ok(!mixed.ok); assert.equal(mixed.error.code, "DREAMING_SOURCE_INVALID");
+diff --git a/packages/assistant/src/hook-skill-acceptance.test.ts b/packages/assistant/src/hook-skill-acceptance.test.ts
+index 569ec2c..7808b43 100644
+--- a/packages/assistant/src/hook-skill-acceptance.test.ts
++++ b/packages/assistant/src/hook-skill-acceptance.test.ts
+@@ -12,7 +12,7 @@ import { createRuntimeApp } from "./app.js";
+ import { createAssistantController, type AssistantController } from "./assistant-controller.js";
+ import type { HookRule } from "./automation-hooks.js";
+ import { createCheckpointStore } from "./checkpoint-store.js";
+-import { createMemoryStore } from "./memory-v6-store.js";
++import { createMemoryStore } from "./memory-v7-store.js";
+
+ type ModelOptions = Parameters<MockLanguageModelV3["doStream"]>[0];
+ const PREFERENCE = "我的长期复盘偏好是先结论，再给两条步骤。";
+@@ -129,7 +129,7 @@ test("config hook dispatches an external text Skill with its instructions and no
+   const model = new MockLanguageModelV3({ doStream: async options => { observations.push(options); return response(); } });
+   try {
+     const { app, controller } = await f.open(model);
+-    assert.ok((await app.memoryStore!.add({ text: "MEMORY_PRIVATE_MARKER", pinned: true })).ok);
++    assert.ok((await app.memoryStore!.add({ scope: { kind: "user" }, text: "MEMORY_PRIVATE_MARKER", pinned: true })).ok);
+     assert.ok((await createCheckpointStore(join(f.workspace, ".runloom/checkpoint.json")).saveNextVersion({ expectedVersion: null, sourceThreadId: app.threadId,
+       draft: { status: "active", goal: "CHECKPOINT_PRIVATE_MARKER", summary: "CHECKPOINT_PRIVATE_MARKER", completed: [],
+         inProgress: [], nextActions: [], blockers: [], artifacts: [] } })).ok);
+diff --git a/packages/assistant/src/memory-context-scope.test.ts b/packages/assistant/src/memory-context-scope.test.ts
+new file mode 100644
+index 0000000..3368d3b
+--- /dev/null
++++ b/packages/assistant/src/memory-context-scope.test.ts
+@@ -0,0 +1,83 @@
++import assert from "node:assert/strict";
++import { test } from "node:test";
++import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
++import { tmpdir } from "node:os";
++import { join } from "node:path";
++import { randomUUID } from "node:crypto";
++import { PassThrough } from "node:stream";
++import { simulateReadableStream, type UIMessage } from "ai";
++import { MockLanguageModelV3 } from "ai/test";
++import { createRuntimeApp } from "./app.js";
++import { createAssistantController } from "./assistant-controller.js";
++import { createMemoryStore } from "./memory-v7-store.js";
++import { createMemoryExtraction } from "./memory-extraction.js";
++import { expandMessageReferences } from "./context-assembler.js";
++import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
++const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } };
++const text = (message: UIMessage) => message.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n");
++
++test("real runtime scopes main references and memory_read across A/B/null and cold-restored fixed/update references", { timeout: 15000 }, async () => {
++  const root = await mkdtemp(join(tmpdir(), "serika-context-scope-")), configPath = join(root, "config.json"), dataDirectory = join(root, "data");
++  await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [], modules: { memory: { enabled: true, autoConsolidate: false } } }));
++  const projects = ["A", "B"].map(id => ({ id, name: id, directory: join(root, id), kind: "folder" as const }));
++  await Promise.all(projects.map(project => mkdir(project.directory)));
++  const requests: Array<Parameters<MockLanguageModelV3["doStream"]>[0]> = [];
++  const model = new MockLanguageModelV3({ doStream: async request => {
++    requests.push(request); let index = request.prompt.length - 1; while (index >= 0 && request.prompt[index]?.role !== "user") index--; const current = request.prompt[index];
++    const command = current?.role === "user" ? current.content.flatMap(part => part.type === "text" ? [part.text] : []).join("\n").split("\n")[0]! : "";
++    let input: Record<string, unknown> | undefined, toolName = "memory_write";
++    if (!request.prompt.slice(index + 1).some(message => message.role === "tool")) {
++      if (command.startsWith("save ")) { const [, scope, value] = command.split(" "); input = { operation: "add", scope, text: value, category: scope === "user" ? "preference" : "note", sourceQuote: command, identity: { subject: "user", attribute: value, value } }; }
++      if (command === "read") { toolName = "memory_read"; input = { query: "PROJECT_" }; }
++    }
++    return { stream: simulateReadableStream({ chunks: [{ type: "stream-start", warnings: [] }, ...(input ? [{ type: "tool-call" as const, toolCallId: String(requests.length), toolName, input: JSON.stringify(input) }] : [{ type: "text-start" as const, id: "a" }, { type: "text-delta" as const, id: "a", delta: "done" }, { type: "text-end" as const, id: "a" }]), { type: "finish", finishReason: { unified: input ? "tool-calls" : "stop", raw: undefined }, usage }] }) };
++  } });
++  const open = async (project: typeof projects[number] | null, threadId = "shared") => {
++    const output = new PassThrough(); output.resume();
++    const app = await createRuntimeApp({ directory: join(root, threadId), assistant: { dataDirectory, configPath, threadId }, project, modelAlias: "scope", model, output, env: {}, cwd: root });
++    return { app, controller: createAssistantController(app) };
++  };
++  const run = async (controller: ReturnType<typeof createAssistantController>, command: string) => {
++    const idle = new Promise<void>(resolve => { const stop = controller.subscribe(event => { if (event.type === "state" && event.state.kind === "idle") { stop(); resolve(); } }); });
++    assert.ok((await controller.run(command)).ok); await idle; assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
++  };
++  try {
++    const seed = await open(projects[0]!, "seed"); await run(seed.controller, "save user SHARED_PREFERENCE"); await run(seed.controller, "save project PROJECT_FIXED"); assert.ok((await seed.controller.memory.changeLibrary({ operation: "save-document", expectedRevision: 0, id: randomUUID(), title: "PROJECT_DOCUMENT_TITLE", folderId: null, text: "PROJECT_DOCUMENT_BODY_ONLY", entries: [] })).ok); await seed.controller.shutdown();
++    const a = await open(projects[0]!); await run(a.controller, "read"); await run(a.controller, "save project PROJECT_UPDATE"); await run(a.controller, "observe");
++    const captured = JSON.stringify(await a.app.store.getMessages("shared")); assert.match(captured, /contextSnapshot/); assert.match(captured, /memory-updates/); await a.controller.shutdown();
++    for (const project of [projects[1]!, null, projects[0]!]) {
++      const current = await open(project), start = requests.length; await run(current.controller, "read");
++      const host = requests[start]!.prompt.flatMap(message => typeof message.content === "string" ? [] : message.content.flatMap(part => part.type === "text" ? [part.text] : [])).flatMap(body => body.startsWith("Fixed Memory snapshot:") ? [body] : body.includes("Host context captured with this message:\n") ? [body.split("Host context captured with this message:\n")[1]!] : []).join("\n");
++      const visible = project?.id === "A"; assert.equal(JSON.stringify(requests[start]!.prompt).includes("PROJECT_DOCUMENT_BODY_ONLY"), visible); assert.match(host, /SHARED_PREFERENCE/); for (const marker of ["PROJECT_FIXED", "PROJECT_UPDATE"]) assert.equal(host.includes(marker), visible);
++      const reference = current.app.getMemoryReferences!(); assert.ok(reference); assert.ok(reference.selected.some(entry => entry.text === "SHARED_PREFERENCE")); assert.equal(reference.selected.some(entry => entry.text === "PROJECT_FIXED"), visible);
++      const history = await current.app.store.getMessages("shared"), result = history.flatMap(message => message.parts).reverse().find(part => "toolName" in part && part.toolName === "memory_read" && "output" in part);
++      assert.ok(result && "output" in result); assert.equal(JSON.stringify(result.output).includes("PROJECT_FIXED"), visible); assert.equal(JSON.stringify(result.output).includes("PROJECT_UPDATE"), visible);
++      assert.ok(JSON.stringify(history).includes("PROJECT_DOCUMENT_BODY_ONLY"), "Stored transcript keeps the original tool result");
++      const saved = await current.app.memoryStore!.readV7!(); assert.ok(saved.ok); assert.ok(saved.value.entries.find(entry => entry.text === "SHARED_PREFERENCE")!.sources.some(source => source.kind === "conversation" && source.threadId === "seed"));
++      await current.controller.shutdown();
++    }
++  } finally { await rm(root, { recursive: true, force: true }); }
++});
++
++test("extraction excludes a foreign-project source and rejects a proposal trying to bind its message ID", { timeout: 5000 }, async () => {
++  const root = await mkdtemp(join(tmpdir(), "serika-extract-scope-")), store = createMemoryStore(join(root, "memory.json"), "A"); let calls = 0;
++  const messages: UIMessage[] = ["A", "B"].map(id => ({ id, role: "user", metadata: { memoryProjectId: id }, parts: [{ type: "text", text: `${id}_EXTRACT_SOURCE` }] }));
++  const model = new MockLanguageModelV3({ doGenerate: async request => {
++    calls++; const prompt = JSON.stringify(request.prompt); assert.match(prompt, /A_EXTRACT_SOURCE/); assert.doesNotMatch(prompt, /B_EXTRACT_SOURCE/);
++    return { content: [{ type: "text", text: JSON.stringify({ proposals: [{ operation: "add", scope: "project", text: "B_EXTRACT_SOURCE", category: "note", sourceMessageId: "B", sourceQuote: "B_EXTRACT_SOURCE", identity: { subject: "user", attribute: "project", value: "B_EXTRACT_SOURCE" } }], outcomes: [{ messageId: "A", status: "extracted" }] }) }], finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
++  } });
++  const extraction = createMemoryExtraction({ store, projectId: "A", threadId: "t", getMessages: async () => messages, model, budget: DEFAULT_CONTEXT_BUDGET_CONFIG, updated() {} });
++  try {
++    extraction.afterMask("A"); extraction.idle(); for (let i = 0; i < 20000 && extraction.diagnostics().running; i++) await new Promise<void>(resolve => setImmediate(resolve)); await extraction.pause();
++    assert.equal(calls, 1); assert.equal(extraction.diagnostics().completed, 0); assert.equal(extraction.diagnostics().failed, 1); assert.match(extraction.diagnostics().error!, /抽取来源越界/);
++    const saved = await store.readV7!(); assert.ok(saved.ok); assert.deepEqual(saved.value.entries, []); assert.equal(saved.value.progress[0]!.projectId, "A");
++  } finally { await extraction.close(); await rm(root, { recursive: true, force: true }); }
++});
++
++
++test("unknown historical Memory tool output is omitted from project model views without mutating transcript", () => {
++  const messages: UIMessage[] = [{ id: "old", role: "user", parts: [{ type: "text", text: "old source remains" }] }, { id: "tool", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "memory_read", toolCallId: "old-read", state: "output-available", input: { query: "old" }, output: { ok: true, entries: [{ text: "UNKNOWN_SCOPE_TOOL_BODY" }] } }] }];
++  const before = structuredClone(messages);
++  for (const project of ["A", null]) { const projected = JSON.stringify(expandMessageReferences(messages, project)); assert.doesNotMatch(projected, /UNKNOWN_SCOPE_TOOL_BODY/); assert.match(projected, /old source remains/); }
++  assert.deepEqual(messages, before);
++});
+diff --git a/packages/assistant/src/memory-factual-receipts.test.ts b/packages/assistant/src/memory-factual-receipts.test.ts
+index a564d25..29d8b11 100644
+--- a/packages/assistant/src/memory-factual-receipts.test.ts
++++ b/packages/assistant/src/memory-factual-receipts.test.ts
+@@ -3,23 +3,23 @@ import { test } from "node:test";
+ import { mkdtemp, rm } from "node:fs/promises";
+ import { tmpdir } from "node:os";
+ import { join } from "node:path";
+-import { createMemoryStore } from "./memory-v6-store.js";
++import { createMemoryStore } from "./memory-v7-store.js";
+ import { readMemoryFactReceipts } from "./memory-factual-receipts.js";
+
+-test("v6 receipts bind original source and replacement/withdrawal state across reopen; receipts use validated records before transcript commit", async () => {
++test("v7 receipts bind original source and replacement/withdrawal state across reopen; receipts use validated records before transcript commit", async () => {
+   const root = await mkdtemp(join(tmpdir(), "cm4-receipts-"));
+   const source = (i: number) => ({ kind: "conversation" as const, threadId: "t", messageId: String(i), quote: ["旧值", "新值", "撤回"][i]!, sentAt: null });
+   let store = createMemoryStore(join(root, ".runloom/memory.json"));
+   try {
+-    const saved = await store.writeV6!([{ operation: "add", text: "旧值", category: "note", source: source(0) }]); assert.ok(saved.ok);
++    const saved = await store.writeV7!([{ operation: "add", scope: { kind: "user" }, text: "旧值", category: "note", source: source(0) }]); assert.ok(saved.ok);
+     const immediate = await readMemoryFactReceipts(store, "t");
+-    assert.ok(immediate.ok, "a committed v6 write must have a receipt before the Run commits its transcript");
++    assert.ok(immediate.ok, "a committed v7 write must have a receipt before the Run commits its transcript");
+     assert.equal(immediate.value[0]?.text, "已保存");
+     assert.deepEqual(immediate.value[0]?.undo, { operation: "retract", id: saved.value[0]!.id, expectedRevision: 1 });
+-    const replaced = await store.writeV6!([{ operation: "replace", id: saved.value[0]!.id, expectedRevision: 1, text: "新值", category: "note", source: source(1) }]); assert.ok(replaced.ok);
++    const replaced = await store.writeV7!([{ operation: "replace", scope: { kind: "user" }, id: saved.value[0]!.id, expectedRevision: 1, text: "新值", category: "note", source: source(1) }]); assert.ok(replaced.ok);
+     const replacementReceipt = await readMemoryFactReceipts(store, "t"); assert.ok(replacementReceipt.ok);
+     assert.equal(replacementReceipt.value.find(row => row.sourceMessageId === "1")?.undo?.operation, "undo");
+-    assert.ok((await store.writeV6!([{ operation: "retract", id: replaced.value[0]!.id, expectedRevision: 1, source: source(2) }])).ok);
++    assert.ok((await store.writeV7!([{ operation: "retract", id: replaced.value[0]!.id, expectedRevision: 1, source: source(2) }])).ok);
+     const before = await readMemoryFactReceipts(store, "t"); assert.ok(before.ok); assert.equal(before.value.length, 3);
+     assert.match(before.value.find(row => row.sourceMessageId === "0")!.text, /被取代/);
+     assert.match(before.value.find(row => row.sourceMessageId === "2")!.text, /撤回/);
+diff --git a/packages/assistant/src/memory-health.test.ts b/packages/assistant/src/memory-health.test.ts
+index ce5ecb2..19a5ab8 100644
+--- a/packages/assistant/src/memory-health.test.ts
++++ b/packages/assistant/src/memory-health.test.ts
+@@ -1,16 +1,16 @@
+ import assert from "node:assert/strict";
+ import { describe, it } from "node:test";
+ import { readMemoryHealth } from "./memory-health.js";
+-import { type MemoryEntry, type WorkspaceMemoryStore } from "./memory-types.js";
++import { type MemoryEntry, type ScopedMemoryStore } from "./memory-types.js";
+ import { memorySnapshot } from "./memory-snapshot.js";
+
+ const now = new Date("2026-09-27T00:00:00.000Z");
+ const active = (id: string, extras: Partial<MemoryEntry> = {}): MemoryEntry => ({
+   id, text: `memory ${id}`, enabled: true, status: "active", ...extras,
+ });
+-const storeWith = (entries: MemoryEntry[]): WorkspaceMemoryStore => ({
++const storeWith = (entries: MemoryEntry[]): ScopedMemoryStore => ({
+   async list() { return { ok: true, entries }; },
+-}) as WorkspaceMemoryStore;
++}) as ScopedMemoryStore;
+
+ describe("memory health", () => {
+   it("does not read when disabled", async () => {
+@@ -36,7 +36,7 @@ describe("memory health", () => {
+   });
+
+   it("returns store errors without treating corrupt data as an empty store", async () => {
+-    const store = { async list() { return { ok: false, error: { code: "MEMORY_FILE_INVALID", message: "corrupt" } }; } } as WorkspaceMemoryStore;
++    const store = { async list() { return { ok: false, error: { code: "MEMORY_FILE_INVALID", message: "corrupt" } }; } } as ScopedMemoryStore;
+     assert.deepEqual(await readMemoryHealth(store, "current", now), {
+       status: "error", code: "MEMORY_FILE_INVALID", message: "corrupt",
+     });
+diff --git a/packages/assistant/src/memory-import.test.ts b/packages/assistant/src/memory-import.test.ts
+index 206063f..a6b924d 100644
+--- a/packages/assistant/src/memory-import.test.ts
++++ b/packages/assistant/src/memory-import.test.ts
+@@ -3,48 +3,48 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+ import { tmpdir } from "node:os";
+ import { join } from "node:path";
+ import { it } from "node:test";
+-import { V6MemoryStore } from "./memory-v6-store.js";
+-import { createMemoryStore } from "./memory-v6-store.js";
++import { V7MemoryStore } from "./memory-v7-store.js";
++import { createMemoryStore } from "./memory-v7-store.js";
+ import type { MemoryImportEntry, MemoryImportConfirm } from "./memory-import.js";
+
+-const entries: MemoryImportEntry[] = [{ text: "Use Chinese for replies", kind: "preference" }, { text: "Release notes", kind: "note" }];
++const entries: MemoryImportEntry[] = [{ text: "Use Chinese for replies", kind: "preference", scope: { kind: "user" } }, { text: "Release notes", kind: "note", scope: { kind: "user" } }];
+ async function fixture(run: (root: string) => Promise<void>) {
+   const root = await mkdtemp(join(tmpdir(), "runloom-import-"));
+   try { await run(root); } finally { await rm(root, { recursive: true, force: true }); }
+ }
+-async function preview(store: V6MemoryStore, values = entries): Promise<MemoryImportConfirm> {
++async function preview(store: V7MemoryStore, values = entries): Promise<MemoryImportConfirm> {
+   const result = await store.previewImport(values); assert.ok(result.ok);
+   return { entries: values, snapshot: result.value.snapshot, operationId: "import-1" };
+ }
+ it("preview and cancellation do not create storage; rejects unbounded and forged source fields before writing", () => fixture(async root => {
+-  const store = new V6MemoryStore(join(root, ".runloom/memory.json")), file = join(root, ".runloom/memory.json");
++  const store = new V7MemoryStore(join(root, ".runloom/memory.json")), file = join(root, ".runloom/memory.json");
+   assert.ok((await store.previewImport(entries)).ok);
+   await assert.rejects(readFile(file), { code: "ENOENT" });
+-  for (const values of [[], Array.from({ length: 33 }, () => entries[0]!), [{ text: "x".repeat(2049), kind: "note" }], [{ ...entries[0], source: { kind: "conversation", threadId: "forged" } }]]) {
++  for (const values of [[], Array.from({ length: 33 }, () => entries[0]!), [{ text: "x".repeat(2049), kind: "note", scope: { kind: "user" } }], [{ ...entries[0], source: { kind: "conversation", threadId: "forged" } }]]) {
+     const result = await store.previewImport(values as MemoryImportEntry[]); assert.equal(result.ok, false);
+   }
+   assert.equal((await store.confirmImport({ ...(await preview(store)), pinned: true } as MemoryImportConfirm, "thread")).ok, false);
+   await assert.rejects(readFile(file), { code: "ENOENT" });
+ }));
+-it("imports atomically with manual workspace sources, skips exact active duplicates, and preserves receipts across writes/restart", () => fixture(async root => {
+-  const store = new V6MemoryStore(join(root, ".runloom/memory.json")), file = join(root, ".runloom/memory.json");
++it("imports atomically with manual scoped sources, skips exact active duplicates, and preserves receipts across writes/restart", () => fixture(async root => {
++  const store = new V7MemoryStore(join(root, ".runloom/memory.json")), file = join(root, ".runloom/memory.json");
+   const input = await preview(store, [...entries, entries[0]!]);
+   const result = await store.confirmImport(input, "thread"); assert.ok(result.ok);
+   assert.deepEqual(result.value.items.map(item => item.status), ["saved", "saved", "existing"]);
+   assert.equal(result.value.items[0]!.id, result.value.items[2]!.id);
+   const list = await store.list(); assert.ok(list.ok); assert.equal(list.entries.length, 2);
+-  for (const entry of list.entries) { assert.deepEqual(entry.source, { kind: "manual" }); assert.deepEqual(entry.scope, { kind: "workspace" }); assert.equal(entry.pinned, false); }
++  for (const entry of list.entries) { assert.deepEqual(entry.source, { kind: "manual" }); assert.deepEqual(entry.scope, { kind: "user" }); assert.equal(entry.pinned, false); }
+   const content = await readFile(file, "utf8");
+-  assert.deepEqual(await new V6MemoryStore(join(root, ".runloom/memory.json")).confirmImport(input, "thread"), result);
++  assert.deepEqual(await new V7MemoryStore(join(root, ".runloom/memory.json")).confirmImport(input, "thread"), result);
+   assert.equal(await readFile(file, "utf8"), content, "replay is write-free");
+-  assert.equal((await store.confirmImport({ ...input, entries: [{ text: "changed", kind: "note" }] }, "thread")).ok, false);
++  assert.equal((await store.confirmImport({ ...input, entries: [{ text: "changed", kind: "note", scope: { kind: "user" } }] }, "thread")).ok, false);
+   assert.equal((await store.confirmImport(input, "another-thread")).ok, false);
+   await store.update(list.entries[0]!.id, { expectedRevision: 1, status: "disabled" });
+-  assert.deepEqual(await new V6MemoryStore(join(root, ".runloom/memory.json")).importReceipt(input.operationId, "thread"), result);
++  assert.deepEqual(await new V7MemoryStore(join(root, ".runloom/memory.json")).importReceipt(input.operationId, "thread"), result);
+   assert.deepEqual(await store.importReceipt(input.operationId, "other"), { ok: true, value: null });
+ }));
+ it("changed preview or capacity rejects the entire batch; disabled entries are never revived", () => fixture(async root => {
+-  const store = new V6MemoryStore(join(root, ".runloom/memory.json")), file = join(root, ".runloom/memory.json");
++  const store = new V7MemoryStore(join(root, ".runloom/memory.json")), file = join(root, ".runloom/memory.json");
+   const input = await preview(store);
+   const old = await store.add({ ...entries[0]!, status: "disabled" }); assert.ok(old.ok);
+   assert.equal((await store.confirmImport(input, "thread")).ok, false);
+@@ -55,25 +55,36 @@ it("changed preview or capacity rejects the entire batch; disabled entries are n
+   const template = doc.entries[0];
+   doc.entries = Array.from({ length: 511 }, (_, i) => ({ ...template, id: `entry-${i}` }));
+   await writeFile(file, JSON.stringify(doc));
+-  const atCapacity = await preview(store, [{ text: "one", kind: "note" }, { text: "two", kind: "note" }]); atCapacity.operationId = "capacity";
++  const atCapacity = await preview(store, [{ text: "one", kind: "note", scope: { kind: "user" } }, { text: "two", kind: "note", scope: { kind: "user" } }]); atCapacity.operationId = "capacity";
+   const before = await readFile(file, "utf8");
+   const result = await store.confirmImport(atCapacity, "thread"); assert.equal(result.ok, false);
+   assert.equal(await readFile(file, "utf8"), before, "no first-entry partial commit");
+ }));
+ it("post-rename uncertainty is resolved by reading the persisted receipt, without another write", () => fixture(async root => {
+-  const store = new V6MemoryStore(join(root, ".runloom/memory.json"), phase => { if (phase === "after-rename") throw new Error("lost acknowledgement"); });
++  const store = new V7MemoryStore(join(root, ".runloom/memory.json"), null, phase => { if (phase === "after-rename") throw new Error("lost acknowledgement"); });
+   const input = await preview(store), result = await store.confirmImport(input, "thread");
+   assert.equal(result.ok, false); if (!result.ok) assert.equal(result.error.code, "MEMORY_COMMIT_UNCERTAIN");
+-  const reopened = new V6MemoryStore(join(root, ".runloom/memory.json")), receipt = await reopened.importReceipt(input.operationId, "thread"); assert.ok(receipt.ok && receipt.value);
++  const reopened = new V7MemoryStore(join(root, ".runloom/memory.json")), receipt = await reopened.importReceipt(input.operationId, "thread"); assert.ok(receipt.ok && receipt.value);
+   const file = join(root, ".runloom/memory.json"), before = await readFile(file, "utf8");
+   assert.deepEqual(await reopened.confirmImport(input, "thread"), receipt);
+   assert.equal(await readFile(file, "utf8"), before);
+ }));
+ it("concurrent confirmations sharing a preview serialize; a rejected or cancelled batch writes nothing", () => fixture(async root => {
+-  const store = new V6MemoryStore(join(root, ".runloom/memory.json")), input = await preview(store);
+-  const results = await Promise.all([store.confirmImport(input, "thread"), new V6MemoryStore(join(root, ".runloom/memory.json")).confirmImport({ ...input, operationId: "second" }, "thread")]);
++  const store = new V7MemoryStore(join(root, ".runloom/memory.json")), input = await preview(store);
++  const results = await Promise.all([store.confirmImport(input, "thread"), new V7MemoryStore(join(root, ".runloom/memory.json")).confirmImport({ ...input, operationId: "second" }, "thread")]);
+   assert.equal(results.filter(result => result.ok).length, 1);
+   const list = await store.list(); assert.ok(list.ok); assert.equal(list.entries.length, 2);
+   const cancelled = new AbortController(); cancelled.abort(new Error("cancel"));
+   await assert.rejects(store.confirmImport({ ...input, operationId: "cancelled" }, "thread", cancelled.signal), /cancel/);
+ }));
++it("imports equal text separately by scope and binds replay receipts to the selected project", () => fixture(async root => {
++  const file = join(root, "memory.json"), a = new V7MemoryStore(file, "a"), b = new V7MemoryStore(file, "b");
++  const text = "先列出结论";
++  const input = await preview(a, [{ text, kind: "preference", scope: { kind: "user" } }, { text, kind: "preference", scope: { kind: "project", projectId: "a" } }]);
++  const saved = await a.confirmImport(input, "thread"); assert.ok(saved.ok); assert.deepEqual(saved.value.items.map(item => item.status), ["saved", "saved"]);
++  assert.notEqual(saved.value.items[0]!.id, saved.value.items[1]!.id);
++  assert.deepEqual(await b.importReceipt(input.operationId, "thread"), { ok: true, value: null });
++  assert.equal((await b.confirmImport(input, "thread")).ok, false);
++  assert.equal((await b.previewImport([{ text, kind: "note", scope: { kind: "project", projectId: "a" } }])).ok, false);
++  const visible = await b.list(); assert.ok(visible.ok); assert.deepEqual(visible.entries.map(entry => entry.id), [saved.value.items[0]!.id]);
++}));
+diff --git a/packages/assistant/src/memory-library.test.ts b/packages/assistant/src/memory-library.test.ts
+index a43af35..a24039a 100644
+--- a/packages/assistant/src/memory-library.test.ts
++++ b/packages/assistant/src/memory-library.test.ts
+@@ -1,18 +1,18 @@
+-import { validateV6MemoryDocument } from "./memory-v6-store.js";
++import { validateV7MemoryDocument } from "./memory-v7-store.js";
+ import assert from "node:assert/strict";
+ import { randomUUID } from "node:crypto";
+ import { mkdtemp, readFile, rm } from "node:fs/promises";
+ import { tmpdir } from "node:os";
+ import { join } from "node:path";
+ import { afterEach, it } from "node:test";
+-import { V6MemoryStore } from "./memory-v6-store.js";
++import { V7MemoryStore } from "./memory-v7-store.js";
+ import type { MemoryResult } from "./memory-types.js";
+ import { legacyDocumentId, memoryDocumentChunks, type MemoryLibraryAction } from "./memory-library.js";
+ const roots: string[] = [];
+ afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
+ async function fixture() {
+   const root = await mkdtemp(join(tmpdir(), "runloom-memory-library-")); roots.push(root);
+-  return { root, file: join(root, ".runloom/memory.json"), store: new V6MemoryStore(join(root, ".runloom/memory.json")) };
++  return { root, file: join(root, ".runloom/memory.json"), store: new V7MemoryStore(join(root, ".runloom/memory.json"), "project-a") };
+ }
+ function value<T>(result: MemoryResult<T>): T { assert.ok(result.ok, JSON.stringify(result)); return result.value; }
+ const code = (result: { ok: boolean; error?: { code: string } }) => result.error?.code;
+@@ -22,13 +22,13 @@ it("reads legacy memory as unfiled documents without creating files or guessing
+   const { store, file } = await fixture();
+   assert.deepEqual(value(await store.getLibrary()), { revision: 0, folders: [], documents: [] });
+   await assert.rejects(readFile(file), { code: "ENOENT" });
+-  const added = await store.add({ text: "# 爱好\n跑步" }); assert.ok(added.ok);
++  const added = await store.add({ scope: { kind: "user" }, text: "# 爱好\n跑步" }); assert.ok(added.ok);
+   const before = await readFile(file, "utf8");
+   const view = value(await store.getLibrary());
+   assert.equal(view.documents[0]?.title, "爱好"); assert.equal(view.documents[0]?.folderId, null);
+   const doc = value(await store.readLibraryDocument(legacyDocumentId(added.entry.id)));
+   assert.equal(doc.text, "# 爱好\n跑步"); assert.equal(doc.libraryRevision, 0);
+-  assert.equal(await readFile(file, "utf8"), before); assert.equal(JSON.parse(before).version, 6);
++  assert.equal(await readFile(file, "utf8"), before); assert.equal(JSON.parse(before).version, 7);
+ });
+
+ it("persists folder names, titles and exact Unicode document bodies through import, edit and reopen", async () => {
+@@ -39,18 +39,18 @@ it("persists folder names, titles and exact Unicode document bodies through impo
+   assert.equal(memoryDocumentChunks(text).join(""), text);
+   const action = newDoc(folder.revision, { folderId, text });
+   value(await store.changeLibrary(action));
+-  let reopened = new V6MemoryStore(join(root, ".runloom/memory.json"));
++  let reopened = new V7MemoryStore(join(root, ".runloom/memory.json"), "project-a");
+   const document = value(await reopened.readLibraryDocument(action.id));
+   assert.equal(document.text, text); assert.equal(document.title, action.title); assert.equal(document.folderId, folderId); assert.ok(document.entries.length > 1);
+-  assert.equal(JSON.parse(await readFile(file, "utf8")).version, 6, "old writers must reject rather than erase library metadata");
++  assert.equal(JSON.parse(await readFile(file, "utf8")).version, 7, "old writers must reject rather than erase library metadata");
+   const editedText = "改短后的角色说明。";
+   const edited = value(await reopened.changeLibrary({ ...action, text: editedText, expectedRevision: document.libraryRevision, entries: document.entries }));
+-  reopened = new V6MemoryStore(join(root, ".runloom/memory.json"));
++  reopened = new V7MemoryStore(join(root, ".runloom/memory.json"), "project-a");
+   const saved = value(await reopened.readLibraryDocument(action.id));
+   assert.equal(saved.text, editedText); assert.equal(saved.entries[0]?.revision, 1);
+   const history = await reopened.get(saved.entries[0]!.id); assert.ok(history.ok);
+   assert.equal(history.entry.source?.kind, "manual"); const oldParts = await reopened.list(); assert.ok(oldParts.ok);
+-  assert.ok(oldParts.entries.some(entry => entry.v6?.state === "superseded" && entry.text === memoryDocumentChunks(text)[0]));
++  assert.ok(oldParts.entries.some(entry => entry.v7?.state === "superseded" && entry.text === memoryDocumentChunks(text)[0]));
+   assert.equal(edited.folders[0]?.name, "Serika 的角色设定");
+   const list = await reopened.list(); assert.ok(list.ok);
+   assert.ok(list.entries.filter(entry => entry.id !== saved.entries[0]!.id).every(entry => !entry.enabled), "surplus chunks remain historical and disabled");
+@@ -68,7 +68,7 @@ it("rejects stale folder and body revisions atomically; ordinary writes preserve
+   assert.equal(await readFile(file, "utf8"), before);
+   const latest = value(await store.readLibraryDocument(action.id)); assert.equal(latest.text, "后台更正后的内容");
+   assert.equal(latest.title, "角色设定");
+-  assert.ok((await store.add({ text: "后来自动记住的另一件事" })).ok);
++  assert.ok((await store.add({ scope: { kind: "user" }, text: "后来自动记住的另一件事" })).ok);
+   const view = value(await store.getLibrary()); assert.equal(view.documents.length, 2); assert.equal(view.documents[1]?.folderId, null);
+   assert.equal(view.documents[0]?.id, action.id);
+   value(await store.changeLibrary({ operation: "create-folder", id: randomUUID(), name: "学习", expectedRevision: view.revision }));
+@@ -80,8 +80,8 @@ it("rejects stale folder and body revisions atomically; ordinary writes preserve
+
+ it("excludes disabled documents from active counts and rejects forged ownership", async () => {
+   const { store, file } = await fixture();
+-  const own = await store.add({ text: "工作区记录" }); assert.ok(own.ok);
+-  assert.ok((await store.add({ text: "已停用", enabled: false })).ok);
++  const own = await store.add({ scope: { kind: "user" }, text: "工作区记录" }); assert.ok(own.ok);
++  assert.ok((await store.add({ scope: { kind: "user" }, text: "已停用", enabled: false })).ok);
+   const view = value(await store.getLibrary());
+   assert.equal(view.documents.length, 2); assert.equal(view.documents.filter(document => document.active).length, 1);
+   const action = newDoc(0, { id: legacyDocumentId(own.entry.id), title: "工作区文档", entries: [] });
+@@ -105,13 +105,13 @@ it("rejects nonempty folder removal, missing content and oversized input without
+   const afterDelete = await readFile(file, "utf8");
+   assert.equal(code(await store.changeLibrary({ ...action, expectedRevision: 2, entries: [] })), "MEMORY_ENTRY_NOT_FOUND");
+   assert.equal(await readFile(file, "utf8"), afterDelete);
+-  assert.ok((await store.readV6()).ok);
++  assert.ok((await store.readV7()).ok);
+ });
+
+ for (const boundary of ["before-rename", "after-rename"] as const) it(`document body and folder metadata share the ${boundary} failure boundary`, async () => {
+-  const { store, root, file } = await fixture(); assert.ok((await store.add({ text: "原始记忆" })).ok);
++  const { store, root, file } = await fixture(); assert.ok((await store.add({ scope: { kind: "user" }, text: "原始记忆" })).ok);
+   const before = await readFile(file, "utf8");
+-  const writer = new V6MemoryStore(join(root, ".runloom/memory.json"), async phase => { if (phase === boundary) throw new Error("injected boundary failure"); });
++  const writer = new V7MemoryStore(join(root, ".runloom/memory.json"), "project-a", async phase => { if (phase === boundary) throw new Error("injected boundary failure"); });
+   const action = newDoc(0);
+   const result = await writer.changeLibrary(action); assert.equal(result.ok, false);
+   const bytes = await readFile(file, "utf8");
+@@ -119,16 +119,16 @@ for (const boundary of ["before-rename", "after-rename"] as const) it(`document
+   else { assert.equal(code(result), "MEMORY_COMMIT_UNCERTAIN"); const saved = value(await store.readLibraryDocument(action.id)); assert.equal(saved.text, action.text); assert.equal(saved.title, action.title); assert.equal(saved.libraryRevision, 1); }
+ });
+
+-it("v6 background writes preserve folders and document titles while old candidate writes stay disabled", async () => {
++it("v7 background writes preserve folders and document titles while old candidate writes stay disabled", async () => {
+   const { store } = await fixture(); const action = newDoc(0); value(await store.changeLibrary(action));
+-  assert.ok((await store.writeV6([{ operation: "add", text: "新的项目笔记", category: "note", source: { kind: "manual" } }], undefined, { automatic: true })).ok);
++  assert.ok((await store.writeV7([{ operation: "add", text: "新的项目笔记", scope: { kind: "project", projectId: "project-a" }, category: "note", source: { kind: "manual" } }], undefined, { automatic: true })).ok);
+   const view = value(await store.getLibrary()); assert.equal(view.documents[0]!.title, action.title);
+ });
+
+-it("projects v6 unfiled source text and uncertainty without changing the saved body", async () => {
++it("projects v7 unfiled source text and uncertainty without changing the saved body", async () => {
+   const { store, file } = await fixture();
+   const text = "# 原话标题\n我想保留，也不想保留。";
+-  const written = await store.writeV6([{ operation: "add", text, category: "preference", uncertain: true, source: { kind: "manual" } }]);
++  const written = await store.writeV7([{ operation: "add", text, scope: { kind: "user" }, category: "preference", uncertain: true, source: { kind: "manual" } }]);
+   assert.ok(written.ok);
+   const before = await readFile(file, "utf8"), view = value(await store.getLibrary());
+   assert.equal(view.documents.length, 1); assert.equal(view.documents[0]!.folderId, null);
+@@ -137,3 +137,21 @@ it("projects v6 unfiled source text and uncertainty without changing the saved b
+   assert.equal(document.text, text); assert.equal(document.uncertain, true);
+   assert.equal(await readFile(file, "utf8"), before);
+ });
++
++it("keeps project document titles and bodies out of other projects; user memory edits preserve scope", async () => {
++  const { store, file } = await fixture(), action = newDoc(0);
++  value(await store.changeLibrary(action));
++  const preference = await store.add({ text: "偏好简洁回答", scope: { kind: "user" }, kind: "preference" }); assert.ok(preference.ok);
++  for (const projectId of ["project-b", null]) {
++    const other = new V7MemoryStore(file, projectId), view = value(await other.getLibrary());
++    assert.equal(view.documents.some(document => document.id === action.id || document.title === action.title), false);
++    assert.equal((await other.readLibraryDocument(action.id)).ok, false);
++    assert.equal((await other.changeLibrary({ ...action, expectedRevision: view.revision })).ok, false);
++    assert.ok(view.documents.some(document => document.id === legacyDocumentId(preference.entry.id)));
++  }
++  const none = new V7MemoryStore(file), revision = value(await none.getLibrary()).revision;
++  assert.equal(code(await none.changeLibrary(newDoc(revision))), "MEMORY_PROJECT_REQUIRED");
++  const implicit = value(await none.readLibraryDocument(legacyDocumentId(preference.entry.id)));
++  value(await none.changeLibrary(newDoc(implicit.libraryRevision, { id: implicit.id, title: implicit.title, entries: implicit.entries, text: "偏好先给结论" })));
++  const edited = value(await store.readLibraryDocument(implicit.id)); assert.deepEqual(edited.scope, { kind: "user" }); assert.equal(edited.text, "偏好先给结论");
++});
+diff --git a/packages/assistant/src/memory-m1-acceptance.test.ts b/packages/assistant/src/memory-m1-acceptance.test.ts
+index 1b6f709..4607f55 100644
+--- a/packages/assistant/src/memory-m1-acceptance.test.ts
++++ b/packages/assistant/src/memory-m1-acceptance.test.ts
+@@ -8,7 +8,7 @@ import { simulateReadableStream, type UIMessage } from "ai";
+ import { MockLanguageModelV3 } from "ai/test";
+ import { createRuntimeApp } from "./app.js";
+ import { createAssistantController } from "./assistant-controller.js";
+-import { createMemoryStore } from "./memory-v6-store.js";
++import { createMemoryStore } from "./memory-v7-store.js";
+ import { createMemoryExtraction } from "./memory-extraction.js";
+ import { DEFAULT_CONTEXT_BUDGET_CONFIG, defaultContextBudget } from "./context-budget.js";
+
+@@ -25,7 +25,7 @@ test("M1 uncertain extraction stores the exact user quote despite a rewritten mo
+     const completed = new Promise<void>(resolve => { updated = resolve; });
+     const model = new MockLanguageModelV3({ doGenerate: async () => {
+       calls++;
+-      return { content: [{ type: "text", text: JSON.stringify({ proposals: [{ operation: "add", text: "用户喜欢甜咖啡", uncertain: true,
++      return { content: [{ type: "text", text: JSON.stringify({ proposals: [{ operation: "add", scope: "user", text: "用户喜欢甜咖啡", uncertain: true,
+         category: "preference", sourceMessageId: "u", sourceQuote: quote, identity: { subject: "user", attribute: "coffee", value: "甜咖啡" },
+         proposal: { messageId: "a", quote: "甜咖啡", valueQuote: "甜咖啡" } }], outcomes: [{ messageId: "u", status: "extracted" }] }) }],
+         finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
+@@ -35,7 +35,7 @@ test("M1 uncertain extraction stores the exact user quote despite a rewritten mo
+       extraction.afterMask("u"); extraction.idle(); await completed;
+       await new Promise<void>(resolve => setImmediate(resolve)); await extraction.pause();
+       assert.equal(calls, 1); assert.equal(extraction.diagnostics().completed, 1); assert.equal(extraction.diagnostics().failed, 0);
+-      const saved = await store.readV6!(); assert.ok(saved.ok);
++      const saved = await store.readV7!(); assert.ok(saved.ok);
+       const entries = saved.value.entries.filter(entry => entry.state === "active"); assert.equal(entries.length, 1);
+       assert.equal(entries[0]!.text, quote); assert.equal(entries[0]!.uncertain, true);
+       assert.equal(saved.value.progress[0]!.throughMessageId, "u");
+@@ -53,7 +53,7 @@ test("M1 ordinary automatic chat uses one writer without approval: 3 foreground
+   const model = new MockLanguageModelV3({ doGenerate: async () => assert.fail("No auxiliary call below threshold"), doStream: async request => {
+     calls++; requests.push(request); const write = calls === 2;
+     return { stream: simulateReadableStream({ chunks: [
+-      { type: "stream-start", warnings: [] }, ...(write ? [{ type: "tool-call" as const, toolCallId: "remember", toolName: "memory_write", input: JSON.stringify({ operation: "add", text: "我喝咖啡不加糖", category: "preference", sourceQuote: "我喝咖啡不加糖", identity: { subject: "user", attribute: "coffee", value: "不加糖" } }) }] : [{ type: "text-start" as const, id: "a" }, { type: "text-delta" as const, id: "a", delta: "收到" }, { type: "text-end" as const, id: "a" }]),
++      { type: "stream-start", warnings: [] }, ...(write ? [{ type: "tool-call" as const, toolCallId: "remember", toolName: "memory_write", input: JSON.stringify({ operation: "add", scope: "user", text: "我喝咖啡不加糖", category: "preference", sourceQuote: "我喝咖啡不加糖", identity: { subject: "user", attribute: "coffee", value: "不加糖" } }) }] : [{ type: "text-start" as const, id: "a" }, { type: "text-delta" as const, id: "a", delta: "收到" }, { type: "text-end" as const, id: "a" }]),
+       { type: "finish", finishReason: { unified: write ? "tool-calls" : "stop", raw: undefined }, usage },
+     ] }) };
+   } });
+@@ -67,7 +67,7 @@ test("M1 ordinary automatic chat uses one writer without approval: 3 foreground
+     }
+     assert.equal(calls, 3); assert.equal(calls / 2, 1.5); assert.equal(app.memoryExtraction!.diagnostics().calls, 0);
+     assert.equal(controller.getSnapshot().state.kind, "idle");
+-    const saved = await app.memoryStore!.readV6!(); assert.ok(saved.ok); assert.equal(saved.value.entries[0]!.text, "我喝咖啡不加糖");
++    const saved = await app.memoryStore!.readV7!(); assert.ok(saved.ok); assert.equal(saved.value.entries[0]!.text, "我喝咖啡不加糖");
+     assert.ok(requests[1]!.tools?.some(tool => tool.name === "memory_write"));
+     if (process.env.SERIKA_CM4_EVIDENCE_DIR) {
+       const rows = (await Promise.all((await readdir(directory)).filter(name => name.startsWith("model-calls-")).map(name => readFile(join(directory, name), "utf8")))).flatMap(text => text.trim().split("\n").map(line => JSON.parse(line)));
+@@ -92,7 +92,7 @@ test("M1 two extraction failures survive reopen; only idle retries the third, ca
+     extraction.idle(); await wait(() => extraction.diagnostics().failed === 1 && !extraction.diagnostics().running); await extraction.pause();
+     extraction.idle(); await wait(() => extraction.diagnostics().failed === 2 && !extraction.diagnostics().running); await extraction.close();
+     extraction = createMemoryExtraction(options); extraction.idle(); await extraction.pause(); assert.equal(calls, 2);
+-    const read = await store.readV6!(); assert.ok(read.ok); assert.equal(read.value.progress[0]!.retry?.failures, 2); assert.equal(read.value.progress[0]!.throughMessageId, null);
++    const read = await store.readV7!(); assert.ok(read.ok); assert.equal(read.value.progress[0]!.retry?.failures, 2); assert.equal(read.value.progress[0]!.throughMessageId, null);
+   } finally { await extraction.close(); await rm(root, { recursive: true, force: true }); }
+ });
+
+@@ -107,7 +107,7 @@ test("M1 foreground cancellation waits for the background provider to settle and
+   const extraction = createMemoryExtraction({ store, threadId: "t", getMessages: async () => [user("u", "x".repeat(4000)), { id: "a", role: "assistant" as const, parts: [{ type: "text" as const, text: "y".repeat(4000) }] }], model, budget: DEFAULT_CONTEXT_BUDGET_CONFIG, updated() {} });
+   try {
+     extraction.idle(); await wait(() => started); await extraction.pause(); assert.equal(settled, true);
+-    const saved = await store.readV6!(); assert.ok(saved.ok); assert.equal(saved.value.progress.length, 0); assert.equal(extraction.diagnostics().cancelled, 1);
++    const saved = await store.readV7!(); assert.ok(saved.ok); assert.equal(saved.value.progress.length, 0); assert.equal(extraction.diagnostics().cancelled, 1);
+     await assert.rejects(readFile(join(root, ".runloom/memory.json")), { code: "ENOENT" });
+   } finally { await extraction.close(); await rm(root, { recursive: true, force: true }); }
+ });
+@@ -133,7 +133,7 @@ test("M1 idle trigger waits exactly 30 minutes; an idle retry stops after the th
+     for (let attempt = 1; attempt <= 3; attempt++) {
+       expectsWrite = true;
+       t.mock.timers.tick(attempt === 1 ? 60_000 : 30 * 60_000); await settle(); assert.equal(calls, attempt);
+-      const saved = await store.readV6!(); assert.ok(saved.ok); assert.equal(saved.value.progress[0]!.retry!.failures, attempt);
++      const saved = await store.readV7!(); assert.ok(saved.ok); assert.equal(saved.value.progress[0]!.retry!.failures, attempt);
+     }
+     expectsWrite = false;
+     t.mock.timers.tick(30 * 60_000); await settle(); assert.equal(calls, 3);
+@@ -147,15 +147,15 @@ test("M1 saved older pending replay cannot supersede a newer-source value after
+   const messages = [user("old", old), user("new", latest)];
+   const { hashCanonicalJson } = await import("@serika/core");
+   const hash = (count: number) => hashCanonicalJson(JSON.parse(JSON.stringify(messages.slice(0, count))));
+-  const seed = await store.writeV6!([{ operation: "add", text: latest, category: "note", identity: { subject: "user", attribute: "residence", value: "上海" },
++  const seed = await store.writeV7!([{ operation: "add", scope: { kind: "user" }, text: latest, category: "note", identity: { subject: "user", attribute: "residence", value: "上海" },
+     source: { kind: "conversation", threadId: "t", messageId: "new", quote: latest, sentAt: null } }], new AbortController().signal,
+-    { expectedProgress: null, progress: { threadId: "t", throughMessageId: "new", prefixHash: hash(2), retry: null, pending: [{ messageId: "old", prefixHash: hash(1) }] } });
++    { expectedProgress: null, progress: { projectId: null, threadId: "t", throughMessageId: "new", prefixHash: hash(2), retry: null, pending: [{ messageId: "old", prefixHash: hash(1) }] } });
+   assert.ok(seed.ok);
+   let calls = 0;
+   const model = new MockLanguageModelV3({ doGenerate: async () => {
+     calls++;
+-    const read = await store.readV6!(); assert.ok(read.ok); const target = read.value.entries.find(entry => entry.state === "active")!;
+-    return { content: [{ type: "text", text: JSON.stringify({ proposals: [{ operation: "replace", id: target.id, expectedRevision: target.revision, category: "note",
++    const read = await store.readV7!(); assert.ok(read.ok); const target = read.value.entries.find(entry => entry.state === "active")!;
++    return { content: [{ type: "text", text: JSON.stringify({ proposals: [{ operation: "replace", scope: "user", id: target.id, expectedRevision: target.revision, category: "note",
+       text: old, sourceMessageId: "old", sourceQuote: old, identity: { subject: "user", attribute: "residence", value: "北京" } }], outcomes: [{ messageId: "old", status: "extracted" }] }) }],
+       finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
+   } });
+@@ -166,11 +166,11 @@ test("M1 saved older pending replay cannot supersede a newer-source value after
+     t.mock.timers.tick(30 * 60_000); t.mock.timers.reset();
+     for (let i = 0; i < 20000 && extraction.diagnostics().running; i++) await new Promise<void>(resolve => setImmediate(resolve));
+     await extraction.pause(); assert.equal(calls, 1);
+-    const read = await store.readV6!(); assert.ok(read.ok);
++    const read = await store.readV7!(); assert.ok(read.ok);
+     assert.equal(read.value.progress[0]!.pending.length, 0);
+     assert.deepEqual(read.value.entries.filter(entry => entry.state === "active").map(entry => entry.text), [latest]);
+     const historical = read.value.entries.find(entry => entry.text === old)!; assert.equal(historical.state, "superseded");
+     assert.equal(historical.supersededBy, read.value.entries.find(entry => entry.text === latest)!.id);
+-    const { v6Conflicts } = await import("./memory-v6-store.js"); assert.equal(v6Conflicts(read.value.entries).length, 0);
++    const { v7Conflicts } = await import("./memory-v7-store.js"); assert.equal(v7Conflicts(read.value.entries).length, 0);
+   } finally { await extraction.close(); t.mock.timers.reset(); await rm(root, { recursive: true, force: true }); }
+ });
+diff --git a/packages/assistant/src/memory-management.test.ts b/packages/assistant/src/memory-management.test.ts
+index 6f64f84..14bad4f 100644
+--- a/packages/assistant/src/memory-management.test.ts
++++ b/packages/assistant/src/memory-management.test.ts
+@@ -49,13 +49,13 @@ describe("formal Memory controller and actual reference preparation", () => {
+   it("exposes current entries, CAS edits, explicit pin/disable, source semantics and Thread isolation without a Run", async () => {
+     const test = await setup(); const { app, controller } = await test.open();
+     try {
+-      const added = await app.memoryStore!.add({ text: "复盘先给结论", source: { kind: "conversation", threadId: "thread-a", messageId: "user-source", quote: "复盘先给结论", sentAt: null } });
++      const added = await app.memoryStore!.add({ scope: { kind: "user" }, text: "复盘先给结论", source: { kind: "conversation", threadId: "thread-a", messageId: "user-source", quote: "复盘先给结论", sentAt: null } });
+       assert.ok(added.ok); if (!added.ok) return;
+       const listed = await controller.memory.list(); assert.ok(listed.ok); if (!listed.ok) return;
+       assert.equal(listed.value.entries.length, 1); assert.ok(!("source" in listed.value.entries[0]!));
+       assert.deepEqual(listed.value.entries[0]!.sourceKinds, [{ kind: "conversation" }]);
+       assert.ok(!JSON.stringify(listed.value.entries).includes("user-source"));
+-      const { v6: _v6, ...current } = added.entry;
++      const { v7: _v7, ...current } = added.entry;
+       assert.deepEqual((await controller.memory.get(added.entry.id)), { ok: true, value: current });
+       const edit = await controller.memory.update({ id: added.entry.id, expectedRevision: 1, text: "复盘先给一句结论，再给行动" });
+       assert.ok(edit.ok); if (!edit.ok) return;
+@@ -74,7 +74,7 @@ describe("formal Memory controller and actual reference preparation", () => {
+   });
+   it("shows the selected version across Thread, updates next preparation, excludes disabled, and clears process snapshot on restart", async () => {
+     const test = await setup(); const first = await test.open();
+-    const added = await first.app.memoryStore!.add({ text: "复盘先给一行结论，再列两条可执行步骤。" });
++    const added = await first.app.memoryStore!.add({ scope: { kind: "user" }, text: "复盘先给一行结论，再列两条可执行步骤。" });
+     assert.ok(added.ok); if (!added.ok) return;
+     await first.controller.shutdown();
+     const second = await test.open("thread-b");
+@@ -104,7 +104,7 @@ describe("formal Memory controller and actual reference preparation", () => {
+   it("default lexical mode makes zero rewrite calls and a corrupt source fails instead of returning stale references", async () => {
+     const test = await setup(); const { app, controller } = await test.open();
+     try {
+-      await app.memoryStore!.add({ text: "复盘先给一行结论" });
++      await app.memoryStore!.add({ scope: { kind: "user" }, text: "复盘先给一行结论" });
+       await controller.run("复盘"); await idle(controller);
+       await writeFile(join(test.root, "workspace", ".runloom", "memory.json"), "broken");
+       assert.ok(!(await controller.memory.list()).ok);
+diff --git a/packages/assistant/src/memory-merge.test.ts b/packages/assistant/src/memory-merge.test.ts
+index 29b4446..c144705 100644
+--- a/packages/assistant/src/memory-merge.test.ts
++++ b/packages/assistant/src/memory-merge.test.ts
+@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
+ import { tmpdir } from "node:os";
+ import { join } from "node:path";
+ import { MockLanguageModelV3 } from "ai/test";
+-import { V6MemoryStore, type V6Document } from "./memory-v6-store.js";
++import { V7MemoryStore, type V7Document } from "./memory-v7-store.js";
+ import { bindMemoryWrite } from "./memory-write.js";
+ import { mergeMemory } from "./memory-merge.js";
+ import { createMemoryExtraction } from "./memory-extraction.js";
+@@ -15,24 +15,24 @@ const text = "我希望所有项目的输出都保留完整原因和具体证据
+ const response = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value) }], finishReason: { unified: "stop" as const, raw: undefined },
+   usage: { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } }, warnings: [] });
+ const budgets = [effectiveContextBudget(defaultContextBudget(), { provider: "test", modelId: "32k", source: "configuration", contextWindowTokens: 32768 }), defaultContextBudget()];
+-async function seed(store: V6MemoryStore) {
++async function seed(store: V7MemoryStore) {
+   for (let i = 0; i < 4; i++) {
+     const user = { id: `u${i}`, role: "user" as const, parts: [{ type: "text" as const, text }] };
+-    const saved = await store.writeV6([bindMemoryWrite({ operation: "add", category: "preference", text, sourceQuote: text,
++    const saved = await store.writeV7([bindMemoryWrite({ operation: "add", scope: "user", category: "preference", text, sourceQuote: text,
+       identity: { subject: "用户", attribute: "回复偏好", value: "中文" } }, { messages: [user], user, threadId: "t" })]);
+     assert.ok(saved.ok);
+     if (i === 1) assert.ok((await store.update(saved.value[0]!.id, { expectedRevision: 1, pinned: true })).ok);
+   }
+-  const loaded = await store.readV6(); assert.ok(loaded.ok); return loaded.value;
++  const loaded = await store.readV7(); assert.ok(loaded.ok); return loaded.value;
+ }
+-const members = (document: V6Document) => document.entries.map(({ id, revision }) => ({ id, revision }));
++const members = (document: V7Document) => document.entries.map(({ id, revision }) => ({ id, revision }));
+ const settle = async (condition: () => boolean) => { const end = Date.now() + 5000; while (!condition()) { if (Date.now() > end) throw new Error("Background did not settle"); await new Promise(resolve => setImmediate(resolve)); } };
+
+ test("overflow merge inherits real bound sources and pin state; cold undo restores every original", async () => {
+   for (const budget of budgets) {
+     const root = await mkdtemp(join(tmpdir(), "cm7-merge-"));
+     try {
+-      const store = new V6MemoryStore(join(root, ".runloom/memory.json")), before = await seed(store); let calls = 0;
++      const store = new V7MemoryStore(join(root, ".runloom/memory.json")), before = await seed(store); let calls = 0;
+       const model = new MockLanguageModelV3({ doGenerate: async input => {
+         calls++; assert.equal(input.tools, undefined); assert.equal(input.maxOutputTokens, budget.summaryMaxOutputTokens);
+         assert.match(JSON.stringify(input.prompt), /Preserve every distinct literal clause/);
+@@ -40,16 +40,16 @@ test("overflow merge inherits real bound sources and pin state; cold undo restor
+       } });
+       assert.equal(await mergeMemory({ store, document: before, model, budget, signal: new AbortController().signal }), true);
+       assert.equal(calls, 1);
+-      const reopened = new V6MemoryStore(join(root, ".runloom/memory.json")), after = await reopened.readV6(); assert.ok(after.ok);
++      const reopened = new V7MemoryStore(join(root, ".runloom/memory.json")), after = await reopened.readV7(); assert.ok(after.ok);
+       const merged = after.value.entries.find(entry => entry.state === "active")!;
+       assert.equal(after.value.entries.filter(entry => entry.state === "active").length, 1);
+       assert.equal(merged.pinned, true); assert.equal(merged.sources.length, 4); assert.deepEqual(merged.replaces, before.entries.map(entry => entry.id));
+       const receipts = await readMemoryFactReceipts(reopened, "t"); assert.ok(receipts.ok);
+       assert.equal(receipts.value.filter(receipt => receipt.text === "已取代旧记忆").length, 4);
+-      assert.ok((await reopened.writeV6([{ operation: "undo", id: merged.id, expectedRevision: merged.revision, source: { kind: "manual" } }])).ok);
+-      const undone = await new V6MemoryStore(join(root, ".runloom/memory.json")).readV6(); assert.ok(undone.ok);
++      assert.ok((await reopened.writeV7([{ operation: "undo", id: merged.id, expectedRevision: merged.revision, source: { kind: "manual" } }])).ok);
++      const undone = await new V7MemoryStore(join(root, ".runloom/memory.json")).readV7(); assert.ok(undone.ok);
+       for (const original of before.entries) {
+-        const restored: V6Document["entries"][number] = undone.value.entries.find(entry => entry.id === original.id)!;
++        const restored: V7Document["entries"][number] = undone.value.entries.find(entry => entry.id === original.id)!;
+         assert.equal(restored.state, "active"); assert.equal(restored.pinned, original.pinned);
+         assert.deepEqual(restored.sources.slice(0, original.sources.length), original.sources);
+       }
+@@ -60,9 +60,9 @@ test("overflow merge inherits real bound sources and pin state; cold undo restor
+ test("merge rejects stale revisions and omitted conditions; cancelled inference never writes or retries", async () => {
+   const root = await mkdtemp(join(tmpdir(), "cm7-merge-reject-"));
+   try {
+-    const store = new V6MemoryStore(join(root, ".runloom/memory.json")), before = await seed(store), budget = budgets[0]!;
++    const store = new V7MemoryStore(join(root, ".runloom/memory.json")), before = await seed(store), budget = budgets[0]!;
+     const file = join(root, ".runloom/memory.json"), original = await readFile(file, "utf8");
+-    const invalid = await store.mergeV6({ members: members(before), text: text.split("；")[0]! });
++    const invalid = await store.mergeV7({ members: members(before), text: text.split("；")[0]! });
+     assert.equal(invalid.ok, false); assert.equal(await readFile(file, "utf8"), original);
+     const cancel = new AbortController(); let calls = 0;
+     const cancelled = new MockLanguageModelV3({ doGenerate: async () => { calls++; cancel.abort(); return response({ merge: { members: members(before), text } }); } });
+@@ -73,14 +73,14 @@ test("merge rejects stale revisions and omitted conditions; cancelled inference
+       return response({ merge: { members: members(before), text } });
+     } });
+     await assert.rejects(mergeMemory({ store, document: before, model: stale, budget, signal: new AbortController().signal }), /MEMORY_REVISION_CONFLICT/);
+-    const after = await store.readV6(); assert.ok(after.ok); assert.equal(after.value.entries.length, before.entries.length);
++    const after = await store.readV7(); assert.ok(after.ok); assert.equal(after.value.entries.length, before.entries.length);
+   } finally { await rm(root, { recursive: true, force: true }); }
+ });
+
+ test("the extraction lifecycle settles its backlog before one merge and does not repeat unchanged work", async () => {
+   const root = await mkdtemp(join(tmpdir(), "cm7-merge-queue-"));
+   try {
+-    const store = new V6MemoryStore(join(root, ".runloom/memory.json")), before = await seed(store), order: string[] = [];
++    const store = new V7MemoryStore(join(root, ".runloom/memory.json")), before = await seed(store), order: string[] = [];
+     const model = new MockLanguageModelV3({ doGenerate: async input => {
+       if (JSON.stringify(input.prompt).includes("Consolidate redundant")) { order.push("merge"); return response({ merge: null }); }
+       order.push("extract"); return response({ proposals: [], outcomes: [{ messageId: "latest", status: "no_memory" }] });
+@@ -90,7 +90,7 @@ test("the extraction lifecycle settles its backlog before one merge and does not
+       extraction.afterMask("latest"); extraction.idle(); await settle(() => order.length === 2 && !extraction.diagnostics().running);
+       assert.deepEqual(order, ["extract", "merge"]);
+       extraction.idle(); await settle(() => !extraction.diagnostics().running); assert.deepEqual(order, ["extract", "merge"]);
+-      const after = await store.readV6(); assert.ok(after.ok); assert.deepEqual(after.value.entries, before.entries);
++      const after = await store.readV7(); assert.ok(after.ok); assert.deepEqual(after.value.entries, before.entries);
+     } finally { await extraction.close(); }
+   } finally { await rm(root, { recursive: true, force: true }); }
+ });
+@@ -99,7 +99,7 @@ test("an uncertain merge commit is rereadable and the lifecycle never retries it
+   const root = await mkdtemp(join(tmpdir(), "cm7-merge-unknown-"));
+   try {
+     let fault = false, calls = 0;
+-    const store = new V6MemoryStore(join(root, ".runloom/memory.json"), phase => { if (fault && phase === "after-rename") throw new Error("lost acknowledgement"); });
++    const store = new V7MemoryStore(join(root, ".runloom/memory.json"), null, phase => { if (fault && phase === "after-rename") throw new Error("lost acknowledgement"); });
+     const before = await seed(store); fault = true;
+     const model = new MockLanguageModelV3({ doGenerate: async () => { calls++; return response({ merge: { members: members(before), text } }); } });
+     const extraction = createMemoryExtraction({ store, threadId: "t", getMessages: async () => [], model, budget: budgets[0]!, updated() {} });
+@@ -107,7 +107,7 @@ test("an uncertain merge commit is rereadable and the lifecycle never retries it
+       extraction.idle(); await settle(() => !extraction.diagnostics().running);
+       assert.match(extraction.diagnostics().error ?? "", /MEMORY_COMMIT_UNCERTAIN/); assert.equal(calls, 1);
+       extraction.idle(); await settle(() => !extraction.diagnostics().running); assert.equal(calls, 1);
+-      const saved = await new V6MemoryStore(join(root, ".runloom/memory.json")).readV6(); assert.ok(saved.ok);
++      const saved = await new V7MemoryStore(join(root, ".runloom/memory.json")).readV7(); assert.ok(saved.ok);
+       assert.equal(saved.value.entries.filter(entry => entry.state === "active").length, 1);
+     } finally { await extraction.close(); }
+   } finally { await rm(root, { recursive: true, force: true }); }
+diff --git a/packages/assistant/src/memory-store.test.ts b/packages/assistant/src/memory-store.test.ts
+index 26ac1f3..0b1ed2e 100644
+--- a/packages/assistant/src/memory-store.test.ts
++++ b/packages/assistant/src/memory-store.test.ts
+@@ -3,18 +3,18 @@ import { test } from "node:test";
+ import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+ import { tmpdir } from "node:os";
+ import { join } from "node:path";
+-import { createMemoryStore } from "./memory-v6-store.js";
++import { createMemoryStore } from "./memory-v7-store.js";
+
+-test("v1-v5 remain unchanged and require explicit migration for every product read and write", async () => {
++test("v1-v6 remain unchanged and require explicit migration for every product read and write", async () => {
+   const root = await mkdtemp(join(tmpdir(), "cm4-read-versions-"));
+   try {
+     await mkdir(join(root, ".runloom"));
+     const file = join(root, ".runloom/memory.json"), store = createMemoryStore(join(root, ".runloom/memory.json"));
+-    for (let version = 1; version <= 5; version++) {
++    for (let version = 1; version <= 6; version++) {
+       const original = JSON.stringify({ version, lastWrittenAt: null, entries: [], candidates: [], consolidationCursors: [], ...(version === 5 ? { library: { revision: 0, folders: [], documents: [] } } : {}) });
+       await writeFile(file, original);
+       assert.equal((await store.list()).ok, false, `read v${version} requires migration`);
+-      const write = await store.add({ text: "must not migrate" }); assert.equal(write.ok, false);
++      const write = await store.add({ scope: { kind: "user" }, text: "must not migrate" }); assert.equal(write.ok, false);
+       if (!write.ok) assert.equal(write.error.code, "MEMORY_MIGRATION_REQUIRED");
+       assert.equal(await readFile(file, "utf8"), original);
+     }
+@@ -27,12 +27,12 @@ test("malformed, unsupported, duplicate and symlinked files fail closed; stale c
+     await mkdir(join(root, ".runloom"));
+     const file = join(root, ".runloom/memory.json"), store = createMemoryStore(join(root, ".runloom/memory.json"));
+     for (const raw of ["not-json", JSON.stringify({ version: 7, entries: [] }), JSON.stringify({ version: 1, entries: [{ id: "same", text: "one", enabled: true }, { id: "same", text: "two", enabled: true }] })]) {
+-      await writeFile(file, raw); assert.equal((await store.list()).ok, false); assert.equal((await store.add({ text: "no" })).ok, false); assert.equal(await readFile(file, "utf8"), raw);
++      await writeFile(file, raw); assert.equal((await store.list()).ok, false); assert.equal((await store.add({ scope: { kind: "user" }, text: "no" })).ok, false); assert.equal(await readFile(file, "utf8"), raw);
+     }
+-    await rm(file); const added = await store.add({ text: "initial" }); assert.ok(added.ok);
++    await rm(file); const added = await store.add({ scope: { kind: "user" }, text: "initial" }); assert.ok(added.ok);
+     const results = await Promise.all([store.update(added.entry.id, { expectedRevision: 1, pinned: true }), createMemoryStore(join(root, ".runloom/memory.json")).update(added.entry.id, { expectedRevision: 1, pinned: false })]);
+     assert.equal(results.filter(result => result.ok).length, 1);
+     await writeFile(join(root, "target"), await readFile(file)); await rm(file); await symlink(join(root, "target"), file);
+-    const denied = await store.add({ text: "no" }); assert.equal(denied.ok, false); if (!denied.ok) assert.equal(denied.error.code, "SYMLINK_NOT_ALLOWED");
++    const denied = await store.add({ scope: { kind: "user" }, text: "no" }); assert.equal(denied.ok, false); if (!denied.ok) assert.equal(denied.error.code, "SYMLINK_NOT_ALLOWED");
+   } finally { await rm(root, { recursive: true, force: true }); }
+ });
+diff --git a/packages/assistant/src/memory-v6-store.test.ts b/packages/assistant/src/memory-v6-store.test.ts
+deleted file mode 100644
+index 5ada1fa..0000000
+--- a/packages/assistant/src/memory-v6-store.test.ts
++++ /dev/null
+@@ -1,118 +0,0 @@
+-import assert from "node:assert/strict";
+-import { test } from "node:test";
+-import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+-import { tmpdir, homedir } from "node:os";
+-import { join } from "node:path";
+-import { V6MemoryStore, v6Conflicts, type V6Change, type V6Document } from "./memory-v6-store.js";
+-import { assertExperimentalDataPaths } from "./experimental-data.js";
+-const change = (value = "北京", attribute = "住址"): Extract<V6Change, { text: string }> => ({ operation: "add", text: `我住在${value}`, category: "note",
+-  identity: { subject: "user", attribute, value }, source: { kind: "conversation", threadId: "t", messageId: value, quote: `我住在${value}`, sentAt: "2026-10-21T01:00:00Z" } });
+-
+-test("v5 requires migration for reads and writes without creating locks, siblings or backups", async () => {
+-  const root = await mkdtemp(join(tmpdir(), "cm4-v5-"));
+-  try {
+-    await mkdir(join(root, ".runloom"));
+-    const file = join(root, ".runloom/memory.json"), original = JSON.stringify({ version: 5, lastWrittenAt: null, entries: [], candidates: [], consolidationCursors: [], library: { revision: 0, folders: [], documents: [] } });
+-    await writeFile(file, original);
+-    const store = new V6MemoryStore(join(root, ".runloom/memory.json")); assert.equal((await store.list()).ok, false);
+-    for (const result of [await store.add({ text: "test" }), await store.update("missing", { text: "test", expectedRevision: 1 }), await store.delete("missing"), await store.writeV6([change()])]) {
+-      assert.equal(result.ok, false); if (!result.ok) assert.equal(result.error.code, "MEMORY_MIGRATION_REQUIRED");
+-    }
+-    assert.equal(await readFile(file, "utf8"), original);
+-    assert.deepEqual(await readdir(join(root, ".runloom")), ["memory.json"]);
+-  } finally { await rm(root, { recursive: true, force: true }); }
+-});
+-
+-test("v6 replacement/undo, withdrawal/undo, conflict diagnostics and source-specific deletion survive reopen", async () => {
+-  const root = await mkdtemp(join(tmpdir(), "cm4-chain-"));
+-  try {
+-    let store = new V6MemoryStore(join(root, ".runloom/memory.json"));
+-    const added = await store.writeV6([{ ...change(), uncertain: true }]); assert.ok(added.ok); assert.equal(added.value[0]!.uncertain, true); const old = added.value[0]!;
+-    const replacement = change("上海"); assert.ok("text" in replacement);
+-    const replaced = await store.writeV6([{ ...replacement, operation: "replace", id: old.id, expectedRevision: old.revision! }]); assert.ok(replaced.ok);
+-    store = new V6MemoryStore(join(root, ".runloom/memory.json"));
+-    const next = replaced.value[0]!; assert.ok((await store.writeV6([{ operation: "undo", id: next.id, expectedRevision: next.revision!, source: { kind: "manual" } }])).ok);
+-    const current = await store.get(old.id); assert.ok(current.ok); assert.equal(current.entry.enabled, true); assert.equal(current.entry.uncertain, true);
+-    const withdrawn = await store.writeV6([{ operation: "retract", id: old.id, expectedRevision: current.entry.revision!, source: { kind: "manual" } }]); assert.ok(withdrawn.ok);
+-    assert.ok((await store.writeV6([{ operation: "undo", id: old.id, expectedRevision: withdrawn.value[0]!.revision!, source: { kind: "manual" } }])).ok);
+-    assert.ok((await store.writeV6([change("杭州"), change("深圳", "公司地址")])).ok);
+-    const document = await store.readV6(); assert.ok(document.ok);
+-    assert.equal(v6Conflicts(document.value.entries).length, 1);
+-    assert.equal(v6Conflicts(document.value.entries.filter(entry => entry.identity?.attribute !== "住址")).length, 0);
+-    const victim = document.value.entries.find(entry => entry.id === old.id)!;
+-    assert.ok((await store.deleteMemory({ id: old.id, expectedRevision: victim.revision })).ok);
+-    assert.ok((await store.writeV6([change()])).ok);
+-    const after = await store.readV6(); assert.ok(after.ok);
+-    assert.equal(after.value.entries.some(entry => entry.id === old.id || entry.text === "我住在北京"), false);
+-    assert.equal(after.value.suppressed.length, 1);
+-    const rephrased = change(); rephrased.text = "北京是我的住址";
+-    assert.ok((await store.writeV6([rephrased])).ok);
+-    const reextracted = await new V6MemoryStore(join(root, ".runloom/memory.json")).readV6(); assert.ok(reextracted.ok);
+-    assert.equal(reextracted.value.entries.some(entry => entry.text === rephrased.text), false);
+-    const independent = change("北京", "办公习惯"); independent.text = "我工作时先列结论"; independent.source = { kind: "conversation", threadId: "t", messageId: "北京", quote: independent.text, sentAt: null };
+-    assert.ok((await store.writeV6([independent])).ok);
+-    const sameSource = await store.readV6(); assert.ok(sameSource.ok); assert.ok(sameSource.value.entries.some(entry => entry.text === independent.text));
+-    const persisted = JSON.parse(await readFile(join(root, ".runloom/memory.json"), "utf8"));
+-    assert.equal(persisted.version, 6); assert.equal("candidates" in persisted, false);
+-    assert.doesNotMatch(JSON.stringify(persisted), /systemTime|validTime|assertions|versions|operationLog/);
+-  } finally { await rm(root, { recursive: true, force: true }); }
+-});
+-
+-test("memory and progress share the commit barrier; pre-rename and post-rename failures stay distinct", async () => {
+-  const root = await mkdtemp(join(tmpdir(), "cm4-barrier-"));
+-  try {
+-    const progress: V6Document["progress"][number] = { threadId: "t", throughMessageId: "北京", prefixHash: "test-hash", pending: [], retry: null };
+-    for (const phase of ["before-rename", "after-rename"] as const) {
+-      const workspace = join(root, phase); await mkdir(workspace);
+-      const writer = new V6MemoryStore(join(workspace, ".runloom/memory.json"), observed => { if (observed === phase) throw new Error(phase); });
+-      const result = await writer.writeV6([change()], undefined, { progress, expectedProgress: null }); assert.equal(result.ok, false);
+-      if (!result.ok) assert.equal(result.error.code, phase === "after-rename" ? "MEMORY_COMMIT_UNCERTAIN" : "WRITE_FAILED");
+-      const read = await new V6MemoryStore(join(workspace, ".runloom/memory.json")).readV6(); assert.ok(read.ok);
+-      assert.equal(read.value.entries.length, phase === "after-rename" ? 1 : 0);
+-      assert.equal(read.value.progress.length, read.value.entries.length);
+-    }
+-  } finally { await rm(root, { recursive: true, force: true }); }
+-});
+-
+-test("automatic extraction reserves space; explicit remember still tries the actual hard limit", async () => {
+-  const root = await mkdtemp(join(tmpdir(), "cm4-capacity-"));
+-  try {
+-    const store = new V6MemoryStore(join(root, ".runloom/memory.json")), first = await store.writeV6([change()]); assert.ok(first.ok);
+-    const loaded = await store.readV6(); assert.ok(loaded.ok);
+-    const document = loaded.value, entry = document.entries[0]!;
+-    document.entries = Array.from({ length: 511 }, (_, index) => ({ ...entry, id: String(index) }));
+-    await writeFile(join(root, ".runloom/memory.json"), JSON.stringify(document));
+-    const automatic = await store.writeV6([change("上海")], undefined, { automatic: true }); assert.equal(automatic.ok, false);
+-    assert.ok((await store.writeV6([change("上海")])).ok);
+-    const full = await store.writeV6([change("杭州")]); assert.equal(full.ok, false);
+-    if (!full.ok) assert.equal(full.error.code, "MEMORY_LIMIT_EXCEEDED");
+-  } finally { await rm(root, { recursive: true, force: true }); }
+-});
+-
+-test("daily data path and a symlink alias fail before any store write", async () => {
+-  const root = await mkdtemp(join(tmpdir(), "cm4-protection-"));
+-  try {
+-    const daily = join(homedir(), ".config/@aisdk-agent/desktop");
+-    assert.throws(() => assertExperimentalDataPaths([daily, join(daily, "workspaces/personal")]), /拒绝写入/);
+-    await symlink(daily, join(root, "alias"));
+-    assert.throws(() => assertExperimentalDataPaths([join(root, "alias", "child")]), /拒绝写入/);
+-    const result = await new V6MemoryStore(join(join(root, "alias"), ".runloom/memory.json")).writeV6([change()]); assert.equal(result.ok, false);
+-  } finally { await rm(root, { recursive: true, force: true }); }
+-});
+-
+-test("privacy redaction survives an uncertain acknowledgement, blocks replacement-chain undo and is read-before-write idempotent", async () => {
+-  const root = await mkdtemp(join(tmpdir(), "cm6-private-barrier-"));
+-  try {
+-    const store = new V6MemoryStore(join(root, ".runloom/memory.json")), seed = await store.writeV6([change()]); assert.ok(seed.ok);
+-    const newer = await store.writeV6([{ ...change("上海"), operation: "replace", id: seed.value[0]!.id, expectedRevision: seed.value[0]!.revision! }]); assert.ok(newer.ok);
+-    const faulty = new V6MemoryStore(join(root, ".runloom/memory.json"), phase => { if (phase === "after-rename") throw new Error("ack lost"); });
+-    const result = await faulty.excludeSources("t", ["北京"]); assert.equal(result.ok, false);
+-    if (!result.ok) assert.equal(result.error.code, "MEMORY_COMMIT_UNCERTAIN");
+-    const read = await store.readV6(); assert.ok(read.ok); assert.equal(read.value.entries.find(entry => entry.id === seed.value[0]!.id)?.privacyExcluded, true);
+-    assert.doesNotMatch(JSON.stringify(read.value), /我住在北京/);
+-    const undo = await store.writeV6([{ operation: "undo", id: newer.value[0]!.id, expectedRevision: newer.value[0]!.revision!, source: { kind: "manual" } }]); assert.equal(undo.ok, false);
+-    const before = await readFile(join(root, ".runloom/memory.json"));
+-    assert.ok((await new V6MemoryStore(join(root, ".runloom/memory.json")).excludeSources("t", ["北京"])).ok);
+-    assert.deepEqual(await readFile(join(root, ".runloom/memory.json")), before);
+-  } finally { await rm(root, { recursive: true, force: true }); }
+-});
+diff --git a/packages/assistant/src/memory-v7-store.test.ts b/packages/assistant/src/memory-v7-store.test.ts
+new file mode 100644
+index 0000000..537c672
+--- /dev/null
++++ b/packages/assistant/src/memory-v7-store.test.ts
+@@ -0,0 +1,159 @@
++import assert from "node:assert/strict";
++import { test } from "node:test";
++import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
++import { tmpdir, homedir } from "node:os";
++import { join } from "node:path";
++import { V7MemoryStore, v7Conflicts, type V7Change, type V7Document } from "./memory-v7-store.js";
++import { assertExperimentalDataPaths } from "./experimental-data.js";
++const change = (value = "北京", attribute = "住址"): Extract<V7Change, { text: string }> => ({ operation: "add", text: `我住在${value}`, category: "note", scope: { kind: "user" },
++  identity: { subject: "user", attribute, value }, source: { kind: "conversation", threadId: "t", messageId: value, quote: `我住在${value}`, sentAt: "2026-10-21T01:00:00Z" } });
++
++test("v5 requires migration for reads and writes without creating locks, siblings or backups", async () => {
++  const root = await mkdtemp(join(tmpdir(), "cm4-v5-"));
++  try {
++    await mkdir(join(root, ".runloom"));
++    const file = join(root, ".runloom/memory.json"), original = JSON.stringify({ version: 5, lastWrittenAt: null, entries: [], candidates: [], consolidationCursors: [], library: { revision: 0, folders: [], documents: [] } });
++    await writeFile(file, original);
++    const store = new V7MemoryStore(join(root, ".runloom/memory.json")); assert.equal((await store.list()).ok, false);
++    for (const result of [await store.add({ text: "test", scope: { kind: "user" } }), await store.update("missing", { text: "test", expectedRevision: 1 }), await store.delete("missing"), await store.writeV7([change()])]) {
++      assert.equal(result.ok, false); if (!result.ok) assert.equal(result.error.code, "MEMORY_MIGRATION_REQUIRED");
++    }
++    assert.equal(await readFile(file, "utf8"), original);
++    assert.deepEqual(await readdir(join(root, ".runloom")), ["memory.json"]);
++  } finally { await rm(root, { recursive: true, force: true }); }
++});
++
++test("v7 replacement/undo, withdrawal/undo, conflict diagnostics and source-specific deletion survive reopen", async () => {
++  const root = await mkdtemp(join(tmpdir(), "cm4-chain-"));
++  try {
++    let store = new V7MemoryStore(join(root, ".runloom/memory.json"));
++    const added = await store.writeV7([{ ...change(), uncertain: true }]); assert.ok(added.ok); assert.equal(added.value[0]!.uncertain, true); const old = added.value[0]!;
++    const replacement = change("上海"); assert.ok("text" in replacement);
++    const replaced = await store.writeV7([{ ...replacement, operation: "replace", id: old.id, expectedRevision: old.revision! }]); assert.ok(replaced.ok);
++    store = new V7MemoryStore(join(root, ".runloom/memory.json"));
++    const next = replaced.value[0]!; assert.ok((await store.writeV7([{ operation: "undo", id: next.id, expectedRevision: next.revision!, source: { kind: "manual" } }])).ok);
++    const current = await store.get(old.id); assert.ok(current.ok); assert.equal(current.entry.enabled, true); assert.equal(current.entry.uncertain, true);
++    const withdrawn = await store.writeV7([{ operation: "retract", id: old.id, expectedRevision: current.entry.revision!, source: { kind: "manual" } }]); assert.ok(withdrawn.ok);
++    assert.ok((await store.writeV7([{ operation: "undo", id: old.id, expectedRevision: withdrawn.value[0]!.revision!, source: { kind: "manual" } }])).ok);
++    assert.ok((await store.writeV7([change("杭州"), change("深圳", "公司地址")])).ok);
++    const document = await store.readV7(); assert.ok(document.ok);
++    assert.equal(v7Conflicts(document.value.entries).length, 1);
++    assert.equal(v7Conflicts(document.value.entries.filter(entry => entry.identity?.attribute !== "住址")).length, 0);
++    const victim = document.value.entries.find(entry => entry.id === old.id)!;
++    assert.ok((await store.deleteMemory({ id: old.id, expectedRevision: victim.revision })).ok);
++    assert.ok((await store.writeV7([change()])).ok);
++    const after = await store.readV7(); assert.ok(after.ok);
++    assert.equal(after.value.entries.some(entry => entry.id === old.id || entry.text === "我住在北京"), false);
++    assert.equal(after.value.suppressed.length, 1);
++    const rephrased = change(); rephrased.text = "北京是我的住址";
++    assert.ok((await store.writeV7([rephrased])).ok);
++    const reextracted = await new V7MemoryStore(join(root, ".runloom/memory.json")).readV7(); assert.ok(reextracted.ok);
++    assert.equal(reextracted.value.entries.some(entry => entry.text === rephrased.text), false);
++    const independent = change("北京", "办公习惯"); independent.text = "我工作时先列结论"; independent.source = { kind: "conversation", threadId: "t", messageId: "北京", quote: independent.text, sentAt: null };
++    assert.ok((await store.writeV7([independent])).ok);
++    const sameSource = await store.readV7(); assert.ok(sameSource.ok); assert.ok(sameSource.value.entries.some(entry => entry.text === independent.text));
++    const persisted = JSON.parse(await readFile(join(root, ".runloom/memory.json"), "utf8"));
++    assert.equal(persisted.version, 7); assert.equal("candidates" in persisted, false);
++    assert.doesNotMatch(JSON.stringify(persisted), /systemTime|validTime|assertions|versions|operationLog/);
++  } finally { await rm(root, { recursive: true, force: true }); }
++});
++
++test("memory and progress share the commit barrier; pre-rename and post-rename failures stay distinct", async () => {
++  const root = await mkdtemp(join(tmpdir(), "cm4-barrier-"));
++  try {
++    const progress: V7Document["progress"][number] = { threadId: "t", projectId: null, throughMessageId: "北京", prefixHash: "test-hash", pending: [], retry: null };
++    for (const phase of ["before-rename", "after-rename"] as const) {
++      const workspace = join(root, phase); await mkdir(workspace);
++      const writer = new V7MemoryStore(join(workspace, ".runloom/memory.json"), null, observed => { if (observed === phase) throw new Error(phase); });
++      const result = await writer.writeV7([change()], undefined, { progress, expectedProgress: null }); assert.equal(result.ok, false);
++      if (!result.ok) assert.equal(result.error.code, phase === "after-rename" ? "MEMORY_COMMIT_UNCERTAIN" : "WRITE_FAILED");
++      const read = await new V7MemoryStore(join(workspace, ".runloom/memory.json")).readV7(); assert.ok(read.ok);
++      assert.equal(read.value.entries.length, phase === "after-rename" ? 1 : 0);
++      assert.equal(read.value.progress.length, read.value.entries.length);
++    }
++  } finally { await rm(root, { recursive: true, force: true }); }
++});
++
++test("automatic extraction reserves space; explicit remember still tries the actual hard limit", async () => {
++  const root = await mkdtemp(join(tmpdir(), "cm4-capacity-"));
++  try {
++    const store = new V7MemoryStore(join(root, ".runloom/memory.json")), first = await store.writeV7([change()]); assert.ok(first.ok);
++    const loaded = await store.readV7(); assert.ok(loaded.ok);
++    const document = loaded.value, entry = document.entries[0]!;
++    document.entries = Array.from({ length: 511 }, (_, index) => ({ ...entry, id: String(index) }));
++    await writeFile(join(root, ".runloom/memory.json"), JSON.stringify(document));
++    const automatic = await store.writeV7([change("上海")], undefined, { automatic: true }); assert.equal(automatic.ok, false);
++    assert.ok((await store.writeV7([change("上海")])).ok);
++    const full = await store.writeV7([change("杭州")]); assert.equal(full.ok, false);
++    if (!full.ok) assert.equal(full.error.code, "MEMORY_LIMIT_EXCEEDED");
++  } finally { await rm(root, { recursive: true, force: true }); }
++});
++
++test("daily data path and a symlink alias fail before any store write", async () => {
++  const root = await mkdtemp(join(tmpdir(), "cm4-protection-"));
++  try {
++    const daily = join(homedir(), ".config/@aisdk-agent/desktop");
++    assert.throws(() => assertExperimentalDataPaths([daily, join(daily, "workspaces/personal")]), /拒绝写入/);
++    await symlink(daily, join(root, "alias"));
++    assert.throws(() => assertExperimentalDataPaths([join(root, "alias", "child")]), /拒绝写入/);
++    const result = await new V7MemoryStore(join(join(root, "alias"), ".runloom/memory.json")).writeV7([change()]); assert.equal(result.ok, false);
++  } finally { await rm(root, { recursive: true, force: true }); }
++});
++
++test("privacy redaction survives an uncertain acknowledgement, blocks replacement-chain undo and is read-before-write idempotent", async () => {
++  const root = await mkdtemp(join(tmpdir(), "cm6-private-barrier-"));
++  try {
++    const store = new V7MemoryStore(join(root, ".runloom/memory.json")), seed = await store.writeV7([change()]); assert.ok(seed.ok);
++    const newer = await store.writeV7([{ ...change("上海"), operation: "replace", id: seed.value[0]!.id, expectedRevision: seed.value[0]!.revision! }]); assert.ok(newer.ok);
++    const faulty = new V7MemoryStore(join(root, ".runloom/memory.json"), null, phase => { if (phase === "after-rename") throw new Error("ack lost"); });
++    const result = await faulty.excludeSources("t", ["北京"]); assert.equal(result.ok, false);
++    if (!result.ok) assert.equal(result.error.code, "MEMORY_COMMIT_UNCERTAIN");
++    const read = await store.readV7(); assert.ok(read.ok); assert.equal(read.value.entries.find(entry => entry.id === seed.value[0]!.id)?.privacyExcluded, true);
++    assert.doesNotMatch(JSON.stringify(read.value), /我住在北京/);
++    const undo = await store.writeV7([{ operation: "undo", id: newer.value[0]!.id, expectedRevision: newer.value[0]!.revision!, source: { kind: "manual" } }]); assert.equal(undo.ok, false);
++    const before = await readFile(join(root, ".runloom/memory.json"));
++    assert.ok((await new V7MemoryStore(join(root, ".runloom/memory.json")).excludeSources("t", ["北京"])).ok);
++    assert.deepEqual(await readFile(join(root, ".runloom/memory.json")), before);
++  } finally { await rm(root, { recursive: true, force: true }); }
++});
++
++test("v7 scopes isolate reads, mutation targets, conflicts, merges and extraction progress across projects", async () => {
++  const root = await mkdtemp(join(tmpdir(), "cm45-scope-"));
++  try {
++    const file = join(root, "memory.json"), a = new V7MemoryStore(file, "a"), b = new V7MemoryStore(file, "b"), none = new V7MemoryStore(file);
++    const projectScope = { kind: "project", projectId: "a" } as const;
++    const progress: V7Document["progress"][number] = { threadId: "t", projectId: "a", throughMessageId: "北京", prefixHash: "a", pending: [], retry: null };
++    const written = await a.writeV7([change(), { ...change("上海"), scope: projectScope }], undefined, { progress, expectedProgress: null }); assert.ok(written.ok);
++    const user = written.value[0]!, project = written.value[1]!;
++    const view = await a.readV7(); assert.ok(view.ok); assert.equal(view.value.entries.length, 2); assert.equal(v7Conflicts(view.value.entries).length, 0);
++    for (const other of [b, none]) {
++      const read = await other.list(); assert.ok(read.ok); assert.deepEqual(read.entries.map(entry => entry.id), [user.id]);
++      assert.equal((await other.get(project.id)).ok, false);
++      const reference = await other.readReferenceMaterial(new AbortController().signal, new Date()); assert.ok(reference.ok); assert.deepEqual(reference.value.entries.map(entry => entry.id), [user.id]);
++      assert.equal((await other.update(project.id, { expectedRevision: 1, text: "foreign edit" })).ok, false);
++      assert.equal((await other.writeV7([{ operation: "retract", id: project.id, expectedRevision: 1, source: { kind: "manual" } }])).ok, false);
++    }
++    assert.equal((await a.writeV7([{ ...change("广州"), operation: "replace", id: project.id, expectedRevision: 1 }])).ok, false);
++    assert.equal((await a.mergeV7({ members: [{ id: user.id, revision: 1 }, { id: project.id, revision: 1 }], text: "北京，上海" })).ok, false);
++    assert.ok((await b.writeV7([], undefined, { progress: { ...progress, projectId: "b", prefixHash: "b" }, expectedProgress: null })).ok);
++    const reopened = await new V7MemoryStore(file, "a").readV7(); assert.ok(reopened.ok); assert.deepEqual(reopened.value.progress, [progress]);
++    assert.equal((await a.writeV7([], undefined, { progress: { ...progress, projectId: "b" }, expectedProgress: progress })).ok, false);
++    assert.ok((await a.deleteMemory({ id: project.id, expectedRevision: 1 })).ok);
++    assert.ok((await a.writeV7([{ ...change("上海"), scope: projectScope }, change("上海")])).ok);
++    const suppressed = await a.readV7(); assert.ok(suppressed.ok);
++    assert.equal(suppressed.value.entries.some(entry => entry.scope.kind === "project"), false);
++    assert.equal(suppressed.value.entries.some(entry => entry.scope.kind === "user" && entry.text === "我住在上海"), true);
++    assert.ok((await a.excludeSources("t", ["北京", "上海"])).ok);
++    const persisted = JSON.parse(await readFile(file, "utf8")); assert.deepEqual(persisted.progress, []); assert.equal(persisted.entries.every((entry: { privacyExcluded?: boolean }) => entry.privacyExcluded), true);
++  } finally { await rm(root, { recursive: true, force: true }); }
++});
++
++test("v6 is rejected without writes and diagnostics contain absolute dry-run and upgrade commands", async () => {
++  const root = await mkdtemp(join(tmpdir(), "cm45-v6-"));
++  try {
++    const file = join(root, "memory.json"), original = '{"version":6}'; await writeFile(file, original);
++    const result = await new V7MemoryStore(file).readV7(); assert.equal(result.ok, false);
++    if (!result.ok) { assert.equal(result.error.code, "MEMORY_MIGRATION_REQUIRED"); assert.ok(result.error.message.includes(file)); assert.match(result.error.message, /memory-upgrade\.mjs.*--dry-run/); assert.match(result.error.message, /--upgrade/); }
++    assert.equal(await readFile(file, "utf8"), original); assert.deepEqual(await readdir(root), ["memory.json"]);
++  } finally { await rm(root, { recursive: true, force: true }); }
++});
+diff --git a/packages/assistant/src/modules/memory-module.test.ts b/packages/assistant/src/modules/memory-module.test.ts
+index d5419d0..7c9f6ba 100644
+--- a/packages/assistant/src/modules/memory-module.test.ts
++++ b/packages/assistant/src/modules/memory-module.test.ts
+@@ -5,7 +5,7 @@ import { mkdtemp, rm } from "node:fs/promises";
+ import { tmpdir } from "node:os";
+ import { join } from "node:path";
+ import { createModuleHost } from "../module-host.js";
+-import { createMemoryStore } from "../memory-v6-store.js";
++import { createMemoryStore } from "../memory-v7-store.js";
+ import { createMemoryModule } from "./memory-module.js";
+ import { bindMemoryWrite, memoryWriteSchema, MemoryWriteValidationError } from "../memory-write.js";
+ import type { UIMessage } from "ai";
+@@ -14,7 +14,7 @@ const message = (id: string, role: "user" | "assistant", text: string): UIMessag
+ const identity = { subject: "user", attribute: "language", value: "中文" };
+ test("M5 normalizes the body while binding literal values, numbers, polarity and conditions", () => {
+   const quote = "我家地址是上海市甲路18号", user = message("u", "user", quote);
+-  const write = memoryWriteSchema.parse({ operation: "add", text: "用户家庭地址：上海市甲路18号", sourceQuote: quote, category: "note",
++  const write = memoryWriteSchema.parse({ operation: "add", scope: "user", text: "用户家庭地址：上海市甲路18号", sourceQuote: quote, category: "note",
+     identity: { subject: "user", attribute: "home_address", value: "上海市甲路18号" } });
+   assert.equal((bindMemoryWrite(write, { messages: [user], user, threadId: "t" }) as { text: string }).text, write.text);
+   for (const changed of [
+@@ -31,7 +31,7 @@ test("M5 normalizes the body while binding literal values, numbers, polarity and
+ });
+ test("C04 binds the specific confirmation; short acknowledgement and external evidence fail", () => {
+   const assistant = message("a", "assistant", "以后使用中文"), user = message("u", "user", "是的，以后使用中文");
+-  const input = memoryWriteSchema.parse({ operation: "add", text: "以后使用中文", category: "preference", sourceQuote: "是的，以后使用中文", identity,
++  const input = memoryWriteSchema.parse({ operation: "add", scope: "user", text: "以后使用中文", category: "preference", sourceQuote: "是的，以后使用中文", identity,
+     proposal: { messageId: "a", quote: "以后使用中文", valueQuote: "中文" } });
+   const result = bindMemoryWrite(input, { messages: [assistant, user], user, threadId: "t" });
+   assert.equal(result.source.kind, "conversation");
+@@ -40,7 +40,7 @@ test("C04 binds the specific confirmation; short acknowledgement and external ev
+   assert.equal(direct.source.kind, "conversation");
+   if (direct.source.kind === "conversation") { assert.equal(direct.source.quote, input.sourceQuote); assert.equal(direct.source.proposal, undefined); }
+   const contradiction = "我喜欢甜咖啡，但我又不喜欢甜咖啡", contradictoryUser = message("c", "user", contradiction);
+-  const uncertainWrite = memoryWriteSchema.parse({ operation: "add", text: contradiction, category: "preference", uncertain: true, sourceQuote: contradiction, identity: { subject: "user", attribute: "coffee", value: contradiction } });
++  const uncertainWrite = memoryWriteSchema.parse({ operation: "add", scope: "user", text: contradiction, category: "preference", uncertain: true, sourceQuote: contradiction, identity: { subject: "user", attribute: "coffee", value: contradiction } });
+   const uncertainResult = bindMemoryWrite(uncertainWrite, { messages: [contradictoryUser], user: contradictoryUser, threadId: "t" });
+   assert.ok("text" in uncertainResult); assert.equal(uncertainResult.text, contradiction); assert.equal(uncertainResult.uncertain, true);
+   const rewritten = bindMemoryWrite({ ...uncertainWrite, text: `[不确定] ${contradiction}` }, { messages: [contradictoryUser], user: contradictoryUser, threadId: "t" });
+@@ -64,18 +64,18 @@ test("ordinary memory module registers exactly one host-bound writer with primar
+     assert.deepEqual(host.tools.map(tool => tool.metadata.name), ["memory_write"]);
+     assert.deepEqual(host.toolPermissions.get("memory_write")?.defaults, { approvalAgents: ["calculator"], remember: "never" });
+     const execute = host.tools[0]!.tool.execute! as unknown as (input: unknown, options: unknown) => Promise<{ ok: boolean }>;
+-    const result = await execute(memoryWriteSchema.parse({ operation: "add", text: "我喝咖啡不加糖", category: "preference", sourceQuote: "我喝咖啡不加糖", identity: { subject: "user", attribute: "coffee", value: "不加糖" } }), { toolCallId: "w", messages: [], abortSignal: new AbortController().signal });
++    const result = await execute(memoryWriteSchema.parse({ operation: "add", scope: "user", text: "我喝咖啡不加糖", category: "preference", sourceQuote: "我喝咖啡不加糖", identity: { subject: "user", attribute: "coffee", value: "不加糖" } }), { toolCallId: "w", messages: [], abortSignal: new AbortController().signal });
+     assert.equal(result.ok, true);
+-    const saved = await store.readV6!(); assert.ok(saved.ok); assert.equal(saved.value.entries[0]!.text, "我喝咖啡不加糖");
++    const saved = await store.readV7!(); assert.ok(saved.ok); assert.equal(saved.value.entries[0]!.text, "我喝咖啡不加糖");
+     host.dispose();
+-    const uncertain = createModuleHost([createMemoryModule({ ...store, writeV6: async () => ({ ok: false, error: { code: "MEMORY_COMMIT_UNCERTAIN", message: "unknown" } }) } as never, async () => [], { threadId: "t", getCurrentUserMessage: () => user })], { notify() {} });
++    const uncertain = createModuleHost([createMemoryModule({ ...store, writeV7: async () => ({ ok: false, error: { code: "MEMORY_COMMIT_UNCERTAIN", message: "unknown" } }) } as never, async () => [], { threadId: "t", getCurrentUserMessage: () => user })], { notify() {} });
+     const unknownWrite = uncertain.tools[0]!.tool.execute! as unknown as typeof execute;
+-    await assert.rejects(unknownWrite(memoryWriteSchema.parse({ operation: "add", text: "我喝咖啡不加糖", category: "preference", sourceQuote: "我喝咖啡不加糖", identity: { subject: "user", attribute: "coffee", value: "不加糖" } }), { toolCallId: "unknown", messages: [] }), (error: unknown) => error instanceof AgentError && error.data.code === "TOOL_OUTCOME_UNKNOWN");
++    await assert.rejects(unknownWrite(memoryWriteSchema.parse({ operation: "add", scope: "user", text: "我喝咖啡不加糖", category: "preference", sourceQuote: "我喝咖啡不加糖", identity: { subject: "user", attribute: "coffee", value: "不加糖" } }), { toolCallId: "unknown", messages: [] }), (error: unknown) => error instanceof AgentError && error.data.code === "TOOL_OUTCOME_UNKNOWN");
+     uncertain.dispose();
+     const notices: string[] = [];
+-    const full = createModuleHost([createMemoryModule({ writeV6: async () => ({ ok: false, error: { code: "MEMORY_LIMIT_EXCEEDED", message: "Memory 已满，未保存" } }) } as never, async () => [], { threadId: "t", getCurrentUserMessage: () => user })], { notify(_moduleId, text) { notices.push(text); } });
++    const full = createModuleHost([createMemoryModule({ writeV7: async () => ({ ok: false, error: { code: "MEMORY_LIMIT_EXCEEDED", message: "Memory 已满，未保存" } }) } as never, async () => [], { threadId: "t", getCurrentUserMessage: () => user })], { notify(_moduleId, text) { notices.push(text); } });
+     const failedWrite = full.tools[0]!.tool.execute! as unknown as typeof execute;
+-    assert.equal((await failedWrite(memoryWriteSchema.parse({ operation: "add", text: "我喝咖啡不加糖", category: "preference", sourceQuote: "我喝咖啡不加糖", identity: { subject: "user", attribute: "coffee", value: "不加糖" } }), { toolCallId: "full", messages: [] })).ok, false);
++    assert.equal((await failedWrite(memoryWriteSchema.parse({ operation: "add", scope: "user", text: "我喝咖啡不加糖", category: "preference", sourceQuote: "我喝咖啡不加糖", identity: { subject: "user", attribute: "coffee", value: "不加糖" } }), { toolCallId: "full", messages: [] })).ok, false);
+     assert.match(notices[0]!, /记忆未保存.*已满/); full.dispose();
+   } finally { await rm(root, { recursive: true, force: true }); }
+ });
+diff --git a/packages/assistant/src/permission-boundary.test.ts b/packages/assistant/src/permission-boundary.test.ts
+index d3d13a7..687b513 100644
+--- a/packages/assistant/src/permission-boundary.test.ts
++++ b/packages/assistant/src/permission-boundary.test.ts
+@@ -18,7 +18,7 @@ const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cache
+ const request = "我喜欢乌龙茶";
+ const calls = [
+   ["capability_status", {}], ["memory_read", { query: "乌龙茶" }],
+-  ["memory_write", { operation: "add", text: request, category: "preference", sourceQuote: request,
++  ["memory_write", { operation: "add", scope: "user", text: request, category: "preference", sourceQuote: request,
+     identity: { subject: "用户", attribute: "茶", value: "乌龙茶" } }],
+   ["task_list", {}], ["read_file", { path: "note.txt" }],
+   ["write_file", { path: "created.txt", content: "allowed" }], ["shell_exec", { command: "pwd", cwd: "." }],
+@@ -76,7 +76,7 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
+             events: toolEvents.map(({ event: { type, data } }) => ({ type, ok: "output" in data && typeof data.output === "object" && data.output !== null && "ok" in data.output ? data.output.ok : null,
+               code: "error" in data && typeof data.error === "object" && data.error !== null && "code" in data.error ? data.error.code : null })) };
+           if (selected[0] === "memory_write") {
+-            const memory = await app.memoryStore!.readV6!(); assert.ok(memory.ok);
++            const memory = await app.memoryStore!.readV7!(); assert.ok(memory.ok);
+             rows[`${mode}/saved-memory`] = memory.value.entries.map(entry => ({ text: entry.text, category: entry.category }));
+           }
+           if (selected[0] === "write_file") await rm(join(workspace, "created.txt"), { force: true });
+diff --git a/packages/assistant/src/scheduled-skill-acceptance.test.ts b/packages/assistant/src/scheduled-skill-acceptance.test.ts
+index 967059c..5ab6baf 100644
+--- a/packages/assistant/src/scheduled-skill-acceptance.test.ts
++++ b/packages/assistant/src/scheduled-skill-acceptance.test.ts
+@@ -14,7 +14,7 @@ import { JsonlAgentStore } from "@serika/core";
+ import { createRuntimeApp } from "./app.js";
+ import { createAssistantController, type AssistantController } from "./assistant-controller.js";
+ import { createCheckpointStore } from "./checkpoint-store.js";
+-import { createMemoryStore } from "./memory-v6-store.js";
++import { createMemoryStore } from "./memory-v7-store.js";
+ import { loadScheduledSkillAutomation, prepareScheduledSkillTask } from "./scheduled-skill.js";
+ import { createTaskStore } from "./task-store.js";
+ import { createTaskWorkerAgent } from "./task-worker-entry.js";
+@@ -88,7 +88,7 @@ test("Controller saves a pinned Skill schedule; the existing worker delivers onc
+   const model = new MockLanguageModelV3({ doStream: async options => { observed.push(options); return response(); } });
+   const f = await fixture(model);
+   try {
+-    assert.ok((await createMemoryStore(join(f.workspace, ".runloom/memory.json")).add({ text: "GLOBAL_MEMORY_PRIVATE", pinned: true })).ok);
++    assert.ok((await createMemoryStore(join(f.workspace, ".runloom/memory.json")).add({ scope: { kind: "user" }, text: "GLOBAL_MEMORY_PRIVATE", pinned: true })).ok);
+     assert.ok((await createCheckpointStore(join(f.workspace, ".runloom/checkpoint.json")).saveNextVersion({ expectedVersion: null, sourceThreadId: "origin",
+       draft: { status: "active", goal: "GLOBAL_CHECKPOINT_PRIVATE", summary: "GLOBAL_CHECKPOINT_PRIVATE", completed: [], inProgress: [], nextActions: [], blockers: [], artifacts: [] } })).ok);
+     await f.app.store.save("origin", [{ id: "old", role: "user", parts: [{ type: "text", text: "GLOBAL_HISTORY_PRIVATE" }] }]);
+diff --git a/packages/assistant/src/steering-controller.test.ts b/packages/assistant/src/steering-controller.test.ts
+index e1f2c05..fde95dd 100644
+--- a/packages/assistant/src/steering-controller.test.ts
++++ b/packages/assistant/src/steering-controller.test.ts
+@@ -58,7 +58,7 @@ test("Steer revokes old file preview, replans inside the same Run, refreshes Mem
+   let controller: AssistantController | undefined;
+   try {
+     const first = await f.open(); controller = first.controller;
+-    const remembered = await first.app.memoryStore!.add({ text: "复盘喜欢两条行动" }); assert.ok(remembered.ok);
++    const remembered = await first.app.memoryStore!.add({ scope: { kind: "user" }, text: "复盘喜欢两条行动" }); assert.ok(remembered.ok);
+     const started = await controller.run("修改 notes/plan.md", { memoryConsolidation: "exclude" }); assert.ok(started.ok);
+     await waitFor(() => controller!.getSnapshot().pendingApproval?.toolCallId === "old-edit");
+     const old = controller.getSnapshot().pendingApproval!;
+diff --git a/packages/assistant/src/task-worker-context-acceptance.test.ts b/packages/assistant/src/task-worker-context-acceptance.test.ts
+index c751808..1ed3c81 100644
+--- a/packages/assistant/src/task-worker-context-acceptance.test.ts
++++ b/packages/assistant/src/task-worker-context-acceptance.test.ts
+@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
+ import { it } from "node:test";
+ import { JsonlAgentStore } from "@serika/core";
+ import { createCheckpointStore } from "./checkpoint-store.js";
+-import { createMemoryStore } from "./memory-v6-store.js";
++import { createMemoryStore } from "./memory-v7-store.js";
+ import { createTaskStore } from "./task-store.js";
+
+ // Live opt-in only. The ordinary suite never contacts a model provider.
+@@ -41,6 +41,7 @@ it("live scheduled workspace brief: Memory + checkpoint → worker → inbox →
+
+   try {
+     const memory = await createMemoryStore(join(root, "data/memory.json")).add({
++      scope: { kind: "user" },
+       text: "本项目当前优先事项是完成 Serika 的任务级验收。",
+     });
+     assert.ok(memory.ok, JSON.stringify(memory));
+diff --git a/packages/assistant/src/task-worker-context.test.ts b/packages/assistant/src/task-worker-context.test.ts
+index d125e06..9649888 100644
+--- a/packages/assistant/src/task-worker-context.test.ts
++++ b/packages/assistant/src/task-worker-context.test.ts
+@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
+ import { join } from "node:path";
+ import { describe, it } from "node:test";
+ import { MEMORY_CONTEXT_MAX_BYTES, selectInjectableMemoryEntries } from "./memory-types.js";
+-import { createMemoryStore } from "./memory-v6-store.js";
++import { createMemoryStore } from "./memory-v7-store.js";
+ import { createCheckpointStore } from "./checkpoint-store.js";
+ import type { TaskRecordV3, TaskStore, TaskListInput, TaskSummaryV3 } from "./task-store.js";
+ import { TASK_LIST_MAX_LIMIT } from "./task-store.js";
+@@ -99,7 +99,7 @@ describe("task-worker workspace snapshot", () => {
+     const root = await mkdtemp(join(tmpdir(), "runloom-worker-memory-large-"));
+     try {
+       const memory = createMemoryStore(join(root, ".runloom/memory.json"));
+-      for (let index = 0; index < 10; index++) assert.equal((await memory.add({ text: `project snapshot ${index}: ${"x".repeat(1300)}` })).ok, true);
++      for (let index = 0; index < 10; index++) assert.equal((await memory.add({ scope: { kind: "user" }, text: `project snapshot ${index}: ${"x".repeat(1300)}` })).ok, true);
+       const all = await memory.list(); assert.ok(all.ok);
+       assert.ok(Buffer.byteLength(JSON.stringify(selectInjectableMemoryEntries(all.entries))) > MEMORY_CONTEXT_MAX_BYTES);
+       const context = await createTaskWorkerContextLoader(join(root, ".runloom"), attentionStore(() => undefined))(claimedTask(), new AbortController().signal);
+@@ -134,9 +134,9 @@ describe("task-worker workspace snapshot", () => {
+     const root = await mkdtemp(join(tmpdir(), "runloom-worker-context-populated-"));
+     try {
+       const memory = createMemoryStore(join(root, ".runloom/memory.json"));
+-      const workspaceEntry = await memory.add({ text: "Use the M10 plan" });
++      const workspaceEntry = await memory.add({ scope: { kind: "user" }, text: "Use the M10 plan" });
+       assert.equal(workspaceEntry.ok, true);
+-      assert.equal((await memory.add({ text: "disabled fact", enabled: false })).ok, true);
++      assert.equal((await memory.add({ scope: { kind: "user" }, text: "disabled fact", enabled: false })).ok, true);
+       const checkpoint = await createCheckpointStore(join(root, ".runloom/checkpoint.json")).saveNextVersion({
+         expectedVersion: null,
+         sourceThreadId: "creator-thread",
+diff --git a/packages/assistant/src/task-worker-delivery.test.ts b/packages/assistant/src/task-worker-delivery.test.ts
+index 793c390..33b96c0 100644
+--- a/packages/assistant/src/task-worker-delivery.test.ts
++++ b/packages/assistant/src/task-worker-delivery.test.ts
+@@ -5,7 +5,7 @@ import { join } from "node:path";
+ import { it } from "node:test";
+ import { JsonlAgentStore } from "@serika/core";
+ import { MockLanguageModelV3 } from "ai/test";
+-import { createMemoryStore } from "./memory-v6-store.js";
++import { createMemoryStore } from "./memory-v7-store.js";
+ import { createTaskStore } from "./task-store.js";
+ import { createScheduledDemoModel, createTaskWorkerAgent } from "./task-worker-entry.js";
+ import { runTaskWorker } from "./task-worker.js";
+@@ -21,7 +21,7 @@ it("no-new-user memory Demo: a due reminder creates no model Run and leaves save
+   } }), store: new JsonlAgentStore({ directory: join(root, ".runloom", "task-transcripts") }) });
+   try {
+     const memory = createMemoryStore(join(root, ".runloom/memory.json"));
+-    assert.ok((await memory.add({ text: "我喜欢喝美式。", source: {
++    assert.ok((await memory.add({ scope: { kind: "user" }, text: "我喜欢喝美式。", source: {
+       kind: "conversation", threadId: "ordinary-chat", messageId: "previous-user", quote: "记住我喜欢喝美式。", sentAt: null,
+     } })).ok);
+     const before = await readFile(join(root, ".runloom", "memory.json"));
+diff --git a/packages/assistant/src/transcript-maintenance.test.ts b/packages/assistant/src/transcript-maintenance.test.ts
+index 2d79a2c..558bd4e 100644
+--- a/packages/assistant/src/transcript-maintenance.test.ts
++++ b/packages/assistant/src/transcript-maintenance.test.ts
+@@ -12,7 +12,7 @@ import { hashCanonicalJson, JsonlAgentStore, type ThreadContextCompactionRecord
+ import { acquireFlock } from "./flock.js";
+ import { createRuntimeApp } from "./app.js";
+ import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
+-import { createMemoryStore } from "./memory-v6-store.js";
++import { createMemoryStore } from "./memory-v7-store.js";
+ import { compactPrefixHash, type ContextCompactionRecord } from "./context-compaction.js";
+ import { readContextDiagnostics } from "./context-compactor.js";
+ import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
+@@ -48,9 +48,9 @@ it("physical compact preserves memory cursor, exact quotes and valid summary; re
+     const before = (await stat(file)).size; assert.ok(before > 16 * 1024 * 1024);
+     const memory = createMemoryStore(join(workspace, ".runloom/memory.json"));
+     const prefixHash = hashCanonicalJson(JSON.parse(JSON.stringify(messages)));
+-    assert.ok((await memory.writeV6!([{ operation: "add", text: preference, category: "preference", source: { kind: "conversation", threadId, messageId: "u1", quote: preference, sentAt: null } }], undefined, { expectedProgress: null, progress: { threadId, throughMessageId: "u2", prefixHash, pending: [], retry: null } })).ok);
++    assert.ok((await memory.writeV7!([{ operation: "add", scope: { kind: "user" }, text: preference, category: "preference", source: { kind: "conversation", threadId, messageId: "u1", quote: preference, sentAt: null } }], undefined, { expectedProgress: null, progress: { projectId: null, threadId, throughMessageId: "u2", prefixHash, pending: [], retry: null } })).ok);
+     const memoryFile = join(workspace, ".runloom/memory.json"), originalMemory = await readFile(memoryFile);
+-    const read = await memory.readV6!(); assert.ok(read.ok); const cursor = read.value.progress[0]!;
++    const read = await memory.readV7!(); assert.ok(read.ok); const cursor = read.value.progress[0]!;
+     const budget = { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true };
+     const beforeSummary = await readContextDiagnostics(store, threadId, budget); assert(beforeSummary.ok);
+     assert.equal(beforeSummary.value.latestValidCompaction?.id, summary.id);
+@@ -62,7 +62,7 @@ it("physical compact preserves memory cursor, exact quotes and valid summary; re
+     assert.deepEqual(await reopened.getMessages(threadId), messages);
+     assert.deepEqual(await readFile(memoryFile), originalMemory, "physical cleanup never edits memory or its cursor");
+     assert.equal(hashCanonicalJson(JSON.parse(JSON.stringify(await reopened.getMessages(threadId)))), cursor.prefixHash);
+-    assert.deepEqual((await memory.readV6!()), read);
++    assert.deepEqual((await memory.readV7!()), read);
+     const afterSummary = await readContextDiagnostics(reopened, threadId, budget); assert(afterSummary.ok);
+     assert.equal(afterSummary.value.latestValidCompaction?.id, summary.id, "missing summary.version remains invalid after cleanup");
+     assert.equal(await reopened.getRun("old-write"), undefined);

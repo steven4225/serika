@@ -1,0 +1,10 @@
+ℹ tests 101
+ℹ suites 0
+ℹ pass 101
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18248.391958
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-c2-eval-final2.UHeHWq/write-guard-wKcJfe/result.json","violations":0,"changes":10,"metadataUnchanged":false}
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-c2-eval-final2.UHeHWq/write-guard-NZmWQJ/result.json","violations":0,"changes":14,"metadataUnchanged":false}
