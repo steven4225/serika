@@ -1,7 +1,7 @@
 # Serika 架构 v2：现状、边界与重构路线
 
-> 状态：进行中（分支 `experiment/architecture-v2`）。本文取代 `docs/architecture-v0.md`。
-> 规则：所有 v2 重构只在 `experiment/architecture-v2` 上进行；不修改、合并或同步 `main`，不强推、不改写历史。
+> 状态：进行中（分支 `main`，2026-10-24 由 `experiment/architecture-v2` 改名）。本文取代 `docs/architecture-v0.md`。
+> 规则：在 main 上直接提交，不开 PR；legacy-main 是只读存档，不修改、不合并、不移植；不强推，回退用 git revert。
 
 ## 1. 现状（以代码为准）
 
@@ -157,7 +157,18 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
 
 - 先服务本机个人助手（开发、研究、日常），入口为桌面、CLI、Telegram。
 - 群聊 bot 另开一条线（§4.2），本轮只保留多实例装配、模块可选、数据目录独立这些边界。
-- 只在 `experiment/architecture-v2` 上工作；`main` 不修改、不合并、不同步，也不拿来对比或移植。直接提交到实验分支，不走 PR、不依赖 CI；每个提交在本地跑 `pnpm typecheck`、`pnpm test:runtime`、桌面端测试（`pnpm --filter @serika/desktop test`），结果写在提交说明里。提交前缀 `refactor(v2-pilot-stepN):`，一步一组提交；不强推，回退用 `git revert`。
+- 在 main 上直接提交，不开 PR；legacy-main 是只读存档，不修改、不合并、不移植；不强推，回退用 git revert。不依赖 CI；每个提交在本地跑 `pnpm typecheck`、`pnpm test:runtime`、桌面端测试（`pnpm --filter @serika/desktop test`），结果写在提交说明里。提交前缀 `refactor(v2-pilot-stepN):`，一步一组提交。
+- 2026-10-24：旧 `main` 改名为 `legacy-main`，末次提交以附注标签 `legacy-main-final` 保存；`experiment/architecture-v2` 改名为 `main`。
+
+### 改名后保留的冻结脚本
+
+以下均为历史脚本，改名后不再运行。保留其旧分支断言和冻结字节；`pnpm verify:cm6` 仍调用下列冻结的 `cm-step6-verify.mjs`，不能用于新 main 的验证。
+
+- `examples/eval/cm-step6-live.mjs`
+- `packages/assistant/scripts/cm-step6-verify.mjs`
+- `packages/assistant/scripts/v2-round1-verify.mjs`
+- `packages/assistant/scripts/v2-round2-verify.mjs`
+- `packages/assistant/scripts/v2-round3-verify.mjs`
 
 ### 诊断（已确认）
 
@@ -183,7 +194,7 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
 - facets 和通用证据接口；一次性补齐扩展框架（服务注册、controls、通用展示描述）。
 - 全部模块迁移；`RunContext` 的实现（只写设计说明）；dataDir 映射调整（只列路径清单）；记忆生命周期调整。
 - 第 4.5 步、第 5 步及之后的步骤（顺序保持 §4 路线表）。
-- 任何与 `main` 有关的事。
+- 对只读存档 `legacy-main` 的修改、合并或移植。
 
 ### 步骤
 

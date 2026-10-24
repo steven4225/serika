@@ -13,7 +13,7 @@ const hash = async path => sha(await readFile(join(repo, path)));
 const smokeScript = 'apps/desktop/scripts/electron-smoke.mjs';
 assert.equal(await hash(smokeScript), '9a1d20f8297237fe313858188e4dce6744d9428f0e4e14b03f21d58b767b143f');
 assert.equal(git('status', '--porcelain'), '', 'Commit source before verification');
-assert.equal(git('branch', '--show-current'), 'experiment/architecture-v2');
+assert.equal(git('branch', '--show-current'), 'main');
 for (const name of Object.keys(process.env)) {
   if (/RUNLOOM.*(LIVE|ACCEPTANCE)/.test(name) && process.env[name]) throw new Error(`Disable paid opt-in ${name} before this offline verification`);
 }

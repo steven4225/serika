@@ -77,7 +77,7 @@ export async function credentials() {
 }
 
 export async function startManual({ base = baseDirectory, fresh = false, faultPath, respond } = {}) {
-  assert.equal(git('branch', '--show-current'), 'experiment/architecture-v2', '只允许实验分支');
+  assert.equal(git('branch', '--show-current'), 'main', '只允许 main 分支');
   assert.equal(sha(await readFile(new URL('./cm-step6-open-fault.mjs', import.meta.url))), faultSha);
   await mkdir(base, { recursive: true, mode: 0o700 });
   assert.equal((await lstat(base)).isSymbolicLink(), false);
@@ -249,7 +249,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     assert.ok(args.every(a => a === '--fresh' || a === '--export' || a.startsWith('--fault-unknown-write=')), '未知参数');
     if (args.includes('--export')) { assert.equal(args.length, 1); await exportManual(); }
     else {
-      assert.equal(git('branch', '--show-current'), 'experiment/architecture-v2', '请在实验分支运行');
+      assert.equal(git('branch', '--show-current'), 'main', '请在 main 分支运行');
       execFileSync('pnpm', ['build'], { cwd: repo, stdio: 'inherit' });
       const run = await startManual({ fresh: args.includes('--fresh'), faultPath: args.find(a => a.startsWith('--fault-unknown-write='))?.split('=').slice(1).join('=') });
       for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => { void run.stop(); });

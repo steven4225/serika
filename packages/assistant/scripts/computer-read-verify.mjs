@@ -19,7 +19,7 @@ const report = { runId: randomUUID(), generatedAt: new Date().toISOString(), bas
   sourceCommit: git('rev-parse', 'HEAD').trim(), status: 'failed', frozen: {}, rows: {}, metadataOnly: true };
 try {
   assert.equal(git('status', '--porcelain').trim(), '');
-  assert.equal(git('branch', '--show-current').trim(), 'experiment/architecture-v2');
+  assert.equal(git('branch', '--show-current').trim(), 'main');
   for (const file of ['apps/desktop/scripts/electron-smoke.mjs', 'examples/eval/cm-step6-live.mjs',
     'packages/assistant/scripts/cm-step6-verify.mjs', 'packages/assistant/scripts/seatbelt-s1-check.mjs',
     'packages/assistant/scripts/seatbelt-s1-audit.mjs', 'apps/desktop/scripts/seatbelt-s1-electron.mjs',

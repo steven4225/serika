@@ -37,7 +37,7 @@ if (!live) {
   console.log(JSON.stringify({ runId: randomUUID(), generatedAt: new Date().toISOString(), scriptSha256: digest(await readFile(fileURLToPath(import.meta.url))), mode: 'zero-network-preflight', modelId, budget, cap, maxRequests, priorChargedUsd: prior, combinedRemainingUsd: ledger.limits.combinedSteps4To6 - prior, credential: 'authorized-key-present', fault: 'delay acknowledgement after a real exact-path write past its existing 1000ms deadline', realModelCalls: 0 }));
   process.exit(0);
 }
-assert.equal(git('branch', '--show-current'), 'experiment/architecture-v2');
+assert.equal(git('branch', '--show-current'), 'main');
 assert.equal(git('status', '--porcelain'), '', 'Commit the harness before the single live run');
 await mkdir(output, { recursive: true });
 const reportPath = join(output, 'result.json');
