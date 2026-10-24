@@ -1,0 +1,91 @@
+{
+  "runId": "8c9b606e-0e74-43af-9dd2-2e6641ce7c57",
+  "recordedAt": "2026-10-24T11:38:37.695465+00:00",
+  "sourceCommit": "bf79ee9b98f6fc8a4c2eada5718abf1014abae0d",
+  "tests": "passed",
+  "electronSmoke": "passed",
+  "directorySettings": "passed",
+  "files": [
+    {
+      "file": "docs/v2-pilot/evidence/architecture-v2-b2/3217bafe-f387-49b0-8967-996c684e2722/audit.json",
+      "bytes": 6104,
+      "sha256": "760d64bd2144d4b3a9c450984f91719d8b5790eafd86df6069e00f589c651a52"
+    },
+    {
+      "file": "docs/v2-pilot/evidence/architecture-v2-b2/3217bafe-f387-49b0-8967-996c684e2722/b0-capture.json",
+      "bytes": 28702,
+      "sha256": "df86fb2a063d245446eb08f409e0d03858afd4bf53eb4ca6c5122c87a67cd58a"
+    },
+    {
+      "file": "docs/v2-pilot/evidence/architecture-v2-b2/3217bafe-f387-49b0-8967-996c684e2722/b2-capture.json",
+      "bytes": 655,
+      "sha256": "321fa9631bd7eb20519e22178455f18e704e4513d823faab6c54303b04ce4855"
+    },
+    {
+      "file": "docs/v2-pilot/evidence/architecture-v2-b2/3217bafe-f387-49b0-8967-996c684e2722/directory-settings/result.json",
+      "bytes": 4659,
+      "sha256": "08d05c0ee20ee7de244bd3c7fed8e90aed42f416e7fe55128e076c03c1db498c"
+    },
+    {
+      "file": "docs/v2-pilot/evidence/architecture-v2-b2/3217bafe-f387-49b0-8967-996c684e2722/electron-guards.json",
+      "bytes": 1159,
+      "sha256": "f73bf837d4a312555b50d613087d620d891cd1f5314bd57f695f27c96ac00b66"
+    },
+    {
+      "file": "docs/v2-pilot/evidence/architecture-v2-b2/3217bafe-f387-49b0-8967-996c684e2722/verification.json",
+      "bytes": 3999,
+      "sha256": "730acca04b076de506a9b4fa4da98030650c17ae8001870847fb813509ef910e"
+    },
+    {
+      "file": "docs/v2-pilot/evidence/electron-smoke/b2-a32d3d3c-f33d-4355-b5ad-a176587886af/chat-reply.png",
+      "bytes": 114965,
+      "sha256": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497"
+    },
+    {
+      "file": "docs/v2-pilot/evidence/electron-smoke/b2-a32d3d3c-f33d-4355-b5ad-a176587886af/daily-config-retired-fields.png",
+      "bytes": 96471,
+      "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9"
+    },
+    {
+      "file": "docs/v2-pilot/evidence/electron-smoke/b2-a32d3d3c-f33d-4355-b5ad-a176587886af/daily-path-refuses-writes.png",
+      "bytes": 102059,
+      "sha256": "7f04d826d9503980266a7d97f3134bc15251185f67be22d709e2319068a3f13e"
+    },
+    {
+      "file": "docs/v2-pilot/evidence/electron-smoke/b2-a32d3d3c-f33d-4355-b5ad-a176587886af/home-fixture.json",
+      "bytes": 662,
+      "sha256": "4312c3cffa106a2db6e1c6f777df3ce49adb76ad36d8930dc718be852db84955"
+    },
+    {
+      "file": "docs/v2-pilot/evidence/electron-smoke/b2-a32d3d3c-f33d-4355-b5ad-a176587886af/remember-on-memory-page.png",
+      "bytes": 104649,
+      "sha256": "2fe293a22675aaf89b14c8deaed50c9a4fa5de0eca6ea9ffc8f3eeb76a1b5218"
+    },
+    {
+      "file": "docs/v2-pilot/evidence/electron-smoke/b2-a32d3d3c-f33d-4355-b5ad-a176587886af/remember-success-receipt.png",
+      "bytes": 135642,
+      "sha256": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25"
+    },
+    {
+      "file": "docs/v2-pilot/evidence/electron-smoke/b2-a32d3d3c-f33d-4355-b5ad-a176587886af/restart-persistence.png",
+      "bytes": 104664,
+      "sha256": "a9dcb7af725db81566ff8fb3e1058f8980832426ccfabfa70bb7c15dee330753"
+    },
+    {
+      "file": "docs/v2-pilot/evidence/electron-smoke/b2-a32d3d3c-f33d-4355-b5ad-a176587886af/result.json",
+      "bytes": 9447,
+      "sha256": "c124eefd659624c69df38cba8e7c058e117abdf8561672f81ff92c3109161fb7"
+    },
+    {
+      "file": "docs/v2-pilot/evidence/electron-smoke/b2-a32d3d3c-f33d-4355-b5ad-a176587886af/startup.png",
+      "bytes": 121246,
+      "sha256": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f"
+    },
+    {
+      "file": "docs/v2-pilot/evidence/electron-smoke/b2-a32d3d3c-f33d-4355-b5ad-a176587886af/undo-disappears.png",
+      "bytes": 91821,
+      "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0"
+    }
+  ],
+  "electronSmokeDirectory": "docs/v2-pilot/evidence/electron-smoke/b2-a32d3d3c-f33d-4355-b5ad-a176587886af"
+}

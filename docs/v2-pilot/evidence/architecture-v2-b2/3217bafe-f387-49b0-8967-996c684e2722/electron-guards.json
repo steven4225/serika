@@ -1,0 +1,40 @@
+{
+  "runId": "c026a9d8-c4b0-4d00-8601-cfa4ce1637e7",
+  "guards": [
+    {
+      "runId": "46ed01b5-47df-4b8b-848b-9cb981db9b2d",
+      "startedAt": "2026-10-24T11:30:32.594Z",
+      "finishedAt": "2026-10-24T11:30:39.526Z",
+      "command": [
+        "node",
+        "apps/desktop/scripts/b2-directory-smoke.mjs",
+        "/Users/a1-6/Code/agents/serika-v2",
+        "/tmp/serika-b2-directory-verified"
+      ],
+      "status": "passed",
+      "exitCode": 0,
+      "signal": null,
+      "recordConcurrentChanges": true,
+      "metadataUnchanged": false,
+      "violationsCount": 0,
+      "concurrentChangeEvents": 3
+    },
+    {
+      "runId": "adb7742e-429a-4ea1-a5a1-cd38021b391c",
+      "startedAt": "2026-10-24T11:31:13.445Z",
+      "finishedAt": "2026-10-24T11:31:32.478Z",
+      "command": [
+        "/bin/sh",
+        "-c",
+        "pnpm --workspace-root build:runtime && pnpm build && node scripts/electron-smoke-fixture.mjs"
+      ],
+      "status": "passed",
+      "exitCode": 0,
+      "signal": null,
+      "recordConcurrentChanges": true,
+      "metadataUnchanged": false,
+      "violationsCount": 0,
+      "concurrentChangeEvents": 14
+    }
+  ]
+}

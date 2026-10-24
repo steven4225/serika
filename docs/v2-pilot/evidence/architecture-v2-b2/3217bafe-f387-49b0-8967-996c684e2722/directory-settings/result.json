@@ -1,0 +1,131 @@
+{
+  "runId": "28e19f9a-b900-4599-99fb-8a54ca7bbfe4",
+  "verification": "real-electron-original-preload-ipc-no-model-requests",
+  "realModelCalls": 0,
+  "modelRequests": 0,
+  "platform": "darwin",
+  "sourceCommit": "bf79ee9b98f6fc8a4c2eada5718abf1014abae0d",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "3d1be9a83815d496d5a895a2d815f0f81b511219fea8bbddebfee8aac3e68f94",
+  "artifactHashes": {
+    "out/main/index.js": "385ad3e813a667392762e09ecd17dc8a505383f360abf3f1133df2b6a8292bc4",
+    "out/preload/index.cjs": "a3be9c6d1ce1df130f6183f40610661f60365228aea34101c4b5978844e8bb7a",
+    "out/renderer/index.html": "fca9229dcc6983b4f5dde04c215a043e353fc44e73a5088dc84684a8866af258"
+  },
+  "launches": [
+    {
+      "main": {
+        "electron": "44.4.5",
+        "pid": 46338,
+        "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-electron-directories-hb3RjP/profile",
+        "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-electron-directories-hb3RjP/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Code/agents/serika-v2/apps/desktop/out/renderer/index.html"
+      }
+    },
+    {
+      "main": {
+        "electron": "44.4.5",
+        "pid": 46622,
+        "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-electron-directories-hb3RjP/profile",
+        "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-electron-directories-hb3RjP/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Code/agents/serika-v2/apps/desktop/out/renderer/index.html"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "add-read-directory",
+      "result": "passed",
+      "directories": [
+        {
+          "path": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-electron-directories-hb3RjP/first",
+          "access": "read"
+        }
+      ],
+      "threadStable": true,
+      "projectRemainsUnselected": true,
+      "autonomyRemainsDisabled": true
+    },
+    {
+      "name": "add-second-readwrite-directory",
+      "result": "passed",
+      "directories": [
+        {
+          "path": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-electron-directories-hb3RjP/first",
+          "access": "read"
+        },
+        {
+          "path": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-electron-directories-hb3RjP/second",
+          "access": "readwrite"
+        }
+      ],
+      "threadStable": true,
+      "projectRemainsUnselected": true,
+      "autonomyRemainsDisabled": true
+    },
+    {
+      "name": "switch-permissions",
+      "result": "passed",
+      "directories": [
+        {
+          "path": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-electron-directories-hb3RjP/first",
+          "access": "readwrite"
+        },
+        {
+          "path": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-electron-directories-hb3RjP/second",
+          "access": "read"
+        }
+      ],
+      "threadStable": true,
+      "projectRemainsUnselected": true,
+      "autonomyRemainsDisabled": true
+    },
+    {
+      "name": "remove-first-directory",
+      "result": "passed",
+      "directories": [
+        {
+          "path": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-electron-directories-hb3RjP/second",
+          "access": "read"
+        }
+      ],
+      "threadStable": true,
+      "projectRemainsUnselected": true,
+      "autonomyRemainsDisabled": true
+    },
+    {
+      "name": "remove-last-directory",
+      "result": "passed",
+      "directories": [],
+      "threadStable": true,
+      "projectRemainsUnselected": true,
+      "autonomyRemainsDisabled": true
+    },
+    {
+      "name": "stale-authorization-cas-rejected",
+      "result": "passed",
+      "directories": [],
+      "threadStable": true,
+      "projectRemainsUnselected": true,
+      "autonomyRemainsDisabled": true
+    },
+    {
+      "name": "full-electron-restart-does-not-restore-grants",
+      "result": "passed",
+      "directories": [],
+      "threadStable": true,
+      "projectRemainsUnselected": true,
+      "autonomyRemainsDisabled": true
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": [],
+  "status": "passed",
+  "temporaryDirectoryRemoved": true
+}

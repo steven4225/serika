@@ -1,0 +1,116 @@
+{
+  "runId": "ee366f9c-ebd0-498a-bd55-5d4fc0350b56",
+  "recordedAt": "2026-10-24T11:35:47.644346+00:00",
+  "sourceCommit": "bf79ee9b98f6fc8a4c2eada5718abf1014abae0d",
+  "baseline": "8e0222f",
+  "frozenDiff": "",
+  "commits": [
+    {
+      "sha": "a81aa4131b97dac5ce42ed824edf41bc15c5317a",
+      "additions": 929,
+      "deletions": 356,
+      "subject": "feat: implement step 4.5 b2 directory grants and trusted control protection"
+    },
+    {
+      "sha": "4335716697cc5a71121c1c780f42727c212f9a98",
+      "additions": 17,
+      "deletions": 1,
+      "subject": "test: append b2 permission boundary scenarios for review"
+    },
+    {
+      "sha": "69f599051f044ecede99b345a74d0a0ad832b8f8",
+      "additions": 10,
+      "deletions": 9,
+      "subject": "test: finish desktop directory config fixture migration"
+    },
+    {
+      "sha": "bf79ee9b98f6fc8a4c2eada5718abf1014abae0d",
+      "additions": 5,
+      "deletions": 1,
+      "subject": "test: normalize retired policy metadata in b2 capture audit"
+    }
+  ],
+  "lineCounts": {
+    "test": {
+      "additions": 471,
+      "deletions": 181
+    },
+    "product": {
+      "additions": 472,
+      "deletions": 184
+    },
+    "snapshot": {
+      "additions": 17,
+      "deletions": 1
+    }
+  },
+  "remainingSingularField": {
+    "command": [
+      "rg",
+      "-n",
+      "\\bauthorizedDirectory\\b",
+      "packages/assistant/src",
+      "apps/desktop/src",
+      "--glob",
+      "*.ts",
+      "--glob",
+      "*.tsx",
+      "--glob",
+      "!*.test.ts",
+      "--glob",
+      "!*-acceptance.ts"
+    ],
+    "exitCode": 0,
+    "matches": [
+      "apps/desktop/src/main/module-settings.ts:138:    if (input.enabled) config.desktopAutonomy = { authorizedDirectory: directory };",
+      "apps/desktop/src/main/module-settings.ts:160:    if (input.enabled) config.telegramAutonomy = { authorizedDirectory: binding.directory, botId: binding.botId, userId: binding.userId, chatId: binding.chatId, threadId: binding.threadId };",
+      "apps/desktop/src/main/desktop-runtime.ts:338:  #herdrTargets() { return new HerdrTargets({ env: this.#options.env, cwd: this.#options.cwd, authorizedDirectory: this.current.info().projectDirectory }); }",
+      "apps/desktop/src/main/herdr-target.ts:13:  constructor(private readonly options: { env: NodeJS.ProcessEnv; cwd: string; authorizedDirectory: string | null }) {",
+      "apps/desktop/src/main/herdr-target.ts:29:      target = herdrTargetSchema.parse({ authorizedDirectory: this.options.authorizedDirectory, session, paneId: pane.paneId, terminalId: pane.terminalId });",
+      "apps/desktop/src/main/herdr-target.ts:33:      if (!this.options.authorizedDirectory || current.projectDirectory !== this.options.authorizedDirectory) throw new Error(\"授权目录已变化，请重新连接\");",
+      "packages/assistant/src/herdr.ts:11:export const herdrTargetSchema = z.object({ authorizedDirectory: z.string().min(1), session: sessionName,",
+      "packages/assistant/src/herdr.ts:50:  constructor(private readonly options: { env: NodeJS.ProcessEnv; cwd: string; authorizedDirectory: string | null }) {}",
+      "packages/assistant/src/herdr.ts:61:        if (this.options.authorizedDirectory) {",
+      "packages/assistant/src/herdr.ts:62:          const inside = relative(await realpath(this.options.authorizedDirectory), binary);",
+      "packages/assistant/src/herdr.ts:106:    if (target.authorizedDirectory !== this.options.authorizedDirectory) return failure(\"HERDR_TARGET_CHANGED\", \"授权目录已变化，请重新选择 Herdr 目标\");",
+      "packages/assistant/src/skill-catalog.ts:141:  authorizedDirectory: string,",
+      "packages/assistant/src/skill-catalog.ts:150:  const workspace = await realpath(authorizedDirectory);",
+      "packages/assistant/src/skill-catalog.ts:155:      if (inside(resolve(authorizedDirectory), requestedDirectory)) throw new Error(\"Skill packages must be outside the workspace\");",
+      "packages/assistant/src/tui-module-config.ts:194:    telegramAutonomy: z.object({ authorizedDirectory: nonEmptyString, botId: z.number().int().positive().safe(), userId: z.number().int().positive().safe(), chatId: z.number().int().positive().safe(), threadId: nonEmptyString }).strict().optional(),",
+      "packages/assistant/src/tui-module-config.ts:195:    desktopAutonomy: z.object({ authorizedDirectory: nonEmptyString }).strict().optional(),",
+      "packages/assistant/src/tui-module-config.ts:249:  telegramAutonomy?: Omit<TelegramAutonomyGrant, \"directory\"> & { authorizedDirectory: string } | undefined;",
+      "packages/assistant/src/tui-module-config.ts:250:  desktopAutonomy?: { authorizedDirectory: string } | undefined;",
+      "packages/assistant/src/tui-module-config.ts:545:  if (terminalTarget && terminalTarget.authorizedDirectory !== projectDirectory) {",
+      "packages/assistant/src/tui-module-config.ts:573:    ...(config.telegramAutonomy?.authorizedDirectory === projectDirectory ? { telegramAutonomy: { directory: projectDirectory, botId: config.telegramAutonomy.botId, userId: config.telegramAutonomy.userId, chatId: config.telegramAutonomy.chatId, threadId: config.telegramAutonomy.threadId } } : {}),",
+      "packages/assistant/src/tui-module-config.ts:574:    ...(config.desktopAutonomy && config.desktopAutonomy.authorizedDirectory === projectDirectory",
+      "packages/assistant/src/modules/terminal-module.ts:48:      const client = new HerdrClient({ env, cwd: directory, authorizedDirectory: directory });"
+    ]
+  },
+  "removedTopLevelField": {
+    "command": [
+      "rg",
+      "-n",
+      "(config|moduleConfig|current)[?]?[.]authorizedDirectory\\b",
+      "packages/assistant/src",
+      "apps/desktop/src",
+      "--glob",
+      "*.ts",
+      "--glob",
+      "*.tsx",
+      "--glob",
+      "!*.test.ts"
+    ],
+    "exitCode": 1,
+    "matches": []
+  },
+  "removedStringFileFactory": {
+    "command": [
+      "rg",
+      "-n",
+      "create(ReadFile|WriteFile|EditFile|ListDirectory|SearchFiles)(Tool|Module)\\((workspace|directory): string",
+      "packages/assistant/src"
+    ],
+    "exitCode": 1,
+    "matches": []
+  }
+}
