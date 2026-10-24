@@ -64,7 +64,7 @@ describe("normal desktop memory and history entry", () => {
     let calls = 0, switched = false;
     const env: NodeJS.ProcessEnv = { RUNLOOM_CONFIG: configPath };
     Object.defineProperty(env, "RUNLOOM_TODOIST_TIMEZONE", { get() {
-      if (!switched) { switched = true; writeFileSync(configPath, JSON.stringify({ ...config, authorizedDirectory: other })); }
+      if (!switched) { switched = true; writeFileSync(configPath, JSON.stringify({ ...config, authorizedDirectories: [{ path: other, access: "readwrite" }] })); }
       return undefined;
     } });
     const options = { applicationHome: join(root, "profile"), cwd: root, env, modelAlias: "mock",
@@ -138,7 +138,7 @@ describe("normal desktop memory and history entry", () => {
       assert.ok(events.some(event => event.type === "identity-changed" && event.info.runtimeRecovery?.state === "failed"));
       await assert.rejects(host.retryConnection(), /仍未连接/);
       const otherWorkspace = join(root, "other-workspace"); await mkdir(otherWorkspace);
-      await writeFile(identity.configPath!, JSON.stringify({ ...JSON.parse(before), authorizedDirectory: otherWorkspace }));
+      await writeFile(identity.configPath!, JSON.stringify({ ...JSON.parse(before), projectDirectory: otherWorkspace, authorizedDirectories: [{ path: otherWorkspace, access: "readwrite" }] }));
       await assert.rejects(host.retryConnection(), /仍未连接/, "retry cannot silently switch a trusted workspace");
       await writeFile(identity.configPath!, before);
       await host.retryConnection();

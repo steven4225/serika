@@ -37,7 +37,7 @@ describe("desktop TUI config", () => {
       assert.equal(JSON.parse(await readFile(configPath, "utf8")).modules.memory.enabled, true);
       const invalid = JSON.stringify({ version: 1 });
       await writeFile(configPath, invalid);
-      await assert.rejects(enableDesktopMemory(configPath), /authorizedDirectory/i);
+      await assert.rejects(enableDesktopMemory(configPath), /projectDirectory/i);
       assert.equal(await readFile(configPath, "utf8"), invalid);
     } finally { await rm(root, { recursive: true, force: true }); }
   });

@@ -60,7 +60,8 @@ it("isolates two homes sharing a project without aliases; changing project prese
     await first.shutdown(); first = undefined;
     const configPath = join(firstHome, "config.json");
     const config = JSON.parse(await readFile(configPath, "utf8"));
-    config.authorizedDirectory = otherProject;
+    config.projectDirectory = otherProject;
+    config.authorizedDirectories = [{ path: otherProject, access: "readwrite" }];
     await writeFile(configPath, JSON.stringify(config));
     first = await DesktopRuntime.create({ ...options(firstHome), env: {} });
     assert.equal(first.info().workspaceRoot, otherProject);
