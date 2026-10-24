@@ -4,7 +4,7 @@ import { HerdrTargets } from "./herdr-target.js";
 import type { HerdrTargetInput } from "../shared/ui-contract.js";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { assistantDataPaths, assertExperimentalDataPaths } from "@serika/assistant";
+import { assistantDataPaths, assertExperimentalDataPaths, selectProject } from "@serika/assistant";
 import type { LanguageModel } from "ai";
 import { createRuntimeApp, type TaskAutomationHost } from "@serika/assistant";
 import { createAssistantController } from "@serika/assistant";
@@ -158,6 +158,7 @@ export class DesktopRuntime {
     const app = await createRuntimeApp({
       directory: identity.transcriptDirectory, assistant: { threadId: identity.threadId, configPath: identity.configPath, dataDirectory: join(this.#options.applicationHome, "data") },
       modelAlias: this.#options.modelAlias, model: this.#options.model, output, env: this.#options.env, cwd: this.#options.cwd,
+      project: await selectProject({ dataDirectory: join(this.#options.applicationHome, "data"), cwd: this.#options.cwd }),
       pomodoroService: this.#pomodoroService,
       allowDirectoryTaskReads: true,
       desktopAutonomyHost: { home: this.#options.applicationHome },
@@ -309,6 +310,15 @@ export class DesktopRuntime {
       undo = await enableDesktopMemory(this.#identity.configPath, this.#options.cwd, join(this.#options.applicationHome, "data"));
       return this.#identity;
     }, false, { rollback: async () => { await undo?.(); } });
+  }
+  selectProject(directory: string | null) {
+    const previous = this.info().project?.directory ?? null;
+    return this.#replace(async () => {
+      await selectProject({ dataDirectory: join(this.#options.applicationHome, "data"), directory, cwd: this.#options.cwd });
+      return this.#identity;
+    }, false, { reason: "context", rollback: async () => {
+      await selectProject({ dataDirectory: join(this.#options.applicationHome, "data"), directory: previous, cwd: this.#options.cwd });
+    } });
   }
   setAuthorizedDirectories(input: DirectorySettingsInput) {
     let undo: (() => Promise<void>) | undefined;

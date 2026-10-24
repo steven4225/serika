@@ -94,3 +94,5 @@ export { ComputerDriverUnavailableError } from "./tui-module-config.js";
 export { computerConfigSchema, createDriverCall, discoverComputerApps } from "./modules/computer-module.js";
 
 export { ConfigUpgradeRequiredError } from "./tui-module-config.js";
+
+export { identifyProject, selectProject, type Project } from "./project.js";

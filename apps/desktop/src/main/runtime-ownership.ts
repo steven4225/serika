@@ -94,6 +94,7 @@ export class RuntimeOwnership {
   retryTelegramDelivery(key: string) { return this.#active().retryTelegramDelivery(key); }
   resolveTelegramDelivery(input: { key: string; action: "cancel" | "review"; note?: string }) { return this.#active().resolveTelegramDelivery(input); }
   enableMemory() { return this.#active().enableMemory(); }
+  selectProject(...args: Parameters<DesktopRuntime["selectProject"]>) { return this.#active().selectProject(...args); }
   setAuthorizedDirectories(...args: Parameters<DesktopRuntime["setAuthorizedDirectories"]>) { return this.#active().setAuthorizedDirectories(...args); }
   setModuleEnabled(...args: Parameters<DesktopRuntime["setModuleEnabled"]>) { return this.#active().setModuleEnabled(...args); }
 

@@ -79,6 +79,7 @@ export const IPC_FORWARDS = {
     enableMemory: 0,
     setModuleEnabled: 1,
     setAuthorizedDirectories: 1,
+    selectProject: 1,
     setAutonomyEnabled: 1,
     getComputerConnection: 0,
     findComputerDrivers: 0,

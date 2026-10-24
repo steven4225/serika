@@ -249,6 +249,7 @@ export class RuntimeBridge {
       temporaryDirectory: this.#identity.temporaryDirectory,
       workspaceRoot: this.#app.workspaceRoot ?? null,
       projectDirectory: this.#app.projectDirectory ?? null,
+      project: this.#app.project,
       authorizedDirectories: this.#app.moduleConfig?.authorizedDirectories ?? [],
       tuiMode: this.#app.tuiMode,
       commands: [...new Set([

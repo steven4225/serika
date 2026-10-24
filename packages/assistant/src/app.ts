@@ -1,3 +1,4 @@
+import type { Project } from "./project.js";
 import { configuredDirectoryAccess } from "./directory-access.js";
 import { assistantDataPaths, type AssistantDataPaths } from "./data-paths.js";
 import { createTranscriptAccess } from "./transcript-access.js";
@@ -145,6 +146,7 @@ export interface RuntimeAppOptions {
   output: Writable;
   env?: NodeJS.ProcessEnv;
   cwd?: string;
+  project?: Project | null;
   taskAutomation?: TaskAutomationHost;
   /** Trusted embedding opt-in: only built-in task_list/task_get in the authorized directory. */
   allowDirectoryTaskReads?: true;
@@ -192,6 +194,7 @@ export interface RuntimeApp {
   directory: string;
   workspaceRoot: string | undefined;
   projectDirectory: string | undefined;
+  project: Project | null;
   dataPaths?: AssistantDataPaths;
   moduleConfig: ResolvedTuiModuleConfig | undefined;
   getCapabilities?(): CapabilityStatus;
@@ -252,6 +255,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     : undefined;
   const dataPaths = assembly?.dataDirectory === undefined ? undefined : assistantDataPaths(resolve(cwd, assembly.dataDirectory));
   assertExperimentalDataPaths([options.directory, moduleConfig?.workspaceRoot ?? undefined, moduleConfig?.configPath ?? undefined, ...Object.values(dataPaths ?? {})]);
+  const project = options.project ?? null;
   const requestedContextBudget = moduleConfig?.contextCompaction;
   const modelCapacity = typeof model === "string" ? undefined : resolveModelContextWindow(model, env, moduleConfig?.modelContextWindows);
   if (moduleConfig && modelCapacity) moduleConfig.contextCompaction = effectiveContextBudget(moduleConfig.contextCompaction, modelCapacity);
@@ -752,7 +756,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       createCheckpointSource({ read: signal => readCurrentCheckpoint(checkpointStore, signal), resume: activeResumeMessage }),
       createLearnedSkillSource({ dreaming, threadId }),
       createMemoryReferenceSource({ store: memoryStore, threadId }),
-      createTaskTimeSource(),
+      createTaskTimeSource(project),
       createWorkTaskSource(() => currentRun.workTaskMessage),
       createForegroundTaskSource(() => autonomousRun() ? currentRun.foreground?.request : undefined),
     ]);
@@ -984,6 +988,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       directory,
       workspaceRoot,
       projectDirectory,
+      project,
       ...(dataPaths ? { dataPaths } : {}),
       moduleConfig,
       getCapabilities,

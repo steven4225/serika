@@ -19,6 +19,25 @@ const labels: Record<string, [string, string]> = {
 
 const moduleName = (id: string) => labels[id]?.[0] ?? "这项能力";
 
+function ProjectSelection({ info, busy }: { info: AppInfo; busy: boolean }) {
+  const [directory, setDirectory] = useState(info.project?.directory ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const locked = busy || saving || !!info.runtimeRecovery || typeof window === "undefined" || !window.runloom.selectProject;
+  const apply = async () => {
+    setSaving(true); setError(null);
+    try { await window.runloom.selectProject!(directory.trim() || null); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setSaving(false); }
+  };
+  return <section className="capability-row"><div><strong>当前项目</strong>
+    <p>{info.project ? `${info.project.name} · ${info.project.directory}` : "无项目"}</p>
+    <p className="hint">按选中目录的最近 Git 根识别，普通文件夹直接作为项目。移动项目后请重新选择。文件访问仍使用目录授权。</p>
+    <div className="actions"><input aria-label="项目目录" placeholder="绝对目录路径，留空表示无项目" value={directory} disabled={locked} onChange={event => setDirectory(event.target.value)} /><button disabled={locked} onClick={() => void apply()}>{saving ? "正在切换…" : "选择项目"}</button></div>
+    {error ? <p role="alert" className="error">{error}</p> : null}
+  </div></section>;
+}
+
 function DirectorySettings({ info, busy }: { info: AppInfo; busy: boolean }) {
   const [directories, setDirectories] = useState<DirectoryAuthorization[]>(() => info.authorizedDirectories.map(item => ({ ...item })));
   const [saving, setSaving] = useState(false);
@@ -93,6 +112,7 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null, int
     finally { setSaving(false); }
   };
     return <section className="capability-page">
+    <ProjectSelection key={info.project?.id ?? "none"} info={info} busy={busy} />
     <DirectorySettings key={JSON.stringify(info.authorizedDirectories)} info={info} busy={busy} />
     <AutonomySetting info={info} busy={busy} />
     <ComputerConnectionSetting info={info} busy={busy} />

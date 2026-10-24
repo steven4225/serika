@@ -115,6 +115,7 @@ export interface AppInfo {
   temporaryDirectory: boolean;
   workspaceRoot: string | null;
   projectDirectory: string | null;
+  project?: import("@serika/assistant").Project | null;
   authorizedDirectories: readonly DirectoryAuthorization[];
   tuiMode: boolean;
   /** Registered idle commands, without the leading slash. */
@@ -234,6 +235,7 @@ export interface RendererApi {
   createThread(options?: { preserveDraft: boolean; taskDraft?: string; chatDraft?: string }): Promise<void>;
   selectThread(threadId: string): Promise<void>;
   enableMemory(): Promise<void>;
+  selectProject?(directory: string | null): Promise<void>;
   setAuthorizedDirectories?(input: DirectorySettingsInput): Promise<void>;
   setModuleEnabled?(input: { id: string; enabled: boolean; expectedEnabled: boolean }): Promise<void>;
   getRssSubscriptions(): Promise<RssResult<RssView>>;

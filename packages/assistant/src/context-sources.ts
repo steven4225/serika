@@ -1,3 +1,4 @@
+import type { Project } from "./project.js";
 import type { UIMessage } from "ai";
 import type { ReferenceSource } from "./context-assembler.js";
 import { createCheckpointContextMessage } from "./context-window.js";
@@ -8,13 +9,17 @@ import { buildTaskContextMessage } from "./task-instructions.js";
 type Checkpoint = Parameters<typeof createCheckpointContextMessage>[0];
 
 /** Current time/time zone and the message's receive time, for task scheduling. */
-export function createTaskTimeSource(): ReferenceSource {
+export function createTaskTimeSource(project: Project | null = null): ReferenceSource {
   return {
     name: "task-time",
     slots: ["task-time"],
-    collect: ({ now, timeZone, user }) => ({ messages: { "task-time": buildTaskContextMessage({ now, timeZone,
+    collect: ({ now, timeZone, user }) => {
+      const message = buildTaskContextMessage({ now, timeZone,
       ...(typeof (user?.metadata as Record<string, unknown> | undefined)?.receivedAt === "string"
-        ? { receivedAt: (user!.metadata as { receivedAt: string }).receivedAt } : {}) }) } }),
+        ? { receivedAt: (user!.metadata as { receivedAt: string }).receivedAt } : {}) });
+      message.parts.push({ type: "text", text: "Host-selected project: " + JSON.stringify(project) });
+      return { messages: { "task-time": message } };
+    },
   };
 }
 

@@ -80,6 +80,7 @@ function appWith(overrides: Partial<RuntimeApp> = {}): RuntimeApp {
     directory: "/private/tmp/controller-transcripts",
     workspaceRoot: undefined,
     projectDirectory: undefined,
+    project: null,
     moduleConfig: undefined,
     toolConfirmation: undefined,
     commands: undefined,
