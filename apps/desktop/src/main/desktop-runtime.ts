@@ -62,6 +62,7 @@ export class DesktopRuntime {
   #registryTail: Promise<unknown> = Promise.resolve();
   #admitted = new Map<string, string>();
   #effects!: ChannelEffectGuard;
+  #effectSettlements = new Set<Promise<void>>();
   #idleBacklogs = new Set<string>();
   #backgroundOwner: string | undefined;
   #closed = false;
@@ -314,10 +315,12 @@ export class DesktopRuntime {
         if (foregroundEnded) { this.#idleBacklogs.add(identity.threadId); queueMicrotask(() => this.#resumeBackground()); }
         const owner = this.#effects.snapshot();
         if (owner?.threadId === identity.threadId && !owner.unknown) {
-          void new ExecutionRecordStore(identity.transcriptDirectory).getRun(identity.threadId, owner.runId).then(async run => {
+          const settlement = new ExecutionRecordStore(identity.transcriptDirectory).getRun(identity.threadId, owner.runId).then(async run => {
             if (!run || run.status === "running" || run.status === "interrupted" || run.tools.some(tool => tool.status === "unknown")) this.#effects.markUnknown(identity.threadId, owner.runId);
             else await this.#effects.release(identity.threadId, owner.runId);
           }).catch(() => this.#effects.markUnknown(identity.threadId, owner.runId));
+          this.#effectSettlements.add(settlement);
+          void settlement.finally(() => this.#effectSettlements.delete(settlement));
         }
       }
       if (identity.threadId === this.#identity.threadId && this.#available) this.#options.send(message);
@@ -626,6 +629,10 @@ export class DesktopRuntime {
     await this.#transition?.catch(() => undefined);
     await Promise.allSettled([...this.#creating.values()]);
     try { await Promise.all([...this.#runtimes.values()].map(bridge => bridge.shutdown())); this.#runtimes.clear(); }
-    finally { for (const claim of this.#botClaims.values()) await claim.lease.release(); this.#pomodoroService.dispose(); }
+    finally {
+      await Promise.all(this.#effectSettlements);
+      for (const claim of this.#botClaims.values()) await claim.lease.release();
+      this.#pomodoroService.dispose();
+    }
   }
 }
