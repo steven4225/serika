@@ -1321,5 +1321,7 @@
   "b2/control/.git/hooks/pre-commit": "PROTECTED_PATH",
   "b2/control/.env": "PROTECTED_PATH",
   "b2/control/Serika.command": "PROTECTED_PATH",
-  "b2/project-base": "ok"
+  "b2/project-base": "ok",
+  "b2/read/control": "ok",
+  "b2/read/credential": "PROTECTED_PATH"
 }
