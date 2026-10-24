@@ -1,4 +1,4 @@
-import { isProtectedPath, scanProtectedPaths, type ProtectedPaths } from "./protected-paths.js";
+import { isProtectedPath, type ProtectedPaths } from "./protected-paths.js";
 import type { Dirent } from "node:fs";
 import { constants } from "node:fs";
 import { lstat, open, readdir } from "node:fs/promises";
@@ -370,10 +370,9 @@ export function createSearchFilesTool(access: DirectoryAccess, directory?: strin
     outputSchema: directoryFileOutputSchema(searchFilesOutputSchema),
     execute: directoryFileExecution<z.infer<typeof inputSchema>, SearchFilesResult>({
       access, directory, write: false,
-      execute: async (root, input, signal) => {
-        const scanned = await scanProtectedPaths((await access.declarations()).map(item => item.path));
-        return searchFilesInWorkspace(root, input.query, input.path, signal, { controlPaths: [...access.options.protectedPaths, ...scanned.controlPaths], credentialPaths: [...(access.options.credentialPaths ?? []), ...scanned.credentialPaths] });
-      },
+      execute: (root, input, signal) => searchFilesInWorkspace(root, input.query, input.path, signal, {
+        controlPaths: access.options.protectedPaths, credentialPaths: access.options.credentialPaths ?? [],
+      }),
     }),
   });
 }

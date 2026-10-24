@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import type { AssistantAssembly } from "./assembly.js";
 import type { ResolvedTuiModuleConfig } from "./tui-module-config.js";
-import { join, resolve, sep } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 
 export const serikaCodeRoot = fileURLToPath(new URL("../../..", import.meta.url));
 
@@ -13,7 +13,7 @@ export interface ProtectedPaths {
 
 // The same expressions are consumed by JavaScript and the Seatbelt compiler.
 export const protectedNames = {
-  control: "(^|/)[.]git($|/(config($|[.]lock$|/)|hooks($|/)))|(^|/)Serika[.]command$",
+  control: "(^|/)[.]git($|/(config($|[.]lock$|[.]worktree($|[.]lock$)|/)|worktrees/[^/]+/config[.]worktree($|[.]lock$)|hooks($|/)))|(^|/)Serika[.]command$",
   credential: "(^|/)([.]env($|[.])|[.](ssh|aws|gnupg)(/|$)|[.](netrc|npmrc|pypirc|git-credentials)($|/)|[.]docker/config[.]json($|/))",
 };
 
@@ -56,35 +56,46 @@ export function configuredProtectedPaths(options: {
   };
 }
 
-export const gitControlPaths = (gitDirectory: string): string[] => ["config", "config.lock", "hooks"].map(name => join(gitDirectory, name));
+const gitControlPaths = (gitDirectory: string): string[] => ["config", "config.lock", "config.worktree", "config.worktree.lock", "hooks"].map(name => join(gitDirectory, name));
 
-export async function scanProtectedPaths(roots: readonly string[]): Promise<ProtectedPaths> {
-  const { lstat, readFile, readdir, realpath } = await import("node:fs/promises");
-  const controlPaths: string[] = [], credentialPaths: string[] = [];
-  const canonical = async (path: string) => { try { return await realpath(path); } catch (error) { if (error instanceof Error && "code" in error && ["ENOENT", "ENOTDIR"].includes(String(error.code))) return path; throw error; } };
-  async function visit(path: string): Promise<void> {
-    const stats = await lstat(path);
-    if (isProtectedPath({ path, write: false, controlPaths: [], credentialPaths: [] })) credentialPaths.push(await canonical(path));
-    else if (path.endsWith("/.git")) {
-      let gitDirectory = path;
+/** Inspect only the target's ancestors and the Git controls they name. */
+export async function gitControlsForTarget(target: string): Promise<string[]> {
+  const { lstat, readFile, realpath } = await import("node:fs/promises");
+  const missing = (error: unknown) => error instanceof Error && "code" in error && ["ENOENT", "ENOTDIR"].includes(String(error.code));
+  const canonical = async (path: string) => { try { return await realpath(path); } catch (error) { if (missing(error)) return path; throw error; } };
+  for (let directory = resolve(target);; directory = dirname(directory)) {
+    const markerPath = join(directory, ".git");
+    let stats: Awaited<ReturnType<typeof lstat>> | undefined;
+    try { stats = await lstat(markerPath); } catch (error) { if (!missing(error)) throw error; }
+    let gitDirectory: string | undefined;
+    let common: string | undefined;
+    if (stats) {
+      gitDirectory = markerPath;
       if (stats.isFile()) {
-        const marker = /^gitdir: (.+)\r?\n?$/.exec(await readFile(path, "utf8"));
-        if (!marker?.[1]) return;
-        gitDirectory = resolve(path, "..", marker[1]);
-        controlPaths.push(path);
+        const marker = /^gitdir: (.+)\r?\n?$/.exec(await readFile(markerPath, "utf8"));
+        if (!marker?.[1]) return [markerPath];
+        gitDirectory = resolve(directory, marker[1]);
       }
-      for (const control of gitControlPaths(gitDirectory)) controlPaths.push(await canonical(control));
-      if (stats.isFile() && roots.some(root => within(root, gitDirectory))) {
+    } else {
+      try {
+        common = (await readFile(join(directory, "commondir"), "utf8")).trim();
+        gitDirectory = directory;
+      } catch (error) { if (!missing(error)) throw error; }
+      if (!gitDirectory) {
         try {
-          const common = (await readFile(join(gitDirectory, "commondir"), "utf8")).trim();
-          for (const control of gitControlPaths(resolve(gitDirectory, common))) controlPaths.push(await canonical(control));
-        } catch (error) { if (!(error instanceof Error && "code" in error && ["ENOENT", "ENOTDIR"].includes(String(error.code)))) throw error; }
+          if ((await lstat(join(directory, "HEAD"))).isFile() && (await lstat(join(directory, "objects"))).isDirectory()) gitDirectory = directory;
+        } catch (error) { if (!missing(error)) throw error; }
       }
-    } else if (new RegExp(protectedNames.control).test(path)) controlPaths.push(await canonical(path));
-    if (stats.isSymbolicLink()) return;
-    if (stats.isFile() && stats.nlink > 1) credentialPaths.push(path);
-    if (stats.isDirectory()) for (const name of await readdir(path)) await visit(join(path, name));
+    }
+    if (gitDirectory) {
+      const paths = gitControlPaths(gitDirectory);
+      if (common === undefined) {
+        try { common = (await readFile(join(gitDirectory, "commondir"), "utf8")).trim(); }
+        catch (error) { if (!missing(error)) throw error; }
+      }
+      if (common !== undefined) paths.push(...gitControlPaths(resolve(gitDirectory, common)));
+      return Promise.all(paths.map(canonical));
+    }
+    if (dirname(directory) === directory) return [];
   }
-  for (const root of roots) await visit(root);
-  return { controlPaths, credentialPaths };
 }

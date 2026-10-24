@@ -28,6 +28,7 @@ export function seatbeltPolicy(options: { directories: readonly DirectoryAuthori
   });
   const writable = `(require-all (require-any ${writableRoots.join(" ")} (subpath ${JSON.stringify(temp)})) (require-not ${deniedWrite}) (require-not (require-any ${pathFilter("subpath", runtimeRoots)} ${pathFilter("literal", [options.runtime.node, options.runtime.git, ...protectedParents])})))`;
   return `(version 1)\n(deny default)\n(allow process-exec)\n(allow process-fork)\n` +
+    `(deny file-link)\n` +
     `(deny process-info*)\n(allow signal (target self))\n` +
     `(allow sysctl-read (sysctl-name-regex #"^hw[.]") (sysctl-name-regex #"^vm[.]") (sysctl-name-regex #"^kern[.]os") (sysctl-name "kern.argmax") (sysctl-name "kern.maxfilesperproc") (sysctl-name "kern.hostname") (sysctl-name "kern.version"))\n` +
     `(deny syscall-unix (syscall-number SYS_setsid) (syscall-number SYS_setpgid) (syscall-number SYS_posix_spawn) (syscall-number SYS_link) (syscall-number SYS_linkat))\n` +

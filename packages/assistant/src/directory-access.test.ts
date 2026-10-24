@@ -61,12 +61,12 @@ it("b2 applies deepest directory permissions, protected controls, selection and 
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-it("b2 native Seatbelt uses the same directory declarations and rejects existing hardlink aliases", { skip: process.platform !== "darwin" }, async () => {
+it("b2 native Seatbelt uses the same directory declarations and rejects boundary escapes and new hardlinks", { skip: process.platform !== "darwin" }, async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-b2-seatbelt-")));
   const a = join(root, "a"), ro = join(a, "read"), rw = join(ro, "write"), h = join(a, "H");
   try {
     for (const path of [rw, h, join(a, ".git/hooks")]) await mkdir(path, { recursive: true });
-    const outside = join(root, "outside"); await writeFile(outside, "secret"); await link(outside, join(a, "hard")); await symlink(root, join(a, "link"));
+    const outside = join(root, "outside"); await writeFile(outside, "secret"); await symlink(root, join(a, "link"));
     await writeFile(join(h, "config.json"), "trusted");
     let directories: readonly DirectoryAuthorization[] = [{ path: a, access: "readwrite" }, { path: ro, access: "read" }, { path: rw, access: "readwrite" }];
     const access = new DirectoryAccess({ load: async () => directories, protectedPaths: [h] });
@@ -74,7 +74,7 @@ it("b2 native Seatbelt uses the same directory declarations and rejects existing
     const run = (command: string) => runner.execute({ directory: a, input: { command }, signal: new AbortController().signal,
       execution: { timeoutMs: 30_000, maxOutputBytes: 65_536, killGraceMs: 250 } });
     const allowed = await run("printf allowed > read/write/created"); assert.ok(allowed.ok, JSON.stringify(allowed)); assert.equal(allowed.exitCode, 0, allowed.output);
-    for (const command of ["printf denied > read/denied", "cat hard", "printf denied > hard", `cat '${outside}'`, "cat ../outside", "cat link/outside", "printf denied > H/config.json", "printf denied > .git/config", "printf denied > .git/hooks/pre-commit", "printf denied > .env", "printf denied > Serika.command", "ln ../outside new-link", "mv H moved"]) {
+    for (const command of ["printf denied > read/denied", `cat '${outside}'`, "cat ../outside", "cat link/outside", "printf denied > H/config.json", "printf denied > .git/config", "printf denied > .git/config.worktree", "printf denied > .git/hooks/pre-commit", "printf denied > .env", "printf denied > Serika.command", "ln ../outside new-link", "ln H/config.json new-control-link", "ln read/write/created new-ordinary-link", "mv H moved"]) {
       const result = await run(command); assert.ok(result.ok, JSON.stringify(result)); assert.notEqual(result.exitCode, 0, command + ": " + result.output);
     }
     directories = []; const revoked = await run("printf denied > revoked"); assert.equal(revoked.ok, false);
@@ -112,7 +112,7 @@ it("b2 native Git can read controls and commit but cannot rewrite controls or re
     for (const [command, allowed] of [
       ["git status --short", true], ["git log -1 --oneline", true], ["git diff -- tracked", true],
       ["git add tracked", true], ["git commit -qm changed", true],
-      ["git config --local user.name Intruder", false], ["printf bad > .git/hooks/x", false],
+      ["git config --local user.name Intruder", false], ["printf bad > .git/config.worktree", false], ["printf bad > .git/hooks/x", false],
       ["mv .git moved-git", false], ["cat .ssh/sentinel", false],
     ] satisfies [string, boolean][]) {
       if (command === "cat .ssh/sentinel") { await mkdir(join(repo, ".ssh")); await writeFile(join(repo, ".ssh/sentinel"), "test credential"); }
@@ -128,29 +128,29 @@ it("b2 native Git can read controls and commit but cannot rewrite controls or re
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-it("b2 protects real targets of credential and Git control aliases in files and native Seatbelt", async () => {
+it("b2 resolves Git controls from target ancestors including gitfile and commondir", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-b2-control-alias-")));
   try {
-    const repo = join(root, "repo"), home = join(root, "H"); await mkdir(join(repo, ".git"), { recursive: true }); await mkdir(home);
-    await writeFile(join(repo, "git-target"), "trusted"); await symlink("../git-target", join(repo, ".git/config"));
-    await writeFile(join(repo, "credential-target"), "credential"); await symlink("credential-target", join(repo, ".env"));
-    await mkdir(join(repo, "worktree")); await mkdir(join(repo, "metadata/hooks"), { recursive: true });
-    await writeFile(join(repo, "worktree/.git"), "gitdir: ../metadata\n"); await writeFile(join(repo, "metadata/config"), "trusted");
-    const access = new DirectoryAccess({ load: async () => [{ path: repo, access: "readwrite" }], protectedPaths: [] });
+    const repo = join(root, "repo"), common = join(root, "common"), metadata = join(root, "metadata");
+    await mkdir(repo); await mkdir(join(metadata, "hooks"), { recursive: true }); await mkdir(join(common, "objects"), { recursive: true });
+    await writeFile(join(common, "HEAD"), "ref: refs/heads/main\n");
+    await writeFile(join(repo, ".git"), "gitdir: ../metadata\n");
+    await writeFile(join(metadata, "commondir"), "../common\n");
+    await writeFile(join(repo, "git-target"), "trusted");
+    await symlink("../repo/git-target", join(metadata, "config"));
+    const access = new DirectoryAccess({ load: async () => [{ path: root, access: "readwrite" }], protectedPaths: [] });
     assert.equal((await access.resolve({ path: join(repo, "git-target"), write: false })).ok, true);
-    for (const [path, write] of [["git-target", true], ["metadata/config", true], ["credential-target", false]] satisfies [string, boolean][]) {
-      const result = await access.resolve({ path, directory: repo, write }); assert.equal(result.ok, false); if (!result.ok) assert.equal(result.code, "PROTECTED_PATH");
+    for (const path of [join(repo, "git-target"), join(metadata, "config.worktree"), join(metadata, "config.worktree.lock"), join(metadata, "hooks/x"), join(common, "config"), join(common, "hooks/x")]) {
+      const result = await access.resolve({ path, write: true });
+      assert.equal(result.ok, false, path); if (!result.ok) assert.equal(result.code, "PROTECTED_PATH");
     }
-    const host = createModuleHost([createReadFileModule(access)], { notify() {} });
-    const search = host.tools.find(item => item.metadata.name === "search_files")!;
-    assert.deepEqual(await search.tool.execute!({ query: "credential", path: "." }, { toolCallId: "alias", messages: [], context: {} }), { ok: true, matches: [], truncated: false, skippedOversize: 0 });
-    if (process.platform === "darwin") {
-      const runner = new SeatbeltShellRunner({ home, directories: access, protectedPaths: [] });
-      for (const command of ["printf bad > git-target", "printf bad > metadata/config", "cat credential-target"]) {
-        const result = await runner.execute({ directory: repo, input: { command }, signal: new AbortController().signal, execution: { timeoutMs: 30_000, maxOutputBytes: 65_536, killGraceMs: 250 } });
-        assert.ok(result.ok, JSON.stringify(result)); assert.notEqual(result.exitCode, 0, result.output);
-      }
-    }
-    assert.equal(await readFile(join(repo, "git-target"), "utf8"), "trusted");
+    const { gitControlsForTarget } = await import("./protected-paths.js");
+    assert.ok((await gitControlsForTarget(join(repo, "file"))).includes(join(common, "hooks")));
+    await rm(join(repo, ".git")); await mkdir(join(repo, ".git"));
+    await mkdir(join(repo, ".git/worktrees/test"), { recursive: true });
+    const nested = await access.resolve({ path: join(repo, ".git/worktrees/test/config.worktree"), write: true });
+    assert.equal(nested.ok, false); if (!nested.ok) assert.equal(nested.code, "PROTECTED_PATH");
+    const ordinary = await access.resolve({ path: join(repo, ".git/config.worktree"), write: true });
+    assert.equal(ordinary.ok, false); if (!ordinary.ok) assert.equal(ordinary.code, "PROTECTED_PATH");
   } finally { await rm(root, { recursive: true, force: true }); }
 });
