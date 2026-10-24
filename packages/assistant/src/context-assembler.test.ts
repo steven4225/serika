@@ -13,7 +13,7 @@ test("five-layer references persist only on new messages, remain stable after re
   let revision = 1, time = 0, includeExtra = false;
   const source: ReferenceSource = { name: "memory", slots: ["memory"], collect: () => {
     const memory = createMemorySnapshotMessage(memorySnapshot([{ id: "fact", text: `version-${revision}`, revision, enabled: true },
-      ...(includeExtra ? [{ id: "extra", text: "added after snapshot", enabled: true }] : [])], { now: new Date(0) }));
+      ...(includeExtra ? [{ id: "extra", text: "added after snapshot", enabled: true }] : [])], { now: new Date(0) }), null);
     memory.parts.push({ type: "text", text: JSON.stringify({ documents: includeExtra ? ["new-document"] : [] }) });
     return { messages: { memory } };
   } };

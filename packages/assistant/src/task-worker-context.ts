@@ -103,7 +103,7 @@ export async function loadTaskWorkerContext(
     }],
   }];
   if (checkpoint !== null) referenceMessages.push(createCheckpointContextMessage(checkpoint));
-  referenceMessages.push(createMemorySnapshotMessage(memorySelection));
+  referenceMessages.push(createMemorySnapshotMessage(memorySelection, null));
   return { referenceMessages };
 }
 

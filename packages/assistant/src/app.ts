@@ -777,7 +777,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             modelContextWindowTokens: moduleConfig.contextCompaction.contextWindowTokens,
             ...(workspaceRoot ? { project: workspaceRoot } : {}),
             onMask: id => memoryExtraction?.afterMask(id),
-            backgroundReference: async signal => createMemorySnapshotMessage(await readMemorySnapshot(memoryStore, signal)),
+            backgroundReference: async signal => createMemorySnapshotMessage(await readMemorySnapshot(memoryStore, signal), project?.id ?? null),
             checklist: checklistSources,
             fixedContext: () => ({
                 instructions: primaryInstructions(),

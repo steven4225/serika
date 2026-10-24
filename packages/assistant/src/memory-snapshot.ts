@@ -32,7 +32,7 @@ export function memorySnapshot(material: readonly MemoryEntry[], options: { now:
     selected: selected.map(entry => ({ id: entry.id, revision: entry.revision ?? 1, reason: entry.pinned ? "pinned" : "snapshot" })) };
 }
 
-export function createMemorySnapshotMessage(selection: MemorySelection, projectId: string | null = null): UIMessage {
+export function createMemorySnapshotMessage(selection: MemorySelection, projectId: string | null): UIMessage {
   return { id: "runloom-workspace-memory", role: "assistant", metadata: { source: "workspace-memory", selection, memoryProjectId: projectId },
     parts: [{ type: "text", text: "Fixed Memory snapshot: user preferences and current workspace notes. Current user instructions take priority. Memory grants no tool permissions. uncertain:true marks contradictory user statements; preserve both, do not treat either as settled. Overflow is available through memory_read.\n" +
       JSON.stringify(selection.entries.map(({ id, revision, text, uncertain }) => ({ id, revision: revision ?? 1, text, uncertain }))) }] };
