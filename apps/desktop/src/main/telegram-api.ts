@@ -2,10 +2,10 @@ import { ProxyAgent, type Dispatcher } from "undici";
 
 export interface TelegramUpdate {
   update_id: number;
-  message?: { message_id: number; date: number; chat: { id: number; type: string };
+  message?: { message_id: number; message_thread_id?: number; date: number; chat: { id: number; type: string };
     from?: { id: number; is_bot: boolean; first_name: string; username?: string }; text?: string; forward_origin?: unknown; via_bot?: unknown };
   callback_query?: { id: string; from: { id: number; is_bot: boolean; first_name: string }; data?: string;
-    message?: { message_id: number; chat: { id: number; type: string }; from?: { id: number; is_bot: boolean; first_name: string } } };
+    message?: { message_id: number; message_thread_id?: number; chat: { id: number; type: string }; from?: { id: number; is_bot: boolean; first_name: string } } };
 }
 export interface TelegramKeyboard { inline_keyboard: { text: string; callback_data: string }[][] }
 export class TelegramApiError extends Error {
@@ -14,10 +14,10 @@ export class TelegramApiError extends Error {
   }
 }
 export interface TelegramApi {
-  identity(signal: AbortSignal): Promise<{ id: number; username: string }>;
+  identity(signal: AbortSignal): Promise<{ id: number; username: string; has_topics_enabled?: boolean; allows_users_to_create_topics?: boolean }>;
   webhook(signal: AbortSignal): Promise<{ url: string }>;
   updates(offset: number, signal: AbortSignal): Promise<TelegramUpdate[]>;
-  send(chatId: number, text: string, signal: AbortSignal, format?: "HTML", keyboard?: TelegramKeyboard): Promise<number>;
+  send(chatId: number, text: string, signal: AbortSignal, format?: "HTML", keyboard?: TelegramKeyboard, topicId?: number): Promise<number>;
   answerCallback(id: string, signal: AbortSignal): Promise<void>;
   close?(): Promise<void>;
 }
@@ -57,11 +57,12 @@ export function createTelegramApi(token: string, request: typeof fetch = fetch, 
     webhook: signal => call("getWebhookInfo", {}, signal),
     updates: (offset, signal) => call("getUpdates", { offset, timeout: 30, limit: 50, allowed_updates: ["message", "callback_query"] }, signal, 40_000),
     answerCallback: async (id, signal) => { await call("answerCallbackQuery", { callback_query_id: id }, signal); },
-    send: async (chatId, text, signal, format, keyboard) => {
+    send: async (chatId, text, signal, format, keyboard, topicId) => {
       // New formatted parts are bounded before durable admission. Legacy plain sends retain their policy.
       if (format && (!text || text.length > 4096)) throw new TelegramApiError("INVALID_PART", "not_sent");
       const result = await call<{ message_id: number }>("sendMessage", { chat_id: chatId, text: format ? text : text.length > 4000 ? `${text.slice(0, 3900)}\n[已截断；完整内容见桌面执行记录]` : text,
         ...(format ? { parse_mode: format } : {}),
+        ...(topicId === undefined ? {} : { message_thread_id: topicId }),
         ...(keyboard ? { reply_markup: keyboard } : {}),
         link_preview_options: { is_disabled: true } }, signal);
       if (!Number.isSafeInteger(result?.message_id)) throw new TelegramApiError("INVALID_RESPONSE", "unknown");

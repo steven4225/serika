@@ -85,15 +85,21 @@ export class RuntimeOwnership {
   registerThread(...args: Parameters<DesktopRuntime["registerThread"]>) { return this.#active().registerThread(...args); }
   createThread(...args: Parameters<DesktopRuntime["createThread"]>) { return this.#active().createThread(...args); }
   selectThread(...args: Parameters<DesktopRuntime["selectThread"]>) { return this.#active().selectThread(...args); }
-  telegramStatus() { return this.#active().telegramStatus(); }
+  channelResourceStatus(...args: Parameters<DesktopRuntime["channelResourceStatus"]>) { return this.#active().channelResourceStatus(...args); }
+  reviewChannelResource(...args: Parameters<DesktopRuntime["reviewChannelResource"]>) { return this.#active().reviewChannelResource(...args); }
+  channelAccounts(...args: Parameters<DesktopRuntime["channelAccounts"]>) { return this.#active().channelAccounts(...args); }
+  channelHistory(...args: Parameters<DesktopRuntime["channelHistory"]>) { return this.#active().channelHistory(...args); }
+  telegramAccounts(...args: Parameters<DesktopRuntime["telegramAccounts"]>) { return this.#active().telegramAccounts(...args); }
+  telegramStatus(...args: Parameters<DesktopRuntime["telegramStatus"]>) { return this.#active().telegramStatus(...args); }
+  changeTelegramBinding(...args: Parameters<DesktopRuntime["changeTelegramBinding"]>) { return this.#active().changeTelegramBinding(...args); }
   setTelegramAutonomyEnabled(...args: Parameters<DesktopRuntime["setTelegramAutonomyEnabled"]>) { return this.#active().setTelegramAutonomyEnabled(...args); }
-  setTelegramEnabled(enabled: boolean) { return this.#active().setTelegramEnabled(enabled); }
-  beginTelegramPairing() { return this.#active().beginTelegramPairing(); }
-  confirmTelegramPairing(code: string) { return this.#active().confirmTelegramPairing(code); }
-  reviewTelegramInput(input: { key: string; note: string }) { return this.#active().reviewTelegramInput(input); }
-  setTelegramTaskRoute(input: { id: string; kind: "once" | "recurring"; enabled: boolean }) { return this.#active().setTelegramTaskRoute(input); }
-  retryTelegramDelivery(key: string) { return this.#active().retryTelegramDelivery(key); }
-  resolveTelegramDelivery(input: { key: string; action: "cancel" | "review"; note?: string }) { return this.#active().resolveTelegramDelivery(input); }
+  setTelegramEnabled(...args: Parameters<DesktopRuntime["setTelegramEnabled"]>) { return this.#active().setTelegramEnabled(...args); }
+  beginTelegramPairing(...args: Parameters<DesktopRuntime["beginTelegramPairing"]>) { return this.#active().beginTelegramPairing(...args); }
+  confirmTelegramPairing(...args: Parameters<DesktopRuntime["confirmTelegramPairing"]>) { return this.#active().confirmTelegramPairing(...args); }
+  reviewTelegramInput(...args: Parameters<DesktopRuntime["reviewTelegramInput"]>) { return this.#active().reviewTelegramInput(...args); }
+  setTelegramTaskRoute(...args: Parameters<DesktopRuntime["setTelegramTaskRoute"]>) { return this.#active().setTelegramTaskRoute(...args); }
+  retryTelegramDelivery(...args: Parameters<DesktopRuntime["retryTelegramDelivery"]>) { return this.#active().retryTelegramDelivery(...args); }
+  resolveTelegramDelivery(...args: Parameters<DesktopRuntime["resolveTelegramDelivery"]>) { return this.#active().resolveTelegramDelivery(...args); }
   enableMemory() { return this.#active().enableMemory(); }
   setModuleEnabled(...args: Parameters<DesktopRuntime["setModuleEnabled"]>) { return this.#active().setModuleEnabled(...args); }
   setContextMode(...args: Parameters<DesktopRuntime["setContextMode"]>) { return this.#active().setContextMode(...args); }
@@ -110,7 +116,7 @@ export class RuntimeOwnership {
   async activateRecovery(root: string | null) {
     const host = this.#active();
     if ([this.#sourceOptions.env.RUNLOOM_WORKSPACE, this.#sourceOptions.env.RUNLOOM_THREAD, this.#sourceOptions.env.RUNLOOM_TRANSCRIPTS].some(value => value?.trim())) throw new Error("当前入口显式指定了工作区或对话；请从正常日用入口打开后再接回恢复副本，不会覆盖显式身份");
-    if (host.current.snapshot().state.kind !== "idle") throw new Error("请等待当前执行、整理和确认结束，再切换恢复工作区");
+    if (host.current.snapshot().state.kind !== "idle" || (await host.getLifecycleStatus()).activeRuns > 0) throw new Error("请等待当前执行、整理和确认结束，再切换恢复工作区");
     this.#switching = true;
     let finish!: () => void;
     this.#transition = new Promise(resolve => { finish = resolve; });
@@ -164,7 +170,7 @@ export class RuntimeOwnership {
     this.#transition = new Promise(resolve => { finish = resolve; });
     this.#lastInfo = host.info();
     try {
-      if (host.current.snapshot().state.kind !== "idle") throw new Error("请等待当前执行、整理或确认结束，再切换常驻模式");
+      if (host.current.snapshot().state.kind !== "idle" || (await host.getLifecycleStatus()).activeRuns > 0) throw new Error("请等待当前执行、整理或确认结束，再切换常驻模式");
       if ((await host.getLifecycleStatus()).pomodoroRunning) throw new Error("请先结束番茄钟，再切换常驻模式；不会悄悄重置计时");
       this.options.send({ type: "state", state: { kind: "command", name: "resident-switch" } });
       const before = await this.#service.status();

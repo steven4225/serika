@@ -9,6 +9,7 @@ import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp } from "@aisdk-agent/example-cli/dist/app.js";
 import { createAssistantController } from "@aisdk-agent/example-cli/dist/assistant-controller.js";
 import { RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
+import { DesktopRuntime } from "./desktop-runtime.js";
 import { canSubmitComposer } from "../shared/composer.js";
 
 const usage = {
@@ -89,4 +90,51 @@ test("desktop chat preempts real background consolidation without approving tool
     await bridge?.shutdown();
     await rm(root, { recursive: true, force: true });
   }
+});
+
+
+test("another Thread preempts the workspace background owner and deferred consolidation resumes only after foreground settlement", async () => {
+  const root = await mkdtemp(join(tmpdir(), "serika-cross-thread-background-"));
+  const workspace = join(root, "workspace"), configPath = join(root, "config.json");
+  await mkdir(workspace);
+  await writeFile(configPath, JSON.stringify({ version: 1, workspace, modules: { memory: { enabled: true, autoConsolidate: true } } }));
+  let calls = 0, backgroundOwners = 0, peak = 0, firstBackgroundSettled = false;
+  let release!: () => void;
+  const foreground = new Promise<void>(resolve => { release = resolve; });
+  const host = await DesktopRuntime.create({ userData: join(root, "profile"), cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", send: () => {},
+    model: new MockLanguageModelV3({ doStream: async options => {
+      const current = ++calls;
+      if (current === 2 || current >= 4) {
+        backgroundOwners++; peak = Math.max(peak, backgroundOwners);
+        try { await delay(60_000, undefined, { signal: options.abortSignal }); }
+        finally { backgroundOwners--; if (current === 2) firstBackgroundSettled = true; }
+      }
+      if (current === 3) { assert.equal(firstBackgroundSettled, true); await foreground; }
+      return { stream: simulateReadableStream({ chunks: [
+        { type: "stream-start" as const, warnings: [] }, { type: "text-start" as const, id: "text" },
+        { type: "text-delta" as const, id: "text", delta: "收到" }, { type: "text-end" as const, id: "text" },
+        { type: "finish" as const, finishReason: { unified: "stop" as const, raw: undefined }, usage },
+      ] }) };
+    } }),
+  });
+  try {
+    const original = host.info().threadId;
+    assert.equal((await host.current.run("我希望先看结论。")).ok, true);
+    await until(() => calls === 2);
+    const other = await host.channelCreateThread();
+    await host.selectThread(other.threadId);
+    const otherBridge = host.current;
+    await host.selectThread(original);
+    assert.equal((await otherBridge.run("另一个对话先回答", { memoryConsolidation: "exclude" })).ok, true);
+    await until(() => calls === 3);
+    assert.equal(backgroundOwners, 0);
+    assert.equal(host.info().threadId, original);
+    release();
+    await until(() => calls >= 4);
+    assert.equal(peak, 1, "only one workspace background owner can dispatch");
+    assert.equal(host.channelSnapshot(other.threadId).snapshot.state.kind === "running", false);
+    const records = await host.channelBridge(original).listRuns();
+    assert.ok(records.ok);
+    assert.ok(records.runs.some(run => run.phase === "consolidation" && run.status === "cancelled"));
+  } finally { release(); await host.shutdown(); await rm(root, { recursive: true, force: true }); }
 });

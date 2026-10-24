@@ -7,7 +7,7 @@ export const MAX_RESIDENT_FRAME_BYTES = 16 * 1024 * 1024;
 export const MAX_RESIDENT_PENDING = 32;
 
 // Deliberately excludes shutdown, threadActivity, and arbitrary property access.
-export const RESIDENT_HOST_METHODS = ["getComputerConnection", "selectComputerDriver", "discoverComputerApps", "saveComputerConnection", "checkComputerConnection", "listHerdrSessions", "listHerdrPanes", "setHerdrTarget", "pomodoro", "exportBackup", "listThreads", "discoverThreads", "registerThread", "createThread", "selectThread", "enableMemory", "setModuleEnabled", "setContextMode", "setDreamingEnabled", "setAutonomyEnabled", "getLifecycleStatus", "retryConnection", "telegramStatus", "setTelegramEnabled", "setTelegramAutonomyEnabled", "beginTelegramPairing", "confirmTelegramPairing", "reviewTelegramInput", "setTelegramTaskRoute", "retryTelegramDelivery", "resolveTelegramDelivery"] as const satisfies readonly (keyof DesktopRuntime)[];
+export const RESIDENT_HOST_METHODS = ["getComputerConnection", "selectComputerDriver", "discoverComputerApps", "saveComputerConnection", "checkComputerConnection", "listHerdrSessions", "listHerdrPanes", "setHerdrTarget", "pomodoro", "exportBackup", "listThreads", "discoverThreads", "registerThread", "createThread", "selectThread", "enableMemory", "setModuleEnabled", "setContextMode", "setDreamingEnabled", "setAutonomyEnabled", "getLifecycleStatus", "retryConnection", "channelResourceStatus", "reviewChannelResource", "channelAccounts", "channelHistory", "telegramAccounts", "changeTelegramBinding", "telegramStatus", "setTelegramEnabled", "setTelegramAutonomyEnabled", "beginTelegramPairing", "confirmTelegramPairing", "reviewTelegramInput", "setTelegramTaskRoute", "retryTelegramDelivery", "resolveTelegramDelivery"] as const satisfies readonly (keyof DesktopRuntime)[];
 export const RESIDENT_BRIDGE_METHODS = [
   "history", "historyPage", "home", "run", "steer", "cancel", "confirm", "command", "listRuns", "getRun",
   "getContextDiagnostics", "getAutomationDiagnostics", "getAutomationOverview", "scheduleSkill", "changeAutomationSchedule",
@@ -29,7 +29,7 @@ export interface ResidentScope { userData: string; configPath: string; workspace
 export interface ResidentState { info: AppInfo; snapshot: UiSnapshot; /** Process-local event order; older hosts may omit it. */ revision?: number }
 export type ResidentClientFrame =
   | { type: "hello"; version: number; token: string; scope: ResidentScope }
-  | { type: "request"; id: string; target: "host" | "current" | "state"; method: string; args: unknown[] };
+  | { type: "request"; id: string; target: "host" | "current" | "state"; method: string; args: unknown[]; threadId?: string; viewRevision?: number; expectedRunId?: string | null };
 export type ResidentServerFrame =
   | { type: "response-chunk"; id: string; index: number; count: number; data: string }
   | { type: "ready"; state: ResidentState }

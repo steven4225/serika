@@ -6,6 +6,7 @@ import { it } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { DesktopRuntime } from "./desktop-runtime.js";
+import { registerDesktopThread } from "./desktop-identity.js";
 import { ResidentClient, createResidentPaths, startResidentServer } from "./resident-transport.js";
 import { TelegramGateway } from "./telegram-gateway.js";
 import { TelegramStore } from "./telegram-store.js";
@@ -76,11 +77,12 @@ async function fixture(stream: (call: number, prompt?: string) => Promise<Return
   const gateway = new TelegramGateway(host, store, api, () => time);
   host.attachTelegram(gateway);
   await gateway.initialize();
-  const bind = async () => {
+  const bind = async (select = true) => {
     await gateway.setEnabled(true); const code = gateway.beginPairing().pairing!.code;
     await gateway.receive(update(1, `/start ${code}`));
     assert.equal(store.snapshot().owner, null, "private message alone must not own the assistant");
     await gateway.confirmPairing(code);
+    if (select) await host.selectThread(store.snapshot().owner!.threadId);
   };
   return { root, workspace, host, store, gateway, api, sent, keyboards, answered, bind, calls: () => calls, sends: () => sends,
     activations: () => activations,
@@ -681,7 +683,7 @@ it("requires desktop binding; foreign, group, bot and duplicate deliveries canno
     await f.gateway.receive(update(0, "unconfigured"));
     assert.equal(f.store.snapshot().offset, 0);
     const desktopThread = f.host.info().threadId;
-    await f.bind();
+    await f.bind(false);
     assert.equal(f.host.info().threadId, desktopThread, "binding registers a dedicated Thread without selecting it");
     assert.notEqual(f.store.snapshot().owner!.threadId, desktopThread);
     await f.gateway.receive(update(2, "foreign", 43));
@@ -696,12 +698,13 @@ it("requires desktop binding; foreign, group, bot and duplicate deliveries canno
     assert.equal(f.calls(), 1);
     const input = f.store.snapshot().inputs[0]!;
     assert.ok(input.runId);
-    assert.equal(f.host.info().threadId, f.store.snapshot().owner!.threadId);
-    assert.equal((await f.host.channelReceipt(f.host.info().threadId, input.runId!))?.runId, input.runId);
+    assert.equal(f.host.info().threadId, desktopThread);
+    assert.equal((await f.host.channelReceipt(f.store.snapshot().owner!.threadId, input.runId!))?.runId, input.runId);
     assert.equal(f.store.snapshot().offset, 7);
     await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:5")?.state === "submitted");
     assert.equal(f.sent.at(-1), "已完成请求。");
-    assert.equal((await f.host.current.history()).filter(x => x.role === "user").length, 1);
+    assert.equal((await f.host.current.history()).filter(x => x.role === "user").length, 0);
+    assert.equal((await f.host.channelBridge(f.store.snapshot().owner!.threadId).history()).filter(x => x.role === "user").length, 1);
   } finally { await f.cleanup(); }
 });
 
@@ -1155,7 +1158,7 @@ it("Stop cancels only the bound primary Run, never replays a pending tool", asyn
 it("an explicit desktop observation unblocks the channel without rewriting an uncertain Run", async () => {
   const f = await fixture();
   try {
-    await f.bind();
+    await f.bind(false);
     await f.store.update(data => { data.inputs.push({ key: "42:2", updateId: 2, text: "uncertain start", state: "unknown", runId: null, taskId: null }); });
     await f.gateway.receive(update(3, "must wait for review")); assert.equal(f.calls(), 0);
     await assert.rejects(f.gateway.reviewInput({ key: "42:2", note: "核对未发现更改" }), /打开 Telegram/);
@@ -1525,5 +1528,215 @@ it("authorized TG stops without dispatch when the model ignores the tool-free fi
     assert.deepEqual(run?.tools.map(t => t.status), ["completed", "completed", "completed", "not_started"]);
     assert.match(run?.errorPreview ?? "", /重复命令/);
     await until(() => f.sent.some(text => text.includes("不会自动重跑")), 5_000);
+  } finally { await f.cleanup(); }
+});
+
+const topicUpdate = (id: number, topicId: number, text: string) => {
+  const value = update(id, text); value.message!.message_thread_id = topicId; return value;
+};
+it("channel isolation: two Topics run independently; controls, prompts, replies and restart retain exact ownership", async () => {
+  const prompts: string[] = [];
+  const f = await fixture(async (n, prompt) => {
+    prompts.push(prompt ?? "");
+    return response(n === 1 ? { name: "write_file", input: { path: "topic-a.md", content: "only A" } } : undefined, `reply-${n}`);
+  });
+  let reopened: TelegramGateway | undefined;
+  const routes: { text: string; topic?: number }[] = [];
+  const send = f.api.send;
+  f.api.identity = async () => ({ id: 100, username: "serika_test", has_topics_enabled: true, allows_users_to_create_topics: true });
+  f.api.send = async (chat, text, signal, format, keyboard, topic) => {
+    routes.push({ text, ...(topic ? { topic } : {}) });
+    return send(chat, text, signal, format, keyboard, topic);
+  };
+  try {
+    await f.bind(false);
+    const desktop = f.host.info().threadId;
+    await f.gateway.receive(topicUpdate(2, 10, "topic-A-secret: 请写文件"));
+    const a = f.gateway.conversation(10), aThread = a.store.snapshot().owner!.threadId;
+    await until(() => a.store.snapshot().deliveries.some(item => item.key.startsWith("approval:") && item.state === "submitted"));
+    const permit = a.store.snapshot().deliveries.find(item => item.key.startsWith("approval:"))!;
+    const code = approvalCode(f);
+    await f.gateway.receive(topicUpdate(3, 20, "topic-B-secret: 只回答"));
+    const b = f.gateway.conversation(20), bThread = b.store.snapshot().owner!.threadId;
+    await until(() => b.store.snapshot().deliveries.some(item => item.key === "result:42:3" && item.state === "submitted"));
+    assert.notEqual(aThread, bThread);
+    assert.equal(f.host.info().threadId, desktop, "channel admission never changes desktop selection");
+    assert(!prompts[1]!.includes("topic-A-secret"));
+    assert(routes.some(item => item.topic === 20 && item.text === "reply-2"));
+    assert(!routes.some(item => item.topic === 10 && item.text === "reply-2"));
+    assert.ok(f.host.channelSnapshot(aThread).snapshot.pendingApproval);
+    await f.gateway.receive(topicUpdate(4, 20, `允许 ${code}`));
+    const forged = callback(5, `allow:${code}`, permit.messageId!); forged.callback_query!.message!.message_thread_id = 20;
+    await f.gateway.receive(forged);
+    await assert.rejects(readFile(join(f.workspace, "topic-a.md")), { code: "ENOENT" });
+    assert.ok(f.host.channelSnapshot(aThread).snapshot.pendingApproval, "B's copied code/button cannot authorize A");
+    await f.gateway.receive(topicUpdate(6, 10, "先不要写文件，只回答"));
+    await until(() => a.store.snapshot().inputs.find(item => item.key === "42:2")?.state === "finished");
+    assert(!routes.some(item => item.text.includes("补充已收到")));
+    await assert.rejects(readFile(join(f.workspace, "topic-a.md")), { code: "ENOENT" });
+    await f.host.selectThread(aThread);
+    assert.ok((await f.host.current.history()).some(item => JSON.stringify(item).includes("topic-A-secret")));
+    await f.host.selectThread(bThread);
+    assert(!(JSON.stringify(await f.host.current.history())).includes("topic-A-secret"));
+    const calls = f.calls(), sends = routes.length;
+    await f.gateway.close();
+    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    reopened = new TelegramGateway(f.host, store, f.api); await reopened.initialize(); await reopened.start();
+    assert.equal(reopened.conversation(10).store.snapshot().owner!.threadId, aThread);
+    assert.equal(reopened.conversation(20).store.snapshot().owner!.threadId, bThread);
+    assert.equal(f.calls(), calls); assert.equal(routes.length, sends);
+    await reopened.receive(topicUpdate(7, 20, "后续只属于 B"));
+    await until(() => reopened!.conversation(20).store.snapshot().inputs.find(item => item.key === "42:7")?.state === "finished");
+    assert.equal(f.host.info().threadId, bThread);
+  } finally { await reopened?.close(); await f.cleanup(); }
+});
+
+it("channel isolation: duplicate Bot identity is refused; separate Bots preserve identical chat and message IDs", async () => {
+  const f = await fixture();
+  let second: TelegramGateway | undefined, duplicate: TelegramGateway | undefined;
+  try {
+    await f.bind(false);
+    const secondStore = new TelegramStore(join(f.root, "work-account", "telegram.json"), f.workspace); await secondStore.load();
+    second = new TelegramGateway(f.host, secondStore, { ...f.api, identity: async () => ({ id: 200, username: "work_bot" }) }, Date.now, { accountId: "work" });
+    f.host.attachTelegram(second); await second.initialize(); await second.setEnabled(true);
+    const pairing = second.beginPairing().pairing!.code;
+    await second.receive(update(1, `/start ${pairing}`)); await second.confirmPairing(pairing);
+    await f.gateway.receive(update(2, "one")); await second.receive(update(2, "two"));
+    await until(() => f.store.snapshot().inputs[0]?.state === "finished" && secondStore.snapshot().inputs[0]?.state === "finished");
+    assert.notEqual(f.store.snapshot().owner!.threadId, secondStore.snapshot().owner!.threadId);
+    assert.notEqual(f.store.snapshot().inputs[0]!.runId, secondStore.snapshot().inputs[0]!.runId);
+    const duplicateStore = new TelegramStore(join(f.root, "duplicate-account", "telegram.json"), f.workspace); await duplicateStore.load();
+    duplicate = new TelegramGateway(f.host, duplicateStore, f.api, Date.now, { accountId: "duplicate" });
+    await duplicate.initialize(); await duplicate.setEnabled(true);
+    assert.equal(duplicate.status().connection, "failed");
+    assert.equal(duplicateStore.snapshot().botId, null);
+    assert.equal(f.host.telegramAccounts().length, 2);
+  } finally { await duplicate?.close(); await second?.close(); await f.cleanup(); }
+});
+
+it("channel isolation: third Thread is rejected without queuing, while two approvals retain their own Runs", async () => {
+  const f = await fixture(async () => response({ name: "write_file", input: { path: "never.md", content: "never" } }));
+  f.api.identity = async () => ({ id: 100, username: "serika_test", has_topics_enabled: true });
+  try {
+    await f.bind(false);
+    await f.gateway.receive(topicUpdate(2, 10, "hold A"));
+    await f.gateway.receive(topicUpdate(3, 20, "hold B"));
+    for (const id of [10, 20]) await until(() => !!f.host.channelSnapshot(f.gateway.conversation(id).store.snapshot().owner!.threadId).snapshot.pendingApproval);
+    await f.gateway.receive(topicUpdate(4, 30, "must reject C"));
+    assert.equal(f.calls(), 2);
+    assert.equal(f.gateway.conversation(30).store.snapshot().inputs[0]!.state, "rejected");
+    for (const id of [10, 20]) await f.host.channelBridge(f.gateway.conversation(id).store.snapshot().owner!.threadId).cancel();
+    await until(() => [10, 20].every(id => f.host.channelSnapshot(f.gateway.conversation(id).store.snapshot().owner!.threadId).snapshot.state.kind === "idle"));
+  } finally { await f.cleanup(); }
+});
+
+it("channel isolation: workspace read/modify domain lasts through the Run; a competing approved effect is not dispatched", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const prompts: string[] = [];
+  const f = await fixture(async (n, prompt) => {
+    prompts.push(prompt ?? "");
+    if (n === 2) await gate;
+    return response(n === 1 || n === 3 ? { name: "read_file", input: { path: "shared.md" } } : undefined, "done");
+  });
+  f.api.identity = async () => ({ id: 100, username: "serika_test", has_topics_enabled: true });
+  try {
+    await writeFile(join(f.workspace, "shared.md"), "original");
+    await f.bind(false);
+    await f.gateway.receive(topicUpdate(2, 10, "read A"));
+    const a = f.gateway.conversation(10);
+    await until(() => a.store.snapshot().deliveries.some(item => item.key.startsWith("approval:") && item.state === "submitted"));
+    await f.gateway.receive(topicUpdate(3, 10, `允许 ${approvalCode(f)}`));
+    await until(() => f.calls() === 2);
+    await f.gateway.receive(topicUpdate(4, 20, "read B"));
+    const b = f.gateway.conversation(20);
+    await until(() => b.store.snapshot().deliveries.some(item => item.key.startsWith("approval:") && item.state === "submitted"));
+    await f.gateway.receive(topicUpdate(5, 20, `允许 ${approvalCode(f)}`));
+    await until(() => b.store.snapshot().inputs.find(item => item.key === "42:4")?.state === "finished");
+    assert(prompts[3]!.includes("工作区修改资源被其他执行占用"));
+    const source = b.store.snapshot().inputs.find(item => item.key === "42:4")!;
+    const run = await f.host.channelReceipt(b.store.snapshot().owner!.threadId, source.runId!);
+    assert(!run!.tools.some(tool => tool.status === "completed"));
+    release();
+    await until(() => a.store.snapshot().inputs.find(item => item.key === "42:2")?.state === "finished");
+  } finally { release(); await f.cleanup(); }
+});
+
+it("channel isolation: binding CAS rejects active changes and old grants do not revive after a rebind", async () => {
+  const f = await fixture();
+  f.api.identity = async () => ({ id: 100, username: "serika_test", has_topics_enabled: true });
+  try {
+    await f.bind(false);
+    await f.gateway.receive(topicUpdate(2, 10, "create topic"));
+    const topic = f.gateway.conversation(10);
+    await until(() => topic.store.snapshot().inputs[0]?.state === "finished");
+    await until(() => topic.store.snapshot().deliveries.some(item => item.key === "result:42:2" && item.state === "submitted"));
+    const binding = topic.autonomyBinding()!;
+    await f.host.setTelegramAutonomyEnabled({ enabled: true, expectedEnabled: false, toolApproval: "skip", expectedOwner: { userId: binding.userId, chatId: binding.chatId, threadId: binding.threadId } }, { topicId: 10 });
+    assert.equal(topic.status().toolApprovalSkipped, true);
+    const target = await f.host.channelCreateThread();
+    await f.host.changeTelegramBinding({ threadId: target.threadId, expectedRevision: 1 }, { topicId: 10 });
+    assert.equal(topic.status().toolApprovalSkipped, false);
+    assert.equal(topic.matchesAutonomyGrant(binding), false);
+    await assert.rejects(f.host.changeTelegramBinding({ threadId: binding.threadId, expectedRevision: 1 }, { topicId: 10 }), /绑定已变化/);
+    await f.host.changeTelegramBinding({ threadId: binding.threadId, expectedRevision: 2 }, { topicId: 10 });
+    assert.equal(topic.status().toolApprovalSkipped, false);
+    assert.equal(topic.matchesAutonomyGrant(binding), false);
+    assert.equal(topic.store.snapshot().inputs[0]!.threadId, binding.threadId);
+    assert.equal(topic.store.snapshot().inputs[0]!.bindingRevision, 1);
+    await f.host.changeTelegramBinding({ threadId: null, expectedRevision: 3 }, { topicId: 10 });
+    assert.equal(topic.status().bindingEnabled, false);
+    const calls = f.calls();
+    await f.gateway.receive(topicUpdate(3, 10, "unbound cannot start"));
+    assert.equal(f.calls(), calls);
+    assert.equal(topic.store.snapshot().inputs.find(item => item.key === "42:3")?.state, "rejected");
+    await f.gateway.close();
+    const store = new TelegramStore(f.store.path, f.workspace); await store.load();
+    const reopened = new TelegramGateway(f.host, store, f.api);
+    try {
+      await reopened.initialize(); await reopened.start();
+      const restored = reopened.conversation(10);
+      assert.equal(restored.status().bindingEnabled, false);
+      assert.equal(restored.status().bindingRevision, 4);
+      const legacy = { threadId: "imported-legacy", transcriptDirectory: join(f.root, "imported-history") };
+      await registerDesktopThread({ userData: join(f.root, "profile"), cwd: f.root, configPath: join(f.root, "config.json"), workspaceRoot: f.workspace }, legacy);
+      await restored.changeBinding({ threadId: legacy.threadId, expectedRevision: 4 });
+      assert.equal(restored.status().bindingEnabled, true);
+      assert.equal(restored.status().bindingRevision, 5);
+      assert.equal(restored.matchesAutonomyGrant(binding), false);
+      await reopened.close();
+      const nextStore = new TelegramStore(f.store.path, f.workspace); await nextStore.load();
+      const nextGateway = new TelegramGateway(f.host, nextStore, f.api);
+      try {
+        await nextGateway.initialize();
+        assert.equal(nextGateway.conversation(10).status().owner!.threadId, legacy.threadId);
+        assert.equal((await f.host.channelEnsureThread(legacy.threadId)).transcriptDirectory, legacy.transcriptDirectory);
+      } finally { await nextGateway.close(); }
+    } finally { await reopened.close(); }
+  } finally { await f.cleanup(); }
+});
+
+it("channel isolation: explicit shared Thread does not share a Topic's trusted tool grant", async () => {
+  const f = await fixture(async n => response(n === 3 ? { name: "write_file", input: { path: "alias.md", content: "must approve" } } : undefined, "done"));
+  f.api.identity = async () => ({ id: 100, username: "serika_test", has_topics_enabled: true });
+  try {
+    await f.bind(false);
+    for (const [message, id] of [[2, 10], [3, 20]] as const) {
+      await f.gateway.receive(topicUpdate(message, id, "create independent binding"));
+      await until(() => f.gateway.conversation(id).store.snapshot().deliveries.some(item => item.key === `result:42:${message}` && item.state === "submitted"));
+    }
+    const a = f.gateway.conversation(10), b = f.gateway.conversation(20), binding = a.autonomyBinding()!;
+    await f.host.setTelegramAutonomyEnabled({ enabled: true, expectedEnabled: false, toolApproval: "skip", expectedOwner: { userId: binding.userId, chatId: binding.chatId, threadId: binding.threadId } }, { topicId: 10 });
+    await f.host.changeTelegramBinding({ threadId: binding.threadId, expectedRevision: 1 }, { topicId: 20 });
+    assert.equal(a.status().toolApprovalSkipped, true);
+    assert.equal(b.status().toolApprovalSkipped, false);
+    await f.gateway.receive(topicUpdate(4, 20, "write file through untrusted alias"));
+    await until(() => !!f.host.channelSnapshot(binding.threadId).snapshot.pendingApproval);
+    assert.equal(f.calls(), 3);
+    await assert.rejects(readFile(join(f.workspace, "alias.md")), { code: "ENOENT" });
+    await f.gateway.receive(topicUpdate(5, 10, "停止"));
+    assert.ok(f.host.channelSnapshot(binding.threadId).snapshot.pendingApproval, "a shared history does not grant control of the other Topic's Run");
+    await f.gateway.receive(topicUpdate(6, 20, "停止"));
+    await until(() => f.host.channelSnapshot(binding.threadId).snapshot.state.kind === "idle");
   } finally { await f.cleanup(); }
 });

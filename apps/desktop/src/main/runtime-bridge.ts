@@ -417,7 +417,14 @@ export class RuntimeBridge {
     }
   }
 
+  #channelReserved = false;
+  reserveChannel() {
+    if (this.#channelReserved || !this.#controller.getSnapshot().canSubmit) throw new Error("当前对话正在执行");
+    this.#channelReserved = true;
+    return () => { this.#channelReserved = false; };
+  }
   async run(text: string, options?: AssistantRunOptions): Promise<RunResponse> {
+    if (this.#channelReserved) return { ok: false, reason: "busy" };
     // No renderer-supplied metadata, model options or authority may cross this boundary.
     const attachments = validateChatAttachments(options?.attachments);
     const safeOptions = { ...(options?.memoryConsolidation === "exclude" ? { memoryConsolidation: "exclude" as const } : {}), ...(attachments.length ? { attachments } : {}) };
@@ -425,8 +432,8 @@ export class RuntimeBridge {
   }
 
   /** Trusted gateway clock, deliberately separate from renderer run options. */
-  telegramAutonomyEnabled() { return this.#app.telegramAutonomyEnabled?.() === true; }
-  telegramToolApprovalSkipped() { return this.#app.telegramToolApprovalSkipped?.() === true; }
+  telegramAutonomyEnabled(grant?: import("@aisdk-agent/example-cli/dist/tui-module-config.js").TelegramAutonomyGrant | null) { return this.#app.telegramAutonomyEnabled?.(grant) === true; }
+  telegramToolApprovalSkipped(grant?: import("@aisdk-agent/example-cli/dist/tui-module-config.js").TelegramAutonomyGrant | null) { return this.#app.telegramToolApprovalSkipped?.(grant) === true; }
 
   async runFromChannel(text: string, receivedAt?: string): Promise<RunResponse> {
     if (receivedAt !== undefined && (!/\+08:00$/.test(receivedAt) || !Number.isFinite(Date.parse(receivedAt)))) throw new Error("消息接收时间无效，未启动执行");
@@ -441,6 +448,9 @@ export class RuntimeBridge {
     this.#shell.clear();
     return this.#controller.run(text, safeOptions);
   }
+
+  yieldBackground() { return this.#controller.yieldBackground(); }
+  resumeBackground() { this.#controller.resumeBackground(); }
 
   cancel(): Promise<void> {
     return this.#controller.cancel();
@@ -554,7 +564,7 @@ export class RuntimeBridge {
   async #startWorkTask(input: WorkTaskInputs["runWorkTask"], source?: "telegram"): Promise<RunResponse> {
     const sanitized = sanitizeWorkTaskInput("runWorkTask", input);
     if (!sanitized.ok) return { ok: false, reason: "starting" };
-    if (this.#controller.getSnapshot().state.kind !== "idle") return { ok: false, reason: "busy" };
+    if (this.#channelReserved && !source || this.#controller.getSnapshot().state.kind !== "idle") return { ok: false, reason: "busy" };
     return this.#controller.runWorkTask({ ...sanitized.value, ...(source ? { source } : {}) }, source === "telegram" ? undefined : { desktopEntry: true });
   }
 

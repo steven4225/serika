@@ -164,7 +164,7 @@ export async function startResidentServer(options: {
       const request = frame;
       if (request.target === "state" && request.method === "stopHost" && options.onStop) {
         const lifecycle = runtime!.getLifecycleStatus();
-        if (stopping || requestsInFlight > 0 || state().snapshot.state.kind !== "idle" || lifecycle.pomodoroRunning) {
+        if (stopping || requestsInFlight > 0 || state().snapshot.state.kind !== "idle" || lifecycle.activeRuns > 0 || lifecycle.pomodoroRunning) {
           sendFrame(socket, { type: "response", id: request.id, ok: false, error: "请先结束当前执行和番茄钟，再停止助手服务", state: state() }); return;
         }
         stopping = true;
@@ -192,6 +192,12 @@ export async function startResidentServer(options: {
           let value: unknown;
           if (request.target === "state") value = null;
           else {
+            if (request.target === "current" && (request.threadId !== runtime!.info().threadId || request.viewRevision !== runtime!.viewRevision)) throw new Error("对话视图已变化；迟到请求未派发，请刷新后操作");
+            if (request.target === "current" && ["cancel", "confirm", "steer"].includes(request.method)) {
+              const snapshot = runtime!.current.snapshot();
+              const runId = snapshot.state.kind === "running" ? snapshot.state.runId : null;
+              if (request.expectedRunId !== runId) throw new Error("执行已变化；旧控制请求未派发");
+            }
             const target = request.target === "host" ? runtime! : runtime!.current;
             const method = Reflect.get(target, request.method) as (...args: unknown[]) => unknown;
             value = await method.apply(target, request.args);
@@ -337,7 +343,7 @@ export class ResidentClient {
       const safeArgs = [...args];
       // JSON arrays turn undefined into null; omitted optional arguments must stay omitted.
       while (safeArgs.length > 0 && safeArgs.at(-1) === undefined) safeArgs.pop();
-      try { sendFrame(this.#socket, { type: "request", id, target, method, args: safeArgs }); }
+      try { sendFrame(this.#socket, { type: "request", id, target, method, args: safeArgs, ...(target === "current" ? { threadId: this.#state.info.threadId, viewRevision: this.#state.info.viewRevision, expectedRunId: this.#state.snapshot.state.kind === "running" ? this.#state.snapshot.state.runId : null } : {}) }); }
       catch { this.#pending.delete(id); reject(new Error("助手请求无法编码，未发送")); }
     });
   }

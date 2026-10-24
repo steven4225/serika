@@ -1,3 +1,4 @@
+import { readChannelsConfig } from "./channels-config.js";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -34,13 +35,26 @@ async function main() {
       const runtime = await DesktopRuntime.create({ ...startup, env: process.env, modelAlias, model, modelId: inspectCliModelConfig().modelId, send,
         taskAutomation: { status: (workspace, configPath) => worker(workspace, configPath).automationStatus(), enable: (workspace, configPath) => worker(workspace, configPath).enableArrangement() } });
       try {
-        const store = new TelegramStore(join(dirname(identityPath), "telegram.json"), config.workspaceRoot!);
-        await store.load();
-        const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
-        const gateway = new TelegramGateway(runtime, store, token ? createTelegramApi(token, fetch,
-          process.env.TELEGRAM_PROXY_URL ? { proxyUrl: process.env.TELEGRAM_PROXY_URL } : {}) : undefined);
-        runtime.attachTelegram(gateway);
-        await gateway.initialize();
+        const accounts = await readChannelsConfig(process.env, config.workspaceRoot!);
+        for (const account of accounts) {
+          let gateway: TelegramGateway | undefined;
+          try {
+          if (account.platform === "qq") { await runtime.registerQqAccount(account); continue; }
+          const path = account.id === "default" ? join(dirname(identityPath), "telegram.json") : join(dirname(identityPath), "accounts", account.id, "telegram.json");
+          const store = new TelegramStore(path, config.workspaceRoot!);
+          await store.load();
+          if (account.id !== "default") await store.update(data => {
+            if (data.accountId !== undefined && data.accountId !== account.id) throw new Error("账号状态归属不符");
+            data.accountId = account.id;
+          });
+          const token = process.env[account.tokenEnv]?.trim();
+          const proxyUrl = account.proxyEnv ? process.env[account.proxyEnv] : undefined;
+          gateway = new TelegramGateway(runtime, store, token ? createTelegramApi(token, fetch, proxyUrl ? { proxyUrl } : {}) : undefined,
+            Date.now, { accountId: account.id, name: account.name });
+          runtime.attachTelegram(gateway);
+          await gateway.initialize();
+          } catch { await gateway?.close(); runtime.telegramFailed(account); }
+        }
         return runtime;
       } catch { runtime.telegramFailed(); }
       return runtime;

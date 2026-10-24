@@ -10,6 +10,7 @@ export const TELEGRAM_DELIVERY_LIMIT = 2048;
 
 export interface TelegramInbound {
   key: string; updateId: number; text: string;
+  threadId?: string; bindingRevision?: number;
   /** Host receipt clock. Legacy records may omit it; never invent it on read. */
   receivedAt?: string;
   /** Same-Run correction receipt identity; never replayed as a new chat after restart. */
@@ -41,7 +42,10 @@ export interface TelegramTaskRoute {
   scanBefore?: { createdAt: string; id: string };
 }
 export interface TelegramData {
-  version: 1 | 2; workspace: string; enabled: boolean; botId: number | null; offset: number;
+  version: 1 | 2 | 3;
+  bindingEnabled?: boolean;
+  accountId?: string; topicId?: number; bindingRevision?: number;
+  topics?: { topicId: number; threadId: string; revision: number; enabled: boolean; bindingEnabled?: boolean }[]; workspace: string; enabled: boolean; botId: number | null; offset: number;
   owner: TelegramStatus["owner"]; inputs: TelegramInbound[]; deliveries: TelegramDelivery[];
   routes: TelegramTaskRoute[];
 }
@@ -55,10 +59,16 @@ export function telegramCapacity(data: TelegramData): NonNullable<TelegramStatus
 }
 function valid(data: TelegramData, workspace: string) {
   const positive = (n: unknown) => Number.isSafeInteger(n) && (n as number) > 0;
-  return [1, 2].includes(data?.version) && data.workspace === workspace && typeof data.enabled === "boolean" &&
+  return (data.bindingEnabled === undefined || data.version === 3 && typeof data.bindingEnabled === "boolean") &&
+    (data.accountId === undefined || typeof data.accountId === "string" && /^[a-z][a-z0-9-]{0,47}$/.test(data.accountId)) &&
+    (data.topicId === undefined || data.version === 3 && positive(data.topicId)) &&
+    (data.bindingRevision === undefined || data.version === 3 && positive(data.bindingRevision)) &&
+    (data.topics === undefined || data.version === 3 && Array.isArray(data.topics) && data.topics.length <= 100 && new Set(data.topics.map(x => x.topicId)).size === data.topics.length && data.topics.every(x => positive(x.topicId) && typeof x.threadId === "string" && !!x.threadId && positive(x.revision) && typeof x.enabled === "boolean" && (x.bindingEnabled === undefined || typeof x.bindingEnabled === "boolean"))) &&
+    [1, 2, 3].includes(data?.version) && data.workspace === workspace && typeof data.enabled === "boolean" &&
     (data.botId === null || positive(data.botId)) && Number.isSafeInteger(data.offset) && data.offset >= 0 &&
     (data.owner === null || (positive(data.owner.userId) && positive(data.owner.chatId) && typeof data.owner.name === "string" && typeof data.owner.threadId === "string" && !!data.owner.threadId)) &&
     Array.isArray(data.inputs) && data.inputs.length <= TELEGRAM_INPUT_LIMIT && new Set(data.inputs.map(x => x.key)).size === data.inputs.length && data.inputs.every(x =>
+      (x.threadId === undefined || typeof x.threadId === "string" && !!x.threadId) && (x.bindingRevision === undefined || positive(x.bindingRevision)) &&
       typeof x.key === "string" && typeof x.text === "string" && x.text.length <= 16_384 && positive(x.updateId + 1) &&
       (x.steerId === undefined || x.steerId === `tg:${x.key}`) &&
       (x.receivedAt === undefined || typeof x.receivedAt === "string" && /\+08:00$/.test(x.receivedAt) && Number.isFinite(Date.parse(x.receivedAt))) &&
@@ -75,7 +85,7 @@ function valid(data: TelegramData, workspace: string) {
       (x.keyboard === undefined || x.key.startsWith("approval:") && Array.isArray(x.keyboard.inline_keyboard) && x.keyboard.inline_keyboard.length === 1 &&
         x.keyboard.inline_keyboard.every(row => Array.isArray(row) && row.length === 2 && row.every(button => typeof button.text === "string" && button.text.length > 0 && button.text.length <= 32 &&
           typeof button.callback_data === "string" && /^(allow|deny):[A-F0-9]{10}$/.test(button.callback_data)))) &&
-      (x.parts === undefined || data.version === 2 && Array.isArray(x.parts) && x.parts.length > 0 && x.parts.length <= 128 &&
+      (x.parts === undefined || data.version >= 2 && Array.isArray(x.parts) && x.parts.length > 0 && x.parts.length <= 128 &&
         x.parts.every((part, i) => typeof part.text === "string" && part.text.length > 0 && part.text.length <= 4096 &&
           ["pending", "sending", "submitted", "failed", "unknown"].includes(part.state) &&
           (part.state === "submitted" ? positive(part.messageId) : part.messageId === null) &&
@@ -204,7 +214,8 @@ export class TelegramStore {
       if (this.#failed) throw new Error("Telegram 保存未确认，已停止接收；请重启后核对，不会自动重做任务。");
       const next = this.snapshot(); change(next);
       // Old binaries must reject multipart journals, not resend a partly delivered body as one message.
-      if (next.deliveries.some(x => x.parts)) next.version = 2;
+      if (next.deliveries.some(x => x.parts) && next.version < 2) next.version = 2;
+      if (next.accountId !== undefined || next.topicId !== undefined || next.topics !== undefined) next.version = 3;
       try { await this.#retain(next); }
       catch { this.#failed = true; throw new Error("Telegram 归档保存未确认，已停止接收；既有活动记录与接收位置未改变，请重启后核对。"); }
       if (!valid(next, this.workspace)) throw new Error("Telegram 记录无效或已满；未丢弃既有记录。");

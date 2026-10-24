@@ -260,3 +260,33 @@ it("late resident responses and events cannot restore a finished TG Run's busy s
     assert.deepEqual(visible, ["idle"]);
   } finally { client.detach(); await new Promise<void>(done => wire.close(() => done())); await f.cleanup(); }
 });
+
+it("late resident control with an old Thread/view cannot cancel the newly selected Run", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const f = await fixture(async () => { await gate; return response(); });
+  const socket = createConnection(f.paths.socket);
+  const frames: Record<string, any>[] = [];
+  let buffer = "";
+  socket.on("data", chunk => {
+    buffer += chunk.toString();
+    let end: number;
+    while ((end = buffer.indexOf("\n")) >= 0) { frames.push(JSON.parse(buffer.slice(0, end))); buffer = buffer.slice(end + 1); }
+  });
+  try {
+    const token = await readResidentCredentials(f.paths);
+    await new Promise<void>((resolve, reject) => { if (socket.readyState === "open") resolve(); else { socket.once("connect", resolve); socket.once("error", reject); } });
+    socket.write(JSON.stringify({ type: "hello", version: 1, token, scope: f.scope }) + "\n");
+    await until(() => frames.some(frame => frame.type === "ready"));
+    const original = f.server.runtime.info();
+    await f.server.runtime.createThread({ preserveDraft: true });
+    const started = await f.server.runtime.current.run("keep new Run active", { memoryConsolidation: "exclude" });
+    assert(started.ok);
+    socket.write(JSON.stringify({ type: "request", id: "1", target: "current", method: "cancel", args: [], threadId: original.threadId, viewRevision: original.viewRevision, expectedRunId: started.runId }) + "\n");
+    await until(() => frames.some(frame => frame.type === "response" && frame.id === "1"));
+    const rejected = frames.find(frame => frame.type === "response" && frame.id === "1")!;
+    assert.equal(rejected.ok, false); assert.match(rejected.error, /迟到请求未派发/);
+    assert.equal(f.server.runtime.current.snapshot().state.kind, "running");
+    release(); await until(() => f.server.runtime.current.snapshot().state.kind === "idle");
+  } finally { release(); socket.destroy(); await f.cleanup(); }
+});

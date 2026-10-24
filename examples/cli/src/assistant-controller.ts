@@ -151,6 +151,9 @@ export interface AssistantController {
   changeAutomationSchedule(input: AutomationScheduleAction): Promise<AutomationResult<null>>;
   /** Starts a pinned Skill; completion is a run-result or its execution receipt, not this response. */
   runSkill(input: SkillRunInput): Promise<SkillResult<{ runId: string }>>;
+  /** Host-only lifecycle coordination; never cancels a foreground Run. */
+  yieldBackground(): Promise<void>;
+  resumeBackground(): void;
   getSnapshot(): AssistantSnapshot;
   getHistory(): Promise<UIMessage[]>;
   getMemoryReceipts(): Promise<MemoryResult<MemoryFactReceipt[]>>;
@@ -300,6 +303,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   let startupController: AbortController | undefined;
   let operationController: AbortController | undefined;
   let activeTask: Promise<void> | undefined;
+  let deferredHooks: readonly HookRequest[] = [];
   let backgroundTask: Promise<void> | undefined;
   let backgroundController: AbortController | undefined;
   let memoryIndexRequested = true;
@@ -742,6 +746,9 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
 
   const startAutomaticSkills = (requests: readonly HookRequest[]): void => {
     if (closed || state.kind !== "idle" || backgroundTask || requests.length === 0) return;
+    const release = app.backgroundAdmission?.();
+    if (release === null) { deferredHooks = requests; return; }
+    deferredHooks = [];
     const background = new AbortController();
     backgroundController = background;
     const task = Promise.resolve().then(async () => {
@@ -767,6 +774,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       } catch (error) {
         if (!background.signal.aborted) emit({ type: "error", message: `Automatic Skill failed: ${String(error)}` });
       } finally {
+        if (background.signal.aborted && app.backgroundAdmission) deferredHooks = requests.filter(request => automation.getSkill(request.skillId)?.kind === "memory-consolidate");
+        release?.();
         if (backgroundController === background) backgroundController = undefined;
         const current = controller.getSnapshot().state;
         if (current.kind === "running" && current.background) setState({ kind: "idle" });
@@ -783,6 +792,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
 
   const startMemoryIndexMaintenance = (): boolean => {
     if (!lifecycleReady || closed || state.kind !== "idle" || backgroundTask || !memoryIndexRequested || !app.maintainMemoryIndex) return false;
+    const release = app.backgroundAdmission?.();
+    if (release === null) return false;
     memoryIndexRequested = false;
     memoryIndexRunning = true;
     const operation = new AbortController();
@@ -794,6 +805,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       } catch {
         if (!operation.signal.aborted) emit({ type: "error", message: "记忆索引补齐失败；当前仍可使用关键词检索，本次不会自动重试。" });
       } finally {
+        release?.();
         memoryIndexRunning = false;
         if (backgroundController === operation) backgroundController = undefined;
         if (backgroundTask === task) backgroundTask = undefined;
@@ -845,6 +857,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       return Promise.resolve(dreamingFailure("DREAMING_DISABLED", "请先显式启用经验学习；不会默认读取任务或调用模型"));
     }
     if (closed || state.kind !== "idle" || backgroundTask) return Promise.resolve(dreamingFailure("BUSY", "请等待当前操作结束"));
+    const release = background ? app.backgroundAdmission?.() : undefined;
+    if (release === null) return Promise.resolve(dreamingFailure("BUSY", "工作区前台执行优先"));
     const operation = new AbortController();
     if (background) backgroundController = operation;
     else startupController = operation;
@@ -895,6 +909,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         notStarted = dreamingFailure(commitUncertain ? "DREAMING_COMMIT_UNCERTAIN" : cancelled ? "DREAMING_CANCELLED" : "DREAMING_FAILED", message);
         if (!cancelled) emit({ type: "error", message: `经验学习失败：${message}` });
       } finally {
+        release?.();
         await lease?.release().catch(error => emit({ type: "error", message: `经验学习租约释放失败：${String(error)}` }));
         await workspaceLease?.release().catch(error => emit({ type: "error", message: `经验学习工作区租约释放失败：${String(error)}` }));
         if (backgroundController === operation) backgroundController = undefined;
@@ -913,13 +928,26 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   const startIdleDreaming = (): void => {
     idleDreamingRequested = true;
     if (startMemoryIndexMaintenance()) return;
-    if (!closed && state.kind === "idle" && !backgroundTask && app.dreaming && app.moduleConfig?.automation?.dreaming?.enabled === true) {
+    if (!closed && lastDreamingAttempt?.status !== "uncertain" && state.kind === "idle" && !backgroundTask && app.dreaming && app.moduleConfig?.automation?.dreaming?.enabled === true) {
       idleDreamingRequested = false;
       void startDreaming(true);
     }
   };
 
   const controller: AssistantController = {
+    yieldBackground: async () => {
+      const pending = backgroundTask;
+      if (!pending) return;
+      if (memoryIndexRunning) memoryIndexRequested = true;
+      backgroundController?.abort(new DOMException("Workspace foreground has priority", "AbortError"));
+      if (state.kind === "running" && state.background) await activeHandle?.cancel("Workspace foreground has priority");
+      await pending;
+    },
+    resumeBackground: () => {
+      if (closed || state.kind !== "idle") return;
+      if (deferredHooks.length) startAutomaticSkills(deferredHooks);
+      else startIdleDreaming();
+    },
     getDreamingOverview: async () => {
       const enabled = app.moduleConfig?.automation?.dreaming?.enabled === true;
       if (!app.dreaming) return { ok: true, value: { enabled: false, skills: [], pendingExperiences: 0, processedExperiences: 0 } };

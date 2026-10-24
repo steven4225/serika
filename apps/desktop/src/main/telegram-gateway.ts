@@ -1,4 +1,5 @@
-import { createHash, randomBytes } from "node:crypto";
+import { dirname, join } from "node:path";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import type { DesktopRuntime } from "./desktop-runtime.js";
 import { TelegramApiError, type TelegramApi, type TelegramUpdate, type TelegramKeyboard } from "./telegram-api.js";
@@ -11,13 +12,19 @@ import { formatLocalTaskTime } from "@aisdk-agent/example-cli/dist/task-instruct
 import { telegramParts, telegramApprovalText, telegramBoundedText } from "./telegram-format.js";
 import { formatCapabilityStatus } from "@aisdk-agent/example-cli/dist/capability-status.js";
 
-type Host = Pick<DesktopRuntime, "channelTelegramAutonomyEnabled" | "channelTelegramToolApprovalSkipped" | "channelSubscribe" | "channelSnapshot" | "channelCreateThread" | "channelRun" | "channelReceipt" | "channelScheduledTask" | "channelRecurringTask" | "channelScheduledTasks" | "current">;
+type Host = Pick<DesktopRuntime, "channelAdmissionAvailable" | "releaseTelegramBot" | "claimTelegramBot" | "channelEnsureThread" | "channelBridge" | "channelTelegramAutonomyEnabled" | "channelTelegramToolApprovalSkipped" | "channelSubscribe" | "channelSnapshot" | "channelCreateThread" | "channelRun" | "channelReceipt" | "channelScheduledTask" | "channelRecurringTask" | "channelScheduledTasks" | "current">;
 function code() { return randomBytes(5).toString("hex").toUpperCase(); }
 function approvalHash(value: PendingApproval) {
   // Preview is asynchronous presentation, not authority; hash the actual operation.
   return createHash("sha256").update(JSON.stringify([value.approvalId, value.toolCallId, value.toolName, value.input])).digest("hex");
 }
 export class TelegramGateway {
+  #closed = false;
+  #parent: TelegramGateway | undefined;
+  #children = new Map<number, TelegramGateway>();
+  #topicsEnabled = false;
+  #usersCanCreateTopics = false;
+  #inboundTail: Promise<unknown> = Promise.resolve();
   #connection: TelegramStatus["connection"] = "disabled";
   #botUsername: string | null = null;
   #error: string | null = null;
@@ -32,7 +39,7 @@ export class TelegramGateway {
   #remove: () => void;
   #activeKey: string | undefined;
   #settings = false;
-  constructor(private host: Host, readonly store: TelegramStore, private api: TelegramApi | undefined, private now = Date.now) {
+  constructor(private host: Host, readonly store: TelegramStore, private api: TelegramApi | undefined, private now = Date.now, readonly identity: { accountId?: string; name?: string; topicId?: number; managed?: boolean } = {}) {
     this.#remove = host.channelSubscribe(message => {
       // Capture association now, before a later Thread switch changes the selected runtime.
       const key = this.#activeKey;
@@ -59,6 +66,45 @@ export class TelegramGateway {
       }
     });
   }
+  conversation(topicId?: number): TelegramGateway {
+    if (topicId === undefined) return this;
+    const child = this.#children.get(topicId);
+    if (!child) throw new Error("Topic 尚未绑定；请先由已配对 owner 在该 Topic 发消息");
+    return child;
+  }
+  async #loadTopic(topicId: number): Promise<TelegramGateway> {
+    const existing = this.#children.get(topicId);
+    if (existing) return existing;
+    let topic = this.store.snapshot().topics?.find(item => item.topicId === topicId);
+    const parent = this.store.snapshot();
+    if (!parent.owner || !parent.botId || !this.api) throw new Error("账号尚未绑定");
+    if (!topic) {
+      topic = { topicId, threadId: randomUUID(), revision: 1, enabled: true };
+      const saved = topic;
+      await this.store.update(data => { (data.topics ??= []).push(saved); });
+    }
+    // Reusing the saved ID makes partial registry/binding creation recoverable without a second Thread.
+    await this.host.channelEnsureThread(topic.threadId);
+    const store = new TelegramStore(join(dirname(this.store.path), "topics", String(topicId), "telegram.json"), parent.workspace);
+    await store.load();
+    const fresh = store.snapshot().owner === null;
+    const adoptBinding = (store.snapshot().bindingRevision ?? 1) < topic.revision;
+    await store.update(data => {
+      if (data.owner && (data.owner.userId !== parent.owner!.userId || data.owner.chatId !== parent.owner!.chatId || data.owner.threadId !== topic!.threadId && (data.bindingRevision ?? 1) >= topic!.revision) || data.botId !== null && data.botId !== parent.botId || data.topicId !== undefined && data.topicId !== topicId) throw new Error("Topic 绑定冲突，未覆盖记录");
+      data.botId = parent.botId; data.owner = { ...parent.owner!, threadId: topic!.threadId };
+      data.accountId = this.identity.accountId ?? "default"; data.topicId = topicId; data.bindingRevision = topic!.revision; if (adoptBinding) data.bindingEnabled = topic!.bindingEnabled !== false; if (fresh) data.enabled = topic!.enabled;
+    });
+    const api = this.api;
+    const child = new TelegramGateway(this.host, store, {
+      identity: signal => api.identity(signal), webhook: signal => api.webhook(signal), updates: (offset, signal) => api.updates(offset, signal),
+      send: (chat, text, signal, format, keyboard, topic) => api.send(chat, text, signal, format, keyboard, topic),
+      answerCallback: (id, signal) => api.answerCallback(id, signal),
+    }, this.now, { ...this.identity, topicId, managed: true });
+    child.#parent = this;
+    await child.initialize();
+    this.#children.set(topicId, child);
+    return child;
+  }
   #queue(action: () => Promise<void>) {
     this.#events = this.#events.then(action).catch(() => { this.#error = "Telegram 记录或投递未确认；请查看连接状态和桌面回执，不会重做执行。"; });
   }
@@ -82,15 +128,22 @@ export class TelegramGateway {
   }
   autonomyBinding(): import("@aisdk-agent/example-cli/dist/tui-module-config.js").TelegramAutonomyGrant | null {
     const data = this.store.snapshot();
-    return data.owner && data.botId ? { workspaceRoot: data.workspace, botId: data.botId, userId: data.owner.userId, chatId: data.owner.chatId, threadId: data.owner.threadId } : null;
+    return data.bindingEnabled !== false && data.owner && data.botId ? { workspaceRoot: data.workspace, botId: data.botId, userId: data.owner.userId, chatId: data.owner.chatId, threadId: data.owner.threadId, ...(this.identity.topicId ? { topicId: this.identity.topicId, bindingRevision: data.bindingRevision ?? 1 } : (data.bindingRevision ?? 1) > 1 ? { bindingRevision: data.bindingRevision } : {}) } : null;
+  }
+  authorizesRun(grant: import("@aisdk-agent/example-cli/dist/tui-module-config.js").TelegramAutonomyGrant): boolean {
+    return !!this.#activeKey && this.matchesAutonomyGrant(grant) || [...this.#children.values()].some(child => child.authorizesRun(grant));
   }
   matchesAutonomyGrant(grant: import("@aisdk-agent/example-cli/dist/tui-module-config.js").TelegramAutonomyGrant) {
     const binding = this.autonomyBinding();
-    return !!binding && Object.keys(binding).every(key => binding[key as keyof typeof binding] === grant[key as keyof typeof grant]);
+    return !!binding && binding.topicId === grant.topicId && binding.bindingRevision === grant.bindingRevision && Object.keys(binding).every(key => binding[key as keyof typeof binding] === grant[key as keyof typeof grant]);
   }
   status(): TelegramStatus {
     const data = this.store.snapshot();
-    return { autonomyEnabled: this.host.channelTelegramAutonomyEnabled(), toolApprovalSkipped: this.host.channelTelegramToolApprovalSkipped(), available: true, tokenConfigured: !!this.api, enabled: data.enabled, connection: this.#connection, botUsername: this.#botUsername,
+    return { accountId: this.identity.accountId ?? "default", ...(this.identity.name ? { accountName: this.identity.name } : {}),
+      ...(this.identity.topicId ? { topicId: this.identity.topicId } : {}), bindingRevision: data.bindingRevision ?? 1, bindingEnabled: data.bindingEnabled !== false,
+      topicsEnabled: this.#topicsEnabled, usersCanCreateTopics: this.#usersCanCreateTopics,
+      ...(!this.identity.managed ? { conversations: [...this.#children.values()].map(child => child.status()) } : {}),
+      autonomyEnabled: this.host.channelTelegramAutonomyEnabled(this.autonomyBinding()), toolApprovalSkipped: this.host.channelTelegramToolApprovalSkipped(this.autonomyBinding()), available: true, tokenConfigured: !!this.api, enabled: data.enabled, connection: this.#connection, botUsername: this.#botUsername,
       owner: data.owner, pairing: this.#pairing && Date.parse(this.#pairing.expiresAt) > this.now() ? structuredClone(this.#pairing) : null,
       lastError: this.#error ?? this.#deliveryError, awaitingReview: data.inputs.filter(x => x.state === "unknown").length,
       failedDeliveries: data.deliveries.filter(x => x.state === "failed").length, unknownDeliveries: data.deliveries.filter(x => x.state === "unknown" && !x.reviewReport).length,
@@ -106,11 +159,13 @@ export class TelegramGateway {
       })) };
   }
   /** The model cannot supply destinations. Only a saved tool result owned by this channel is routed. */
-  arrangementDestination() {
+  arrangementDestination(threadId?: string): string | null {
+    if (threadId && this.store.snapshot().owner?.threadId !== threadId) return [...this.#children.values()].map(child => child.arrangementDestination(threadId)).find(Boolean) ?? null;
     const running = this.#ownedRunning(), owner = this.store.snapshot().owner;
     return running && owner ? `Telegram 已绑定私聊 ${owner.chatId}` : null;
   }
-  async arrangementSaved(saved: SavedTaskArrangement) {
+  async arrangementSaved(saved: SavedTaskArrangement, threadId?: string) {
+    if (threadId && this.store.snapshot().owner?.threadId !== threadId) { for (const child of this.#children.values()) await child.arrangementSaved(saved, threadId); return; }
     const running = this.#ownedRunning();
     if (!running) return;
     await this.#saveRoute(saved.task.id, saved.kind, saved.kind === "once" ? saved.task.runAt : new Date(this.now()).toISOString(), running.source);
@@ -231,7 +286,7 @@ export class TelegramGateway {
     const current = this.host.channelSnapshot();
     if (!source || source.state !== "unknown" || !owner || current.info.threadId !== owner.threadId || current.snapshot.state.kind !== "idle") throw new Error("请先在桌面打开 Telegram 对话并完成回执核对，空闲时再报告观察");
     if (source.taskId) {
-      const task = await this.host.current.getWorkTask(source.taskId);
+      const task = await this.host.channelBridge(this.store.snapshot().owner!.threadId).getWorkTask(source.taskId);
       if (!task.ok || task.value.status === "needs_review" || task.value.status === "running") throw new Error("请先在工作任务中完成未知效果核对；这里不能绕过任务核对");
     }
     await this.store.update(next => {
@@ -251,17 +306,39 @@ export class TelegramGateway {
         for (const part of delivery.parts ?? []) if (part.state === "sending") part.state = "unknown";
       }
     });
-    if (this.store.snapshot().enabled) void this.start(); // Offline IM must not block desktop startup.
+    if (!this.identity.managed) for (const topic of this.store.snapshot().topics ?? []) await this.#loadTopic(topic.topicId);
+    if (this.store.snapshot().enabled && !this.identity.managed) void this.start(); // Offline IM must not block desktop startup.
   }
   async setEnabled(enabled: boolean) {
     if (typeof enabled !== "boolean") throw new Error("Telegram 开关参数无效");
     if (this.#settings) throw new Error("Telegram 设置正在应用");
-    if (!enabled && this.#activeKey) throw new Error("请先停止或等待 Telegram 执行结束，再关闭连接");
-    if (enabled && !this.api) throw new Error("请先在常驻助手的可信环境文件中设置 TELEGRAM_BOT_TOKEN，再重启常驻助手。");
+    if (!enabled && (this.#activeKey || [...this.#children.values()].some(child => child.#activeKey))) throw new Error("请先停止或等待 Telegram 执行结束，再关闭连接");
+    if (enabled && !this.api) throw new Error("请先在常驻助手的可信环境文件中设置该账号引用的 Token 环境变量，再重启常驻助手。");
     this.#settings = true;
     try {
       await this.store.update(data => { data.enabled = enabled; });
-      if (enabled) await this.start(); else await this.#stop();
+      if (enabled) await this.start(); else {
+        for (const child of this.#children.values()) await child.#stop();
+        await this.#stop();
+      }
+      return this.status();
+    } finally { this.#settings = false; }
+  }
+  async changeBinding(input: { threadId: string | null; expectedRevision: number }) {
+    const data = this.store.snapshot();
+    if (this.#settings || this.#activeKey || data.owner && this.host.channelSnapshot(data.owner.threadId).snapshot.state.kind !== "idle" || !data.owner || data.inputs.some(item => ["received", "reserved", "bound", "unknown"].includes(item.state)) || data.routes.length || data.deliveries.some(item => ["pending", "sending", "failed", "unknown"].includes(item.state) && !item.reviewReport)) throw new Error("请先结算本对话执行、核对投递并移除安排路由后换绑");
+    if ((data.bindingRevision ?? 1) !== input.expectedRevision) throw new Error("绑定已变化，请刷新");
+    if (data.owner.threadId === input.threadId && data.bindingEnabled !== false) return this.status();
+    this.#settings = true;
+    try {
+      if ((data.bindingRevision ?? 1) !== input.expectedRevision) throw new Error("绑定已变化，请刷新");
+      if (this.#parent) await this.#parent.store.update(parent => {
+        const topic = parent.topics!.find(item => item.topicId === this.identity.topicId)!;
+        if (topic.revision !== input.expectedRevision) throw new Error("绑定已变化");
+        if (input.threadId !== null) topic.threadId = input.threadId; topic.bindingEnabled = input.threadId !== null; topic.revision++;
+      });
+      await this.store.update(next => { if (input.threadId !== null) next.owner!.threadId = input.threadId; next.bindingEnabled = input.threadId !== null; next.bindingRevision = input.expectedRevision + 1; next.version = 3; });
+      this.#approval = undefined; this.#taskProposal = undefined;
       return this.status();
     } finally { this.#settings = false; }
   }
@@ -294,7 +371,7 @@ export class TelegramGateway {
     return this.#starting;
   }
   async #startChannel() {
-    if (this.#poll || !this.store.snapshot().enabled) return;
+    if (this.#poll || this.#connection === "online" || !this.store.snapshot().enabled) return;
     if (!this.api) { this.#connection = "failed"; this.#error = "TELEGRAM_BOT_TOKEN 未配置；未发起网络请求。"; return; }
     this.#abort = new AbortController();
     const signal = this.#abort.signal;
@@ -302,18 +379,24 @@ export class TelegramGateway {
     try {
       const bot = await this.api.identity(signal);
       if (!Number.isSafeInteger(bot?.id) || typeof bot.username !== "string") throw new Error("invalid bot");
-      if ((await this.api.webhook(signal)).url) throw new Error("webhook");
+      if (this.store.snapshot().botId !== null && this.store.snapshot().botId !== bot.id) throw new Error("different bot");
+      if (this.identity.managed && bot.has_topics_enabled !== true) throw new Error("Topics capability disabled");
+      if (!this.identity.managed) await this.host.claimTelegramBot(bot.id, this);
+      if (!this.identity.managed && (await this.api.webhook(signal)).url) throw new Error("webhook");
       await this.store.update(data => {
         if (data.botId !== null && data.botId !== bot.id) throw new Error("different bot");
         data.botId = bot.id;
       });
+      this.#topicsEnabled = bot.has_topics_enabled === true;
+      this.#usersCanCreateTopics = bot.allows_users_to_create_topics === true;
       this.#botUsername = bot.username; this.#connection = "online"; this.#error = null;
       // Terminal results can be recovered from receipts, never from earlier unrelated Runs.
       for (const input of this.store.snapshot().inputs.filter(x => x.state === "unknown" && x.runId)) await this.#finish(input);
       await this.#flush();
       await this.#collectSafely();
       for (const input of this.store.snapshot().inputs.filter(x => x.state === "received")) await this.#process(input);
-      this.#poll = this.#loop(signal).finally(() => { this.#poll = undefined; });
+      for (const child of this.#children.values()) if (child.store.snapshot().enabled) await child.start();
+      if (!this.identity.managed) this.#poll = this.#loop(signal).finally(() => { this.#poll = undefined; });
     } catch (error) {
       this.#connection = signal.aborted ? "disabled" : "failed";
       this.#error = error instanceof TelegramApiError ? error.message : "Telegram 无法连接：请核对机器人、已有 webhook 和保存状态；不会删除 webhook 或替换旧绑定。";
@@ -323,6 +406,7 @@ export class TelegramGateway {
     while (!signal.aborted) {
       try {
         await this.#collectSafely();
+        for (const child of this.#children.values()) await child.#collectSafely();
         const updates = await this.api!.updates(this.store.snapshot().offset, signal);
         if (!Array.isArray(updates)) throw new Error("invalid updates");
         for (const update of updates) { if (signal.aborted) break; await this.receive(update); }
@@ -337,10 +421,34 @@ export class TelegramGateway {
       }
     }
   }
-  async receive(update: TelegramUpdate) {
+  receive(update: TelegramUpdate): Promise<void> {
+    const operation = this.#inboundTail.then(() => this.#receive(update));
+    this.#inboundTail = operation.catch(() => undefined);
+    return operation;
+  }
+  async #receive(update: TelegramUpdate) {
     const receivedAt = formatLocalTaskTime(new Date(this.now()), "Asia/Shanghai");
+    if (this.#settings) throw new TelegramApiError("SETTINGS_BUSY", "not_sent");
     if (!Number.isSafeInteger(update?.update_id) || update.update_id < 0 || !this.store.snapshot().enabled) return;
     if (update.update_id < this.store.snapshot().offset) return;
+    const topicId = update.message?.message_thread_id ?? update.callback_query?.message?.message_thread_id;
+    if (!this.identity.managed && topicId !== undefined) {
+      const owner = this.store.snapshot().owner;
+      const message = update.message ?? update.callback_query?.message;
+      const sender = update.message?.from ?? update.callback_query?.from;
+      if (this.#topicsEnabled && Number.isSafeInteger(topicId) && topicId > 0 && owner && message?.chat.type === "private" && message.chat.id === owner.chatId && sender?.id === owner.userId && sender.is_bot === false &&
+          (update.callback_query || update.message?.forward_origin === undefined && update.message?.via_bot === undefined && typeof update.message?.text === "string" && !!update.message.text.trim())) {
+        const existing = this.store.snapshot().topics?.find(item => item.topicId === topicId);
+        // A copied button never creates a new binding.
+        if (existing || !update.callback_query) {
+          const child = await this.#loadTopic(topicId);
+          if (child.store.snapshot().enabled) { await child.start(); await child.receive(update); }
+        }
+      } else if (owner && message?.chat.id === owner.chatId) this.#error = "Topic 消息未接收：请核对 BotFather 私聊 Topics 能力；不会转入普通私聊";
+      await this.store.update(data => { data.offset = Math.max(data.offset, update.update_id + 1); });
+      return;
+    }
+    if ((topicId ?? undefined) !== this.identity.topicId) return;
     const message = update.message;
     const privateText = message?.chat?.type === "private" && message.from?.is_bot === false &&
       message.forward_origin === undefined && message.via_bot === undefined &&
@@ -370,7 +478,7 @@ export class TelegramGateway {
       }
     }
     // Offset acknowledgement is committed alongside accepted text, before next getUpdates.
-    await this.store.update(data => { if (input) data.inputs.push(input); data.offset = Math.max(data.offset, update.update_id + 1); });
+    await this.store.update(data => { if (input) data.inputs.push({ ...input, threadId: data.owner!.threadId, bindingRevision: data.bindingRevision ?? 1 }); data.offset = Math.max(data.offset, update.update_id + 1); });
     if (input) await this.#process(input);
     if (callback && typeof callback.id === "string" && callback.id.length > 0 && callback.id.length <= 256 && this.api && this.#abort) {
       // Closing the spinner is presentation only; failure must not undo or replay a control.
@@ -380,7 +488,7 @@ export class TelegramGateway {
   }
   #ownedRunning() {
     const data = this.store.snapshot(), source = data.inputs.find(x => x.key === this.#activeKey);
-    const current = this.host.channelSnapshot();
+    const current = this.host.channelSnapshot(this.store.snapshot().owner?.threadId);
     return source?.state === "bound" && source.runId && current.info.threadId === data.owner?.threadId && current.snapshot.state.kind === "running" &&
       current.snapshot.state.phase === "primary" && current.snapshot.state.runId === source.runId ? { source, current } : undefined;
   }
@@ -410,6 +518,7 @@ export class TelegramGateway {
       await this.store.update(data => { data.inputs.find(x => x.key === input.key)!.state = "rejected"; });
       await this.#reply(`input:${input.key}`, owner.chatId, reason);
     };
+    if (this.store.snapshot().bindingEnabled === false) return reject("此入口已解绑，未启动或控制任何执行；请在桌面明确绑定对话后再发。 ");
     if (text === "/confirm" || text === "当前确认") {
       const running = this.#ownedRunning();
       if (!running?.current.snapshot.pendingApproval) return reject("当前没有属于 Telegram 的待确认操作；没有批准任何操作。");
@@ -437,7 +546,7 @@ export class TelegramGateway {
       // A callback must originate from the exact delivered preview, not a copied payload on another message.
       const valid = matches && (!input.callback || envelope?.messageId === input.callback.messageId && envelope.state === "submitted");
       if (valid) this.#approval = undefined; // Consume before dispatch, including competing phone/desktop decisions.
-      const accepted = valid && this.host.current.confirm({ approvalId: pending.approvalId, decision: approval[1] === "允许" ? "allow" : "deny" }).accepted;
+      const accepted = valid && this.host.channelBridge(this.store.snapshot().owner!.threadId).confirm({ approvalId: pending.approvalId, decision: approval[1] === "允许" ? "allow" : "deny" }).accepted;
       return reject(accepted ? approval[1] === "允许" ? "已允许。" : "已取消这次操作。" : "确认已失效，没有批准任何操作。发送 /confirm 获取当前确认。");
     }
     if (/^(允许|拒绝)(?:[\s:：A-Za-z0-9]|$)/.test(text)) return reject("请点当前确认下的按钮，或完整发送“允许 短码 / 拒绝 短码”；发送 /confirm 可刷新确认。");
@@ -446,7 +555,7 @@ export class TelegramGateway {
     }
     if (text === "停止") {
       if (!this.#ownedRunning()) return reject("没有属于 Telegram 的当前执行；未停止其他对话。");
-      await this.host.current.cancel();
+      await this.host.channelBridge(this.store.snapshot().owner!.threadId).cancel();
       return reject("已请求停止。已经发生的操作不会撤销；实际结果见回执。");
     }
     if (/^调整[:：]/.test(text)) {
@@ -455,24 +564,24 @@ export class TelegramGateway {
       return this.#steer(input, running, text.replace(/^调整[:：]/, "").trim());
     }
     if (text === "/capabilities") {
-      const info = this.host.channelSnapshot().info;
+      const info = this.host.channelSnapshot(this.store.snapshot().owner?.threadId).info;
       if (info.runtimeRecovery) return reject("助手连接未恢复；缓存配置不能证明当前能力。请先恢复连接，本条未调用模型或执行工具。");
       const status = info.capabilities;
-      const enabled = this.host.channelTelegramAutonomyEnabled();
-      const trusted = this.host.channelTelegramToolApprovalSkipped();
+      const enabled = this.host.channelTelegramAutonomyEnabled(this.autonomyBinding());
+      const trusted = this.host.channelTelegramToolApprovalSkipped(this.autonomyBinding());
       const channelStatus = status ? { ...status, toolApproval: trusted ? "trusted_telegram" as const : "per_tool" as const, shell: { ...status.shell, authority: enabled ? "explicit_workspace_telegram_primary; no background inheritance" : "current_run_only",
         warning: trusted ? "当前绑定私聊的已注册工具无需逐次确认；其他入口不继承。Shell 使用进程本机权限，工作区不是系统沙箱。" : enabled ? "当前绑定私聊已授权文件和本机命令连续执行；其他工具仍需确认。Shell 使用进程本机权限，工作区不是系统沙箱。" : status.shell.mode === "docker" ? "沿用配置的挂载与网络限制；工具仍需确认。" : "当前私聊未授权自主执行，文件和本机命令仍需确认。" } } : undefined;
       return reject(channelStatus ? formatCapabilityStatus(channelStatus) : "当前连接未提供能力状态；无法据此判断已注册或可用。");
     }
-    if (text === "/start" || text === "/help") return reject(this.host.channelTelegramToolApprovalSkipped()
+    if (text === "/start" || text === "/help") return reject(this.host.channelTelegramToolApprovalSkipped(this.autonomyBinding())
       ? "直接提问或说“几分钟后提醒我…”；当前私聊的已注册工具无需逐次确认。/capabilities 查看能力状态。调整：新方向；停止。工作任务用“任务：目标 → 开始 短码”。"
       : "直接提问或说“几分钟后提醒我…”；点确认卡下的按钮即可批准或取消。备用：允许 短码 / 拒绝 短码。/confirm 刷新当前确认，/details 查看详情，/capabilities 查看真实能力状态。调整：新方向；停止。工作任务用“任务：目标 → 开始 短码”。");
     if (/^(?:任务[:：]|\/task\s)/.test(text)) {
       const goal = text.replace(/^(?:任务[:：]|\/task\s)/, "").trim();
       if (!goal || goal.length > 8000) return reject("请用 1–8000 字说明任务目标。");
-      if (this.#activeKey || this.host.channelSnapshot().snapshot.state.kind !== "idle") return reject("助手正在处理，请结束后再交办；没有排队或启动任务。");
+      if (this.#activeKey || this.host.channelSnapshot(this.store.snapshot().owner?.threadId).snapshot.state.kind !== "idle") return reject("助手正在处理，请结束后再交办；没有排队或启动任务。");
       this.#taskProposal = { goal, code: code(), expires: this.now() + 5 * 60_000 };
-      return reject(`任务目标：${goal}\n验收由你确认，不会让模型给自己通过。\n发送“开始 ${this.#taskProposal.code}”创建并执行；${this.host.channelTelegramToolApprovalSkipped() ? "已注册工具无需逐次确认，随时发送“停止”。" : this.host.channelTelegramAutonomyEnabled() ? "文件和本机命令已授权连续执行，随时发送“停止”。其他工具仍需批准。" : "工具操作需另行批准，可在桌面 Telegram 设置中开启独立自主执行授权。"}`);
+      return reject(`任务目标：${goal}\n验收由你确认，不会让模型给自己通过。\n发送“开始 ${this.#taskProposal.code}”创建并执行；${this.host.channelTelegramToolApprovalSkipped(this.autonomyBinding()) ? "已注册工具无需逐次确认，随时发送“停止”。" : this.host.channelTelegramAutonomyEnabled(this.autonomyBinding()) ? "文件和本机命令已授权连续执行，随时发送“停止”。其他工具仍需批准。" : "工具操作需另行批准，可在桌面 Telegram 设置中开启独立自主执行授权。"}`);
     }
     let task = false, goal = text;
     const begin = /^开始 ([A-F0-9]{10})$/.exec(text);
@@ -482,14 +591,15 @@ export class TelegramGateway {
       if (!proposal || proposal.code !== begin[1] || proposal.expires <= this.now()) return reject("任务预览已过期或已使用，请重新发送任务目标。");
       task = true; goal = proposal.goal;
     } else if (/^(?:开始\s|\/)/.test(text)) return reject("未识别的控制指令，未提交给模型。发送 /help 查看用法。");
-    if (this.#activeKey || this.host.channelSnapshot().snapshot.state.kind !== "idle") {
+    if (this.#activeKey || this.host.channelSnapshot(this.store.snapshot().owner?.threadId).snapshot.state.kind !== "idle") {
       const running = this.#ownedRunning();
       if (running && !task) return this.#steer(input, running, text);
-      const current = this.host.channelSnapshot();
+      const current = this.host.channelSnapshot(this.store.snapshot().owner?.threadId);
       return reject(current.info.threadId === owner.threadId && (this.#activeKey || current.snapshot.state.kind === "running" && current.snapshot.state.source === "telegram")
         ? "当前对话正在启动或收尾，补充尚未接收；请稍后重发。本条未排队、未启动新一轮。"
         : "助手正在处理其他消息，请稍后再发；本条未排队、未调用模型。当前执行不属于此 TG 对话，未改动它。");
     }
+    if (!this.host.channelAdmissionAvailable(owner.threadId)) return reject("当前工作区已有两个活动执行（含等待审批）；本条未启动、未排队，请等其中一个结算后再发。");
     if (this.store.snapshot().inputs.some(x => x.state === "unknown")) return reject("此前 Telegram 执行效果待核对。请先回桌面检查；不会自动重做旧操作。");
     await this.store.update(data => { data.inputs.find(x => x.key === input.key)!.state = "reserved"; });
     this.#activeKey = input.key;
@@ -498,10 +608,10 @@ export class TelegramGateway {
         if (record.threadId !== owner.threadId) throw new Error("Source Thread mismatch");
         await this.store.update(data => {
           const saved = data.inputs.find(x => x.key === input.key)!;
-          if (saved.state !== "reserved" || saved.runId !== null) throw new Error("Source already used");
+          if (saved.state !== "reserved" || saved.runId !== null || saved.threadId !== undefined && saved.threadId !== record.threadId || (saved.bindingRevision ?? 1) !== (data.bindingRevision ?? 1)) throw new Error("Source already used");
           saved.state = "bound"; saved.runId = record.id; saved.taskId = taskId;
         });
-      }, input.receivedAt);
+      }, input.receivedAt, this.autonomyBinding());
       if (!result.ok) {
         const bound = this.store.snapshot().inputs.find(x => x.key === input.key)!;
         if (bound.runId) await this.#finish(bound);
@@ -529,7 +639,7 @@ export class TelegramGateway {
     let reply: string | undefined;
     let state: TelegramInbound["state"] = "unknown";
     try {
-      const result = await this.host.current.steer({ id: `tg:${input.key}`, expectedRunId: running.source.runId!, text });
+      const result = await this.host.channelBridge(this.store.snapshot().owner!.threadId).steer({ id: `tg:${input.key}`, expectedRunId: running.source.runId!, text });
       state = result.ok ? "finished" : result.reason === "failed" ? "unknown" : "rejected";
       reply = result.ok ? result.steer.status === "not_applied"
         ? "本轮已结束，补充未应用；请查看桌面执行记录。"
@@ -664,7 +774,7 @@ export class TelegramGateway {
               break;
             }
             const id = await this.api!.send(delivery.chatId, parts ? parts[index]!.text : delivery.text, this.#abort!.signal, parts ? "HTML" : undefined,
-              index === (parts?.length ?? 1) - 1 ? delivery.keyboard : undefined);
+              index === (parts?.length ?? 1) - 1 ? delivery.keyboard : undefined, this.identity.topicId);
             await this.store.update(data => {
               const saved = data.deliveries.find(x => x.key === delivery.key)!;
               if (saved.parts) { saved.parts[index]!.state = "submitted"; saved.parts[index]!.messageId = id; }
@@ -688,5 +798,5 @@ export class TelegramGateway {
     return this.#sending;
   }
   async #stop() { this.#abort?.abort(); await this.#starting; await this.#poll; await this.#scanning; await this.#sending; this.#connection = "disabled"; this.#approval = undefined; this.#pairing = null; this.#taskProposal = undefined; }
-  async close() { this.#remove(); await this.#stop(); await this.#events; await this.api?.close?.(); }
+  async close() { if (this.#closed) return; this.#closed = true; for (const child of this.#children.values()) await child.close(); this.#remove(); await this.#stop(); await this.#events; await this.api?.close?.(); await this.host.releaseTelegramBot(this); }
 }

@@ -1439,3 +1439,38 @@ describe("AssistantController", () => {
     assert.equal(controller.getSnapshot().state.kind, "idle");
   });
 });
+
+it("host background admission defers consolidation and resumes the existing lifecycle without overlapping owners", async () => {
+  let allowed = false, owners = 0, peak = 0;
+  const calls: string[] = [];
+  const controller = createAssistantController(appWith({
+    autoConsolidationAgentId: "memory-consolidator",
+    backgroundAdmission: () => {
+      if (!allowed || owners) return null;
+      owners++; peak = Math.max(peak, owners);
+      return () => { owners--; };
+    },
+    memoryConsolidation: {
+      begin: () => undefined, discard: () => undefined,
+      canStart: async () => ({ ok: true, value: { canStart: true, pendingCount: 0 } }),
+      finalize: async () => ({ ok: true, value: { candidateIds: [], replayed: false } }),
+    } as unknown as NonNullable<RuntimeApp["memoryConsolidation"]>,
+    runtime: {
+      run: async (request: { agentId: string }) => {
+        calls.push(request.agentId);
+        const id = `host-admission-${calls.length}`;
+        return handle(id, { promise: Promise.resolve(result(id, "completed")), resolve: () => undefined }, () => undefined);
+      },
+    } as unknown as RuntimeApp["runtime"],
+  }));
+  try {
+    await controller.run("An ordinary preference source");
+    await waitFor(() => controller.getSnapshot().state.kind === "idle");
+    assert.deepEqual(calls, [PRIMARY_AGENT_ID]);
+    allowed = true;
+    controller.resumeBackground();
+    await waitFor(() => calls.length === 2 && controller.getSnapshot().state.kind === "idle");
+    assert.deepEqual(calls, [PRIMARY_AGENT_ID, "memory-consolidator"]);
+    assert.equal(peak, 1); assert.equal(owners, 0);
+  } finally { await controller.shutdown(); }
+});
