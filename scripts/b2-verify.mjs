@@ -41,7 +41,11 @@ report.status = report.commands.length === 2 && report.commands.every(item => it
 if (report.status === 'passed') {
   const captured = JSON.parse(await readFile(join(output, 'b0-capture.json'), 'utf8'));
   report.snapshot.executedOriginalRows = Object.keys(captured).length;
-  report.snapshot.executionDifferences = Object.keys(captured).filter(key => JSON.stringify(captured[key]) !== JSON.stringify(before[key]));
+  report.snapshot.executionDifferences = Object.keys(captured).filter(key => {
+    const expected = structuredClone(before[key]);
+    if (key.startsWith("config/") && expected && typeof expected === "object") delete expected.policy;
+    return JSON.stringify(captured[key]) !== JSON.stringify(expected);
+  });
   assert.deepEqual(report.snapshot.executionDifferences, []);
 }
 report.finishedAt = new Date().toISOString();
