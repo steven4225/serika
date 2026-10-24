@@ -1,11 +1,11 @@
 import { tool } from "ai";
 import { z } from "zod";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
-import { selectInjectableMemoryEntries, type WorkspaceMemoryStore } from "./memory-types.js";
+import { selectInjectableMemoryEntries, type ScopedMemoryStore } from "./memory-types.js";
 import type { DreamingService } from "./dreaming.js";
 import { memoryLibraryDocuments } from "./memory-library.js";
 
-export function memoryReadTools(options: { store: WorkspaceMemoryStore | undefined; dreaming: DreamingService | undefined; threadId: string }): RegisteredTool[] {
+export function memoryReadTools(options: { store: ScopedMemoryStore | undefined; dreaming: DreamingService | undefined; threadId: string }): RegisteredTool[] {
   return [{ metadata: { name: "memory_read", version: "1", risk: "read", idempotent: true, timeoutMs: 5000 },
     tool: tool({ description: "Read a Memory document or existing method by its indexed ID, or find overflow preferences/notes using literal keywords. Read-only reference data; no permission grants.",
       inputSchema: z.object({ id: z.string().min(1).optional(), query: z.string().min(1).optional() }).strict().refine(value => !!value.id !== !!value.query, "Supply either id or query"),

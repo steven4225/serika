@@ -4,7 +4,7 @@ import { mkdtemp, rm, mkdir, writeFile, readFile, readdir } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MockLanguageModelV3 } from "ai/test";
-import { createMemoryStore } from "./memory-v6-store.js";
+import { createMemoryStore } from "./memory-v7-store.js";
 import { createMemoryExtraction, extractionThreshold } from "./memory-extraction.js";
 import { DEFAULT_CONTEXT_BUDGET_CONFIG, defaultContextBudget } from "./context-budget.js";
 import { observeModelUsage } from "./model-usage-observer.js";
@@ -23,14 +23,14 @@ test("background extraction commits memory with progress and never appends a syn
   let updated!: () => void; const update = new Promise<void>(resolve => { updated = resolve; });
   const model = new MockLanguageModelV3({ doGenerate: async options => {
     assert.equal(options.tools?.length ?? 0, 0);
-    return { content: [{ type: "text", text: JSON.stringify({ proposals: [{ operation: "add", category: "preference", text: "我喝咖啡不加糖", sourceMessageId: "u", sourceQuote: "我喝咖啡不加糖", identity: { subject: "user", attribute: "coffee", value: "不加糖" } }], outcomes: [{ messageId: "u", status: "extracted" }] }) }], finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
+    return { content: [{ type: "text", text: JSON.stringify({ proposals: [{ operation: "add", scope: "user", category: "preference", text: "我喝咖啡不加糖", sourceMessageId: "u", sourceQuote: "我喝咖啡不加糖", identity: { subject: "user", attribute: "coffee", value: "不加糖" } }], outcomes: [{ messageId: "u", status: "extracted" }] }) }], finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
   } });
   const store = createMemoryStore(join(root, ".runloom/memory.json")), extraction = createMemoryExtraction({ store, threadId: "t", getMessages: async () => messages, model: observeModelUsage(model, { records: createExecutionRecordStore(root), threadId: "t", enabled: () => true, callLog: new ModelCallLog(root), scope: () => ({ purpose: "memory_consolidation" }) }), budget: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, summaryMaxOutputTokens: 1024 }, updated });
   try {
     extraction.idle();
     await update;
     await extraction.pause();
-    const document = await store.readV6!(); assert.ok(document.ok);
+    const document = await store.readV7!(); assert.ok(document.ok);
     assert.equal(document.value.entries.length, 1); assert.equal(document.value.progress[0]!.throughMessageId, "u");
     assert.equal(messages.length, 2); assert.equal(extraction.diagnostics().calls, 1);
     assert.equal(extraction.diagnostics().completed, 1);

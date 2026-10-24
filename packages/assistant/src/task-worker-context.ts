@@ -9,8 +9,8 @@ import {
   checkpointContextMessageBytes,
   createCheckpointContextMessage,
 } from "./checkpoint-context.js";
-import { type WorkspaceMemoryStore } from "./memory-types.js";
-import { createMemoryStore } from "./memory-v6-store.js";
+import { type ScopedMemoryStore } from "./memory-types.js";
+import { createMemoryStore } from "./memory-v7-store.js";
 import { readMemorySnapshot, createMemorySnapshotMessage } from "./memory-snapshot.js";
 import {
   TASK_LIST_MAX_LIMIT,
@@ -27,7 +27,7 @@ export interface TaskWorkerSnapshotContext {
 }
 
 export interface TaskWorkerContextSources {
-  memoryStore: WorkspaceMemoryStore;
+  memoryStore: ScopedMemoryStore;
   checkpointStore: WorkspaceCheckpointStore;
   taskStore: TaskStore;
   now?: () => Date;

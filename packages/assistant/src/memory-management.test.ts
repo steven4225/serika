@@ -49,13 +49,13 @@ describe("formal Memory controller and actual reference preparation", () => {
   it("exposes current entries, CAS edits, explicit pin/disable, source semantics and Thread isolation without a Run", async () => {
     const test = await setup(); const { app, controller } = await test.open();
     try {
-      const added = await app.memoryStore!.add({ text: "复盘先给结论", source: { kind: "conversation", threadId: "thread-a", messageId: "user-source", quote: "复盘先给结论", sentAt: null } });
+      const added = await app.memoryStore!.add({ scope: { kind: "user" }, text: "复盘先给结论", source: { kind: "conversation", threadId: "thread-a", messageId: "user-source", quote: "复盘先给结论", sentAt: null } });
       assert.ok(added.ok); if (!added.ok) return;
       const listed = await controller.memory.list(); assert.ok(listed.ok); if (!listed.ok) return;
       assert.equal(listed.value.entries.length, 1); assert.ok(!("source" in listed.value.entries[0]!));
       assert.deepEqual(listed.value.entries[0]!.sourceKinds, [{ kind: "conversation" }]);
       assert.ok(!JSON.stringify(listed.value.entries).includes("user-source"));
-      const { v6: _v6, ...current } = added.entry;
+      const { v7: _v7, ...current } = added.entry;
       assert.deepEqual((await controller.memory.get(added.entry.id)), { ok: true, value: current });
       const edit = await controller.memory.update({ id: added.entry.id, expectedRevision: 1, text: "复盘先给一句结论，再给行动" });
       assert.ok(edit.ok); if (!edit.ok) return;
@@ -74,7 +74,7 @@ describe("formal Memory controller and actual reference preparation", () => {
   });
   it("shows the selected version across Thread, updates next preparation, excludes disabled, and clears process snapshot on restart", async () => {
     const test = await setup(); const first = await test.open();
-    const added = await first.app.memoryStore!.add({ text: "复盘先给一行结论，再列两条可执行步骤。" });
+    const added = await first.app.memoryStore!.add({ scope: { kind: "user" }, text: "复盘先给一行结论，再列两条可执行步骤。" });
     assert.ok(added.ok); if (!added.ok) return;
     await first.controller.shutdown();
     const second = await test.open("thread-b");
@@ -104,7 +104,7 @@ describe("formal Memory controller and actual reference preparation", () => {
   it("default lexical mode makes zero rewrite calls and a corrupt source fails instead of returning stale references", async () => {
     const test = await setup(); const { app, controller } = await test.open();
     try {
-      await app.memoryStore!.add({ text: "复盘先给一行结论" });
+      await app.memoryStore!.add({ scope: { kind: "user" }, text: "复盘先给一行结论" });
       await controller.run("复盘"); await idle(controller);
       await writeFile(join(test.root, "workspace", ".runloom", "memory.json"), "broken");
       assert.ok(!(await controller.memory.list()).ok);

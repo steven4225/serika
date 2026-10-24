@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { MEMORY_CONTEXT_MAX_BYTES, selectInjectableMemoryEntries } from "./memory-types.js";
-import { createMemoryStore } from "./memory-v6-store.js";
+import { createMemoryStore } from "./memory-v7-store.js";
 import { createCheckpointStore } from "./checkpoint-store.js";
 import type { TaskRecordV3, TaskStore, TaskListInput, TaskSummaryV3 } from "./task-store.js";
 import { TASK_LIST_MAX_LIMIT } from "./task-store.js";
@@ -99,7 +99,7 @@ describe("task-worker workspace snapshot", () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-worker-memory-large-"));
     try {
       const memory = createMemoryStore(join(root, ".runloom/memory.json"));
-      for (let index = 0; index < 10; index++) assert.equal((await memory.add({ text: `project snapshot ${index}: ${"x".repeat(1300)}` })).ok, true);
+      for (let index = 0; index < 10; index++) assert.equal((await memory.add({ scope: { kind: "user" }, text: `project snapshot ${index}: ${"x".repeat(1300)}` })).ok, true);
       const all = await memory.list(); assert.ok(all.ok);
       assert.ok(Buffer.byteLength(JSON.stringify(selectInjectableMemoryEntries(all.entries))) > MEMORY_CONTEXT_MAX_BYTES);
       const context = await createTaskWorkerContextLoader(join(root, ".runloom"), attentionStore(() => undefined))(claimedTask(), new AbortController().signal);
@@ -134,9 +134,9 @@ describe("task-worker workspace snapshot", () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-worker-context-populated-"));
     try {
       const memory = createMemoryStore(join(root, ".runloom/memory.json"));
-      const workspaceEntry = await memory.add({ text: "Use the M10 plan" });
+      const workspaceEntry = await memory.add({ scope: { kind: "user" }, text: "Use the M10 plan" });
       assert.equal(workspaceEntry.ok, true);
-      assert.equal((await memory.add({ text: "disabled fact", enabled: false })).ok, true);
+      assert.equal((await memory.add({ scope: { kind: "user" }, text: "disabled fact", enabled: false })).ok, true);
       const checkpoint = await createCheckpointStore(join(root, ".runloom/checkpoint.json")).saveNextVersion({
         expectedVersion: null,
         sourceThreadId: "creator-thread",

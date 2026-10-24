@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { readMemoryHealth } from "./memory-health.js";
-import { type MemoryEntry, type WorkspaceMemoryStore } from "./memory-types.js";
+import { type MemoryEntry, type ScopedMemoryStore } from "./memory-types.js";
 import { memorySnapshot } from "./memory-snapshot.js";
 
 const now = new Date("2026-09-27T00:00:00.000Z");
 const active = (id: string, extras: Partial<MemoryEntry> = {}): MemoryEntry => ({
   id, text: `memory ${id}`, enabled: true, status: "active", ...extras,
 });
-const storeWith = (entries: MemoryEntry[]): WorkspaceMemoryStore => ({
+const storeWith = (entries: MemoryEntry[]): ScopedMemoryStore => ({
   async list() { return { ok: true, entries }; },
-}) as WorkspaceMemoryStore;
+}) as ScopedMemoryStore;
 
 describe("memory health", () => {
   it("does not read when disabled", async () => {
@@ -36,7 +36,7 @@ describe("memory health", () => {
   });
 
   it("returns store errors without treating corrupt data as an empty store", async () => {
-    const store = { async list() { return { ok: false, error: { code: "MEMORY_FILE_INVALID", message: "corrupt" } }; } } as WorkspaceMemoryStore;
+    const store = { async list() { return { ok: false, error: { code: "MEMORY_FILE_INVALID", message: "corrupt" } }; } } as ScopedMemoryStore;
     assert.deepEqual(await readMemoryHealth(store, "current", now), {
       status: "error", code: "MEMORY_FILE_INVALID", message: "corrupt",
     });

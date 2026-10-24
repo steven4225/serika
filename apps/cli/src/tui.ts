@@ -34,6 +34,7 @@ function isTTY(stream: Readable | Writable): boolean {
 }
 
 export interface RunTuiOptions {
+  projectId?: string | null;
   runtime: Runtime;
   store: Pick<MessageStore, "getMessages">;
   threadId: string;
@@ -595,7 +596,7 @@ export async function runTui(options: RunTuiOptions): Promise<void> {
         id: generateId(),
         role: "user",
         parts: [{ type: "text", text }],
-        metadata: userMessageClock(),
+        metadata: { ...userMessageClock(), memoryProjectId: options.projectId ?? null },
       };
       options.resume?.beginRun();
       try {

@@ -9,7 +9,7 @@ import { MockLanguageModelV3 } from "ai/test";
 import { ContextCompactor } from "./context-compactor.js";
 import { blockLimits, fitMessage } from "./context-blocks.js";
 import { availableInputTokens, defaultContextBudget, effectiveContextBudget, estimateContextBudget } from "./context-budget.js";
-import { createMemoryStore } from "./memory-v6-store.js";
+import { createMemoryStore } from "./memory-v7-store.js";
 import { createTranscriptAccess } from "./transcript-access.js";
 import { createCompactionChecklist } from "./compaction-records.js";
 import { createExecutionRecordStore } from "./execution-record-store.js";
@@ -73,16 +73,16 @@ test("privacy exclusions survive restart, preserve original chat and redact memo
   try {
     const store = new JsonlAgentStore({ directory: join(root, "transcripts") }), memory = createMemoryStore(join(root, ".runloom/memory.json"));
     const text = "Secret preference alpha", source = msg("source", "user", text);
-    const saved = await memory.writeV6!([{ operation: "add", text, category: "preference", source: { kind: "conversation", threadId: "t", messageId: "source", quote: text, sentAt: null } }]); assert.ok(saved.ok);
+    const saved = await memory.writeV7!([{ operation: "add", scope: { kind: "user" }, text, category: "preference", source: { kind: "conversation", threadId: "t", messageId: "source", quote: text, sentAt: null } }]); assert.ok(saved.ok);
     await store.save("t", [source, { ...msg("later", "user", "Continue"), metadata: { contextSnapshot: [msg("stale", "assistant", text)] } }]);
     let invalidated = 0;
     const access = createTranscriptAccess({ store, threadId: "t", memory, invalidated: () => { invalidated++; } });
     await access.exclude({ messageId: "source", reason: "privacy" }); assert.equal(invalidated, 1);
     assert.match(JSON.stringify(await store.getMessages("t")), /Secret preference alpha/);
     assert.doesNotMatch(JSON.stringify(await access.read()), /Secret preference alpha/);
-    const read = await memory.readV6!(); assert.ok(read.ok); assert.doesNotMatch(JSON.stringify(read.value), /Secret preference alpha/);
+    const read = await memory.readV7!(); assert.ok(read.ok); assert.doesNotMatch(JSON.stringify(read.value), /Secret preference alpha/);
     assert.equal(read.value.entries[0]?.state, "retracted");
-    const undo = await memory.writeV6!([{ operation: "undo", id: read.value.entries[0]!.id, expectedRevision: read.value.entries[0]!.revision, source: { kind: "manual" } }]); assert.equal(undo.ok, false);
+    const undo = await memory.writeV7!([{ operation: "undo", id: read.value.entries[0]!.id, expectedRevision: read.value.entries[0]!.revision, source: { kind: "manual" } }]); assert.equal(undo.ok, false);
     const reopened = createTranscriptAccess({ store: new JsonlAgentStore({ directory: join(root, "transcripts") }), threadId: "t", memory: createMemoryStore(join(root, ".runloom/memory.json")), invalidated() {} });
     const tools = historyTools(reopened, budgets[0]!);
     for (const [index, input] of [[0, { query: text, start: 0 }], [1, { id: "source", start: 0 }]] as const) {
@@ -111,7 +111,7 @@ test("oversized leading assistant and user material is extracted chronologically
     let calls = 0;
     const model = new MockLanguageModelV3({ doGenerate: async ({ prompt }) => {
       calls++;
-      const current = await store.readV6!(); assert.ok(current.ok); assert.notEqual(current.value.progress[0]?.throughMessageId, "long");
+      const current = await store.readV7!(); assert.ok(current.ok); assert.notEqual(current.value.progress[0]?.throughMessageId, "long");
       assert.ok(JSON.stringify(prompt).length < 26624 * 2);
       const text = prompt.flatMap(message => message.role === "user" ? message.content.flatMap(part => part.type === "text" ? [part.text] : []) : []).join("\n");
       const block = JSON.parse(text.slice("Original block:\n".length).split("\nTask:")[0]!) as Array<{ id: string; text: string }>;
@@ -122,7 +122,7 @@ test("oversized leading assistant and user material is extracted chronologically
     const extraction = createMemoryExtraction({ store, threadId: "t", getMessages: async () => messages, model, budget: budgets[0]!, updated() {} });
     extraction.afterMask("long"); extraction.idle();
     await settle(() => !extraction.diagnostics().running); await extraction.pause();
-    const result = await store.readV6!(); assert.ok(result.ok);
+    const result = await store.readV7!(); assert.ok(result.ok);
     assert.ok(calls > 1); assert.equal(assistantSeen, assistantText); assert.equal(result.value.progress[0]?.throughMessageId, "long"); assert.equal(result.value.progress[0]?.pending.length, 0);
     await extraction.close();
   } finally { await rm(root, { recursive: true, force: true }); }

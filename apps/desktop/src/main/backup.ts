@@ -9,7 +9,7 @@ import type { ExecutionRunRecord } from "@serika/assistant";
 import type { UIMessage } from "ai";
 import type { TranscriptExclusion } from "@serika/core";
 import { restoreTaskDocument, validateTaskDocument } from "@serika/assistant";
-import { MEMORY_FILE_MAX_BYTES, validateV6MemoryDocument } from "@serika/assistant";
+import { MEMORY_FILE_MAX_BYTES, validateV7MemoryDocument } from "@serika/assistant";
 import { CHECKPOINT_FILE_MAX_BYTES, validateCheckpointDocument } from "@serika/assistant";
 import { WORK_TASK_FILE_MAX_BYTES, validateWorkTaskDocument } from "@serika/assistant";
 import { validateDreamingDocument } from "@serika/assistant";
@@ -22,7 +22,7 @@ import type { BackupResult, RestoreResult } from "../shared/backup.js";
 // Share the runtime's existing schema contracts; a valid hash is not proof
 // that these bytes can be opened by the corresponding Store after recovery.
 const STORES = {
-  "memory.json": { max: MEMORY_FILE_MAX_BYTES, validate: validateV6MemoryDocument },
+  "memory.json": { max: MEMORY_FILE_MAX_BYTES, validate: validateV7MemoryDocument },
   "checkpoint.json": { max: CHECKPOINT_FILE_MAX_BYTES, validate: validateCheckpointDocument },
   "work-tasks.json": { max: WORK_TASK_FILE_MAX_BYTES, validate: validateWorkTaskDocument },
   "dreaming.json": { max: 1024 * 1024, validate: validateDreamingDocument },
@@ -147,7 +147,7 @@ async function exportLockedBackup(options: ExportOptions): Promise<BackupResult>
   const memory = archive.entries.find(entry => entry.path === "workspace/.runloom/memory.json");
   if (memory && threadViews.some(view => view.exclusions.length)) {
     const document = JSON.parse(memory.text) as { version: number; excludedSources?: Array<{threadId: string; messageId: string}> };
-    if (document.version !== 6 || threadViews.some(view => view.exclusions.some(record => !document.excludedSources?.some(source => source.threadId === view.threadId && source.messageId === record.messageId))))
+    if (document.version !== 7 || threadViews.some(view => view.exclusions.some(record => !document.excludedSources?.some(source => source.threadId === view.threadId && source.messageId === record.messageId))))
       throw new Error("排除记录对应的记忆清理尚未完成；请先打开该对话完成清理，再导出");
   }
   validateArchive(archive);

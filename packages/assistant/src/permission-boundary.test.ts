@@ -18,7 +18,7 @@ const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cache
 const request = "我喜欢乌龙茶";
 const calls = [
   ["capability_status", {}], ["memory_read", { query: "乌龙茶" }],
-  ["memory_write", { operation: "add", text: request, category: "preference", sourceQuote: request,
+  ["memory_write", { operation: "add", scope: "user", text: request, category: "preference", sourceQuote: request,
     identity: { subject: "用户", attribute: "茶", value: "乌龙茶" } }],
   ["task_list", {}], ["read_file", { path: "note.txt" }],
   ["write_file", { path: "created.txt", content: "allowed" }], ["shell_exec", { command: "pwd", cwd: "." }],
@@ -76,7 +76,7 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
             events: toolEvents.map(({ event: { type, data } }) => ({ type, ok: "output" in data && typeof data.output === "object" && data.output !== null && "ok" in data.output ? data.output.ok : null,
               code: "error" in data && typeof data.error === "object" && data.error !== null && "code" in data.error ? data.error.code : null })) };
           if (selected[0] === "memory_write") {
-            const memory = await app.memoryStore!.readV6!(); assert.ok(memory.ok);
+            const memory = await app.memoryStore!.readV7!(); assert.ok(memory.ok);
             rows[`${mode}/saved-memory`] = memory.value.entries.map(entry => ({ text: entry.text, category: entry.category }));
           }
           if (selected[0] === "write_file") await rm(join(workspace, "created.txt"), { force: true });

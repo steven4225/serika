@@ -58,7 +58,7 @@ describe("v2 pilot baseline: desktop persisted hash golden samples", () => {
       Object.assign(expected, JSON.parse(actual));
       await writeFile(snapshotFile, JSON.stringify(expected, null, 2) + "\n");
     }
-    // The v1 Memory backup sample is historical; v6 backup bytes/hash are exercised in backup.test.ts.
+    // The v1 Memory backup sample is historical; v7 backup bytes/hash are exercised in backup.test.ts.
     delete expected["backup entry sha256"];
     assert.equal(actual, JSON.stringify(expected, null, 2) + "\n");
   });

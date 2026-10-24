@@ -5,7 +5,7 @@ import { join } from "node:path";
 export { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
 export { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
 export { EXECUTION_RECORD_FILE, createExecutionRecordStore } from "./execution-record-store.js";
-export { createMemoryStore } from "./memory-v6-store.js";
+export { createMemoryStore } from "./memory-v7-store.js";
 export { readDesktopFrontmost } from "./task-notification-presentation.js";
 export { taskResultLink } from "./task-result-link.js";
 export { RSS_DIGEST_TASK_PROMPT, TASK_WORKER_LOCK_FILE_NAME } from "./task-store.js";
@@ -32,7 +32,7 @@ export function createTestDirectoryAccess(path: string): DirectoryAccess {
 
 import { createModuleHost as createHostForFacts, type ToolPermissionFacts } from "./module-host.js";
 import { createComputerModule as computerForFacts } from "./modules/computer-module.js";
-import { createMemoryStore as memoryStoreForFacts } from "./memory-v6-store.js";
+import { createMemoryStore as memoryStoreForFacts } from "./memory-v7-store.js";
 import { createMemoryModule as memoryForFacts } from "./modules/memory-module.js";
 import { createCheckpointModule as checkpointForFacts } from "./modules/checkpoint-module.js";
 import { createTodoistModule as todoistForFacts } from "./modules/todoist-module.js";

@@ -49,7 +49,7 @@ test("fresh CLI homes keep real memory writes, tasks and transcripts apart acros
         prompts.push(JSON.stringify(request.prompt));
         const toolName = save && calls < 2 ? ["memory_write", "task_create"][calls] : undefined;
         calls++;
-        const input = toolName === "memory_write" ? { operation: "add", text: quote, category: "preference", sourceQuote: quote,
+        const input = toolName === "memory_write" ? { operation: "add", scope: "user", text: quote, category: "preference", sourceQuote: quote,
           identity: { subject: "user", attribute: "coffee", value: "不加糖" } } : { prompt: "提醒喝水", runAt: "2099-01-01T09:00:00+08:00" };
         return { stream: simulateReadableStream({ chunks: [
           { type: "stream-start", warnings: [] },
@@ -73,12 +73,12 @@ test("fresh CLI homes keep real memory writes, tasks and transcripts apart acros
     };
     const a = await open(first, true), b = await open(second, false);
     await a.run(`${quote}，请记住；并提醒喝水`);
-    const memory = await a.app.memoryStore!.readV6!(); assert.ok(memory.ok);
+    const memory = await a.app.memoryStore!.readV7!(); assert.ok(memory.ok);
     assert.equal(memory.value.entries[0]!.text, quote);
     assert.equal(memory.value.entries[0]!.sources[0]!.kind, "conversation");
     const tasks = await createTaskStore(assistantDataPaths(first.dataDirectory!).tasks).list(); assert.ok(tasks.ok);
     assert.equal(tasks.value.tasks.length, 1);
-    const empty = await b.app.memoryStore!.readV6!(); assert.ok(empty.ok); assert.equal(empty.value.entries.length, 0);
+    const empty = await b.app.memoryStore!.readV7!(); assert.ok(empty.ok); assert.equal(empty.value.entries.length, 0);
     assert.deepEqual(await b.app.store.getMessages("same"), []);
     const otherTasks = await createTaskStore(assistantDataPaths(second.dataDirectory!).tasks).list(); assert.ok(otherTasks.ok); assert.equal(otherTasks.value.tasks.length, 0);
     const configBytes = await readFile(first.configPath!, "utf8");
@@ -89,7 +89,7 @@ test("fresh CLI homes keep real memory writes, tasks and transcripts apart acros
     assert.equal(await readFile(first.configPath!, "utf8"), configBytes);
     const overview = await reopened.controller.automation.getOverview(); assert.ok(overview.ok);
     assert.equal(overview.value.tasksEnabled, true);
-    const cold = await reopened.app.memoryStore!.readV6!(); assert.ok(cold.ok); assert.equal(cold.value.entries[0]!.text, quote);
+    const cold = await reopened.app.memoryStore!.readV7!(); assert.ok(cold.ok); assert.equal(cold.value.entries[0]!.text, quote);
     assert.equal((await readdir(root)).includes("workspace"), false);
   } finally {
     for (const controller of controllers.reverse()) await controller.shutdown();
@@ -109,7 +109,7 @@ test("a storage home does not grant workspace file access or load old workspace 
     await writeFile(oldFile, "old data must not be read");
     const { directory, home: _home, ...assistant } = home;
     const app = await createRuntimeApp({ directory: directory!, assistant, modelAlias: "offline", model: new MockLanguageModelV3(), output: new PassThrough().resume(), cwd: root, env: {} });
-    try { const memory = await app.memoryStore!.readV6!(); assert.ok(memory.ok); assert.equal(memory.value.entries.length, 0); } finally { app.dispose(); }
+    try { const memory = await app.memoryStore!.readV7!(); assert.ok(memory.ok); assert.equal(memory.value.entries.length, 0); } finally { app.dispose(); }
     assert.equal(await readFile(oldFile, "utf8"), "old data must not be read");
   } finally { await rm(root, { recursive: true, force: true }); }
 });

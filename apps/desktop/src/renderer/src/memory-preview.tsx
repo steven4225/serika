@@ -23,7 +23,7 @@ function remembered(input: { id: string; text: string; kind: "preference" | "fac
   const source = input.sources[0] ?? { kind: "manual" as const };
   return {
     id: input.id, text: input.text, revision: 2, enabled: true, status: "active", pinned: false, expiresAt: null,
-    scope: { kind: "workspace" }, createdAt: daysAgo(input.updatedDays + 2), updatedAt, source,
+    scope: { kind: "user" }, createdAt: daysAgo(input.updatedDays + 2), updatedAt, source,
 
   };
 }

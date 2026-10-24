@@ -6,7 +6,7 @@ import { afterEach, describe, it } from "node:test";
 import { createDreamingService, type DreamingBatch, type DreamingResult } from "./dreaming.js";
 import type { WorkTask, WorkTaskStore } from "./work-task-store.js";
 import type { ExecutionRecordStore, ExecutionRunRecord } from "./execution-record-store.js";
-import type { MemoryEntry, WorkspaceMemoryStore } from "./memory-types.js";
+import type { MemoryEntry, ScopedMemoryStore } from "./memory-types.js";
 
 const directories: string[] = [];
 afterEach(async () => { await Promise.all(directories.splice(0).map(d => rm(d, { recursive: true, force: true }))); });
@@ -227,7 +227,7 @@ describe("host-managed dreaming experience skills", () => {
     const f = await fixture();
     let memory: MemoryEntry = { id: "memory-a", revision: 1, text: "复盘偏好", enabled: true, status: "active" };
     for (const run of f.runs.values()) run.memoryReferences = [{ id: memory.id, revision: 1 }];
-    const memoryStore = { get: async () => ({ ok: true, entry: structuredClone(memory) }) } as unknown as WorkspaceMemoryStore;
+    const memoryStore = { get: async () => ({ ok: true, entry: structuredClone(memory) }) } as unknown as ScopedMemoryStore;
     const service = createDreamingService({ filePath: join(f.root, ".runloom/dreaming.json"), workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
     const batch = value(await service.prepare()); assert.ok(batch);
     const committed = value(await service.commit(batch, response(batch)));
@@ -243,7 +243,7 @@ describe("host-managed dreaming experience skills", () => {
     const f = await fixture();
     let memory: MemoryEntry = { id: "legacy-dependency", revision: 1, text: "复盘方法", enabled: true, status: "active" };
     for (const run of f.runs.values()) run.memoryReferences = [{ id: memory.id, revision: 1 }];
-    const memoryStore = { get: async () => ({ ok: true, entry: structuredClone(memory) }) } as unknown as WorkspaceMemoryStore;
+    const memoryStore = { get: async () => ({ ok: true, entry: structuredClone(memory) }) } as unknown as ScopedMemoryStore;
     const service = createDreamingService({ filePath: join(f.root, ".runloom/dreaming.json"), workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
     const batch = value(await service.prepare()); assert.ok(batch);
     const learned = value(await service.commit(batch, response(batch))), id = learned.skillIds[0]!;
@@ -268,7 +268,7 @@ describe("host-managed dreaming experience skills", () => {
     // Individually eligible experiences must still fail if one learned method
     // would combine different versions of the same logical Memory.
     const memoryStore = { get: async () => ({ ok: true, entry: { id: "memory-a", revision: ++memoryReads % 2 ? 1 : 2,
-      text: "复盘偏好", enabled: true, status: "active" } }) } as unknown as WorkspaceMemoryStore;
+      text: "复盘偏好", enabled: true, status: "active" } }) } as unknown as ScopedMemoryStore;
     const service = createDreamingService({ filePath: join(f.root, ".runloom/dreaming.json"), workTasks: f.workTasks, executionRecords: f.executionRecords, memoryStore });
     const batch = value(await service.prepare()); assert.ok(batch);
     const mixed = await service.commit(batch, response(batch)); assert.ok(!mixed.ok); assert.equal(mixed.error.code, "DREAMING_SOURCE_INVALID");

@@ -14,7 +14,7 @@ import { JsonlAgentStore } from "@serika/core";
 import { createRuntimeApp } from "./app.js";
 import { createAssistantController, type AssistantController } from "./assistant-controller.js";
 import { createCheckpointStore } from "./checkpoint-store.js";
-import { createMemoryStore } from "./memory-v6-store.js";
+import { createMemoryStore } from "./memory-v7-store.js";
 import { loadScheduledSkillAutomation, prepareScheduledSkillTask } from "./scheduled-skill.js";
 import { createTaskStore } from "./task-store.js";
 import { createTaskWorkerAgent } from "./task-worker-entry.js";
@@ -88,7 +88,7 @@ test("Controller saves a pinned Skill schedule; the existing worker delivers onc
   const model = new MockLanguageModelV3({ doStream: async options => { observed.push(options); return response(); } });
   const f = await fixture(model);
   try {
-    assert.ok((await createMemoryStore(join(f.workspace, ".runloom/memory.json")).add({ text: "GLOBAL_MEMORY_PRIVATE", pinned: true })).ok);
+    assert.ok((await createMemoryStore(join(f.workspace, ".runloom/memory.json")).add({ scope: { kind: "user" }, text: "GLOBAL_MEMORY_PRIVATE", pinned: true })).ok);
     assert.ok((await createCheckpointStore(join(f.workspace, ".runloom/checkpoint.json")).saveNextVersion({ expectedVersion: null, sourceThreadId: "origin",
       draft: { status: "active", goal: "GLOBAL_CHECKPOINT_PRIVATE", summary: "GLOBAL_CHECKPOINT_PRIVATE", completed: [], inProgress: [], nextActions: [], blockers: [], artifacts: [] } })).ok);
     await f.app.store.save("origin", [{ id: "old", role: "user", parts: [{ type: "text", text: "GLOBAL_HISTORY_PRIVATE" }] }]);

@@ -252,7 +252,7 @@ else {fs.writeFileSync(${JSON.stringify(marker)},'dispatched');console.log('{}')
           assert.equal((await handle.result).status, "completed");
         };
         await run("first", "reports before saving");
-        assert.ok((await app.memoryStore!.add({ text: "reports use three steps" })).ok);
+        assert.ok((await app.memoryStore!.add({ scope: { kind: "user" }, text: "reports use three steps" })).ok);
         await run("next", "reports after saving");
         const prompt = prompts[1]!;
         const old = prompt.findIndex(message => message.includes("Earlier selected entries: []"));

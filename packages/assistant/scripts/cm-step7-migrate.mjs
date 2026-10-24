@@ -169,7 +169,7 @@ export async function migrateCopy(root, { expectedSha = approvedSourceSha, stamp
     migrated.document.library = { ...structuredClone(library), revision: library.revision + 1, documents: [
       ...structuredClone(library.documents), ...migrated.document.library.documents.filter(document => !library.documents.some(item => item.id === document.id))] };
   }
-  const { validateV6MemoryDocument, V6MemoryStore } = await import('../dist/memory-v6-store.js');
+  const { validateLegacyV6MemoryDocument: validateV6MemoryDocument } = await import('./memory-upgrade.mjs');
   validateV6MemoryDocument(migrated.document);
   // Legacy deletion/exclusion controls cannot silently disappear or regain authority.
   const privateTranscript = join(root, 'transcripts');
@@ -215,8 +215,7 @@ export async function migrateCopy(root, { expectedSha = approvedSourceSha, stamp
   try { await handle.writeFile(JSON.stringify(migrated.document) + '\n'); await handle.sync(); } finally { await handle.close(); }
   await rename(temporary, file);
   const directory = await open(dirname(file), 'r'); try { await directory.sync(); } finally { await directory.close(); }
-  const store = new V6MemoryStore(join(join(root, 'workspace'), ".runloom/memory.json")), read = await store.readV6();
-  assert.ok(read.ok); assert.deepEqual(read.value, validateV6MemoryDocument(migrated.document));
+  const read = { value: validateV6MemoryDocument(await json(file)) }; assert.deepEqual(read.value, validateV6MemoryDocument(migrated.document));
   assert.equal(read.value.library.documents.length, migrated.document.library.documents.length);
   assert.deepEqual(read.value.library.folders, original.library?.folders ?? []);
   assert.deepEqual(read.value.library.documents.slice(0, original.library?.documents.length ?? 0), original.library?.documents ?? []);

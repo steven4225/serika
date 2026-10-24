@@ -6,7 +6,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile, symlink, realpath } from 'node
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { JsonlAgentStore } from '../../core/dist/index.js';
-import { V6MemoryStore } from '../dist/memory-v6-store.js';
+import { validateLegacyV6MemoryDocument } from './memory-upgrade.mjs';
 import { manifest } from './cm-step7-migrate.mjs';
 import { convertImportConfig, importHome } from './home-import.mjs';
 
@@ -18,10 +18,11 @@ async function fixture() {
   const workspace = join(source, 'workspace'), directory = join(source, 'transcripts/t');
   await mkdir(join(workspace, '.runloom'), { recursive: true });
   await new JsonlAgentStore({ directory }).save('t', [{ id: 'u', role: 'user', parts: [{ type: 'text', text: '先给结论。项目记录。' }] }]);
-  const memory = new V6MemoryStore(join(workspace, '.runloom/memory.json'));
-  assert.ok((await memory.writeV6([{ operation: 'add', text: '先给结论。', category: 'preference', source: { kind: 'conversation', threadId: 't', messageId: 'u', quote: '先给结论。', sentAt: null } },
-    { operation: 'add', text: '项目记录。', category: 'document', source: { kind: 'manual' } }], undefined, { now: new Date(stamp) })).ok);
-  const document = (await memory.readV6()).value;
+  const document = validateLegacyV6MemoryDocument({ version: 6, lastWrittenAt: stamp,
+    entries: ['先给结论。', '项目记录。'].map((text, index) => ({ id: `entry-${index}`, revision: 1, text, uncertain: false,
+      category: index ? 'document' : 'preference', scope: { kind: 'workspace' }, pinned: false, state: 'active', createdAt: stamp, updatedAt: stamp,
+      sources: index ? [{kind:'manual'}] : [{ kind: 'conversation', threadId: 't', messageId: 'u', quote: text, sentAt: null }], replaces: [], supersededBy: null, withdrawal: null })),
+    excludedSources: [], progress: [], suppressed: [], importReceipts: [], library: {revision:0,folders:[],documents:[]} });
   document.library.documents.push({ id: 'doc', title: '项目', folderId: null, entryIds: [document.entries[1].id], scope: { kind: 'workspace' } });
   await writeFile(join(workspace, '.runloom/memory.json'), encoded(document));
   await writeFile(join(source, 'config.json'), encoded({ version: 1, workspace, desktopAutonomy: { workspaceRoot: workspace },
@@ -39,7 +40,7 @@ async function fixture() {
   return { root, source, home, specification };
 }
 
-test('dry-run, full private backup/rehearsal/rollback, cold read and exact replay preserve IDs, sources, bytes and scope mapping', async () => {
+test('dry-run, full private backup/rehearsal/rollback, offline read and exact replay preserve IDs, sources, bytes and scope mapping', async () => {
   const f = await fixture();
   try {
     const before = await manifest(f.source), preview = await importHome(f);
@@ -55,7 +56,7 @@ test('dry-run, full private backup/rehearsal/rollback, cold read and exact repla
     const config = JSON.parse(await readFile(join(f.home, 'config.json')));
     assert.equal(config.workspace, undefined); assert.equal(config.desktopAutonomy, undefined); assert.equal(config.modules.memory.writePolicy, undefined);
     assert.equal(config.modules.memory.autoConsolidate, false); assert.equal(config.modules.shell.enabled, false);
-    const imported = await new V6MemoryStore(join(f.home, 'data/memory.json')).readV6(); assert.ok(imported.ok); assert.equal(imported.value.entries.length, 2);
+    const imported = { value: validateLegacyV6MemoryDocument(JSON.parse(await readFile(join(f.home, 'data/memory.json'), 'utf8'))) }; assert.equal(imported.value.entries.length, 2);
     const identity = JSON.parse(await readFile(join(f.home, 'desktop/desktop-identity.json')));
     assert.equal(identity.profiles[0].activeThreadId, 't'); assert.equal(identity.profiles[0].threads[0].transcriptDirectory, join(f.home, 'transcripts/t'));
     const messages = await new JsonlAgentStore({ directory: identity.profiles[0].threads[0].transcriptDirectory }).getModelMessages('t'); assert.equal(messages[0].id, 'u');

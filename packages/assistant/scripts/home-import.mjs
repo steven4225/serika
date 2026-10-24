@@ -1,3 +1,4 @@
+import { validateLegacyV6MemoryDocument as validateV6MemoryDocument } from "./memory-upgrade.mjs";
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { chmod, cp, lstat, mkdir, open, readFile, readdir, realpath, rename, rm, rmdir } from 'node:fs/promises';
@@ -6,7 +7,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { pathToFileURL } from 'node:url';
 import { manifest } from './cm-step7-migrate.mjs';
 import { readThreadTranscript } from '../../core/dist/index.js';
-import { validateV6MemoryDocument, validateTaskDocument, restoreTaskDocument, validateWorkTaskDocument,
+import { validateTaskDocument, restoreTaskDocument, validateWorkTaskDocument,
   validateCheckpointDocument, validateDreamingDocument, validateRssDocument, validateExecutionRunRecord } from '../dist/api.js';
 import { RecipeStore } from '../dist/recipe-store.js';
 import { resolveTuiModuleConfig } from '../dist/tui-module-config.js';

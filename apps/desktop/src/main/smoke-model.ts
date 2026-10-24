@@ -12,7 +12,9 @@ export function createDesktopSmokeModel() {
     let toolName = "memory_write";
     if (!prompt.slice(lastUser + 1).some(message => message.role === "tool")) {
       if (text.startsWith("S1 shell ")) { input = { command: text.slice(9) }; toolName = "shell_exec"; }
-      if (text.startsWith("记住 ")) input = { operation: "add", text: text.slice(3), category: "preference", sourceQuote: text, identity: { subject: "user", attribute: "smoke_preference", value: text.slice(3) } };
+      if (text.startsWith("记住 ")) input = { operation: "add", text: text.slice(3), category: "preference", scope: "user", sourceQuote: text, identity: { subject: "user", attribute: "smoke_preference", value: text.slice(3) } };
+      if (text.startsWith("记住项目 ")) input = { operation: "add", text: text.slice(5), category: "note", scope: "project", sourceQuote: text, identity: { subject: "project", attribute: "smoke_note", value: text.slice(5) } };
+      if (text.startsWith("读取记忆 ")) { input = JSON.parse(text.slice(5)); toolName = "memory_read"; }
       if (text === "撤销刚才记住的内容") {
         const results = prompt.flatMap(message => message.role === "tool" ? message.content : []);
         for (const result of [...results].reverse()) {
@@ -24,8 +26,14 @@ export function createDesktopSmokeModel() {
         if (!input) throw new Error("Smoke provider has no saved memory receipt");
       }
     }
+    const context = prompt.flatMap(message => message.role === "system" ? [] : message.content.flatMap(part => {
+      if (part.type !== "text") return [];
+      const marker = "Host context captured with this message:\n", suffix = part.text.indexOf(marker);
+      return /^(?:Fixed Memory snapshot:|Memory document index \(read with memory_read\):|Memory updates supersede the fixed snapshot:)/u.test(part.text) ? [part.text] : suffix >= 0 ? [part.text.slice(suffix + marker.length)] : [];
+    }));
+    const answer = text.startsWith("检查项目上下文") ? "SMOKE_CONTEXT:" + JSON.stringify(context) : "离线冒烟回复完成。";
     const chunks = input ? [{ type: "tool-call" as const, toolCallId: toolName === "memory_write" ? "smoke-memory" : "s1-shell", toolName, input: JSON.stringify(input) }] : [
-      { type: "text-start" as const, id: "answer" }, { type: "text-delta" as const, id: "answer", delta: "离线冒烟回复完成。" }, { type: "text-end" as const, id: "answer" },
+      { type: "text-start" as const, id: "answer" }, { type: "text-delta" as const, id: "answer", delta: answer }, { type: "text-end" as const, id: "answer" },
     ];
     return { stream: simulateReadableStream({ chunks: [
       { type: "stream-start" as const, warnings: [] }, ...chunks,

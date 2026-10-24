@@ -58,7 +58,7 @@ test("Steer revokes old file preview, replans inside the same Run, refreshes Mem
   let controller: AssistantController | undefined;
   try {
     const first = await f.open(); controller = first.controller;
-    const remembered = await first.app.memoryStore!.add({ text: "复盘喜欢两条行动" }); assert.ok(remembered.ok);
+    const remembered = await first.app.memoryStore!.add({ scope: { kind: "user" }, text: "复盘喜欢两条行动" }); assert.ok(remembered.ok);
     const started = await controller.run("修改 notes/plan.md", { memoryConsolidation: "exclude" }); assert.ok(started.ok);
     await waitFor(() => controller!.getSnapshot().pendingApproval?.toolCallId === "old-edit");
     const old = controller.getSnapshot().pendingApproval!;

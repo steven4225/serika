@@ -46,8 +46,8 @@ import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js
 import { createAiSdkSummarizer } from "./context-compaction.js";
 import { lookupTranscript } from "./work-summary.js";
 import type { AssistantAssembly } from "./assembly.js";
-import { type WorkspaceMemoryStore } from "./memory-types.js";
-import { createMemoryStore } from "./memory-v6-store.js";
+import { type ScopedMemoryStore } from "./memory-types.js";
+import { createMemoryStore } from "./memory-v7-store.js";
 import { formatMemoryHealth, readMemoryHealth } from "./memory-health.js";
 import { createCheckpointStore, type WorkspaceCheckpointStore } from "./checkpoint-store.js";
 import { formatHome, readHomeSnapshot, type HomeSnapshot } from "./home.js";
@@ -207,7 +207,7 @@ export interface RuntimeApp {
   getLearnedSkillReferences?: () => LearnedSkillReferenceSnapshot | null;
   /** Trusted host service activation; no renderer-provided executable/config paths. */
   activateTaskAutomation?: () => Promise<{ enabled: boolean; message?: string }>;
-  memoryStore?: WorkspaceMemoryStore;
+  memoryStore?: ScopedMemoryStore;
   recipes?: RecipeStore;
   memoryExtraction?: MemoryExtraction;
   background?: ThreadBackground;
@@ -306,7 +306,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   const todoist = assembleTodoist({ enabled: moduleConfig?.enabled.todoist ?? false, timeZone: moduleConfig?.todoistTimeZone ?? null, env });
   if ((memoryEnabled || checkpointEnabled || taskEnabled || shellEnabled) && !dataPaths) throw new Error("Persistent modules require an explicit dataDirectory");
   const memoryStore =
-    memoryEnabled ? createMemoryStore(dataPaths!.memory) : undefined;
+    memoryEnabled ? createMemoryStore(dataPaths!.memory, project?.id ?? null) : undefined;
+  if (memoryStore) { const checked = await memoryStore.readV7!(); if (!checked.ok) throw new Error(checked.error.message); }
   const checkpointStore = checkpointEnabled
     ? createCheckpointStore(dataPaths!.checkpoint)
     : undefined;
@@ -741,7 +742,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       ...(moduleConfig?.modelPricing ? { prices: moduleConfig.modelPricing } : {}),
     });
     const memoryExtraction = memoryStore && moduleConfig?.autoConsolidate ? createMemoryExtraction({
-      store: memoryStore, threadId, ...(workspaceRoot ? { workspaceRoot } : {}), getMessages: () => transcript.read(), model: observedModel("memory_consolidation"),
+      store: memoryStore, threadId, projectId: project?.id ?? null, ...(workspaceRoot ? { workspaceRoot } : {}), getMessages: () => transcript.read(), model: observedModel("memory_consolidation"),
       budget: moduleConfig.contextCompaction, updated: () => { redrawAfterModuleNotification?.(); },
     }) : undefined;
     const models = new InMemoryModelRegistry({ [modelAlias]: observedModel() });
@@ -755,11 +756,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     const buildReferencePrefix = createReferenceAssembler([
       createCheckpointSource({ read: signal => readCurrentCheckpoint(checkpointStore, signal), resume: activeResumeMessage }),
       createLearnedSkillSource({ dreaming, threadId }),
-      createMemoryReferenceSource({ store: memoryStore, threadId }),
+      createMemoryReferenceSource({ store: memoryStore, threadId, projectId: project?.id ?? null }),
       createTaskTimeSource(project),
       createWorkTaskSource(() => currentRun.workTaskMessage),
       createForegroundTaskSource(() => autonomousRun() ? currentRun.foreground?.request : undefined),
-    ]);
+    ], project?.id ?? null);
     const referencePrefix = async (messages: readonly UIMessage[], signal: AbortSignal) => (await buildReferencePrefix(messages, signal)).prefix;
     let lastUncompactedPreparation: ContextDiagnostics["lastPreparation"] = null;
     let lastPreparationSource: NonNullable<ContextDiagnostics["lastPreparationSource"]> | null = null;
@@ -831,7 +832,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         lastPreparationSource = null;
         try {
           const prepared = await preparePrimaryContext({
-            messages, signal, currentUserId: currentUser?.id, references: buildReferencePrefix, compactor: contextCompactor,
+            messages, signal, projectId: project?.id ?? null, currentUserId: currentUser?.id, references: buildReferencePrefix, compactor: contextCompactor,
             observer: {
               passthrough: () => {
                 lastUncompactedPreparation = {

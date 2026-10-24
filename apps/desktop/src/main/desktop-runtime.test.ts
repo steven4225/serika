@@ -262,7 +262,7 @@ describe("normal desktop memory and history entry", () => {
     const model = new MockLanguageModelV3({ doStream: async () => {
       if (written) return response();
       written = true;
-      return response("memory_write", { operation: "add", text: "我的复盘长期偏好：先结论，再两条步骤。", category: "preference", sourceQuote: "我的复盘长期偏好：先结论，再两条步骤。", identity: { subject: "user", attribute: "review_format", value: "先结论，再两条步骤" } });
+      return response("memory_write", { operation: "add", scope: "user", text: "我的复盘长期偏好：先结论，再两条步骤。", category: "preference", sourceQuote: "我的复盘长期偏好：先结论，再两条步骤。", identity: { subject: "user", attribute: "review_format", value: "先结论，再两条步骤" } });
     } });
     const options = { applicationHome: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock", model, send: (event: MainToRenderer) => events.push(event) };
     let host = await DesktopRuntime.create(options);

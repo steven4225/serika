@@ -8,7 +8,7 @@ import { PassThrough } from "node:stream";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp } from "./app.js";
-import { createMemoryStore } from "./memory-v6-store.js";
+import { createMemoryStore } from "./memory-v7-store.js";
 import { createAssistantController } from "./assistant-controller.js";
 import { memorySnapshot } from "./memory-snapshot.js";
 import { memoryReadTools } from "./memory-read-tools.js";
@@ -19,10 +19,11 @@ test("production five-layer runtime persists references, reopens the same prefix
   await mkdir(workspace);
   await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: true, autoConsolidate: true } },
     automation: { dreaming: { enabled: true } }, desktopAutonomy: { authorizedDirectory: workspace } }));
-  const store = createMemoryStore(join(workspace, ".runloom/memory.json")), documentId = randomUUID();
+  const project = { id: "five-layer-project", directory: workspace, name: "workspace", kind: "folder" as const };
+  const store = createMemoryStore(join(workspace, ".runloom/memory.json"), project.id), documentId = randomUUID();
   assert.ok((await store.changeLibrary!({ operation: "save-document", id: documentId, title: "reference document", text: "DOCUMENT_BODY_ONLY_ON_READ", folderId: null, expectedRevision: 0, entries: [] })).ok);
-  for (let i = 0; i < 3; i++) assert.ok((await store.add({ text: `overflow_marker_${i} ` + "x".repeat(1800) })).ok);
-  assert.ok((await store.add({ text: "DISABLED_SECRET", enabled: false })).ok);
+  for (let i = 0; i < 3; i++) assert.ok((await store.add({ scope: { kind: "user" }, text: `overflow_marker_${i} ` + "x".repeat(1800) })).ok);
+  assert.ok((await store.add({ scope: { kind: "user" }, text: "DISABLED_SECRET", enabled: false })).ok);
   const prompts: Array<Parameters<MockLanguageModelV3["doStream"]>[0]> = [];
   const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 1, text: 1, reasoning: undefined } };
   const model = new MockLanguageModelV3({ doGenerate: async () => { throw new Error("No retrieval or dreaming model call is allowed"); }, doStream: async options => {
@@ -33,10 +34,10 @@ test("production five-layer runtime persists references, reopens the same prefix
       { type: "text-delta" as const, id: "answer", delta: "done" }, { type: "text-end" as const, id: "answer" },
       ]), { type: "finish" as const, finishReason: { unified: query ? "tool-calls" as const : "stop" as const, raw: undefined }, usage }] }) };
   } });
-  const open = () => createRuntimeApp({ directory, assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "thread", configPath }, modelAlias: "fixture", model, output: new PassThrough(), env: {}, cwd: root, desktopAutonomyHost: { home: join(root, "H") } });
+  const open = () => createRuntimeApp({ directory, assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "thread", configPath }, project, modelAlias: "fixture", model, output: new PassThrough(), env: {}, cwd: root, desktopAutonomyHost: { home: join(root, "H") } });
   let app = await open();
   const run = async (id: string) => {
-    const request = { id, role: "user" as const, parts: [{ type: "text" as const, text: id }] };
+    const request = { id, role: "user" as const, parts: [{ type: "text" as const, text: id }], metadata: { memoryProjectId: project.id } };
     app.beginForegroundExecution?.("desktop", request);
     try { const handle = await app.runtime.run({ agentId: app.agentId, threadId: "thread", messages: [request], signal: AbortSignal.timeout(5000) });
       assert.equal((await handle.result).status, "completed");
@@ -76,10 +77,10 @@ test("snapshot budgets include whole serialized entries, pin priority and tempor
 });
 
 test("memory reads recheck disabled documents and retracted overflow instead of returning stale bodies", async () => {
-  const root = await mkdtemp(join(tmpdir(), "serika-read-recheck-")), store = createMemoryStore(join(root, ".runloom/memory.json"));
+  const root = await mkdtemp(join(tmpdir(), "serika-read-recheck-")), store = createMemoryStore(join(root, ".runloom/memory.json"), "read-recheck-project");
   try {
-    const added = await store.add({ text: "RETRACTED_READ_SECRET" }); assert.ok(added.ok);
-    assert.ok((await store.writeV6!([{ id: added.entry.id, expectedRevision: added.entry.revision!, operation: "retract", source: { kind: "manual" } }])).ok);
+    const added = await store.add({ scope: { kind: "user" }, text: "RETRACTED_READ_SECRET" }); assert.ok(added.ok);
+    assert.ok((await store.writeV7!([{ id: added.entry.id, expectedRevision: added.entry.revision!, operation: "retract", source: { kind: "manual" } }])).ok);
     const id = randomUUID();
     assert.ok((await store.changeLibrary!({ operation: "save-document", id, title: "document", text: "DISABLED_READ_SECRET", folderId: null, expectedRevision: 0, entries: [] })).ok);
     const material = await store.readReferenceMaterial!(new AbortController().signal, new Date()); assert.ok(material.ok);

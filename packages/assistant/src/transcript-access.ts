@@ -1,11 +1,11 @@
 import { excludedTranscriptView, type JsonlAgentStore, type TranscriptExclusion } from "@serika/core";
 import type { UIMessage } from "ai";
-import type { WorkspaceMemoryStore } from "./memory-types.js";
+import type { ScopedMemoryStore } from "./memory-types.js";
 import type { ExecutionRunRecord } from "./execution-record-store.js";
 import { memoryText } from "./memory-write.js";
 
 /** All content consumers share exclusion records; chat display uses the raw store. */
-export function createTranscriptAccess(options: { store: JsonlAgentStore; threadId: string; memory: WorkspaceMemoryStore | undefined; invalidated(): void }) {
+export function createTranscriptAccess(options: { store: JsonlAgentStore; threadId: string; memory: ScopedMemoryStore | undefined; invalidated(): void }) {
   let recovered = false;
   const exclusions = () => options.store.getTranscriptExclusions(options.threadId);
   const redact = async (records: readonly TranscriptExclusion[]) => {

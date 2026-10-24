@@ -23,7 +23,7 @@ export function assertExperimentalDataPaths(paths: readonly (string | undefined)
     if (path === undefined) continue;
     const target = canonicalPath(path);
     if (dailyRoots.some(daily => target === daily || target.startsWith(daily + sep))) {
-      throw new Error("实验版本拒绝写入日用数据目录；请使用新建的隔离 v6 测试数据目录");
+      throw new Error("实验版本拒绝写入日用数据目录；请使用新建的隔离测试数据目录");
     }
   }
 }

@@ -54,6 +54,7 @@ try {
   if (app.tuiMode) {
     await runTui({
       runtime: app.runtime,
+      projectId: app.project?.id ?? null,
       store: app.store,
       threadId: app.threadId,
       agentId: app.agentId,

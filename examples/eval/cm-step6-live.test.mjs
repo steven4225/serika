@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateText, simulateReadableStream } from 'ai';
 import { MockLanguageModelV3 } from 'ai/test';
-import { meteredModel, safeFailure, chargedUsd, noAutomaticRetryMentioned, pastReadSucceeded, goalMentioned, goalContentMentioned, summaryGoalMentioned, oldGoalMentioned, summarizeBatch, uncertainMentioned, runChat } from './cm-step6-live.mjs';
+import { meteredModel, safeFailure, chargedUsd, noAutomaticRetryMentioned, pastReadSucceeded, goalMentioned, goalContentMentioned, summaryGoalMentioned, oldGoalMentioned, summarizeBatch, uncertainMentioned } from './cm-step6-live.mjs';
 import { configureCliModel } from '@serika/assistant/internal/model-config.js';
 import { evaluateM1, m1Cases } from './cm-step4.mjs';
 
@@ -121,7 +121,7 @@ test('M1 live evidence separates literal-value rejection reasons and retains onl
   const result = await evaluateM1({ cases: cases.map(item => ({ id: item.id, saved: 1,
     messages: [...(item.proposal ? [{ id: 'a', role: 'assistant', parts: [{ type: 'text', text: '以后使用中文' }] }] : []),
       { id: 'u', role: 'user', parts: [{ type: 'text', text: item.quote }] }],
-    proposals: [{ operation: 'add', category: 'preference', sourceMessageId: 'u', sourceQuote: item.sourceQuote, text: item.text,
+    proposals: [{ operation: 'add', scope: 'user', category: 'preference', sourceMessageId: 'u', sourceQuote: item.sourceQuote, text: item.text,
       identity: { subject: 'user', attribute: 'fixture', value: item.value }, ...(item.proposal ? { proposal: item.proposal } : {}) }],
   })) });
   assert.equal(result.calls, 0); assert.equal(result.fixtureCalls, 12);
@@ -234,7 +234,32 @@ test('actual Controller archives the primary reply before a background summary f
     const spec = effectiveCompactionFidelitySpec('CE03');
     const store = new JsonlAgentStore({ directory: join(root, 'transcripts') });
     await store.save('eval', compactionFidelityHistory(spec, 0).messages);
-    const result = await runChat({ model, modelAlias: 'archive-fixture', root, spec, question: spec.turns[0], label: 'cold-process', answerArchive });
+    const { createRuntimeApp, createAssistantController } = await import('@serika/assistant');
+    const { PassThrough } = await import('node:stream');
+    const configPath = join(root, 'config.json');
+    await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [], modules: { memory: { enabled: false }, 'read-file': { enabled: false } }, contextCompaction: spec.contextBudget,
+      modelContextWindows: [{ provider: 'openai-compatible.chat', modelId: model.modelId, contextWindowTokens: spec.contextBudget.contextWindowTokens }], run: { maxSteps: 1, totalTimeoutMs: 120000 } }));
+    const app = await createRuntimeApp({ directory: join(root, 'transcripts'), assistant: { threadId: 'eval', configPath }, model, modelAlias: 'archive-fixture', output: new PassThrough().resume(), env: {}, cwd: root });
+    const controller = createAssistantController(app);
+    let result;
+    try {
+      await controller.runs.list(); await app.background.pause();
+      const before = (await controller.runs.listModelUsage()).calls.length;
+      assert.ok((await controller.run(spec.turns[0])).ok);
+      const deadline = Date.now() + 5000;
+      while (controller.getSnapshot().state.kind !== 'idle') { assert.ok(Date.now() < deadline); await new Promise(resolve => setTimeout(resolve, 5)); }
+      const primary = controller.getSnapshot().lastPrimaryResult;
+      await writeFile(answerArchive, JSON.stringify({ reply: primary?.text, stage: 'primary-returned', backgroundSettled: false }));
+      let backgroundFailure = false;
+      while (true) {
+        const diagnostics = await controller.getContextDiagnostics(); assert.ok(diagnostics.ok);
+        if (diagnostics.value.background?.error) { backgroundFailure = true; break; }
+        if (!diagnostics.value.background?.queued && !diagnostics.value.background?.running) break;
+        assert.ok(Date.now() < deadline); await new Promise(resolve => setTimeout(resolve, 5));
+      }
+      result = { usageCalls: (await controller.runs.listModelUsage()).calls.length - before, reply: primary?.text,
+        checks: { completed: primary?.status === 'completed', backgroundSettled: !backgroundFailure }, passed: !backgroundFailure };
+    } finally { await controller.shutdown(); }
     assert.equal(backgroundCalls, 1); assert.equal(result.usageCalls, 2); assert.equal(result.reply, reply); assert.equal(observedArchive.backgroundSettled, false);
     assert.equal(result.checks.completed, true); assert.equal(result.checks.backgroundSettled, false); assert.equal(result.passed, false);
     assert.equal(JSON.parse(await readFile(answerArchive, 'utf8')).reply, reply);

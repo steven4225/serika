@@ -1,8 +1,8 @@
-import type { WorkspaceMemoryStore } from "./memory-types.js";
+import type { ScopedMemoryStore } from "./memory-types.js";
 import type { MemoryResult } from "./memory-types.js";
 import type { MemoryAction } from "./memory-controls.js";
 
-/** Read-only projection of validated v6 sources and replacement chains. */
+/** Read-only projection of validated v7 sources and replacement chains. */
 export interface MemoryFactReceipt {
   id: string;
   threadId: string;
@@ -12,10 +12,10 @@ export interface MemoryFactReceipt {
 }
 
 export async function readMemoryFactReceipts(
-  store: WorkspaceMemoryStore | undefined, threadId: string,
+  store: ScopedMemoryStore | undefined, threadId: string,
 ): Promise<MemoryResult<MemoryFactReceipt[]>> {
-  if (!store?.readV6) return { ok: true, value: [] };
-  const saved = await store.readV6();
+  if (!store?.readV7) return { ok: true, value: [] };
+  const saved = await store.readV7();
   if (!saved.ok) return { ok: false, error: {
     code: "MEMORY_RECEIPT_UNAVAILABLE", message: "记忆回执暂时无法核实，请在记忆页查看；不能当作已经记住。",
   } };

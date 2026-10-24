@@ -14,8 +14,8 @@ import { EXECUTION_RECORD_FILE } from "./execution-record-store.js";
 import { createExecutionRecordStore } from "./execution-record-store.js";
 import { createWorkTaskStore } from "./work-task-store.js";
 import { createToolConfirmation, type PendingToolApproval } from "./tool-confirmation.js";
-import { type WorkspaceMemoryStore } from "./memory-types.js";
-import { createMemoryStore } from "./memory-v6-store.js";
+import { type ScopedMemoryStore } from "./memory-types.js";
+import { createMemoryStore } from "./memory-v7-store.js";
 
 function deferred<T>(): {
   promise: Promise<T>;

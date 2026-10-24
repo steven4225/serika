@@ -16,7 +16,7 @@
     "clean": "tsc -b --clean",
     "typecheck": "tsc -b --pretty false && pnpm --filter @serika/desktop typecheck",
     "test": "node scripts/test-home.mjs --home \"$SERIKA_TEST_HOME\" -- /bin/sh -c 'pnpm test:runtime && pnpm desktop:test'",
-    "test:runtime": "node scripts/test-home.mjs --home \"$SERIKA_TEST_HOME\" -- /bin/sh -c 'pnpm build:runtime && node --test --test-concurrency=4 packages/core/dist/*.test.js packages/ai-sdk-adapter/dist/*.test.js packages/assistant/dist/*.test.js packages/assistant/dist/acceptance/*.test.js packages/assistant/dist/modules/*.test.js apps/cli/dist/*.test.js packages/assistant/scripts/cm-step7-migrate.test.mjs packages/assistant/scripts/home-import.test.mjs packages/assistant/scripts/config-upgrade.test.mjs scripts/test-home.test.mjs'",
+    "test:runtime": "node scripts/test-home.mjs --home \"$SERIKA_TEST_HOME\" -- /bin/sh -c 'pnpm build:runtime && node --test --test-concurrency=4 packages/core/dist/*.test.js packages/ai-sdk-adapter/dist/*.test.js packages/assistant/dist/*.test.js packages/assistant/dist/acceptance/*.test.js packages/assistant/dist/modules/*.test.js apps/cli/dist/*.test.js packages/assistant/scripts/cm-step7-migrate.test.mjs packages/assistant/scripts/home-import.test.mjs packages/assistant/scripts/config-upgrade.test.mjs packages/assistant/scripts/memory-upgrade.test.mjs scripts/test-home.test.mjs'",
     "test:all": "pnpm test",
     "demo": "pnpm build:runtime && node apps/cli/dist/index.js",
     "tui": "pnpm build:runtime && node apps/cli/dist/index.js --tui",

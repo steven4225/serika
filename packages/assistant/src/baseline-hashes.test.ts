@@ -14,7 +14,7 @@ import { recipeHash } from "./recipe-store.js";
 import { rssItemKey } from "./rss-subscriptions.js";
 import { createBuiltinSkill } from "./skill-catalog.js";
 import { createDreamingService } from "./dreaming.js";
-import { createMemoryStore } from "./memory-v6-store.js";
+import { createMemoryStore } from "./memory-v7-store.js";
 import type { WorkTask, WorkTaskStore } from "./work-task-store.js";
 import type { ExecutionRecordStore, ExecutionRunRecord } from "./execution-record-store.js";
 import { taskResultLink, taskResultWorkspaceKey } from "./task-result-link.js";

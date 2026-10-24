@@ -4,7 +4,7 @@ import { lstat, mkdir, open, rename, rm } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import type { UIMessage } from "ai";
 import { acquireFlock } from "./flock.js";
-import { selectInjectableMemoryEntries, type WorkspaceMemoryStore } from "./memory-types.js";
+import { selectInjectableMemoryEntries, type ScopedMemoryStore } from "./memory-types.js";
 import { validateExecutionRunRecord, type ExecutionRecordStore, type ExecutionRunRecord } from "./execution-record-store.js";
 import { validateArchivedWorkTask, type WorkTask, type WorkTaskStore } from "./work-task-store.js";
 import { throwIfAborted } from "./workspace-path.js";
@@ -122,7 +122,7 @@ function experience(task: WorkTask, run: ExecutionRunRecord | null): DreamingExp
 }
 function clip(s: string, max: number): string { let result = "", size = 0; for (const c of s) { const n = Buffer.byteLength(c); if (size + n > max) break; result += c; size += n; } return result; }
 
-export function createDreamingService(options: { filePath: string; workTasks: WorkTaskStore; executionRecords: Pick<ExecutionRecordStore, "getRun">; memoryStore?: WorkspaceMemoryStore }): DreamingService {
+export function createDreamingService(options: { filePath: string; workTasks: WorkTaskStore; executionRecords: Pick<ExecutionRecordStore, "getRun">; memoryStore?: ScopedMemoryStore }): DreamingService {
   const file = resolve(options.filePath), root = dirname(dirname(file));
   // Prepared batches are host capabilities, not renderer/model-supplied experience claims.
   const prepared = new WeakMap<DreamingBatch, string>();

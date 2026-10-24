@@ -5,15 +5,15 @@ import { mock } from 'node:test';
 import { pathToFileURL } from 'node:url';
 import { MockLanguageModelV3 } from 'ai/test';
 import { hashCanonicalJson } from '@serika/core';
-import { createMemoryStore } from '@serika/assistant/internal/memory-v6-store.js';
+import { createMemoryStore } from '@serika/assistant/internal/memory-v7-store.js';
 import { createMemoryExtraction } from '@serika/assistant/internal/memory-extraction.js';
-import { v6Conflicts } from '@serika/assistant/internal/memory-v6-store.js';
+import { v7Conflicts } from '@serika/assistant/internal/memory-v7-store.js';
 import { DEFAULT_CONTEXT_BUDGET_CONFIG, defaultContextBudget } from '@serika/assistant/internal/context-budget.js';
 import { configureCliModel } from '@serika/assistant/internal/model-config.js';
 
 const msg = (id, role, text) => ({ id, role, parts: [{ type: 'text', text }] });
 const source = text => msg('u', 'user', text);
-const add = (text, extra = {}) => ({ operation: 'add', category: 'preference', text, sourceMessageId: 'u', sourceQuote: text, ...extra });
+const add = (text, extra = {}) => ({ operation: 'add', scope: 'user', category: 'preference', text, sourceMessageId: 'u', sourceQuote: text, ...extra });
 export function m1Cases() {
   const proposal = msg('a', 'assistant', '以后使用中文');
   const coffee = ['我喝咖啡不加糖', '我喜欢咖啡加糖'];
@@ -72,11 +72,11 @@ export async function evaluateM1({ cases = m1Cases(), model, outputDirectory }) 
           extraction.idle(); await settle(extraction);
           mock.timers.tick(30 * 60_000); mock.timers.reset();
           await settle(extraction); await extraction.pause();
-          const saved = await store.readV6(); if (!saved.ok) throw new Error(saved.error.code);
+          const saved = await store.readV7(); if (!saved.ok) throw new Error(saved.error.code);
           const entries = saved.value.entries.filter(entry => entry.state === 'active');
           const checks = { completed: extraction.diagnostics().completed === 1, singleCall: requestCount === 1,
             saved: fixture.replay ? entries.every(entry => entry.text.includes(fixture.question)) : entries.length === fixture.saved,
-            conflicts: v6Conflicts(entries).length === (fixture.conflicts ?? 0),
+            conflicts: v7Conflicts(entries).length === (fixture.conflicts ?? 0),
             confirmation: !fixture.confirmed || confirmationSatisfied(entries),
             uncertain: !fixture.uncertain || entries.some(entry => entry.uncertain && entry.text === fixture.messages[0].parts[0].text) };
           results.push({ case: fixture.id, window, fixture: !model, sourceHash: hashCanonicalJson(fixture.messages), rows, diagnostics: extraction.diagnostics(), checks, passed: Object.values(checks).every(Boolean) });

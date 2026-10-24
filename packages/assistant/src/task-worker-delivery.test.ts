@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { it } from "node:test";
 import { JsonlAgentStore } from "@serika/core";
 import { MockLanguageModelV3 } from "ai/test";
-import { createMemoryStore } from "./memory-v6-store.js";
+import { createMemoryStore } from "./memory-v7-store.js";
 import { createTaskStore } from "./task-store.js";
 import { createScheduledDemoModel, createTaskWorkerAgent } from "./task-worker-entry.js";
 import { runTaskWorker } from "./task-worker.js";
@@ -21,7 +21,7 @@ it("no-new-user memory Demo: a due reminder creates no model Run and leaves save
   } }), store: new JsonlAgentStore({ directory: join(root, ".runloom", "task-transcripts") }) });
   try {
     const memory = createMemoryStore(join(root, ".runloom/memory.json"));
-    assert.ok((await memory.add({ text: "我喜欢喝美式。", source: {
+    assert.ok((await memory.add({ scope: { kind: "user" }, text: "我喜欢喝美式。", source: {
       kind: "conversation", threadId: "ordinary-chat", messageId: "previous-user", quote: "记住我喜欢喝美式。", sentAt: null,
     } })).ok);
     const before = await readFile(join(root, ".runloom", "memory.json"));

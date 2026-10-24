@@ -1,7 +1,7 @@
 import {
   MEMORY_CONTEXT_MAX_BYTES,
   type MemoryEntry,
-  type WorkspaceMemoryStore,
+  type ScopedMemoryStore,
 } from "./memory-types.js";
 import { memorySnapshot } from "./memory-snapshot.js";
 
@@ -30,7 +30,7 @@ function exclusion(entry: MemoryEntry, now: Date): "thread" | "disabled" | "expi
 }
 
 export async function readMemoryHealth(
-  store: WorkspaceMemoryStore | undefined,
+  store: ScopedMemoryStore | undefined,
   _threadId: string,
   now: Date = new Date(),
 ): Promise<MemoryHealth> {

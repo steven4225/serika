@@ -62,15 +62,22 @@ export type ReferenceAssembler = ((
 
 type MessageReferences = { contextReferences?: UIMessage[]; contextSnapshot?: UIMessage[] };
 const metadata = (message: UIMessage): MessageReferences => (message.metadata ?? {}) as MessageReferences;
-export function expandMessageReferences(messages: readonly UIMessage[]): UIMessage[] {
+export function expandMessageReferences(messages: readonly UIMessage[], projectId?: string | null): UIMessage[] {
   const refreshedAt = messages.reduce((last, message, index) => metadata(message).contextSnapshot !== undefined ? index : last, -1);
-  return messages.map((message, index) => {
+  let sourceProject: unknown;
+  return messages.flatMap((message, index) => {
+    if (message.role === "user") sourceProject = (message.metadata as { memoryProjectId?: unknown } | undefined)?.memoryProjectId;
     const { contextReferences, contextSnapshot, ...rest } = metadata(message);
-    const references = contextReferences?.filter(reference => reference.id !== "runloom-foreground-task" &&
+    const references = contextReferences?.filter(reference => (reference.id !== "memory-updates" || projectId === undefined || (reference.metadata as { memoryProjectId?: unknown } | undefined)?.memoryProjectId === projectId) && reference.id !== "runloom-foreground-task" &&
       (reference.id !== "memory-updates" || index > refreshedAt));
-    const projected = contextReferences || contextSnapshot ? { ...message, metadata: rest } : message;
-    return !references?.length ? projected : { ...projected, parts: [...message.parts, { type: "text" as const,
-      text: "Host context captured with this message:\n" + references.flatMap(reference => reference.parts.flatMap(part => part.type === "text" ? [part.text] : [])).join("\n") }] };
+    const parts = projectId === undefined || sourceProject === projectId ? message.parts : message.parts.filter(part => {
+      const name = part.type === "dynamic-tool" ? part.toolName : part.type.startsWith("tool-") ? part.type.slice(5) : undefined;
+      return name !== "memory_read" && name !== "memory_write";
+    });
+    if (parts.length !== message.parts.length && !parts.some(part => part.type !== "step-start")) return [];
+    const projected = contextReferences || contextSnapshot || parts !== message.parts ? { ...message, parts, metadata: rest } : message;
+    return [!references?.length ? projected : { ...projected, parts: [...parts, { type: "text" as const,
+      text: "Host context captured with this message:\n" + references.flatMap(reference => reference.parts.flatMap(part => part.type === "text" ? [part.text] : [])).join("\n") }] }];
   });
 }
 
@@ -82,7 +89,7 @@ export function expandMessageReferences(messages: readonly UIMessage[]): UIMessa
  * - A slot claimed by two sources, or filled by a source that did not claim it,
  *   is an assembly error.
  */
-export function createReferenceAssembler(sources: readonly ReferenceSource[]): ReferenceAssembler {
+export function createReferenceAssembler(sources: readonly ReferenceSource[], projectId?: string | null): ReferenceAssembler {
   const owners = new Map<ReferenceSlot, string>();
   for (const source of sources) {
     for (const slot of source.slots) {
@@ -131,7 +138,7 @@ export function createReferenceAssembler(sources: readonly ReferenceSource[]): R
         current: fresh.filter(entry => !old.some(value => value.id === entry.id && value.revision === entry.revision)),
         ...(JSON.stringify(oldMemory.parts[1]) === JSON.stringify(freshMemory.parts[1]) && !previous.some(update => update.documentIndexChanged) ? {} : { documentIndex: freshMemory.parts[1] }) };
       if (updates.invalidated.length || updates.current.length || updates.documentIndex) filled.set("memory-updates", {
-        id: "memory-updates", role: "assistant", metadata: { memoryEntryIds: updates.current.map(entry => entry.id), documentIndexChanged: !!updates.documentIndex },
+        id: "memory-updates", role: "assistant", metadata: { memoryProjectId: projectId ?? null, memoryEntryIds: updates.current.map(entry => entry.id), documentIndexChanged: !!updates.documentIndex },
         parts: [{ type: "text", text: "Memory updates supersede the fixed snapshot:\n" + JSON.stringify(updates) }] });
     }
     fixed ??= REFERENCE_SLOTS.filter(fixedSlot).flatMap(slot => filled.has(slot) ? [filled.get(slot)!] : []);
@@ -156,7 +163,9 @@ export function createReferenceAssembler(sources: readonly ReferenceSource[]): R
   },
     restore: (messages: readonly UIMessage[], snapshot?: readonly UIMessage[]) => {
       const saved = [...messages].reverse().find(message => metadata(message).contextSnapshot)?.metadata as MessageReferences | undefined;
-      if (snapshot || saved?.contextSnapshot) { fixed = structuredClone([...(snapshot ?? saved!.contextSnapshot!)]); changed = false; }
+      const restored = snapshot ?? saved?.contextSnapshot;
+      const memory = restored?.find(message => message.id === "runloom-workspace-memory");
+      if (restored && (projectId === undefined || memory && (memory.metadata as { memoryProjectId?: unknown } | undefined)?.memoryProjectId === projectId)) { fixed = structuredClone([...restored]); changed = false; }
     } });
 }
 
@@ -198,6 +207,7 @@ export async function preparePrimaryContext(input: {
   references: ReferenceAssembler;
   compactor: PrimaryContextCompactor | undefined;
   observer: PrimaryContextObserver;
+  projectId?: string | null;
 }): Promise<UIMessage[]> {
   const { messages, signal, currentUserId, compactor, observer } = input;
   let prepared: ReferencePrefix;
@@ -210,7 +220,7 @@ export async function preparePrimaryContext(input: {
   try {
     prepared = await input.references(messages, signal, true);
     if (compactor === undefined) {
-      const selected = [...prepared.prefix, ...expandMessageReferences(withoutConsolidationTurns(input.references.annotate(messages)))];
+      const selected = [...prepared.prefix, ...expandMessageReferences(withoutConsolidationTurns(input.references.annotate(messages)), input.projectId)];
       observer.passthrough();
       observer.published(prepared.memoryReference);
       return placeForeground(selected);
@@ -222,7 +232,7 @@ export async function preparePrimaryContext(input: {
   try {
     const conversation = await compactor.prepare(input.references.annotate(messages), signal, false, prepared.prefix);
     observer.published((await input.references(messages, signal, true)).memoryReference);
-    return placeForeground([...compactor.effectiveReferencePrefix, ...expandMessageReferences(conversation)]);
+    return placeForeground([...compactor.effectiveReferencePrefix, ...expandMessageReferences(conversation, input.projectId)]);
   } catch (error) {
     observer.referencesFailed(error);
     observer.compactionFailed(error);

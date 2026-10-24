@@ -24,7 +24,7 @@ async function fixture() {
   await writeFile(join(transcripts, `${digest("foreign")}.jsonl`), record("foreign", "PRIVATE-FOREIGN") + "\n");
   await writeFile(join(workspace, ".env"), "API_KEY=PRIVATE-CONFIG");
   await writeFile(join(workspace, "project.txt"), "PROJECT-FILE");
-  assert.ok((await createMemoryStore(join(workspace, "data/memory.json")).add({ text: "saved memory" })).ok);
+  assert.ok((await createMemoryStore(join(workspace, "data/memory.json")).add({ scope: { kind: "user" }, text: "saved memory" })).ok);
   const records = createExecutionRecordStore(transcripts);
   for (const threadId of ["daily", "foreign"]) {
     await records.startRun({ runId: `run-${threadId}`, threadId, phase: "primary", startedAt: new Date(0).toISOString() });
@@ -50,7 +50,7 @@ it("backup only registered assistant data; restoration is an offline copy with s
     const memory = archive.entries.find(entry => entry.path === "workspace/.runloom/memory.json")!;
     assert.equal(memory.text, await readFile(join(f.workspace, "data/memory.json"), "utf8"));
     assert.equal(memory.sha256, digest(memory.text));
-    assert.equal(JSON.parse(memory.text).version, 6);
+    assert.equal(JSON.parse(memory.text).version, 7);
     assert.equal(saved.threads, 1);
     const serialized = JSON.stringify(archive);
     for (const excluded of ["PRIVATE-FOREIGN", "PRIVATE-CONFIG", "PROJECT-FILE", "run-foreign"]) assert(!serialized.includes(excluded));
@@ -215,7 +215,7 @@ it("rejects valid JSON that exceeds the original Store read limit before preview
 it("rejects short configured credentials in assistant text rather than silently exporting them", async () => {
   const f = await fixture();
   try {
-    assert.ok((await createMemoryStore(join(f.workspace, "data/memory.json")).add({ text: "短凭据 k!3x" })).ok);
+    assert.ok((await createMemoryStore(join(f.workspace, "data/memory.json")).add({ scope: { kind: "user" }, text: "短凭据 k!3x" })).ok);
     await assert.rejects(exportBackup({ ...f, knownSecrets: ["k!3x"] }), /凭据/);
     await assert.rejects(readFile(f.destination), { code: "ENOENT" });
   } finally { await rm(f.root, { recursive: true, force: true }); }
@@ -264,7 +264,7 @@ it("export filters excluded message, snapshot and receipt payloads while preserv
     await rm(join(f.workspace, "data/memory.json"));
     const memory = createMemoryStore(join(f.workspace, "data/memory.json"));
     const secret = "PRIVATE-EXCLUDED-PAYLOAD";
-    const saved = await memory.writeV6!([{ operation: "add", text: secret, category: "note", source: { kind: "conversation", threadId: "daily", messageId: "user", quote: secret, sentAt: null } }]); assert.ok(saved.ok);
+    const saved = await memory.writeV7!([{ operation: "add", scope: { kind: "user" }, text: secret, category: "note", source: { kind: "conversation", threadId: "daily", messageId: "user", quote: secret, sentAt: null } }]); assert.ok(saved.ok);
     const store = new JsonlAgentStore({ directory: f.transcripts });
     await store.save("daily", [{ id: "user", role: "user", parts: [{ type: "text", text: secret }] },
       { id: "tool", role: "assistant", parts: [{ type: "dynamic-tool", toolName: "write_file", toolCallId: "private-call", state: "output-error", input: { path: "private.txt", content: secret }, errorText: "TOOL_OUTCOME_UNKNOWN" }] }]);

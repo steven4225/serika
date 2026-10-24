@@ -6,8 +6,8 @@ import { hashCanonicalJson } from "@serika/core";
 import { availableInputTokens, defaultContextBudget, type ContextBudgetConfig } from "./context-budget.js";
 import { findCommittedUserMessage, withoutConsolidationTurns } from "./consolidation.js";
 import { bindMemoryWrite, memoryText, memoryWriteSchema, MEMORY_WRITE_RULES, MemoryWriteValidationError, type MemoryWriteValidationFailure } from "./memory-write.js";
-import type { WorkspaceMemoryStore } from "./memory-types.js";
-import type { V6Change, V6Document } from "./memory-v6-store.js";
+import type { ScopedMemoryStore } from "./memory-types.js";
+import type { V7Change, V7Document } from "./memory-v7-store.js";
 
 const responseSchema = z.object({ proposals: z.array(memoryWriteSchema.safeExtend({ sourceMessageId: z.string().min(1) })),
   outcomes: z.array(z.object({ messageId: z.string().min(1), status: z.enum(["extracted", "no_memory", "deferred"]) }).strict()) }).strict();
@@ -24,7 +24,7 @@ export function extractionMessages(messages: readonly UIMessage[]) {
     if (message.role === "user") excluded = !findCommittedUserMessage(messages, message.id);
     return !excluded;
   }).map(message => ({ id: message.id, role: message.role,
-    metadata: Object.fromEntries(Object.entries(message.metadata ?? {}).filter(([key]) => ["sentAt", "receivedAt", "timeZone", "channel"].includes(key))), text: memoryText(message),
+    metadata: Object.fromEntries(Object.entries(message.metadata ?? {}).filter(([key]) => ["sentAt", "receivedAt", "timeZone", "channel", "memoryProjectId"].includes(key))), text: memoryText(message),
     tools: message.parts.flatMap(part => part.type.startsWith("tool-") || part.type === "dynamic-tool"
       ? [{ name: "toolName" in part ? part.toolName : part.type.slice(5), status: "state" in part ? part.state : "unknown" }] : []),
     attachments: message.parts.filter(part => part.type === "file").map(part => ({ mediaType: part.mediaType, name: part.filename ?? "attachment" })),
@@ -34,8 +34,15 @@ export interface ExtractionDiagnostics { running: boolean; calls: number; comple
   validationFailure?: MemoryWriteValidationFailure & { proposalIndex: number } }
 
 /** One preemptible, tool-free call per block; the Controller owns foreground admission. */
-export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; threadId: string; getMessages(): Promise<UIMessage[]>;
-  workspaceRoot?: string; model: LanguageModel; budget: ContextBudgetConfig; updated(): void; now?: () => number }) {
+export function createMemoryExtraction(options: { store: ScopedMemoryStore; threadId: string; getMessages(): Promise<UIMessage[]>;
+  projectId?: string | null; workspaceRoot?: string; model: LanguageModel; budget: ContextBudgetConfig; updated(): void; now?: () => number }) {
+  const inProject = (messages: readonly UIMessage[]) => {
+    let visible = true;
+    return messages.filter(message => {
+      if (message.role === "user") { const id = (message.metadata as { memoryProjectId?: unknown } | undefined)?.memoryProjectId; visible = id === undefined || id === (options.projectId ?? null); }
+      return visible;
+    });
+  };
   const now = options.now ?? Date.now, threshold = extractionThreshold(options.budget);
   const diagnostics: ExtractionDiagnostics = { running: false, calls: 0, completed: 0, failed: 0, cancelled: 0, durationMs: 0, pendingSegments: 0 };
   const listeners = new Set<() => void>();
@@ -43,7 +50,7 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
   let urgentThrough: string | undefined, mergeFingerprint: string | undefined;
   let generation = 0, closed = false, uncertain = false, lastActivity = now();
   const load = async () => {
-    const read = await options.store.readV6!(); if (!read.ok) throw new Error(`${read.error.code}: ${read.error.message}`);
+    const read = await options.store.readV7!(); if (!read.ok) throw new Error(`${read.error.code}: ${read.error.message}`);
     const messages = await options.getMessages(), document = read.value;
     const saved = document.progress.find(item => item.threadId === options.threadId) ?? null;
     const index = saved?.throughMessageId ? messages.findIndex(message => message.id === saved.throughMessageId) : -1;
@@ -101,27 +108,30 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
       selected.splice(0, selected.length, { ...oversized, parts: [{ type: "text", text: characters.slice(offset, offset + count).join("") }] });
       fragment = { messageId: oversized.id, end: offset + count, complete: offset + count === characters.length };
     }
-    const users = selected.filter(message => findCommittedUserMessage(messages, message.id));
+    const projectIds = new Set(inProject(messages).map(message => message.id));
+    const projectMessages = selected.filter(message => projectIds.has(message.id));
+    const users = projectMessages.filter(message => findCommittedUserMessage(messages, message.id));
     const last = selected.at(-1)!.id, selectedHash = prefixHash(messages, last);
     const signal = new AbortController(); abort = signal;
     const started = now(); let dispatched = false;
-    const progress = (failures: number): V6Document["progress"][number] => ({ threadId: options.threadId,
+    const projectId = options.projectId ?? null;
+    const progress = (failures: number): V7Document["progress"][number] => ({ projectId, threadId: options.threadId,
       throughMessageId: saved?.throughMessageId ?? null, prefixHash: saved?.prefixHash ?? null,
       pending, retry: { throughMessageId: last, prefixHash: selectedHash, failures } });
     let proposalIndex = 0;
     delete diagnostics.validationFailure;
     try {
-      const facts = document.entries.filter(entry => entry.state === "active" && entry.category !== "document" && entry.scope.kind === "workspace");
-      const eligibleIds = new Set(extractionMessages(selected).map(message => message.id));
-      const prompt = originalBlock(selected.filter(message => eligibleIds.has(message.id)), { threadId: options.threadId, project: options.workspaceRoot ?? "current-workspace" }) + "\nTask: extract memory from the preceding original block.\n" + MEMORY_WRITE_RULES +
+      const facts = document.entries.filter(entry => entry.state === "active" && entry.category !== "document" );
+      const eligibleIds = new Set(extractionMessages(projectMessages).map(message => message.id));
+      const prompt = originalBlock(projectMessages.filter(message => eligibleIds.has(message.id)), { threadId: options.threadId }) + "\nTask: extract memory from the preceding original block.\n" + MEMORY_WRITE_RULES +
         "\nCurrent preferences and project notes: " + JSON.stringify(facts.map(({ id, revision, text, uncertain, category, identity, scope, sources }) => ({ id, revision, text, uncertain, category, identity, scope, sourceMessageIds: sources.flatMap(source => source.kind === "conversation" ? [source.messageId] : []) }))) +
         "\nExact response JSON Schema (no extra fields; all required fields must be present): " + responseFormat +
         "\nOriginal message order: " + JSON.stringify(messages.map(message => message.id)) + ". Older replay sources must never replace or withdraw newer-source memories. Mark older same-attribute values as superseded by the newer memory. Only chronologically ambiguous values remain diagnostic conflicts.\nReturn ONLY {proposals,outcomes}; each proposal has sourceMessageId and memory_write fields. Return one outcome for EACH ordinary eligible user source in order: extracted, no_memory or deferred. extracted requires ALL durable information accounted for; partial coverage is deferred. No tools, retries or prose. Already attached exact sources need no duplicate proposal. Eligible user IDs: " + JSON.stringify(users.map(user => user.id));
       if (Math.ceil(prompt.length / 2) + options.budget.summaryMaxOutputTokens > availableInputTokens(options.budget)) throw new Error("抽取请求超过有效输入窗口，未调用模型");
-      signal.signal.throwIfAborted(); dispatched = true; diagnostics.calls++;
-      const response = await generateText({ model: options.model, prompt, maxRetries: 0,
+      signal.signal.throwIfAborted(); dispatched = projectMessages.length > 0; if (dispatched) diagnostics.calls++;
+      const response = projectMessages.length ? await generateText({ model: options.model, prompt, maxRetries: 0,
         maxOutputTokens: options.budget.summaryMaxOutputTokens, abortSignal: AbortSignal.any([signal.signal, AbortSignal.timeout(30_000)]),
-        providerOptions: { openaiCompatible: { thinking: { type: "disabled" }, reasoningEffort: "off" } } });
+        providerOptions: { openaiCompatible: { thinking: { type: "disabled" }, reasoningEffort: "off" } } }) : { text: JSON.stringify({ proposals: [], outcomes: [] }) };
       signal.signal.throwIfAborted();
       const encoded = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(response.text)?.[1] ?? response.text;
       let decoded: unknown;
@@ -129,19 +139,19 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
       const parsed = responseSchema.safeParse(decoded);
       if (!parsed.success) throw new Error("抽取输出格式无效，未保存：" + parsed.error.issues.map(issue => `${issue.path.join(".")}:${issue.code}`).join(","));
       if (JSON.stringify(parsed.data.outcomes.map(outcome => outcome.messageId)) !== JSON.stringify(users.map(user => user.id))) throw new Error("抽取覆盖顺序无效");
-      const changes: V6Change[] = parsed.data.proposals.map((proposal, index) => {
+      const changes: V7Change[] = parsed.data.proposals.map((proposal, index) => {
         proposalIndex = index;
         const user = users.find(user => user.id === proposal.sourceMessageId); if (!user || !memoryText(user).includes(proposal.sourceQuote)) throw new Error("抽取来源越界");
         const { sourceMessageId: _id, ...write } = proposal;
         return bindMemoryWrite(write, { messages, user, threadId: options.threadId });
-      }).filter(change => !("text" in change && document.entries.some(entry => entry.text === change.text && entry.sources.some(source => source.kind === "conversation" && change.source.kind === "conversation" && source.messageId === change.source.messageId && source.quote === change.source.quote))));
+      }).filter(change => !("text" in change && document.entries.some(entry => JSON.stringify(entry.scope) === JSON.stringify(change.scope) && entry.text === change.text && entry.sources.some(source => source.kind === "conversation" && change.source.kind === "conversation" && source.messageId === change.source.messageId && source.quote === change.source.quote))));
       for (const outcome of parsed.data.outcomes) if (outcome.status === "extracted" && !parsed.data.proposals.some(proposal => proposal.sourceMessageId === outcome.messageId)) throw new Error("extracted 缺少来源提议");
       const firstDeferred = parsed.data.outcomes.findIndex(outcome => outcome.status === "deferred");
       const boundary = firstDeferred < 0 ? last : selected[selected.findIndex(message => message.id === users[firstDeferred]!.id) - 1]?.id ?? saved?.throughMessageId ?? null;
-      let next: V6Document["progress"][number] = { pending, threadId: options.threadId, throughMessageId: boundary,
+      let next: V7Document["progress"][number] = { projectId, pending, threadId: options.threadId, throughMessageId: boundary,
         prefixHash: boundary ? prefixHash(messages, boundary) : null, retry: firstDeferred < 0 ? null : progress(Math.min(3, (saved?.retry?.failures ?? 0) + 1)).retry };
       if (fragment && firstDeferred < 0 && !fragment.complete) next = {
-        threadId: options.threadId, throughMessageId: saved?.throughMessageId ?? null, prefixHash: saved?.prefixHash ?? null, retry: null,
+        projectId, threadId: options.threadId, throughMessageId: saved?.throughMessageId ?? null, prefixHash: saved?.prefixHash ?? null, retry: null,
         pending: [...pending.filter(item => item.messageId !== fragment!.messageId), { messageId: fragment.messageId, prefixHash: selectedHash, offset: fragment.end }],
       };
       else if (replay) next = { ...next, throughMessageId: saved?.throughMessageId ?? null, prefixHash: saved?.prefixHash ?? null, retry: firstDeferred < 0 ? null : next.retry, pending: firstDeferred < 0 ? pending.filter(item => item.messageId !== replay.messageId) : pending,
@@ -149,7 +159,7 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
           ? { throughMessageId: last, prefixHash: selectedHash } : {}) };
       if (urgentThrough && next.throughMessageId && messages.findIndex(message => message.id === next.throughMessageId) >= messages.findIndex(message => message.id === urgentThrough)) urgentThrough = undefined;
       const fresh = await options.getMessages(); if (prefixHash(fresh, last) !== selectedHash) throw new Error("抽取原文已变化");
-      const committed = await options.store.writeV6!(changes, signal.signal, { expectedProgress: saved, progress: next, automatic: true, reextract: !!replay, sourceOrder: messages.map(message => message.id) });
+      const committed = await options.store.writeV7!(changes, signal.signal, { expectedProgress: saved, progress: next, automatic: true, reextract: !!replay, sourceOrder: messages.map(message => message.id) });
       if (!committed.ok) {
         if (committed.error.code === "MEMORY_COMMIT_UNCERTAIN") uncertain = true;
         throw new Error(`${committed.error.code}: ${committed.error.message}`);
@@ -161,7 +171,7 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
       diagnostics.failed++; diagnostics.error = error instanceof Error ? error.message : "抽取失败";
       if (error instanceof MemoryWriteValidationError) diagnostics.validationFailure = { ...error.validationFailure, proposalIndex };
       if (!uncertain && !diagnostics.error.includes("MEMORY_LIMIT_EXCEEDED") && !diagnostics.error.includes("MEMORY_CURSOR_MISMATCH")) {
-        const failure = await options.store.writeV6!([], signal.signal, { expectedProgress: saved, progress: progress(Math.min(3, (saved?.retry?.failures ?? 0) + 1)) });
+        const failure = await options.store.writeV7!([], signal.signal, { expectedProgress: saved, progress: progress(Math.min(3, (saved?.retry?.failures ?? 0) + 1)) });
         if (!failure.ok) { diagnostics.error = `${failure.error.code}: ${failure.error.message}`; uncertain = failure.error.code === "MEMORY_COMMIT_UNCERTAIN"; }
         else diagnostics.pendingSegments = pending.length + ((saved?.retry?.failures ?? 0) + 1 >= 2 ? 1 : 0);
       }
@@ -182,7 +192,7 @@ export function createMemoryExtraction(options: { store: WorkspaceMemoryStore; t
     afterMask(messageId: string) { urgentThrough = messageId; },
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     diagnostics: () => structuredClone(diagnostics),
-    async backlog() { const loaded = await load(); return loaded.backlog.filter(message => findCommittedUserMessage(loaded.messages, message.id)).length; },
+    async backlog() { const loaded = await load(); const ids = new Set(inProject(loaded.messages).map(message => message.id)); return loaded.backlog.filter(message => ids.has(message.id) && findCommittedUserMessage(loaded.messages, message.id)).length; },
     idle() { lastActivity = now(); consider(false); clearTimeout(timer); timer = setTimeout(() => { if (now() - lastActivity >= IDLE_MS) consider(true); }, IDLE_MS); timer.unref(); },
     async pause() { generation++; clearTimeout(timer); abort?.abort(new DOMException("Foreground chat has priority", "AbortError")); await task; },
     async close() { closed = true; generation++; clearTimeout(timer); abort?.abort(); await task; },

@@ -1,4 +1,4 @@
-import { v6Conflicts } from "./memory-v6-store.js";
+import { v7Conflicts } from "./memory-v7-store.js";
 import type { ControllerKernel } from "./controller-kernel.js";
 import type { MemoryLibraryAction, MemoryLibraryDocument, MemoryLibraryView } from "./memory-library.js";
 import type { MemoryResult } from "./memory-types.js";
@@ -93,8 +93,8 @@ export function createMemoryControls(k: ControllerKernel): AssistantMemoryContro
             const deleted = await store.deleteMemory({ id, expectedRevision }, signal);
             result = deleted.ok ? { ok: true, value: null } : deleted;
           } else if (action === "retract" || action === "undo") {
-            if (!store.writeV6) return memoryControlFailure("MEMORY_DISABLED", "Memory is unavailable");
-            const updated = await store.writeV6([{ operation: action, id, expectedRevision, source: { kind: "manual" } }], signal);
+            if (!store.writeV7) return memoryControlFailure("MEMORY_DISABLED", "Memory is unavailable");
+            const updated = await store.writeV7([{ operation: action, id, expectedRevision, source: { kind: "manual" } }], signal);
             result = updated.ok ? { ok: true, value: formalMemory(updated.value.at(-1)!) } : updated;
           } else {
             const input = validated.value;
@@ -119,8 +119,8 @@ export function createMemoryControls(k: ControllerKernel): AssistantMemoryContro
         try { backlogCount = await app.memoryExtraction!.backlog(); }
         catch (error) { backlogError = String(error); }
       }
-      const material = await store.readV6?.();
-      const conflicts = material?.ok ? v6Conflicts(material.value.entries) : [];
+      const material = await store.readV7?.();
+      const conflicts = material?.ok ? v7Conflicts(material.value.entries) : [];
       const extraction = app.memoryExtraction?.diagnostics();
       const error = extraction?.error ?? backlogError;
       const consolidation: MemoryMaintenance["consolidation"] = {

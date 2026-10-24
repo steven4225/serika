@@ -12,7 +12,7 @@ import { createRuntimeApp } from "./app.js";
 import { createAssistantController, type AssistantController } from "./assistant-controller.js";
 import type { HookRule } from "./automation-hooks.js";
 import { createCheckpointStore } from "./checkpoint-store.js";
-import { createMemoryStore } from "./memory-v6-store.js";
+import { createMemoryStore } from "./memory-v7-store.js";
 
 type ModelOptions = Parameters<MockLanguageModelV3["doStream"]>[0];
 const PREFERENCE = "我的长期复盘偏好是先结论，再给两条步骤。";
@@ -129,7 +129,7 @@ test("config hook dispatches an external text Skill with its instructions and no
   const model = new MockLanguageModelV3({ doStream: async options => { observations.push(options); return response(); } });
   try {
     const { app, controller } = await f.open(model);
-    assert.ok((await app.memoryStore!.add({ text: "MEMORY_PRIVATE_MARKER", pinned: true })).ok);
+    assert.ok((await app.memoryStore!.add({ scope: { kind: "user" }, text: "MEMORY_PRIVATE_MARKER", pinned: true })).ok);
     assert.ok((await createCheckpointStore(join(f.workspace, ".runloom/checkpoint.json")).saveNextVersion({ expectedVersion: null, sourceThreadId: app.threadId,
       draft: { status: "active", goal: "CHECKPOINT_PRIVATE_MARKER", summary: "CHECKPOINT_PRIVATE_MARKER", completed: [],
         inProgress: [], nextActions: [], blockers: [], artifacts: [] } })).ok);

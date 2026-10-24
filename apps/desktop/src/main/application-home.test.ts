@@ -43,7 +43,7 @@ it("isolates two homes sharing a project without aliases; changing project prese
     const channel = new TelegramStore(join(paths1.stateDirectory, "telegram.json"), firstHome);
     await channel.load(); await channel.update(data => { data.offset = 5; });
     await assert.rejects(readFile(join(paths2.stateDirectory, "telegram.json")), { code: "ENOENT" });
-    assert.ok((await createMemoryStore(join(firstHome, "data/memory.json")).add({ text: "first home only" })).ok);
+    assert.ok((await createMemoryStore(join(firstHome, "data/memory.json")).add({ scope: { kind: "user" }, text: "first home only" })).ok);
     const secondMemory = await second.current.listMemories();
     assert.ok(secondMemory.ok); assert.deepEqual(secondMemory.value.entries, []);
     const tasks = createTaskStore(join(firstHome, "data/tasks.json"));

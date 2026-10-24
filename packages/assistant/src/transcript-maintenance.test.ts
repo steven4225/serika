@@ -12,7 +12,7 @@ import { hashCanonicalJson, JsonlAgentStore, type ThreadContextCompactionRecord 
 import { acquireFlock } from "./flock.js";
 import { createRuntimeApp } from "./app.js";
 import { AUTO_CONSOLIDATION_AGENT_ID } from "./consolidation.js";
-import { createMemoryStore } from "./memory-v6-store.js";
+import { createMemoryStore } from "./memory-v7-store.js";
 import { compactPrefixHash, type ContextCompactionRecord } from "./context-compaction.js";
 import { readContextDiagnostics } from "./context-compactor.js";
 import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
@@ -48,9 +48,9 @@ it("physical compact preserves memory cursor, exact quotes and valid summary; re
     const before = (await stat(file)).size; assert.ok(before > 16 * 1024 * 1024);
     const memory = createMemoryStore(join(workspace, ".runloom/memory.json"));
     const prefixHash = hashCanonicalJson(JSON.parse(JSON.stringify(messages)));
-    assert.ok((await memory.writeV6!([{ operation: "add", text: preference, category: "preference", source: { kind: "conversation", threadId, messageId: "u1", quote: preference, sentAt: null } }], undefined, { expectedProgress: null, progress: { threadId, throughMessageId: "u2", prefixHash, pending: [], retry: null } })).ok);
+    assert.ok((await memory.writeV7!([{ operation: "add", scope: { kind: "user" }, text: preference, category: "preference", source: { kind: "conversation", threadId, messageId: "u1", quote: preference, sentAt: null } }], undefined, { expectedProgress: null, progress: { projectId: null, threadId, throughMessageId: "u2", prefixHash, pending: [], retry: null } })).ok);
     const memoryFile = join(workspace, ".runloom/memory.json"), originalMemory = await readFile(memoryFile);
-    const read = await memory.readV6!(); assert.ok(read.ok); const cursor = read.value.progress[0]!;
+    const read = await memory.readV7!(); assert.ok(read.ok); const cursor = read.value.progress[0]!;
     const budget = { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true };
     const beforeSummary = await readContextDiagnostics(store, threadId, budget); assert(beforeSummary.ok);
     assert.equal(beforeSummary.value.latestValidCompaction?.id, summary.id);
@@ -62,7 +62,7 @@ it("physical compact preserves memory cursor, exact quotes and valid summary; re
     assert.deepEqual(await reopened.getMessages(threadId), messages);
     assert.deepEqual(await readFile(memoryFile), originalMemory, "physical cleanup never edits memory or its cursor");
     assert.equal(hashCanonicalJson(JSON.parse(JSON.stringify(await reopened.getMessages(threadId)))), cursor.prefixHash);
-    assert.deepEqual((await memory.readV6!()), read);
+    assert.deepEqual((await memory.readV7!()), read);
     const afterSummary = await readContextDiagnostics(reopened, threadId, budget); assert(afterSummary.ok);
     assert.equal(afterSummary.value.latestValidCompaction?.id, summary.id, "missing summary.version remains invalid after cleanup");
     assert.equal(await reopened.getRun("old-write"), undefined);

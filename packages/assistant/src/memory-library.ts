@@ -1,9 +1,9 @@
 import { z } from "zod";
-import type { MemoryEntry } from "./memory-types.js";
+import { memoryScopeSchema, sameMemoryScope, type MemoryEntry } from "./memory-types.js";
 
 const id = z.string().min(1).max(256);
 const label = (max: number) => z.string().trim().min(1).max(max).refine(text => !/[\x00-\x1f]/.test(text));
-const scope = z.object({ kind: z.literal("workspace") }).strict();
+const scope = memoryScopeSchema;
 export const memoryLibrarySchema = z.object({
   revision: z.number().int().nonnegative(),
   folders: z.array(z.object({ id, name: label(80) }).strict()).max(64),
@@ -37,10 +37,10 @@ const active = (entry: MemoryEntry, now: Date) => entry.enabled && entry.status 
 
 /** One document is a view of current assertions, never another copy of their text. */
 export function memoryLibraryDocuments(library: MemoryLibrary, entries: MemoryEntry[], now = new Date()): MemoryLibraryDocument[] {
-  const visible = entries;
+  const visible = entries.filter(entry => entry.scope !== undefined);
   const byId = new Map(visible.map(entry => [entry.id, entry]));
   const owned = new Set(library.documents.flatMap(document => document.entryIds));
-  const documents = library.documents.map(document => {
+  const documents = library.documents.filter(document => document.entryIds.every(id => !byId.has(id) || !!byId.get(id)?.scope && sameMemoryScope(byId.get(id)!.scope!, document.scope))).map(document => {
     const parts = document.entryIds.flatMap(id => byId.has(id) ? [byId.get(id)!] : []);
     const text = parts.map(part => part.text).join("");
     return { id: document.id, libraryRevision: library.revision, title: document.title, folderId: document.folderId, scope: document.scope,
@@ -49,10 +49,10 @@ export function memoryLibraryDocuments(library: MemoryLibrary, entries: MemoryEn
       entries: parts.map(part => ({ id: part.id, revision: part.revision ?? 1 })) };
   });
   for (const entry of visible) {
-    if (owned.has(entry.id) || entry.v6 && (entry.v6.state === "superseded" || entry.v6.state === "retracted")) continue;
+    if (owned.has(entry.id) || entry.v7 && (entry.v7.state === "superseded" || entry.v7.state === "retracted")) continue;
     const title = entry.text.split(/\r?\n/).find(line => line.trim())?.replace(/^#{1,6}\s+/, "").trim() ?? "未命名记忆";
     documents.push({ id: legacyDocumentId(entry.id), libraryRevision: library.revision, title: Array.from(title).slice(0, 60).join(""), folderId: null,
-      uncertain: entry.uncertain ?? false, scope: entry.scope ?? { kind: "workspace" }, text: entry.text, preview: Array.from(entry.text).slice(0, 120).join(""),
+      uncertain: entry.uncertain ?? false, scope: entry.scope!, text: entry.text, preview: Array.from(entry.text).slice(0, 120).join(""),
       updatedAt: entry.updatedAt ?? entry.createdAt ?? null, active: active(entry, now), missing: false,
       entries: [{ id: entry.id, revision: entry.revision ?? 1 }] });
   }
