@@ -1,0 +1,103 @@
+{
+  "runId": "4d0a3a63-9d9c-4442-8a25-9de408346f01",
+  "sourceCommit": "dd75aa38c37a535a3663430a484366d7d5906e7e",
+  "dirty": false,
+  "scriptSHA": "584626b3eff6b3fc8f18a742bc838da6a7bf2f2a81fc93cec752171707ecf516",
+  "dist": "/Users/a1-6/Code/agents/serika-v2/packages/assistant/dist",
+  "status": "observed",
+  "interpretation": "Synthetic alias risks observed, not permission acceptance or user approval.",
+  "testData": true,
+  "root": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-alias-risk-hqdbLX",
+  "symlinkTargets": {
+    "fileReadControl": {
+      "ok": true,
+      "path": "repo/git-target",
+      "content": "control-before",
+      "bytes": 14
+    },
+    "fileWriteControl": {
+      "ok": false,
+      "error": {
+        "code": "PROTECTED_PATH",
+        "message": "Protected credentials cannot be accessed and trusted controls cannot be modified"
+      }
+    },
+    "fileReadCredential": {
+      "ok": true,
+      "path": "repo/credential-target",
+      "content": "credential-before",
+      "bytes": 17
+    },
+    "fileReadCredentialAlias": {
+      "ok": false,
+      "error": {
+        "code": "SYMLINK_NOT_ALLOWED",
+        "message": "Symbolic links and multiply linked files are not allowed"
+      }
+    },
+    "shellReadCredentialAlias": {
+      "ok": true,
+      "exitCode": 1,
+      "signal": null,
+      "termination": "exited",
+      "cancelled": false,
+      "timedOut": false,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\ncat: repo/.env: Operation not permitted\n",
+      "truncated": false
+    },
+    "shellReadCredentialTarget": {
+      "ok": true,
+      "exitCode": 0,
+      "signal": null,
+      "termination": "exited",
+      "cancelled": false,
+      "timedOut": false,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\ncredential-before",
+      "truncated": false
+    },
+    "shellWriteControlTarget": {
+      "ok": true,
+      "exitCode": 0,
+      "signal": null,
+      "termination": "exited",
+      "cancelled": false,
+      "timedOut": false,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n",
+      "truncated": false
+    }
+  },
+  "externalGit": {
+    "fileWrite": {
+      "ok": false,
+      "error": {
+        "code": "PROTECTED_PATH",
+        "message": "Protected credentials cannot be accessed and trusted controls cannot be modified"
+      }
+    },
+    "shellGitConfig": {
+      "ok": true,
+      "exitCode": 0,
+      "signal": null,
+      "termination": "exited",
+      "cancelled": false,
+      "timedOut": false,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n",
+      "truncated": false
+    },
+    "configAfterGitConfig": "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n\tlogallrefupdates = true\n\tignorecase = true\n\tprecomposeunicode = true\n[user]\n\tname = TestIntruder\n",
+    "shellWrite": {
+      "ok": true,
+      "exitCode": 0,
+      "signal": null,
+      "termination": "exited",
+      "cancelled": false,
+      "timedOut": false,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n",
+      "truncated": false
+    }
+  },
+  "after": {
+    "control": "shell-control-after",
+    "externalGit": "shell-config-after"
+  }
+}

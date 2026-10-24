@@ -1,0 +1,95 @@
+{
+  "runId": "d8cb82a7-8b15-4b98-8a2c-1354d201a1fc",
+  "verification": "test-data-real-electron-original-preload-ipc-no-model-requests",
+  "sourceCommit": "4ac037d6785c4162785c6b7c7c052b21363c72c8",
+  "sourceWorktreeDirty": false,
+  "realModelCalls": 0,
+  "modelRequests": 0,
+  "scriptSha256": "98791de836d0fc009be3b2e784349189cdbe63bc649471e121718d5d46dbc325",
+  "originalSha256": "796a283492d655a58e3010fcdefd9e57b3fe25cb4d6acc3eb86a959b6bb4c034",
+  "launches": [
+    {
+      "main": {
+        "electron": "44.4.5",
+        "pid": 84676,
+        "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/profile",
+        "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///private/tmp/serika-b2-release-round2-4ac037d/apps/desktop/out/renderer/index.html"
+      },
+      "result": "v1-rejected",
+      "message": "配置为 v1，请运行 '/opt/homebrew/Cellar/node/26.4.0/bin/node' '/private/tmp/serika-b2-release-round2-4ac037d/packages/assistant/scripts/config-upgrade.mjs' '--config' '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/home/.serika/config.json' '--upgrade' 升级",
+      "visibleError": "Error: Error invoking remote method 'runloom:info': Error: Runtime 无法启动：配置为 v1，请运行 '/opt/homebrew/Cellar/node/26.4.0/bin/node' '/private/tmp/serika-b2-release-round2-4ac037d/packages/assistant/scripts/config-upgrade.mjs' '--config' '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/home/.serika/config.json' '--upgrade' 升级"
+    },
+    {
+      "main": {
+        "electron": "44.4.5",
+        "pid": 84824,
+        "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/profile",
+        "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///private/tmp/serika-b2-release-round2-4ac037d/apps/desktop/out/renderer/index.html"
+      },
+      "result": "v2-started",
+      "directories": [
+        {
+          "path": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/project",
+          "access": "readwrite"
+        }
+      ]
+    },
+    {
+      "main": {
+        "electron": "44.4.5",
+        "pid": 84905,
+        "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/profile",
+        "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///private/tmp/serika-b2-release-round2-4ac037d/apps/desktop/out/renderer/index.html"
+      },
+      "result": "v1-rejected",
+      "message": "配置为 v1，请运行 '/opt/homebrew/Cellar/node/26.4.0/bin/node' '/private/tmp/serika-b2-release-round2-4ac037d/packages/assistant/scripts/config-upgrade.mjs' '--config' '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/home/.serika/config.json' '--upgrade' 升级",
+      "visibleError": "Error: Error invoking remote method 'runloom:info': Error: Runtime 无法启动：配置为 v1，请运行 '/opt/homebrew/Cellar/node/26.4.0/bin/node' '/private/tmp/serika-b2-release-round2-4ac037d/packages/assistant/scripts/config-upgrade.mjs' '--config' '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/home/.serika/config.json' '--upgrade' 升级"
+    }
+  ],
+  "status": "passed",
+  "dryRunDiff": "--- v1\n+++ v2\n- \"version\": 1\n+ \"version\": 2\n- \"authorizedDirectory\": \"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/project\"\n+ \"authorizedDirectories\": [{\"path\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/project\",\"access\":\"readwrite\"}]\n+ \"projectDirectory\": \"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/project\"\n",
+  "upgrade": {
+    "version": 1,
+    "operation": "config-v1-to-v2",
+    "id": "fdde12ee-51fa-4e0e-bacb-4cfe9bf3fea4",
+    "configPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/home/.serika/config.json",
+    "backupPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/home/.serika/config.json.v1-fdde12ee-51fa-4e0e-bacb-4cfe9bf3fea4.backup",
+    "originalSha256": "796a283492d655a58e3010fcdefd9e57b3fe25cb4d6acc3eb86a959b6bb4c034",
+    "upgradedSha256": "fa1912c08825a459beb386726575f5966a02c0abda1c04b3a418c8b77f945bf2",
+    "originalMode": 384,
+    "receiptPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/home/.serika/config.json.v2-fdde12ee-51fa-4e0e-bacb-4cfe9bf3fea4.receipt.json"
+  },
+  "rollback": {
+    "version": 1,
+    "operation": "config-v2-to-v1-rollback",
+    "configPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/home/.serika/config.json",
+    "upgradeReceiptPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/home/.serika/config.json.v2-fdde12ee-51fa-4e0e-bacb-4cfe9bf3fea4.receipt.json",
+    "originalSha256": "796a283492d655a58e3010fcdefd9e57b3fe25cb4d6acc3eb86a959b6bb4c034",
+    "restoredSha256": "796a283492d655a58e3010fcdefd9e57b3fe25cb4d6acc3eb86a959b6bb4c034",
+    "identical": true,
+    "rollbackReceiptPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/home/.serika/config.json.v2-fdde12ee-51fa-4e0e-bacb-4cfe9bf3fea4.receipt.json.aa419bb8-f75e-4db5-910e-630713f71ed1.rollback.json"
+  },
+  "restoredSha256": "796a283492d655a58e3010fcdefd9e57b3fe25cb4d6acc3eb86a959b6bb4c034",
+  "rollbackReceipt": {
+    "version": 1,
+    "operation": "config-v2-to-v1-rollback",
+    "configPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/home/.serika/config.json",
+    "upgradeReceiptPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-upgrade-electron-M5hpde/home/.serika/config.json.v2-fdde12ee-51fa-4e0e-bacb-4cfe9bf3fea4.receipt.json",
+    "originalSha256": "796a283492d655a58e3010fcdefd9e57b3fe25cb4d6acc3eb86a959b6bb4c034",
+    "restoredSha256": "796a283492d655a58e3010fcdefd9e57b3fe25cb4d6acc3eb86a959b6bb4c034",
+    "identical": true
+  },
+  "temporaryDirectoryRemoved": true
+}

@@ -1,0 +1,171 @@
+{
+  "runId": "5bfb01fb-3aac-46a7-96bd-326a735e7bd6",
+  "sourceCommit": "dd75aa38c37a535a3663430a484366d7d5906e7e",
+  "sourceWorktreeDirty": false,
+  "frozenFiles": [
+    "examples/eval/cm-step6-live.mjs",
+    "packages/assistant/scripts/cm-step6-verify.mjs",
+    "packages/assistant/scripts/v2-round1-verify.mjs",
+    "packages/assistant/scripts/v2-round2-verify.mjs",
+    "packages/assistant/scripts/v2-round3-verify.mjs",
+    "apps/desktop/scripts/electron-smoke.mjs",
+    "packages/assistant/src/permission-decisions.snapshot.ts",
+    "packages/assistant/src/__baseline__/",
+    "apps/desktop/src/main/__baseline__/"
+  ],
+  "frozenDiff": "",
+  "snapshot": {
+    "rows": 129,
+    "diff": "",
+    "changed": [],
+    "added": []
+  },
+  "scanner": {
+    "product": {
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    "verification": {
+      "exitCode": 0,
+      "stdout": "scripts/b2-scaling-probe.mjs:40:  const scanned = typeof protection.scanProtectedPaths === 'function' ? await protection.scanProtectedPaths([workspace]) : { controlPaths: [], credentialPaths: [] };\n",
+      "stderr": ""
+    }
+  },
+  "codeLines": {
+    "product": {
+      "add": 71,
+      "delete": 46
+    },
+    "test": {
+      "add": 189,
+      "delete": 27
+    },
+    "docs": {
+      "add": 50,
+      "delete": 0
+    }
+  },
+  "commits": [
+    {
+      "sha": "7684384dd2a4ddc19eb1a2d9a759364e778ce1c4",
+      "stat": "8 files changed, 196 insertions(+), 63 deletions(-)",
+      "numstat": "24\t24\tpackages/assistant/src/directory-access.test.ts\n3\t3\tpackages/assistant/src/directory-access.ts\n1\t0\tpackages/assistant/src/modules/seatbelt-policy.ts\n3\t4\tpackages/assistant/src/modules/seatbelt-shell-runner.ts\n38\t27\tpackages/assistant/src/protected-paths.ts\n4\t5\tpackages/assistant/src/search-files.ts\n33\t0\tscripts/b2-alias-risk-probe.mjs\n90\t0\tscripts/b2-scaling-probe.mjs"
+    },
+    {
+      "sha": "4ac037d6785c4162785c6b7c7c052b21363c72c8",
+      "stat": "9 files changed, 114 insertions(+), 10 deletions(-)",
+      "numstat": "1\t1\tapps/desktop/scripts/b2-config-upgrade-smoke.mjs\n2\t1\tapps/desktop/src/main/desktop-config.test.ts\n3\t2\tapps/desktop/src/main/desktop-config.ts\n50\t0\tdocs/v2-pilot/cutover-runbook.md\n1\t1\tpackage.json\n4\t0\tpackages/assistant/scripts/write-node-runtime.mjs\n2\t1\tpackages/assistant/src/tui-module-config.test.ts\n14\t4\tpackages/assistant/src/tui-module-config.ts\n37\t0\tscripts/b2-release-probe.mjs"
+    },
+    {
+      "sha": "dd75aa38c37a535a3663430a484366d7d5906e7e",
+      "stat": "1 file changed, 3 insertions(+), 3 deletions(-)",
+      "numstat": "3\t3\tscripts/b2-alias-risk-probe.mjs"
+    }
+  ],
+  "files": [
+    {
+      "add": 1,
+      "delete": 1,
+      "path": "apps/desktop/scripts/b2-config-upgrade-smoke.mjs",
+      "group": "test"
+    },
+    {
+      "add": 2,
+      "delete": 1,
+      "path": "apps/desktop/src/main/desktop-config.test.ts",
+      "group": "test"
+    },
+    {
+      "add": 3,
+      "delete": 2,
+      "path": "apps/desktop/src/main/desktop-config.ts",
+      "group": "product"
+    },
+    {
+      "add": 50,
+      "delete": 0,
+      "path": "docs/v2-pilot/cutover-runbook.md",
+      "group": "docs"
+    },
+    {
+      "add": 1,
+      "delete": 1,
+      "path": "package.json",
+      "group": "product"
+    },
+    {
+      "add": 4,
+      "delete": 0,
+      "path": "packages/assistant/scripts/write-node-runtime.mjs",
+      "group": "product"
+    },
+    {
+      "add": 24,
+      "delete": 24,
+      "path": "packages/assistant/src/directory-access.test.ts",
+      "group": "test"
+    },
+    {
+      "add": 3,
+      "delete": 3,
+      "path": "packages/assistant/src/directory-access.ts",
+      "group": "product"
+    },
+    {
+      "add": 1,
+      "delete": 0,
+      "path": "packages/assistant/src/modules/seatbelt-policy.ts",
+      "group": "product"
+    },
+    {
+      "add": 3,
+      "delete": 4,
+      "path": "packages/assistant/src/modules/seatbelt-shell-runner.ts",
+      "group": "product"
+    },
+    {
+      "add": 38,
+      "delete": 27,
+      "path": "packages/assistant/src/protected-paths.ts",
+      "group": "product"
+    },
+    {
+      "add": 4,
+      "delete": 5,
+      "path": "packages/assistant/src/search-files.ts",
+      "group": "product"
+    },
+    {
+      "add": 2,
+      "delete": 1,
+      "path": "packages/assistant/src/tui-module-config.test.ts",
+      "group": "test"
+    },
+    {
+      "add": 14,
+      "delete": 4,
+      "path": "packages/assistant/src/tui-module-config.ts",
+      "group": "product"
+    },
+    {
+      "add": 33,
+      "delete": 0,
+      "path": "scripts/b2-alias-risk-probe.mjs",
+      "group": "test"
+    },
+    {
+      "add": 37,
+      "delete": 0,
+      "path": "scripts/b2-release-probe.mjs",
+      "group": "test"
+    },
+    {
+      "add": 90,
+      "delete": 0,
+      "path": "scripts/b2-scaling-probe.mjs",
+      "group": "test"
+    }
+  ],
+  "smokeScriptSha256": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34"
+}

@@ -1,0 +1,26 @@
+{
+  "runId": "62f1e8af-7632-47dc-ac26-c81f5b19196c",
+  "sourceCommit": "dd75aa38c37a535a3663430a484366d7d5906e7e",
+  "verification": "synthetic-data-native-seatbelt-temporary-release-real-electron-fake-model-smoke",
+  "realModelCalls": 0,
+  "electronOfflineCopy": {
+    "sourceSha256": "e06891704834df56f24489e1f971428161ae17312143624af13736255cc0ab34",
+    "releaseSha256": "e06891704834df56f24489e1f971428161ae17312143624af13736255cc0ab34",
+    "method": "Independent byte copy of installed Electron 44.4.5 dist and path.txt into temporary release; no dependency link to development checkout."
+  },
+  "smoke": "/Users/a1-6/Code/agents/serika-v2/docs/v2-pilot/evidence/electron-smoke/b2-round2-079692ba-56e5-4ecd-9fdd-5422de826655",
+  "files": {
+    "alias-risk.json": "a0af23fd859e938a0750b19666661ffc412b1f7c5fe48849c21d2525abe163d7",
+    "audit.json": "60cf456dc917a969a0af4ae81dfb12b12e5c8047afbd7344b3cd6ca59140da6f",
+    "b0-capture.json": "df86fb2a063d245446eb08f409e0d03858afd4bf53eb4ca6c5122c87a67cd58a",
+    "b2-capture.json": "7955927ef11a35a12d2af1a8ee7ddf32bc355368991daa1813695ce4b3394fbc",
+    "cutover-runbook.diff": "ca47114eff003dc7168f555595139a7a9750f149976faec63793d606a1693e15",
+    "home-guard-summary.json": "87cd3edfd8f9d36764b675daa1ca51e93b4958bebe89e493b6b140d1528b9354",
+    "native-git.json": "8bc5a43e9ae443a11248ad7022864419d8b6a55597a0b0a9efa4d0e077273e91",
+    "release-electron.json": "5b6b23862969526312ba565c43a3e071e788d8b219cff8c4acb4fbb59ac3ecd5",
+    "release-upgrade.json": "f1b01a52a82267fa58426ffefba8189ae97c5599706e88dbf18e815173109caf",
+    "scaling-baseline.json": "dd082af31c70f2ca774b38360fdc40d031590322aa5386846dae2b8f9482043f",
+    "scaling-current.json": "e5b7ea0f2aa8b7ca7f6984d48b79636ff60074dc39fbb23dd53cdd59f6890cf1",
+    "verification.json": "0db161515da1aae5df02bdcc40eef6792cc406bc7198774d6b96e782c07faf53"
+  }
+}

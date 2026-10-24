@@ -1,0 +1,185 @@
+{
+  "runId": "772022b6-ad3e-44e6-8a70-eb3632e74983",
+  "sourceCommit": "4ac037d6785c4162785c6b7c7c052b21363c72c8",
+  "dirty": false,
+  "scriptSHA": "a8d8f42787448a9dc7d04ad5be02ca8a137f9ccbbccca326a05b9b5a0dc77fa7",
+  "dist": "/Users/a1-6/Code/agents/serika-v2/packages/assistant/dist",
+  "status": "observed",
+  "interpretation": "Performance and filesystem effects observed on synthetic data; residual risks are not approved by this probe.",
+  "mode": "current",
+  "platform": "darwin",
+  "release": "27.0.0",
+  "testData": true,
+  "root": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-b2-scaling-aLbu2b",
+  "startedAt": "2026-10-24T13:08:58.190Z",
+  "method": "Same authorized directory before/after 100000 empty ordinary files; runtime and tool paths warmed; median of measured invocations per size. Extra time = large median minus small median.",
+  "repeats": 7,
+  "sizes": {
+    "one": {
+      "files": 1,
+      "readFile": {
+        "measurementsMs": [
+          0.7703339999999912,
+          0.628832999999986,
+          0.5725419999999986,
+          0.6094169999999508,
+          0.5466659999999592,
+          0.5385839999999575,
+          0.5652079999999842
+        ],
+        "medianMs": 0.5725419999999986,
+        "result": {
+          "ok": true
+        }
+      },
+      "shellExec": {
+        "measurementsMs": [
+          21.169083,
+          21.081457999999998,
+          21.178999999999974,
+          21.007457999999986,
+          21.721542,
+          23.291875000000005,
+          22.75458299999997
+        ],
+        "medianMs": 21.178999999999974,
+        "result": {
+          "ok": true,
+          "exitCode": 0,
+          "output": "Error opening /private/var/select/sh: Operation not permitted\nordinary"
+        }
+      },
+      "profile": {
+        "bytes": 13727,
+        "scannedControls": 0,
+        "scannedCredentials": 0
+      }
+    },
+    "large": {
+      "files": 100001,
+      "readFile": {
+        "measurementsMs": [
+          0.7767090000006647,
+          0.5681669999994483,
+          0.5408749999996871,
+          0.5165829999996276,
+          0.5140000000001237,
+          0.5027500000005602,
+          0.5015839999996388
+        ],
+        "medianMs": 0.5165829999996276,
+        "result": {
+          "ok": true
+        }
+      },
+      "shellExec": {
+        "measurementsMs": [
+          22.544459000000643,
+          21.146082999999635,
+          20.76183299999957,
+          21.001124999999774,
+          21.221292000000176,
+          20.20049999999992,
+          20.45891699999993
+        ],
+        "medianMs": 21.001124999999774,
+        "result": {
+          "ok": true,
+          "exitCode": 0,
+          "output": "Error opening /private/var/select/sh: Operation not permitted\nordinary"
+        }
+      },
+      "profile": {
+        "bytes": 13727,
+        "scannedControls": 0,
+        "scannedCredentials": 0
+      }
+    }
+  },
+  "creationMs": 4772.662958,
+  "extraMs": {
+    "readFile": -0.055959000000370906,
+    "shellExec": -0.17787500000019918
+  },
+  "unreadableProof": "EACCES",
+  "withUnreadableRead": {
+    "ok": true
+  },
+  "withUnreadableShell": {
+    "ok": true,
+    "exitCode": 0,
+    "output": "Error opening /private/var/select/sh: Operation not permitted\nordinary"
+  },
+  "existingHardlinks": {
+    "fileControl": {
+      "ok": false,
+      "error": {
+        "code": "HARDLINK_NOT_ALLOWED",
+        "message": "Symbolic links and multiply linked files are not allowed"
+      }
+    },
+    "fileCredential": {
+      "ok": false,
+      "error": {
+        "code": "HARDLINK_NOT_ALLOWED",
+        "message": "Symbolic links and multiply linked files are not allowed"
+      }
+    },
+    "shellReadControl": {
+      "ok": true,
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\ncontrol-before"
+    },
+    "shellWriteControl": {
+      "ok": true,
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n"
+    },
+    "shellReadCredential": {
+      "ok": true,
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\ncredential-before"
+    },
+    "shellWriteCredential": {
+      "ok": true,
+      "exitCode": 0,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\n"
+    },
+    "shellCreateHardlink": {
+      "ok": true,
+      "exitCode": 1,
+      "output": "Error opening /private/var/select/sh: Operation not permitted\nln: new-hardlink: Operation not permitted\n"
+    },
+    "createdHardlink": {
+      "code": "ENOENT"
+    },
+    "sourceAfterCreate": {
+      "inode": 30707744,
+      "links": 1
+    },
+    "controlAlias": {
+      "inode": 30707742,
+      "links": 2
+    },
+    "controlSource": {
+      "inode": 30707742,
+      "links": 2
+    },
+    "credentialAlias": {
+      "inode": 30707743,
+      "links": 2
+    },
+    "credentialSource": {
+      "inode": 30707743,
+      "links": 2
+    },
+    "controlAfter": "control-after",
+    "credentialAfter": "credential-after",
+    "profileAfterLinks": {
+      "bytes": 13727,
+      "scannedControls": 0,
+      "scannedCredentials": 0
+    }
+  },
+  "finishedAt": "2026-10-24T13:09:03.462Z"
+}

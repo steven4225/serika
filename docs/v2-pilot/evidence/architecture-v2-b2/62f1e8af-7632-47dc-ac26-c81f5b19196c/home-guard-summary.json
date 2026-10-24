@@ -1,0 +1,75 @@
+{
+  "runId": "2bcc6f9b-e4b7-4528-920b-cbbfef86b372",
+  "guards": [
+    {
+      "runId": "13a45711-afcb-48c1-b7fd-975a7533bd18",
+      "status": "passed",
+      "exitCode": 0,
+      "signal": null,
+      "violations": 0,
+      "concurrentEvents": 0,
+      "metadataUnchanged": true,
+      "recordConcurrentChanges": true
+    },
+    {
+      "runId": "f6439155-dbe6-4463-98a1-a33bf482c021",
+      "status": "passed",
+      "exitCode": 0,
+      "signal": null,
+      "violations": 0,
+      "concurrentEvents": 7,
+      "metadataUnchanged": false,
+      "recordConcurrentChanges": true
+    },
+    {
+      "runId": "ddc01241-9ecd-4d66-a26a-0e02f899dd48",
+      "status": "passed",
+      "exitCode": 0,
+      "signal": null,
+      "violations": 0,
+      "concurrentEvents": 4,
+      "metadataUnchanged": false,
+      "recordConcurrentChanges": true
+    },
+    {
+      "runId": "47e48274-cc09-498a-804a-3aaca4c7f9d9",
+      "status": "passed",
+      "exitCode": 0,
+      "signal": null,
+      "violations": 0,
+      "concurrentEvents": 0,
+      "metadataUnchanged": true,
+      "recordConcurrentChanges": true
+    },
+    {
+      "runId": "3333a146-23e2-404e-a70c-27000b7e4e9c",
+      "status": "passed",
+      "exitCode": 0,
+      "signal": null,
+      "violations": 0,
+      "concurrentEvents": 19,
+      "metadataUnchanged": false,
+      "recordConcurrentChanges": true
+    },
+    {
+      "runId": "7a741546-3835-4e77-85cf-9c0bc7107805",
+      "status": "failed",
+      "exitCode": 1,
+      "signal": null,
+      "violations": 0,
+      "concurrentEvents": 67,
+      "metadataUnchanged": false,
+      "recordConcurrentChanges": true
+    },
+    {
+      "runId": "6d90514c-e193-4ee3-ab4c-d3e81d43ab06",
+      "status": "passed",
+      "exitCode": 0,
+      "signal": null,
+      "violations": 0,
+      "concurrentEvents": 10,
+      "metadataUnchanged": false,
+      "recordConcurrentChanges": true
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "b2/read-only": "READ_ONLY_DIRECTORY",
+  "b2/deep-write": "ok",
+  "b2/absolute": "PATH_OUTSIDE_WORKSPACE",
+  "b2/traversal": "PATH_OUTSIDE_WORKSPACE",
+  "b2/symlink": "SYMLINK_NOT_ALLOWED",
+  "b2/hardlink": "HARDLINK_NOT_ALLOWED",
+  "b2/control/home-config": "PROTECTED_PATH",
+  "b2/control/driver": "PROTECTED_PATH",
+  "b2/control/.git/config": "PROTECTED_PATH",
+  "b2/control/.git/hooks/pre-commit": "PROTECTED_PATH",
+  "b2/control/.env": "PROTECTED_PATH",
+  "b2/control/Serika.command": "PROTECTED_PATH",
+  "b2/read/control": "ok",
+  "b2/read/credential": "PROTECTED_PATH",
+  "b2/ambiguous": "DIRECTORY_SELECTION_REQUIRED",
+  "b2/selected": "ok",
+  "b2/project-base": "ok",
+  "b2/revoked": "PATH_OUTSIDE_WORKSPACE"
+}

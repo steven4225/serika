@@ -1,114 +1,119 @@
-# 4.5 b2：多目录与可信控制文件保护
+# 4.5 b2 第二轮修订回报
 
-本轮修正基于 `dc64781`，只处理 b2 审核提出的配置升级与保护分类。B2-01～B2-04 已批准；B2-05 的禁写与 B2-06 的读取规则按用户批准落实。仍停在 b2 审核口，未进入 c1/c2/S2/S3。以下自动化均使用测试数据，真实模型调用 0，未部署或重启日用实例。
+两项必改已实现，停在 b2 审核口。既有硬链接风险已实测，另发现符号链接目标与外置 Git 元数据的保护缺口，均待用户裁决。本轮基线 `53f8033`；未进入 c1/c2/S2/S3。
 
 ## 1. 改了什么
 
-- strict 配置版本升为 **2**，所有正常配置生成器及测试输入同步迁移；运行时不支持 v1，也不转换。v1 明确报错：`配置为 v1，请运行 node packages/assistant/scripts/config-upgrade.mjs --config <配置文件> --upgrade 升级`。真实 Electron 已验证显示此句；IPC 连接失败时页面外层会带远程方法错误前缀。
-- `packages/assistant/scripts/config-upgrade.mjs` 是显式离线命令。先验证转换后的完整 v2 schema，再完整字节备份，以既有配置 flock、SHA 检查、临时文件/rename/fsync 写入。`authorizedDirectory` 转为 `authorizedDirectories: [{path, access:"readwrite"}]` 与 `projectDirectory`，保留 autonomy 等其他设置；null/缺省授权保持为空，已是 b2 数组的 v1 只改版本。混用非空旧字段与新字段时拒绝覆盖。
-- `--dry-run` 只打印变化字段的 diff，不写文件、不输出未变设置。升级回执先于配置替换落盘，保留完整备份与原/新 SHA；回滚验证当前配置与备份，恢复原字节后再读文件生成 SHA 相同的回滚回执。升级后配置若已被其他操作修改，命令拒绝覆盖，完整备份仍保留。
-- **唯一名单为 `packages/assistant/src/protected-paths.ts`**：名字规则、宿主配置路径与 Git 元数据目标都在此定义。`directory-access`、递归 `search_files` 与 Seatbelt profile 共用它。删除了文件边界、Seatbelt policy 和 runtime 中重复的凭据正则。共享扫描还保护符链目标、Git gitfile/commondir 指向的实际配置；每个文件请求与 Shell 请求扫描授权树，成本随树大小增加，不可读路径失败关闭；不把整个 `.git` 树设为只读，index/objects 等仍可写。
-- 桌面沿用原目录表及 preload/IPC，增删与读/读写切换无新入口；默认配置、恢复配置与错误显示迁 v2。持久目录授权仍与一次批准/本对话记住分开存储、分开显示，撤销在下一请求生效。
+- `protected-paths.ts` 删除全树扫描。文件工具只检查目标的 realpath、nlink、名单，并沿目标祖先识别 `.git`、gitfile、commondir 和有 HEAD/objects 的 Git 元数据目录；增加 `config.worktree`、锁文件和标准 worktree 路径。普通读请求不探查 Git 控制元数据。
+- `search-files.ts` 仅在原有遍历中逐项过滤名单，仍跳过符号链接与多链接文件。Seatbelt runner 删除扫描输入，profile 只来自目录声明、固定保护路径和共享名单。
+- 原生探针证明原 `SYS_link`/`SYS_linkat` 禁令不足：授权内 `ln target new-hardlink` 原退出 0，同 inode、nlink=2。保留这两条禁令，并增加有效的 `(deny file-link)`，新路径不存在、源 nlink=1。
+- 构建写出 `dist/node-runtime.json`，并检查升级脚本与依赖 dist 存在。CLI 使用自身实际 Node，桌面使用发布构建记录的 Node；v1 提示含 Node、脚本、实际配置的绝对路径，并正确转义空格和单引号。
+- 手册新增 [§7 升级到 v2-release-2](cutover-runbook.md#7-升级到-v2-release-2)。完整新增节 diff 见本轮证据 `cutover-runbook.diff`，包括停止写入者、dry-run、upgrade、启动核对、rollback 和 SHA 标准。
 
-### 两类保护清单
+共享名单仍只定义于 `packages/assistant/src/protected-paths.ts`：
 
-两类都受授权目录范围约束；“可读”不增加目录授权。符链/硬链边界继续独立拒绝。
+| 类别 | 名单及作用 |
+|---|---|
+| 控制，只禁写 | 实际 configPath 及 `.lock`；H/config.json 及锁；应用 dataDirectory；通知 helper；`~/.config/serika/`；`~/Applications/Serika-releases/`；`~/Applications/Serika.command` 及任意目录的 Serika.command；代码根；可信 computer executable；已配置 Skill 目录；`.git` 本身、config/config.lock、config.worktree/config.worktree.lock、hooks/，含标准 worktree config.worktree；文件目标祖先识别出的 gitdir/commondir 控制路径 |
+| 凭据，读写全禁 | `.ssh/`、`.aws/`、`.gnupg/`、`.netrc`、`.npmrc`、`.pypirc`、`.git-credentials`、`.docker/config.json`、`.env`、`.env.*`；H/env、dataDirectory 同级 env；RUNLOOM_ENV_FILE、RUNLOOM_HOST_ENV_FILE、RUNLOOM_WORKER_ENV_FILE 明确指定的文件 |
 
-| 类别 | 统一名单范围 | 文件工具 / Seatbelt |
-|---|---|---|
-| 控制 | 当前配置及 `.lock`；H 的 `config.json`、`config.json.lock`；应用数据目录；`~/.config/serika/`；注册 computer driver、Skill 目录；通知 helper；当前代码根；`~/Applications/Serika-releases/`；`~/Applications/Serika.command` 及授权树内任意 `Serika.command` | 允许读，禁止写及替换受保护祖先 |
-| Git 控制 | `.git/config`、`.git/config.lock`、`.git/hooks/`；`.git` 本身替换；控制符链真实目标、gitfile/commondir 指向的同类元数据 | 允许读，禁止写；status/log/diff/add/commit 可用 |
-| 凭据 | 任意层级 `.ssh/`、`.aws/`、`.gnupg/`、`.netrc`、`.npmrc`、`.pypirc`、`.git-credentials`、`.docker/config.json`、`.env`、`.env.*`；H/env、数据目录同级 env；显式 `RUNLOOM_ENV_FILE`、`RUNLOOM_HOST_ENV_FILE`、`RUNLOOM_WORKER_ENV_FILE` 及其真实目标 | 读写全禁；文件工具返回 `PROTECTED_PATH`，递归搜索跳过 |
-
-Seatbelt 的断网、只读运行时依赖、进程结算、真实 home/Library 中运行程序的准入限制继续沿用；没有换后端或扩展 S3。
+此表描述名单路径，别名限制见第 5 节。桌面目录设置本轮未改；只更新 v1 启动提示的命令。
 
 ## 2. 逐条对照验收项
 
-| 验收项 | 结果与测试名 / 证据 |
+全部文件、凭据、仓库和配置均为**测试数据**。系统为 Darwin 27.0.0 arm64，Node 26.4.0，Electron 44.4.5。
+
+| 验收项 | 实测结果与入口 |
 |---|---|
-| 真实配置只查键存在性 | 已做；仅解析并输出顶层键是否存在。`authorizedDirectory` **存在**；`desktopAutonomy` **存在**；`telegramAutonomy` **存在**。未输出值，未升级真实配置 |
-| v2 升级、备份、dry-run、保留设置、回滚回执 | 已做；`config-upgrade.test.mjs` 4 项实际 CLI 子进程测试，含配置/备份变化拒绝与既有锁占用拒绝 |
-| 升级 → 启动 → 回滚 → SHA | 已做；真实 Electron、原 preload/IPC、测试 H/config.json，三次完整启动均结束进程；详情见下表 |
-| 控制可读、凭据不可读 | 已做；真实注册 `read_file` 读 `.git/config` 成功，读测试 `.ssh` 哨兵返回 `PROTECTED_PATH`；原生 Shell 读取凭据失败；递归搜索无 env/凭据别名内容 |
-| 原生 Git 五个正常操作、四个拒绝操作 | 已做；Darwin 原生 `sandbox-exec`，真实临时 Git 仓库；命令/输出见下表及 `native-git.json` |
-| 多目录与最深权限；绝对路径/../符链/硬链越界拒绝 | 已做；`directory-access.test` 与原生 Seatbelt，包括 rw→ro→rw；外部哨兵保持原文 |
-| 授权父目录也不能改控制文件或自行授权 | 已做；H/config、driver、Git、env、launcher 写入负例；新增 Git 控制符链与 gitfile 真实目标回归用例 |
-| 删除授权后下一请求拒绝；审批不扩大目录权限 | 已做；实际配置重载与旧审批后边界检查；目录设置 Electron 7/7，含最后目录删除、CAS 拒绝、完整重启不恢复授权 |
-| 旧快照与冻结文件 | 已做；原 111 行、上轮已审 127 行均零变化；新增 B2-06 两行；冻结 diff 空 |
+| 不再每次遍历授权树 | 已做；产品 `rg scanProtectedPaths` 零命中。仅 `scripts/b2-scaling-probe.mjs:40` 保留可选旧导出，用于运行旧提交基线；没有产品或普通测试调用 |
+| 约 10 万文件额外成本 | 已做；`b2-scaling-probe.mjs` 对同一目录先 1 文件、再 100001 文件测真实 read_file 和 shell_exec；数字见第 3 节 |
+| 无权子目录不影响其他路径 | 已做；chmod 000 后实际 readdir 返回 EACCES；新版普通 read_file 成功、Shell exit 0。旧版 read_file 抛 EACCES，Shell 返回 SANDBOX_UNAVAILABLE |
+| profile 不随文件数增长 | 已做；1 / 100001 文件均 13727 字节；加入既有硬链接后仍 13727 字节 |
+| Git 正常操作、控制禁写、凭据禁读 | 已做；`directory-access.test.ts` 原生 Git 10 项，退出码见下表；文件 read_file 读 .git/config 成功、读 .ssh 哨兵返回 PROTECTED_PATH |
+| 多目录、最深规则、撤销、越界及链接 | 已做；原 B2 文件工具和原生 Seatbelt 用例重跑；撤销下一次立即拒绝；文件工具既有硬链接仍返回 HARDLINK_NOT_ALLOWED；Shell 既有硬链接单列风险 |
+| gitfile/commondir、config.worktree | 已做；目标祖先回归覆盖外置 metadata、common 控制及标准 worktree config.worktree；普通 Shell 的自定义外置 metadata 见第 5 节 |
+| 发布构建和离线升级入口 | 已做；新临时独立 clone `4ac037d`，安装、build 均成功；脚本及依赖 dist 的 SHA 见 release-upgrade.json |
+| 发布目录 dry-run / upgrade / rollback | 已做；从无关 cwd 复制实际 v1 提示执行，配置路径含空格、单引号。三项退出 0，SHA 原字节恢复 |
+| 发布桌面拒 v1、升级后启动、回滚 | 已做；临时发布的真实 Electron 原 preload/IPC 三次启动：v1-rejected → v2-started → v1-rejected，无模型请求 |
+| 快照与冻结文件 | 已做；当前 129 场景本轮零增删、零变化；B2-06 保持已批准值。原 111 行不变，现行 107 行重放零差异；冻结 diff 空 |
 
-### 测试 home 升级与回滚演练
+原生 Git 完整输出见 `native-git.json`：
 
-测试配置为人工构造，包含旧授权和两个 autonomy 身份绑定，已有桌面超时设置；没有复制真实配置内容。
+| 测试命令 | 退出码 |
+|---|---:|
+| git status --short / git log -1 --oneline / git diff -- tracked | 各 0 |
+| git add tracked / git commit -qm changed | 各 0；宿主核对提交为 changed |
+| git config --local user.name Intruder | 255；could not lock config file .git/config: Operation not permitted |
+| 写 .git/config.worktree / 写 .git/hooks/x / mv .git / cat .ssh/sentinel | 各 1；Operation not permitted |
 
-| 阶段 | 实测结果 |
-|---|---|
-| v1 启动 | 页面明确显示升级命令；配置 SHA 不变 |
-| dry-run → upgrade | diff 只有版本和目录字段；完整备份 SHA 等于原配置；两个 autonomy 对象原样保留 |
-| v2 启动 | 输入框可用，原 IPC 返回唯一读写目录与项目基点；未发送聊天/模型请求，无可见错误 |
-| rollback → 再启动 | 原始字节恢复，回滚回执 `identical=true`；再次启动明确拒绝 v1 |
-| 原 SHA / 回滚后 SHA | 两者均为 `e2d82410df8c0cc3b849548d9d31fe41050cd18e7cfebd1225d2eecec16576ea` |
-
-命令入口，先在本工作区构建 `pnpm build:runtime`，再显式传绝对配置路径：
-
-```sh
-node packages/assistant/scripts/config-upgrade.mjs --config <绝对配置路径> --dry-run
-node packages/assistant/scripts/config-upgrade.mjs --config <绝对配置路径> --upgrade
-node packages/assistant/scripts/config-upgrade.mjs --config <绝对配置路径> --rollback <升级回执绝对路径>
-```
-
-真实日用配置等发版后由用户执行。
-
-### 原生 Seatbelt Git 输出摘要，测试仓库
-
-| 命令 | 退出码与输出 |
-|---|---|
-| `git status --short` | 0；` M tracked` |
-| `git log -1 --oneline` | 0；测试 initial 提交 |
-| `git diff -- tracked` | 0；`first` → `changed` |
-| `git add tracked` | 0 |
-| `git commit -qm changed` | 0；宿主再读 HEAD 主题为 `changed` |
-| `git config --local user.name Intruder` | 255；`could not lock config file .git/config: Operation not permitted`；user.name 仍为 Test |
-| `printf bad > .git/hooks/x` | 1；`Operation not permitted` |
-| `mv .git moved-git` | 1；`Operation not permitted` |
-| `cat .ssh/sentinel` | 1；`Operation not permitted` |
-
-各命令仍有原 Shell 后端的 `Error opening /private/var/select/sh: Operation not permitted` 诊断；未放开该系统路径。正常 Git 操作的退出码与实际提交均已核对；不把该诊断省略成“无警告”。测试仓库关闭 Git 自动维护以避免把进程策略受限的维护子任务混入 commit 结果，未替换 hooks 入口或改后端。
-
-### 快照差异
-
-| 编号 | 旧值 → 新值 | 工具 / agent / 来源 | 审批 |
-|---|---|---|---|
-| B2-06 | 无此行 → `b2/read/control: ok` | read_file / primary / 测试授权树 `.git/config` | 用户已批准控制类可读 |
-| B2-06 | 无此行 → `b2/read/credential: PROTECTED_PATH` | read_file / primary / 测试 `.ssh` 哨兵 | 用户已批准凭据类不可读 |
-
-除此之外无快照变化，**无新增待批准快照项**。原 111 行中现行 107 行重放零差异；4 个早已退休的 automatic/review 配置场景继续保留历史值，退休 policy 元数据沿用原投影，不重写原行。
+保留原后端的 `Error opening /private/var/select/sh: Operation not permitted` 诊断，没有放开该系统路径。普通测试仓库关闭自动维护，未替换 hooks 或后端。
 
 ## 3. 前后数字
 
-相对本轮基线 `dc64781`，产品 **+294/−69，净 +225**；测试及验证入口 **+425/−178，净 +247**；快照 **+3/−1**，场景 **127→129**。产品与测试净行均超最初 b2 估算 50%。本轮新增显式离线迁移、完整备份/回滚及共享保护扫描；测试增加实际 CLI、原生 Git/别名回归和三次 Electron 启动。大量文件的版本替换是等量增删，新增净行主要来自上述验证。
+同一授权目录、相同命令、预热 runtime。旧版 `53f8033` 每档 3 次，新版 `4ac037d` 每档 7 次，表中为单调用中位数；两次来源工作区均干净。额外耗时 = 大目录中位数 − 小目录中位数，负数按测量噪声解释。profile 用固定路径参数调用生产编译器生成，排除每次命令随机临时路径长度的影响。
 
-职责按离线命令、`protected-paths.ts` 单一规则、既有执行边界分开；没有保留 v1 运行分支或旧单目录文件授权路径。提交 SHA 及逐提交增删见本轮 `audit.json` 与交付回报；快照独立提交 `ac587a2`。
+| 版本 / 指标 | 1 文件 | 100001 文件 | 额外耗时 |
+|---|---:|---:|---:|
+| 旧 read_file | 0.734750 ms | 1094.607125 ms | +1093.872375 ms |
+| 新 read_file | 0.572542 ms | 0.516583 ms | −0.055959 ms |
+| 旧 shell_exec | 22.349083 ms | 2425.617042 ms | +2403.267959 ms |
+| 新 shell_exec | 21.179000 ms | 21.001125 ms | −0.177875 ms |
+| 旧 profile | 13555 B | 13555 B | 加入 4 个被扫描的硬链路径后 14593 B |
+| 新 profile | 13727 B | 13727 B | 加硬链后仍 13727 B |
+
+本轮产品 **+71/−46，净 +25**；测试/验证入口 **+189/−27，净 +162**；手册 **+50/−0**；快照 **0/0**。测试净行超过最初估算 50%，原因是新增可复跑的 10 万文件性能/权限探针、独立别名风险探针和发布升级探针，未把这些脚手架放进产品执行路径。逐文件分类在 `audit.json`。
+
+| 提交 | 增删行数 | 内容 |
+|---|---:|---|
+| `7684384` | +196/−63 | 目标检查、固定 profile、file-link 禁令、风险与性能探针 |
+| `4ac037d` | +114/−10 | 发布升级绝对命令、构建 Node 记录、手册与发布探针 |
+| `dd75aa3` | +3/−3 | 外置 Git 探针改由真实 git init --separate-git-dir 生成 |
+
+配置演练 SHA：
+
+- 临时发布 CLI 升级前 / 回滚后均 `c3f970c48bef88a2a6f9cffaa8d0372aefa2335126735c6aa9874f891247b359`。
+- 临时发布 Electron 升级前 / 回滚后均 `796a283492d655a58e3010fcdefd9e57b3fe25cb4d6acc3eb86a959b6bb4c034`。
+- 两者回滚回执均 `identical=true`。真实日用配置本轮未读取、未升级。
 
 ## 4. 实际命令和退出码
 
+以下命令均在固定 v2 工作区或新临时发布 clone 运行；验证用显式测试 home 和已批准的 `SERIKA_B2_RECORD_CONCURRENT_HOME=1`，保留真实 home 写入拦截。
+
 | 命令 | 退出码与结果 |
 |---|---|
-| `node scripts/b2-verify.mjs /tmp/serika-b2-review-final-source` | 0；内部 typecheck 0、pnpm test 0；1840 项中 1833 通过、7 项既有跳过，失败 0 |
-| `SERIKA_TEST_HOME=... SERIKA_B2_RECORD_CONCURRENT_HOME=1 pnpm --filter @serika/desktop smoke` | 0；冻结脚本，真实 Electron，8/8 |
-| 同一 test-home 守卫下运行 `b2-config-upgrade-smoke.mjs` | 0；v1 拒绝 → v2 启动 → 回滚 → v1 拒绝，SHA 一致 |
-| 同一守卫下运行 `b2-directory-smoke.mjs` | 0；目录 UI 7/7 |
-| `git diff --check`；冻结 diff；旧正则/旧单目录 API `rg` | 0；冻结 diff 空；删除模式 `rg` 退出 1、零命中 |
+| `node scripts/b2-verify.mjs /tmp/serika-b2-round2-final` | 0；typecheck 0；pnpm test 0；1840 项中 1833 通过、7 项既有跳过、失败 0 |
+| `pnpm --filter @serika/desktop smoke` | 0；干净 `4ac037d`，冻结脚本、真实 Electron / 假模型，8/8 |
+| `pnpm install --offline --frozen-lockfile --store-dir /Users/a1-6/Library/pnpm/store/v11` 后 `pnpm build` | 各 0；临时发布 clone 的依赖和产物独立 |
+| `node scripts/b2-release-probe.mjs /tmp/serika-b2-release-round2-4ac037d /tmp/serika-b2-round2-release-evidence` | 0；clean 发布目录，实际提示可复制，dry-run/upgrade/rollback 成功 |
+| 临时发布 `node apps/desktop/scripts/b2-config-upgrade-smoke.mjs /tmp/serika-b2-round2-release-electron` | 0；真实 Electron 三次启动与 SHA 回滚核对 |
+| `node scripts/b2-scaling-probe.mjs <assistant-dist绝对路径> <输出绝对路径> current` | 0；记录性能、profile、EACCES 与既有硬链观测，风险不是批准 |
+| `node scripts/b2-alias-risk-probe.mjs <assistant-dist绝对路径> <输出JSON绝对路径>` | 0；clean `dd75aa3`，记录真实别名及外置 Git 风险 |
+| `git diff --check`；冻结 diff；产品 scanner rg | 0；冻结空；rg 退出 1、零命中 |
 
-证据：[清单](evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/manifest.json)、[最终全套/快照](evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/verification.json)、[原生 Git 完整输出](evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/native-git.json)、[升级/回滚](evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/config-upgrade/result.json)、[目录设置](evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/directory-settings/result.json)、[冻结/rg/逐提交行数](evidence/architecture-v2-b2/d5253dc3-d330-4b7d-bc7e-583c5d6d7951/audit.json)、[冻结冒烟](evidence/electron-smoke/b2-review-493db20f-4224-4d84-8c33-95f9101ed246/result.json)。
+证据：[清单](evidence/architecture-v2-b2/62f1e8af-7632-47dc-ac26-c81f5b19196c/manifest.json)、[全套/快照](evidence/architecture-v2-b2/62f1e8af-7632-47dc-ac26-c81f5b19196c/verification.json)、[性能](evidence/architecture-v2-b2/62f1e8af-7632-47dc-ac26-c81f5b19196c/scaling-current.json)、[别名风险](evidence/architecture-v2-b2/62f1e8af-7632-47dc-ac26-c81f5b19196c/alias-risk.json)、[发布升级](evidence/architecture-v2-b2/62f1e8af-7632-47dc-ac26-c81f5b19196c/release-upgrade.json)、[发布 Electron](evidence/architecture-v2-b2/62f1e8af-7632-47dc-ac26-c81f5b19196c/release-electron.json)、[原生 Git](evidence/architecture-v2-b2/62f1e8af-7632-47dc-ac26-c81f5b19196c/native-git.json)、[冻结/rg/行数](evidence/architecture-v2-b2/62f1e8af-7632-47dc-ac26-c81f5b19196c/audit.json)、[手册 diff](evidence/architecture-v2-b2/62f1e8af-7632-47dc-ac26-c81f5b19196c/cutover-runbook.diff)、[冻结冒烟](evidence/electron-smoke/b2-round2-079692ba-56e5-4ecd-9fdd-5422de826655/result.json)。
 
-实测 Darwin 27.0.0 arm64、Node 26.4.0、Electron 44.4.5。单元/控制器集成使用假模型；原冒烟使用假模型及真实工具/存储；升级与目录演练不发模型请求。这些不是日用模型质量验收。真实 home 写入拦截违规均为 0；测试守卫自己的临时保护夹具故意违规另计。外部日用 worker 元数据并发变化按本窗口批准记录，未停日用进程，未宣称整树不变。
+原生/桌面/性能验证的真实 home 写违规均为 0；外部日用 worker 元数据变化仅记录，不宣称真实 home 整树未变。未调用真实模型，未停止日用进程，未修改日用发布目录或 legacy-main。全套/冒烟/发布证据绑定 `4ac037d`，后一个提交仅修风险夹具并单独重跑；不是日用模型质量验收。
 
 ## 5. 与计划不符的地方及理由
 
-- 复现与修法：旧文件边界允许读取测试 `.ssh` 路径；旧 Seatbelt 把控制和凭据混成拒读集。统一分类后，文件/Shell 同规。复核再发现 `.git/config` 符链真实目标可写，现统一扫描真实目标；标准 `.git` gitfile 的 ENOTDIR 会让整根失效，现按 gitfile/commondir 识别控制元数据并补回归。未扩大后续步骤范围。
-- 测试输入迁 v2以继续触发原场景；“不支持版本”负例从 2 改为 3。旧字段负例也用 v2，继续单测旧字段拒绝；home-import 的旧源仍为 v1并断言输出 v2。原行为断言未放宽，未删除测试或新增跳过。首次全套查出的桌面内部包导入改为公开错误类型后，包边界检查通过。
-- 冻结 smoke 仍生成 v1，且会在已转 v2 的临时配置重新加旧字段；仅已批准的非冻结夹具转换这些临时输入，仓库退休样例固定不变。冻结脚本及所有冻结基线字节未改。上一版报告的 smoke SHA 记录错误，现按文件与 `8e0222f` 双方实测校正为 `03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34`。
-- 已查旧约束的工具确认/记住、下一 Run 文件授权、持久文件批准、Docker 沙箱、桌面/TG 可信自主及执行回执条目。按 pstack 的领域建模、边界校验、真实产物验证执行，分别落实为单一分类规则、显式配置解析和原生/Electron 演练。
-- 待办已记录到 `pending.md`：代码根的 `new URL("../../..", import.meta.url)` 与 `dirname(dirname())` 显式化一并后续处理；`.npmrc` 禁读对 npm 的影响留到 S2。本轮均未实施。
+**以下风险均未预批接受或拒绝，等用户审核：**
 
-五分钟复验入口：构建后在干净源码、原 test-home 守卫下运行 `node apps/desktop/scripts/b2-config-upgrade-smoke.mjs /tmp/serika-b2-upgrade-demo`。它只创建测试 home，自动演练升级/启动/回滚，结果 JSON 应为 passed 且原/回滚 SHA 相同；测试目录清理。停在 b2 审核口。
+| 风险，全部测试数据 | 实测 |
+|---|---|
+| 预先存在、指向受保护控制/凭据的硬链接 | Shell 读/写测试 H/config 与 H/env 别名均 exit 0；源实际变成 control-after / credential-after，同 inode、nlink=2。文件工具均 HARDLINK_NOT_ALLOWED。沙箱内新建硬链已拒绝 |
+| 凭据符链指向普通目标名 | `.env → credential-target`；原 .env 路径被拒，普通目标名可被 read_file 和 Shell 读取。删除反向树索引后，仅凭目标名无法反查所有凭据别名 |
+| 控制符链与自定义外置 Git metadata | `.git/config → git-target` 的普通目标名、gitfile 指向的 `metadata/config`，文件工具拒写；Shell 均可写。真实 separate-git-dir 仓库中，Shell `git -C worktree config --local user.name TestIntruder` exit 0，实际 config 出现该值。标准 `.git/config` 等路径仍拒写 |
+
+这些观测不写入批准快照，也不解释为原 B2 安全目标全部成立。未为处理别名恢复全树扫描；未擅自更换 Shell 后端或放开权限。
+
+测试断言调整逐项记录：
+
+- 原生多目录用例删除“读/写事先存在的 hard 必须失败”两项旧断言，改由独立风险探针记录实际结果；增加授权内新建硬链被拒的断言及 inode 核验。依据是本轮明确移除硬链预扫描，并要求测量该残余风险。
+- 原“credential 与 Git aliases 在文件和 Seatbelt 均保护”用例，改为目标祖先的 Git/gitfile/commondir 回归；原普通凭据目标禁读、Shell 普通目标禁写等断言已不成立，按上表单列，不隐藏为快照不变。测试文件未删除，未新增 skip。
+- 首次外置 Git 探针的手工元数据不完整，`git config` 报 not-a-git-repository，不能当作保护成功；改用真实 `git init --separate-git-dir` 后复测并核对实际 config 变化。
+
+验证调整：首次隔离 HOME 离线安装缺 tarball，退出 1、写违规 0；指定既有 pnpm store 后通过。临时发布初次启动触发 Electron 下载等待，已仅停止该测试进程组，独立复制本地已安装 Electron 44.4.5 的 dist/path.txt 后重跑；源和临时副本二进制 SHA 都是 `e06891704834df56f24489e1f971428161ae17312143624af13736255cc0ab34`，没有链接开发依赖或改日用安装。
+
+约束偏离：一次补丁工具沿用环境默认 cwd，误在旧工作区创建本轮新文件 `scripts/b2-scaling-probe.mjs`。发现后只核对并删除这个刚创建的文件，撤销误写；未检查、修改或清理旧目录其他文件和用户数据。后续编辑均显式指定 v2 路径。这一失误不计为满足“不进入/不动旧目录”的约束。
+
+已查旧约束的工具确认/记住、文件授权、Docker/Shell 沙箱、桌面/TG 自主与执行回执条目。按 pstack 的“删旧路径”“真实产物验证”“按可验证单元提交”执行，分别删除扫描、测量实际原生行为、分开提交权限与发布入口。代码根 URL 显式化、npm 的 .npmrc 影响继续留待后续，不在本轮实施。

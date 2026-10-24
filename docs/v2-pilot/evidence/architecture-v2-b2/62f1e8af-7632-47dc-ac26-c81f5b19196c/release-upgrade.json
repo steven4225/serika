@@ -1,0 +1,55 @@
+{
+  "scriptSha256": "6ae1f4e7d4f3b7ee1bf9d22452c2cc485bb0a65e306046e52f946e08bac0a82f",
+  "sourceCommit": "4ac037d6785c4162785c6b7c7c052b21363c72c8",
+  "sourceWorktreeDirty": false,
+  "runId": "469f03f6-f3fa-4454-a65a-448d65010c54",
+  "verification": "test-data-independent-local-clone-pnpm-build-no-model",
+  "release": "/tmp/serika-b2-release-round2-4ac037d",
+  "cwd": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/b2-release-test-rJjhQH/unrelated cwd",
+  "realModelCalls": 0,
+  "status": "passed",
+  "files": {
+    "packages/assistant/scripts/config-upgrade.mjs": "df1d27fe5707829a24624678e646334d61615dbaa519f7745dfb9f11766a5570",
+    "packages/assistant/dist/flock.js": "98e397e9b9cafe67b3b33b1c5a10a251b4d1b2c6b9bc52f6dca9341278b1e028",
+    "packages/assistant/dist/tui-module-config.js": "383dd48d6977a848ca51e3151676557ad0a25de8da3ec74cd6f7e4c83cb00e3f",
+    "packages/assistant/dist/node-runtime.json": "ebfc93302c143a0995795b0885fe209d6b7babec26b173ba09e1a6a608392216",
+    "apps/desktop/out/main/index.js": "c2876542f88c22fa44e47e1942263b988e3356cca6cbd694d69b8a76d70d078a"
+  },
+  "originalSha256": "c3f970c48bef88a2a6f9cffaa8d0372aefa2335126735c6aa9874f891247b359",
+  "nodeExecutable": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+  "v1Message": "配置为 v1，请运行 '/opt/homebrew/Cellar/node/26.4.0/bin/node' '/private/tmp/serika-b2-release-round2-4ac037d/packages/assistant/scripts/config-upgrade.mjs' '--config' '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/b2-release-test-rJjhQH/test'\\''s H/config.json' '--upgrade' 升级",
+  "copyableCommand": "'/opt/homebrew/Cellar/node/26.4.0/bin/node' '/private/tmp/serika-b2-release-round2-4ac037d/packages/assistant/scripts/config-upgrade.mjs' '--config' '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/b2-release-test-rJjhQH/test'\\''s H/config.json' '--upgrade'",
+  "dryRunDiff": "--- v1\n+++ v2\n- \"version\": 1\n+ \"version\": 2\n- \"authorizedDirectory\": \"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/b2-release-test-rJjhQH/project\"\n+ \"authorizedDirectories\": [{\"path\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/b2-release-test-rJjhQH/project\",\"access\":\"readwrite\"}]\n+ \"projectDirectory\": \"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/b2-release-test-rJjhQH/project\"\n",
+  "upgrade": {
+    "version": 1,
+    "operation": "config-v1-to-v2",
+    "id": "c51b4850-0559-485b-a07f-8206f56eea26",
+    "configPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/b2-release-test-rJjhQH/test's H/config.json",
+    "backupPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/b2-release-test-rJjhQH/test's H/config.json.v1-c51b4850-0559-485b-a07f-8206f56eea26.backup",
+    "originalSha256": "c3f970c48bef88a2a6f9cffaa8d0372aefa2335126735c6aa9874f891247b359",
+    "upgradedSha256": "7dee28e2f4234a56b8151d8b3761c2d99747b69c3f325779e2cd38cc2bf67240",
+    "originalMode": 384,
+    "receiptPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/b2-release-test-rJjhQH/test's H/config.json.v2-c51b4850-0559-485b-a07f-8206f56eea26.receipt.json"
+  },
+  "rollback": {
+    "version": 1,
+    "operation": "config-v2-to-v1-rollback",
+    "configPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/b2-release-test-rJjhQH/test's H/config.json",
+    "upgradeReceiptPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/b2-release-test-rJjhQH/test's H/config.json.v2-c51b4850-0559-485b-a07f-8206f56eea26.receipt.json",
+    "originalSha256": "c3f970c48bef88a2a6f9cffaa8d0372aefa2335126735c6aa9874f891247b359",
+    "restoredSha256": "c3f970c48bef88a2a6f9cffaa8d0372aefa2335126735c6aa9874f891247b359",
+    "identical": true,
+    "rollbackReceiptPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/b2-release-test-rJjhQH/test's H/config.json.v2-c51b4850-0559-485b-a07f-8206f56eea26.receipt.json.abd8c1e7-f6d4-4be2-9efc-9d470fd26dbf.rollback.json"
+  },
+  "restoredSha256": "c3f970c48bef88a2a6f9cffaa8d0372aefa2335126735c6aa9874f891247b359",
+  "rollbackReceipt": {
+    "version": 1,
+    "operation": "config-v2-to-v1-rollback",
+    "configPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/b2-release-test-rJjhQH/test's H/config.json",
+    "upgradeReceiptPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/b2-release-test-rJjhQH/test's H/config.json.v2-c51b4850-0559-485b-a07f-8206f56eea26.receipt.json",
+    "originalSha256": "c3f970c48bef88a2a6f9cffaa8d0372aefa2335126735c6aa9874f891247b359",
+    "restoredSha256": "c3f970c48bef88a2a6f9cffaa8d0372aefa2335126735c6aa9874f891247b359",
+    "identical": true
+  },
+  "testDirectoryRemoved": true
+}

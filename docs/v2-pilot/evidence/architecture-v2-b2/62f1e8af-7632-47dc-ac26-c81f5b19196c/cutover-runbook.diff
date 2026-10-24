@@ -1,0 +1,58 @@
+diff --git a/docs/v2-pilot/cutover-runbook.md b/docs/v2-pilot/cutover-runbook.md
+index cd9a8b9..57c301a 100644
+--- a/docs/v2-pilot/cutover-runbook.md
++++ b/docs/v2-pilot/cutover-runbook.md
+@@ -217,3 +217,53 @@ env -i HOME="$HOME" PATH='/usr/bin:/bin:/usr/sbin:/sbin' \
+ 3. main 原数据未变时，直接选回记录的 main 应用、原配置、原工作目录和原 userData。若原目录曾被人工移动或损坏，从完整 main 备份按原路径恢复，并核对全部 manifest、SHA、权限；不要用只含迁移数据的 H 代替 main 备份。
+ 4. 用记录的 main 源码或原二进制启动 main，先确认历史、草稿和原记忆。只恢复切换前已启用的 resident/worker 服务及原标签，避免双写。新旧实例不能同时使用同一数据。
+ 5. 保留切换前后全部私密证据，报告差异；实验产生的新内容以后再单独迁移。不能宣布自动无损合并或再次自动切换。
++
++## 7. 升级到 v2-release-2
++
++本节用于已切日用的 v1 配置升级，不重复导入旧数据。由用户在发版时执行；审核测试只使用临时发布目录和测试配置。先按 §1.1 在新提交目录独立构建审核通过的 `v2-release-2`，保留旧发布目录、固定入口和 Node。`pnpm build` 会保留 `packages/assistant/scripts/config-upgrade.mjs`，生成其依赖的 `packages/assistant/dist/`，并把本次构建的 Node 绝对路径写入 `dist/node-runtime.json`；桌面 v1 提示使用该 Node，CLI 提示使用当前 Node。
++
++### 7.1 停止 Serika 并预览转换
++
++先取消 Run 并等待 idle，停用当前 H 的 resident/worker 服务，退出桌面和使用同一 H 的 CLI/TUI。按 §2 核对实际 job、PID 和子进程均已退出。不能确认全部写入者已停止就不升级。新发布版遇到 v1 会明确拒绝启动，不会静默转换。
++
++以下变量使用新发布目录的实际绝对路径；所有升级命令均可在任意 cwd 执行。私密记录目录须为新目录，权限 0700，记录和回执不进入仓库。
++
++```sh
++RELEASE="$HOME/Applications/Serika-releases/<审核通过的完整40位提交>"
++NODE="$(/usr/bin/plutil -extract nodeExecutable raw -o - "$RELEASE/packages/assistant/dist/node-runtime.json")"
++UPGRADE="$RELEASE/packages/assistant/scripts/config-upgrade.mjs"
++CONFIG="$HOME/.serika/config.json"
++UPGRADE_RECORD="$HOME/Serika-v2-release-2-upgrade-YYYYMMDD"
++umask 077
++mkdir -m 700 "$UPGRADE_RECORD"
++test -x "$NODE" && test -f "$UPGRADE" && test -f "$RELEASE/packages/assistant/dist/flock.js" || exit 1
++/usr/bin/shasum -a 256 "$CONFIG" > "$UPGRADE_RECORD/config-before.sha256"
++"$NODE" "$UPGRADE" --config "$CONFIG" --dry-run > "$UPGRADE_RECORD/dry-run.diff"
++cat "$UPGRADE_RECORD/dry-run.diff"
++/usr/bin/shasum -a 256 -c "$UPGRADE_RECORD/config-before.sha256"
++```
++
++每条命令必须退出 0。预览只能将 `version: 1` 改为 `2`，将旧 `authorizedDirectory` 改为 `authorizedDirectories: [{ path, access: "readwrite" }]` 和同路径 `projectDirectory`；旧目录为空时变为 `[]` 与 `null`。其他配置保持。核对原文件 SHA 仍等于 `config-before.sha256`，有意外差异就停止。
++
++### 7.2 升级、启动与核对
++
++```sh
++"$NODE" "$UPGRADE" --config "$CONFIG" --upgrade > "$UPGRADE_RECORD/upgrade.json"
++cat "$UPGRADE_RECORD/upgrade.json"
++"$RELEASE/Serika.command" --inspect
++```
++
++退出 0 后，保留输出中的 `backupPath` 和 `receiptPath`：工具先备份完整原字节，再写升级回执并替换配置。核对备份 SHA 等于回执 `originalSha256` 和升级前记录，当前配置 SHA 等于 `upgradedSha256`。在桌面核对 H、历史、草稿、记忆可读，目录列表及读写标记和原授权相符，无 v1 提示或启动错误；先不发送消息或启动整理。通过后才由用户恢复原先启用的服务和日用入口。
++
++### 7.3 出问题时回滚
++
++先再次停止新版本全部写入者并保留错误证据。将 `RECEIPT` 填为上一条升级输出的 `receiptPath`，不要用 `upgrade.json` 代替工具回执。
++
++```sh
++RECEIPT='<upgrade 输出的 receiptPath 绝对路径>'
++"$NODE" "$UPGRADE" --config "$CONFIG" --rollback "$RECEIPT" > "$UPGRADE_RECORD/rollback.json"
++cat "$UPGRADE_RECORD/rollback.json"
++/usr/bin/shasum -a 256 "$CONFIG"
++```
++
++退出 0、`identical: true` 且 `originalSha256`、`restoredSha256`、升级前记录三者完全相等才算配置回滚通过；保留 `rollbackReceiptPath`。随后改用保留的旧发布入口，先核对再恢复原服务。回滚后新版本仍应显示 v1 升级提示。配置已被修改、备份损坏或 SHA 不符时工具会拒绝覆盖；此时保留现场，由用户核对，不能自动重试或直接覆盖备份。此命令只回滚配置；若升级后已产生其他业务数据变化，按对应完整备份另行判断恢复范围。
