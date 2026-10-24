@@ -2,7 +2,7 @@ import type { ToolExecutionOptions } from "ai";
 import { z } from "zod";
 import type { DirectoryAccess, DirectoryAccessCode } from "./directory-access.js";
 
-export const DIRECTORY_FILE_INSTRUCTIONS = " Paths may be absolute inside authorized directories, or relative to the explicit project/selected directory. Without an explicit base, ask the user to choose a directory when several are authorized. Read-only grants and protected control files cannot be written.";
+export const DIRECTORY_FILE_INSTRUCTIONS = " Paths may be absolute inside authorized directories, or relative to the explicit project/selected directory. Without an explicit base, ask the user to choose a directory when several are authorized. Read-only grants and protected control files cannot be written. Credential paths cannot be read or written.";
 
 const accessFailureSchema = z.object({
   ok: z.literal(false),
