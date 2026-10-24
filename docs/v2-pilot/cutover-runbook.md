@@ -280,3 +280,22 @@ cat "$UPGRADE_RECORD/memory-rollback.json" "$UPGRADE_RECORD/config-rollback.json
 ```
 
 两项退出 0、`identical: true`，各自 `originalSha256`、`restoredSha256`、升级前记录完全相等才算回滚通过；保留两个 `rollbackReceiptPath`。随后用旧发布入口核对，再恢复原服务。新版本仍应拒绝旧格式。文件已被修改、备份损坏或 SHA 不符时工具拒绝覆盖：保留现场，由用户根据完整 H 备份判断恢复范围，不自动重试或覆盖。启动核对若产生业务数据写入，也需先裁决差量，不能直接抹去。
+
+### 7.4 项目移动后的离线重绑
+
+启动或选择时若提示项目在旧路径找不到，先停止使用同一 H 的全部 Serika 写入者。项目不会自动猜测新目录或转移记忆。使用提示中的绝对 Node 和脚本路径，将 `--to` 替换为实际新目录，先预览再执行：
+
+```sh
+"$NODE" "$RELEASE/packages/assistant/scripts/project-rebind.mjs" --data "$HOME/.serika/data" --from '<旧项目绝对路径或项目ID>' --to '<新项目绝对路径>' --dry-run
+"$NODE" "$RELEASE/packages/assistant/scripts/project-rebind.mjs" --data "$HOME/.serika/data" --from '<旧项目绝对路径或项目ID>' --to '<新项目绝对路径>' --upgrade
+```
+
+预览逐类显示条目、文档、进度、导入回执、屏蔽记录和注册的受影响条数，不输出正文。目标已有任一种记忆关联记录就停止，不合并。工具完整备份 memory.json 和 projects.json 的原字节与权限模式，先写含两个文件 SHA 的回执再替换。来源 Thread/消息、revision、原请求 hash 和进度 prefixHash 保持；目录授权、配置和 transcript 不改。保留两个备份和 `receiptPath`。
+
+重启核对项目笔记、文档、user 偏好后再恢复使用。若需回滚，先停止全部写入者，再执行：
+
+```sh
+"$NODE" "$RELEASE/packages/assistant/scripts/project-rebind.mjs" --data "$HOME/.serika/data" --rollback '<重绑输出的receiptPath绝对路径>'
+```
+
+两个文件的 `originalSha256` 与 `restoredSha256` 相同，且 `identical: true` 才算回滚成功。两次文件替换中断时，回滚允许各文件处于原 SHA 或重绑后 SHA，并核对后恢复。文件漂移、权限变化或备份损坏时拒绝覆盖；结果未确认时保留现场和回执，不自动重绑重试。回滚会恢复旧项目注册，旧路径仍失联时继续显示提示，需要恢复原目录或重新明确重绑。

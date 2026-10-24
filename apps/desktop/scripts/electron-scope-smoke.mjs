@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -24,12 +24,15 @@ Object.assign(env, { HOME: home, XDG_CONFIG_HOME: join(home, '.config'), XDG_CAC
 report.artifactHashes = Object.fromEntries(await Promise.all(['out/main/index.js', 'out/preload/index.cjs', 'out/renderer/index.html'].map(async path => [path, await hash(join(desktop, path))])));
 let running, page; const rendererErrors = [];
 async function clean() { assert.deepEqual(rendererErrors, []); assert.deepEqual((await page.locator('[role="alert"]:visible, [class*="error"]:visible, [class*="warning"]:visible').allTextContents()).map(text => text.trim()), []); }
-async function launch(name) {
+async function launch(name, missingProject = false) {
+  const started = performance.now();
   running = await electron.launch({ args: [join(desktop, 'out/main/index.js'), '--home', appHome], cwd: personal, env, timeout: 30000 }); page = await running.firstWindow(); page.setDefaultTimeout(15000);
   page.on('pageerror', error => rendererErrors.push(error.message)); page.on('console', message => { if (['warning', 'error'].includes(message.type())) rendererErrors.push(`${message.type()}: ${message.text()}`); });
   const main = await running.evaluate(({ app }) => ({ electron: process.versions.electron, pid: process.pid, userData: app.getPath('userData'), home: app.getPath('home') }));
   const renderer = await page.evaluate(() => ({ userAgent: navigator.userAgent, url: location.href })); assert.ok(main.electron); assert.equal(main.home, home); assert.equal(main.userData, env.RUNLOOM_USER_DATA); assert.match(renderer.userAgent, /Electron\//); assert.match(renderer.url, /^file:/);
-  report.launches.push({ name, main, renderer }); await expect(page.getByPlaceholder('和 Serika 聊天')).toBeEnabled(); await clean();
+  report.launches.push({ name, main, renderer }); if (missingProject) return;
+  await page.evaluate(async () => { const info = await window.runloom.info(); if (info.workTasks) { const tasks = await window.runloom.listWorkTasks(); if (!tasks.ok) throw new Error('Cold-start WorkTask read failed: ' + tasks.error.code); } });
+  report.launches.at(-1).hostReadinessMilliseconds = performance.now() - started; await expect(page.getByPlaceholder('和 Serika 聊天')).toBeEnabled(); await clean();
 }
 async function stop() { if (running) { const child = running.process(); await running.close(); assert.notEqual(child.exitCode, null); assert.throws(() => process.kill(child.pid, 0), { code: 'ESRCH' }); running = undefined; } }
 async function shot(name) { const path = join(evidence, `${name}.png`); await page.screenshot({ path }); const item = { file: `${name}.png`, sha256: await hash(path) }; report.screenshots.push(item); return item; }
@@ -73,6 +76,21 @@ try {
   await isolation('serika-project-visible', true); await project(personal); await isolation('personal-project-isolated', false); await project(null); await isolation('no-project-isolated', false); await project(projectA); await isolation('return-to-serika-visible', true);
   const beforeHash = await hash(memoryPath), beforePid = report.launches.at(-1).main.pid; await stop(); await launch('restarted'); const info = await page.evaluate(() => window.runloom.info()); assert.equal(info.project.directory, projectA); assert.equal(info.threadId, initial.threadId); assert.deepEqual(info.authorizedDirectories, config.authorizedDirectories); assert.equal(await hash(configPath), configSha); assert.equal(await hash(memoryPath), beforeHash); assert.notEqual(report.launches.at(-1).main.pid, beforePid);
   report.restart = { beforePid, afterPid: report.launches.at(-1).main.pid, beforeMemorySha256: beforeHash, afterMemorySha256: await hash(memoryPath), projectRestored: true, unchangedAuthorizations: true }; await isolation('restart-project-and-memory', true);
-  memory = JSON.parse(await readFile(memoryPath, 'utf8')); assert.equal(memory.entries.filter(entry => entry.state === 'active' && entry.scope.kind === 'user').length, 3); assert.equal(memory.library.documents.length, 3); assert.ok(memory.entries.filter(entry => entry.category === 'document').every(entry => entry.scope.projectId === info.project.id)); report.status = 'passed';
+  memory = JSON.parse(await readFile(memoryPath, 'utf8')); assert.equal(memory.entries.filter(entry => entry.state === 'active' && entry.scope.kind === 'user').length, 3); assert.equal(memory.library.documents.length, 3); assert.ok(memory.entries.filter(entry => entry.category === 'document').every(entry => entry.scope.projectId === info.project.id)); await stop();
+  const dataDirectory = join(appHome, 'data'), registryPath = join(dataDirectory, 'projects.json'), moved = join(root, 'moved-serika-v2');
+  const originals = { memory: await hash(memoryPath), projects: await hash(registryPath) }; await rename(projectA, moved);
+  await launch('moved-project-missing', true);
+  const alerts = page.getByRole('alert'); await expect(alerts).toHaveCount(1); await expect(alerts).toContainText(`项目 serika-v2 在 ${projectA} 找不到了；如已移动，运行`);
+  const diagnostic = await alerts.innerText(); assert.ok(diagnostic.includes('project-rebind.mjs')); assert.ok(diagnostic.includes(dataDirectory)); assert.ok(diagnostic.includes('--from')); assert.ok(diagnostic.includes('--to')); assert.deepEqual(rendererErrors, []);
+  report.checks.push({ name: 'moved-project-diagnostic', result: 'passed', expectedErrors: [diagnostic], screenshot: await shot('moved-project-diagnostic') });
+  assert.equal(await hash(memoryPath), originals.memory); assert.equal(await hash(registryPath), originals.projects); await stop();
+  const rebindScript = join(repo, 'packages/assistant/scripts/project-rebind.mjs');
+  const runRebind = args => JSON.parse(execFileSync(process.execPath, [rebindScript, '--data', dataDirectory, ...args], { env, encoding: 'utf8' }));
+  const dry = runRebind(['--from', projectA, '--to', moved, '--dry-run']); assert.equal(dry.affected.entries, 4); assert.equal(dry.affected.documents, 3);
+  assert.equal(await hash(memoryPath), originals.memory); assert.equal(await hash(registryPath), originals.projects);
+  const rebound = runRebind(['--from', projectA, '--to', moved, '--upgrade']); await launch('rebound-project'); await isolation('rebound-project-visible', true); await stop();
+  const rollback = runRebind(['--rollback', rebound.receiptPath]); assert.ok(rollback.identical); assert.equal(await hash(memoryPath), originals.memory); assert.equal(await hash(registryPath), originals.projects);
+  report.projectRebind = { diagnostic, affected: dry.affected, files: rollback.files, identical: rollback.identical };
+  await rename(moved, projectA); await launch('rollback-original-project'); await isolation('rollback-original-project-visible', true); report.status = 'passed';
 } catch (error) { report.failure = { name: error.name, message: error.message.slice(0, 1800) }; process.exitCode = 1; if (running) await shot('failure').catch(() => {}); }
 finally { await stop().catch(error => { report.status = 'failed'; report.cleanupError = error.message; process.exitCode = 1; }); await rm(root, { recursive: true, force: true }); await assert.rejects(access(root), { code: 'ENOENT' }); report.temporaryDirectoryRemoved = true; report.rendererErrors = rendererErrors; await writeFile(join(evidence, 'result.json'), JSON.stringify(report, null, 2) + '\n'); console.log(JSON.stringify({ runId, status: report.status, checks: report.checks.length, evidence, failure: report.failure })); }

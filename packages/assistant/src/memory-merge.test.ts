@@ -32,7 +32,7 @@ test("overflow merge inherits real bound sources and pin state; cold undo restor
   for (const budget of budgets) {
     const root = await mkdtemp(join(tmpdir(), "cm7-merge-"));
     try {
-      const store = new V7MemoryStore(join(root, ".runloom/memory.json")), before = await seed(store); let calls = 0;
+      const store = new V7MemoryStore(join(root, ".runloom/memory.json"), null), before = await seed(store); let calls = 0;
       const model = new MockLanguageModelV3({ doGenerate: async input => {
         calls++; assert.equal(input.tools, undefined); assert.equal(input.maxOutputTokens, budget.summaryMaxOutputTokens);
         assert.match(JSON.stringify(input.prompt), /Preserve every distinct literal clause/);
@@ -40,14 +40,14 @@ test("overflow merge inherits real bound sources and pin state; cold undo restor
       } });
       assert.equal(await mergeMemory({ store, document: before, model, budget, signal: new AbortController().signal }), true);
       assert.equal(calls, 1);
-      const reopened = new V7MemoryStore(join(root, ".runloom/memory.json")), after = await reopened.readV7(); assert.ok(after.ok);
+      const reopened = new V7MemoryStore(join(root, ".runloom/memory.json"), null), after = await reopened.readV7(); assert.ok(after.ok);
       const merged = after.value.entries.find(entry => entry.state === "active")!;
       assert.equal(after.value.entries.filter(entry => entry.state === "active").length, 1);
       assert.equal(merged.pinned, true); assert.equal(merged.sources.length, 4); assert.deepEqual(merged.replaces, before.entries.map(entry => entry.id));
       const receipts = await readMemoryFactReceipts(reopened, "t"); assert.ok(receipts.ok);
       assert.equal(receipts.value.filter(receipt => receipt.text === "已取代旧记忆").length, 4);
       assert.ok((await reopened.writeV7([{ operation: "undo", id: merged.id, expectedRevision: merged.revision, source: { kind: "manual" } }])).ok);
-      const undone = await new V7MemoryStore(join(root, ".runloom/memory.json")).readV7(); assert.ok(undone.ok);
+      const undone = await new V7MemoryStore(join(root, ".runloom/memory.json"), null).readV7(); assert.ok(undone.ok);
       for (const original of before.entries) {
         const restored: V7Document["entries"][number] = undone.value.entries.find(entry => entry.id === original.id)!;
         assert.equal(restored.state, "active"); assert.equal(restored.pinned, original.pinned);
@@ -60,7 +60,7 @@ test("overflow merge inherits real bound sources and pin state; cold undo restor
 test("merge rejects stale revisions and omitted conditions; cancelled inference never writes or retries", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm7-merge-reject-"));
   try {
-    const store = new V7MemoryStore(join(root, ".runloom/memory.json")), before = await seed(store), budget = budgets[0]!;
+    const store = new V7MemoryStore(join(root, ".runloom/memory.json"), null), before = await seed(store), budget = budgets[0]!;
     const file = join(root, ".runloom/memory.json"), original = await readFile(file, "utf8");
     const invalid = await store.mergeV7({ members: members(before), text: text.split("；")[0]! });
     assert.equal(invalid.ok, false); assert.equal(await readFile(file, "utf8"), original);
@@ -80,7 +80,7 @@ test("merge rejects stale revisions and omitted conditions; cancelled inference 
 test("the extraction lifecycle settles its backlog before one merge and does not repeat unchanged work", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm7-merge-queue-"));
   try {
-    const store = new V7MemoryStore(join(root, ".runloom/memory.json")), before = await seed(store), order: string[] = [];
+    const store = new V7MemoryStore(join(root, ".runloom/memory.json"), null), before = await seed(store), order: string[] = [];
     const model = new MockLanguageModelV3({ doGenerate: async input => {
       if (JSON.stringify(input.prompt).includes("Consolidate redundant")) { order.push("merge"); return response({ merge: null }); }
       order.push("extract"); return response({ proposals: [], outcomes: [{ messageId: "latest", status: "no_memory" }] });
@@ -107,7 +107,7 @@ test("an uncertain merge commit is rereadable and the lifecycle never retries it
       extraction.idle(); await settle(() => !extraction.diagnostics().running);
       assert.match(extraction.diagnostics().error ?? "", /MEMORY_COMMIT_UNCERTAIN/); assert.equal(calls, 1);
       extraction.idle(); await settle(() => !extraction.diagnostics().running); assert.equal(calls, 1);
-      const saved = await new V7MemoryStore(join(root, ".runloom/memory.json")).readV7(); assert.ok(saved.ok);
+      const saved = await new V7MemoryStore(join(root, ".runloom/memory.json"), null).readV7(); assert.ok(saved.ok);
       assert.equal(saved.value.entries.filter(entry => entry.state === "active").length, 1);
     } finally { await extraction.close(); }
   } finally { await rm(root, { recursive: true, force: true }); }

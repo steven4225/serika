@@ -69,7 +69,7 @@ test("opens restored history and memory, continues, reopens the selected recover
   } }) };
   let owner = await RuntimeOwnership.create(options);
   try {
-    const original = owner.info(), memory = createMemoryStore(join(f.options.applicationHome, "data/memory.json"));
+    const original = owner.info(), memory = createMemoryStore(join(f.options.applicationHome, "data/memory.json"), null);
     const saved = await memory.add({ scope: { kind: "user" }, text: "复盘先写结论，再两条步骤" }); assert(saved.ok);
     const transcript = new JsonlAgentStore({ directory: original.directory });
     const messages = [{ id: "old-user", role: "user" as const, parts: [{ type: "text" as const, text: "旧对话可恢复" }] }];

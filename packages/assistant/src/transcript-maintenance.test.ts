@@ -46,7 +46,7 @@ it("physical compact preserves memory cursor, exact quotes and valid summary; re
   let app: Awaited<ReturnType<typeof createRuntimeApp>> | undefined;
   try {
     const before = (await stat(file)).size; assert.ok(before > 16 * 1024 * 1024);
-    const memory = createMemoryStore(join(workspace, ".runloom/memory.json"));
+    const memory = createMemoryStore(join(workspace, ".runloom/memory.json"), null);
     const prefixHash = hashCanonicalJson(JSON.parse(JSON.stringify(messages)));
     assert.ok((await memory.writeV7!([{ operation: "add", scope: { kind: "user" }, text: preference, category: "preference", source: { kind: "conversation", threadId, messageId: "u1", quote: preference, sentAt: null } }], undefined, { expectedProgress: null, progress: { projectId: null, threadId, throughMessageId: "u2", prefixHash, pending: [], retry: null } })).ok);
     const memoryFile = join(workspace, ".runloom/memory.json"), originalMemory = await readFile(memoryFile);

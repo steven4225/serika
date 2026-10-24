@@ -88,7 +88,7 @@ test("Controller saves a pinned Skill schedule; the existing worker delivers onc
   const model = new MockLanguageModelV3({ doStream: async options => { observed.push(options); return response(); } });
   const f = await fixture(model);
   try {
-    assert.ok((await createMemoryStore(join(f.workspace, ".runloom/memory.json")).add({ scope: { kind: "user" }, text: "GLOBAL_MEMORY_PRIVATE", pinned: true })).ok);
+    assert.ok((await createMemoryStore(join(f.workspace, ".runloom/memory.json"), null).add({ scope: { kind: "user" }, text: "GLOBAL_MEMORY_PRIVATE", pinned: true })).ok);
     assert.ok((await createCheckpointStore(join(f.workspace, ".runloom/checkpoint.json")).saveNextVersion({ expectedVersion: null, sourceThreadId: "origin",
       draft: { status: "active", goal: "GLOBAL_CHECKPOINT_PRIVATE", summary: "GLOBAL_CHECKPOINT_PRIVATE", completed: [], inProgress: [], nextActions: [], blockers: [], artifacts: [] } })).ok);
     await f.app.store.save("origin", [{ id: "old", role: "user", parts: [{ type: "text", text: "GLOBAL_HISTORY_PRIVATE" }] }]);

@@ -55,7 +55,7 @@ export function builtinToolPermissions(options: { shell?: "host" | "docker" } = 
   const shell = options.shell === "docker"
     ? { sandbox: { backend: "docker" as const, image: "img", readablePaths: [], writablePaths: [] } }
     : {};
-  const memoryStore = memoryStoreForFacts(join(".", ".runloom/memory.json"));
+  const memoryStore = memoryStoreForFacts(join(".", ".runloom/memory.json"), null);
   const getMessages = async () => [];
   const host = createHostForFacts([
     pomodoroForFacts(),

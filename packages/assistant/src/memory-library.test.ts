@@ -149,7 +149,7 @@ it("keeps project document titles and bodies out of other projects; user memory 
     assert.equal((await other.changeLibrary({ ...action, expectedRevision: view.revision })).ok, false);
     assert.ok(view.documents.some(document => document.id === legacyDocumentId(preference.entry.id)));
   }
-  const none = new V7MemoryStore(file), revision = value(await none.getLibrary()).revision;
+  const none = new V7MemoryStore(file, null), revision = value(await none.getLibrary()).revision;
   assert.equal(code(await none.changeLibrary(newDoc(revision))), "MEMORY_PROJECT_REQUIRED");
   const implicit = value(await none.readLibraryDocument(legacyDocumentId(preference.entry.id)));
   value(await none.changeLibrary(newDoc(implicit.libraryRevision, { id: implicit.id, title: implicit.title, entries: implicit.entries, text: "偏好先给结论" })));

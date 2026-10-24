@@ -112,7 +112,7 @@ export function createTaskWorkerContextLoader(
   taskStore: TaskStore,
 ): (task: TaskRecord, signal: AbortSignal) => Promise<TaskWorkerSnapshotContext> {
   const sources = {
-    memoryStore: createMemoryStore(assistantDataPaths(dataDirectory).memory),
+    memoryStore: createMemoryStore(assistantDataPaths(dataDirectory).memory, null),
     checkpointStore: createCheckpointStore(assistantDataPaths(dataDirectory).checkpoint),
     taskStore,
   };

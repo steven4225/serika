@@ -40,7 +40,7 @@ it("live scheduled workspace brief: Memory + checkpoint → worker → inbox →
   }
 
   try {
-    const memory = await createMemoryStore(join(root, "data/memory.json")).add({
+    const memory = await createMemoryStore(join(root, "data/memory.json"), null).add({
       scope: { kind: "user" },
       text: "本项目当前优先事项是完成 Serika 的任务级验收。",
     });

@@ -313,11 +313,13 @@ export class DesktopRuntime {
   }
   selectProject(directory: string | null) {
     const previous = this.info().project?.directory ?? null;
+    let changed = false;
     return this.#replace(async () => {
       await selectProject({ dataDirectory: join(this.#options.applicationHome, "data"), directory, cwd: this.#options.cwd });
+      changed = true;
       return this.#identity;
     }, false, { reason: "context", rollback: async () => {
-      await selectProject({ dataDirectory: join(this.#options.applicationHome, "data"), directory: previous, cwd: this.#options.cwd });
+      if (changed) await selectProject({ dataDirectory: join(this.#options.applicationHome, "data"), directory: previous, cwd: this.#options.cwd });
     } });
   }
   setAuthorizedDirectories(input: DirectorySettingsInput) {

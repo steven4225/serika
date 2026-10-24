@@ -32,7 +32,7 @@ function ProjectSelection({ info, busy }: { info: AppInfo; busy: boolean }) {
   };
   return <section className="capability-row"><div><strong>当前项目</strong>
     <p>{info.project ? `${info.project.name} · ${info.project.directory}` : "无项目"}</p>
-    <p className="hint">按选中目录的最近 Git 根识别，普通文件夹直接作为项目。移动项目后请重新选择。文件访问仍使用目录授权。</p>
+    <p className="hint">按选中目录的最近 Git 根识别，普通文件夹直接作为项目。移动项目后请按提示离线重绑。文件访问仍使用目录授权。</p>
     <div className="actions"><input aria-label="项目目录" placeholder="绝对目录路径，留空表示无项目" value={directory} disabled={locked} onChange={event => setDirectory(event.target.value)} /><button disabled={locked} onClick={() => void apply()}>{saving ? "正在切换…" : "选择项目"}</button></div>
     {error ? <p role="alert" className="error">{error}</p> : null}
   </div></section>;

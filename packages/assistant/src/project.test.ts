@@ -28,7 +28,7 @@ it("identifies nearest Git/worktree root, explicit folder and no project using m
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-it("restores project selection without authorizations, requires explicit rebind after moving", async () => {
+it("restores selection without authorizations and reports a moved or changed selected root before replacing it", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-project-selection-")));
   try {
     const dataDirectory = join(root, "home/data"), first = join(root, "first"), second = join(root, "second");
@@ -41,14 +41,23 @@ it("restores project selection without authorizations, requires explicit rebind 
     assert.deepEqual(Object.keys(registry).sort(), ["projects", "selected", "version"]);
     assert.deepEqual(Object.keys(registry.projects[0]).sort(), ["directory", "id", "kind", "name"]);
     await rename(first, join(root, "moved"));
-    assert.equal(await selectProject({ dataDirectory, cwd: second }), null);
-    const rebound = await selectProject({ dataDirectory, directory: join(root, "moved"), cwd: second });
+    const beforeMoveRegistry = await readFile(join(dataDirectory, "projects.json"), "utf8");
+    for (const directory of [undefined, second, null]) {
+      await assert.rejects(selectProject({ dataDirectory, cwd: second, ...(directory !== undefined ? { directory } : {}) }), /项目 first 在 .*first 找不到了；如已移动，运行 .*project-rebind.mjs/);
+    }
+    assert.equal(await readFile(join(dataDirectory, "projects.json"), "utf8"), beforeMoveRegistry);
+    await rename(join(root, "moved"), first);
+    const rebound = await selectProject({ dataDirectory, directory: second, cwd: second });
     assert.notEqual(rebound?.id, chosen?.id);
     await selectProject({ dataDirectory, directory: null, cwd: second });
     assert.equal(await selectProject({ dataDirectory, cwd: second }), null);
     assert.equal(await readFile(config, "utf8"), before);
+    await selectProject({ dataDirectory, directory: first, cwd: second });
+    await mkdir(join(root, ".git"));
+    await assert.rejects(selectProject({ dataDirectory, cwd: second }), /找不到了/);
+
     const context = createTaskTimeSource(rebound).collect({ messages: [], signal: new AbortController().signal, primary: true, now: new Date(), timeZone: "Asia/Shanghai", user: undefined, query: "" });
     assert.match(JSON.stringify(await context), /Host-selected project/);
-    assert.match(JSON.stringify(await context), /moved/);
+    assert.match(JSON.stringify(await context), /second/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

@@ -20,7 +20,7 @@ it("no-new-user memory Demo: a due reminder creates no model Run and leaves save
     throw new Error("a typed reminder must not call the model or memory_add");
   } }), store: new JsonlAgentStore({ directory: join(root, ".runloom", "task-transcripts") }) });
   try {
-    const memory = createMemoryStore(join(root, ".runloom/memory.json"));
+    const memory = createMemoryStore(join(root, ".runloom/memory.json"), null);
     assert.ok((await memory.add({ scope: { kind: "user" }, text: "我喜欢喝美式。", source: {
       kind: "conversation", threadId: "ordinary-chat", messageId: "previous-user", quote: "记住我喜欢喝美式。", sentAt: null,
     } })).ok);
@@ -42,7 +42,7 @@ it("no-new-user memory Demo: a due reminder creates no model Run and leaves save
     assert.equal(runs, 0);
     assert.equal(modelCalls, 0);
     assert.deepEqual(await readFile(join(root, ".runloom", "memory.json")), before);
-    const reopened = await createMemoryStore(join(root, ".runloom/memory.json")).list(); assert.ok(reopened.ok);
+    const reopened = await createMemoryStore(join(root, ".runloom/memory.json"), null).list(); assert.ok(reopened.ok);
     assert.equal(reopened.entries.length, 1);
     assert.equal(reopened.entries[0]!.source?.kind, "conversation");
     assert.equal(reopened.entries[0]!.source?.messageId, "previous-user");

@@ -2,6 +2,8 @@
 
 ## 1. 改了什么
 
+本窗用户于 2026-10-25 明确批准，原话："(1) 新增 v7 专用 Electron 冒烟（旧冻结冒烟写死 v6）；(2) 「工作分支改成 main」笔记归到 serika-v2。" 以下两项批准均以该审核消息为准。
+
 依据 step4.5 c1/c2、D6–D9 已批准 A，完成两个独立产品提交，合并交审。本步不发版，不升级真实日用数据，不做 S2/S3。
 
 | 步骤 | 产品提交 | 主要文件与原因 |
@@ -54,7 +56,7 @@
 | `8291bb0f-cbf3-4d8a-83fd-802c45db1293` | document | serika-v2 project |
 | `99c79249-c065-498b-b5a1-980f083f209c` | note | serika-v2 project |
 
-额外 main 分支 note 的项目归属由用户逐项明确批准。结果为总计 7 条、3 偏好、3 文档条目、文档库 3。文档保留 document 类型和来源。
+额外 main 分支 note 的项目归属以本窗用户 2026-10-25 的本轮审核消息批准为准。结果为总计 7 条、3 偏好、3 文档条目、文档库 3。文档保留 document 类型和来源。
 
 | 当前项目 | 可见条目 | user 偏好 | 主上下文文档索引 | memory_read 可读文档 | 文档库索引 |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -116,7 +118,7 @@ c2 Electron 重启 PID 60507→76457，重启前后 memory SHA 均为 `2135b5f5b
 
 ## 5. 与计划不符的地方及理由
 
-- 用户已批准新增 v7 专用真实 Electron 冒烟，因为冻结脚本硬断言 memory version 6。保留原文件字节、原证据和 c1 原协议结果。冻结汇总入口还绑定旧分支及旧冒烟，本轮逐项执行 typecheck、两时区全套、eval、独立 v7 冒烟和离线审计；未运行 `pnpm verify:cm6`，未修改冻结入口。
+- 本窗用户于 2026-10-25 的本轮审核消息批准新增 v7 专用真实 Electron 冒烟，因为冻结脚本硬断言 memory version 6。批准口径以本条消息为准。保留原文件字节、原证据和 c1 原协议结果。冻结汇总入口还绑定旧分支及旧冒烟，本轮逐项执行 typecheck、两时区全套、eval、独立 v7 冒烟和离线审计；未运行 `pnpm verify:cm6`，未修改冻结入口。
 - 测试断言调整单独说明：所有当前 store version 6→7、隐式 workspace fixture→显式 user，project 文档 fixture 显式绑定项目；constructor 的注入边界移至第三参；旧版本拒绝测试由 v1–v5 扩至 v1–v6；直接 Runtime 来源请求添加宿主项目 metadata。旧值不符合已批准 v7 契约，原 CAS/来源/撤回/unknown 断言保留。
 - `memory-v6-store.test.ts` 删除并迁至 `memory-v7-store.test.ts`，原 replacement/withdrawal/source deletion/commit barrier/privacy/capacity 用例均迁移。新增跨项目及 v6 拒绝用例，没有为变绿删除或 skip 行为断言。完整测试改动见 [test-changes.diff](evidence/architecture-v2-c1c2/43d5102c-ef7a-4812-a1f3-6f38b05929a0/test-changes.diff)。
 - `cm-step6-live.test.mjs` 中 `actual Controller archives the primary reply before a background summary failure is reported` 原先调用冻结 runChat 写 config v1，当前 Runtime 正确拒绝它。改为 config v2 的直接 Controller fixture，仍断言原回复先归档、backgroundCalls=1、usageCalls=2、后台失败和 passed=false；冻结 helper 不改。

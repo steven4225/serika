@@ -24,7 +24,7 @@ async function fixture() {
   await writeFile(join(transcripts, `${digest("foreign")}.jsonl`), record("foreign", "PRIVATE-FOREIGN") + "\n");
   await writeFile(join(workspace, ".env"), "API_KEY=PRIVATE-CONFIG");
   await writeFile(join(workspace, "project.txt"), "PROJECT-FILE");
-  assert.ok((await createMemoryStore(join(workspace, "data/memory.json")).add({ scope: { kind: "user" }, text: "saved memory" })).ok);
+  assert.ok((await createMemoryStore(join(workspace, "data/memory.json"), null).add({ scope: { kind: "user" }, text: "saved memory" })).ok);
   const records = createExecutionRecordStore(transcripts);
   for (const threadId of ["daily", "foreign"]) {
     await records.startRun({ runId: `run-${threadId}`, threadId, phase: "primary", startedAt: new Date(0).toISOString() });
@@ -215,7 +215,7 @@ it("rejects valid JSON that exceeds the original Store read limit before preview
 it("rejects short configured credentials in assistant text rather than silently exporting them", async () => {
   const f = await fixture();
   try {
-    assert.ok((await createMemoryStore(join(f.workspace, "data/memory.json")).add({ scope: { kind: "user" }, text: "短凭据 k!3x" })).ok);
+    assert.ok((await createMemoryStore(join(f.workspace, "data/memory.json"), null).add({ scope: { kind: "user" }, text: "短凭据 k!3x" })).ok);
     await assert.rejects(exportBackup({ ...f, knownSecrets: ["k!3x"] }), /凭据/);
     await assert.rejects(readFile(f.destination), { code: "ENOENT" });
   } finally { await rm(f.root, { recursive: true, force: true }); }
@@ -262,7 +262,7 @@ it("export filters excluded message, snapshot and receipt payloads while preserv
   try {
     const { createMemoryStore } = await import("@serika/assistant/testing");
     await rm(join(f.workspace, "data/memory.json"));
-    const memory = createMemoryStore(join(f.workspace, "data/memory.json"));
+    const memory = createMemoryStore(join(f.workspace, "data/memory.json"), null);
     const secret = "PRIVATE-EXCLUDED-PAYLOAD";
     const saved = await memory.writeV7!([{ operation: "add", scope: { kind: "user" }, text: secret, category: "note", source: { kind: "conversation", threadId: "daily", messageId: "user", quote: secret, sentAt: null } }]); assert.ok(saved.ok);
     const store = new JsonlAgentStore({ directory: f.transcripts });

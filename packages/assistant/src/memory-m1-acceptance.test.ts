@@ -19,7 +19,7 @@ const wait = async (ready: () => boolean) => { for (let i = 0; i < 100 && !ready
 test("M1 uncertain extraction stores the exact user quote despite a rewritten model body in both windows", async t => {
   const quote = "我喜欢甜咖啡，但我又不喜欢甜咖啡";
   for (const [window, budget] of new Map([["32k", DEFAULT_CONTEXT_BUDGET_CONFIG], ["daily", defaultContextBudget()]])) await t.test(window, async () => {
-    const root = await mkdtemp(join(tmpdir(), "cm6-uncertain-")), store = createMemoryStore(join(root, ".runloom/memory.json"));
+    const root = await mkdtemp(join(tmpdir(), "cm6-uncertain-")), store = createMemoryStore(join(root, ".runloom/memory.json"), null);
     const messages: UIMessage[] = [{ id: "a", role: "assistant", parts: [{ type: "text", text: "你喜欢甜咖啡吗" }] }, user("u", quote)];
     let calls = 0, updated!: () => void;
     const completed = new Promise<void>(resolve => { updated = resolve; });
@@ -83,7 +83,7 @@ test("M1 ordinary automatic chat uses one writer without approval: 3 foreground 
 
 test("M1 two extraction failures survive reopen; only idle retries the third, cancellation waits and commits no progress", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm4-retry-"));
-  const store = createMemoryStore(join(root, ".runloom/memory.json")), messages = [user("u", "x".repeat(4000)), { id: "a", role: "assistant" as const, parts: [{ type: "text" as const, text: "y".repeat(4000) }] }];
+  const store = createMemoryStore(join(root, ".runloom/memory.json"), null), messages = [user("u", "x".repeat(4000)), { id: "a", role: "assistant" as const, parts: [{ type: "text" as const, text: "y".repeat(4000) }] }];
   let calls = 0;
   const model = new MockLanguageModelV3({ doGenerate: async () => { calls++; throw new Error("fixture failure"); } });
   const options = { store, threadId: "t", getMessages: async () => messages, model, budget: DEFAULT_CONTEXT_BUDGET_CONFIG, updated() {} };
@@ -97,7 +97,7 @@ test("M1 two extraction failures survive reopen; only idle retries the third, ca
 });
 
 test("M1 foreground cancellation waits for the background provider to settle and never advances progress", async () => {
-  const root = await mkdtemp(join(tmpdir(), "cm4-cancel-")), store = createMemoryStore(join(root, ".runloom/memory.json"));
+  const root = await mkdtemp(join(tmpdir(), "cm4-cancel-")), store = createMemoryStore(join(root, ".runloom/memory.json"), null);
   let started = false, settled = false;
   const model = new MockLanguageModelV3({ doGenerate: async options => {
     started = true;
@@ -113,7 +113,7 @@ test("M1 foreground cancellation waits for the background provider to settle and
 });
 
 test("M1 idle trigger waits exactly 30 minutes; an idle retry stops after the third persisted failure", { timeout: 30_000 }, async t => {
-  const root = await mkdtemp(join(tmpdir(), "cm4-idle-")), store = createMemoryStore(join(root, ".runloom/memory.json"));
+  const root = await mkdtemp(join(tmpdir(), "cm4-idle-")), store = createMemoryStore(join(root, ".runloom/memory.json"), null);
   t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
   let calls = 0, expectsWrite = false;
   let finish!: () => void;
@@ -142,7 +142,7 @@ test("M1 idle trigger waits exactly 30 minutes; an idle retry stops after the th
 });
 
 test("M1 saved older pending replay cannot supersede a newer-source value after restart", async t => {
-  const root = await mkdtemp(join(tmpdir(), "cm6-old-replay-")), store = createMemoryStore(join(root, ".runloom/memory.json"));
+  const root = await mkdtemp(join(tmpdir(), "cm6-old-replay-")), store = createMemoryStore(join(root, ".runloom/memory.json"), null);
   const old = "我住在北京", latest = "我现在住在上海";
   const messages = [user("old", old), user("new", latest)];
   const { hashCanonicalJson } = await import("@serika/core");
@@ -159,7 +159,7 @@ test("M1 saved older pending replay cannot supersede a newer-source value after 
       text: old, sourceMessageId: "old", sourceQuote: old, identity: { subject: "user", attribute: "residence", value: "北京" } }], outcomes: [{ messageId: "old", status: "extracted" }] }) }],
       finishReason: { unified: "stop", raw: undefined }, usage, warnings: [] };
   } });
-  const extraction = createMemoryExtraction({ store: createMemoryStore(join(root, ".runloom/memory.json")), threadId: "t", getMessages: async () => messages, model, budget: DEFAULT_CONTEXT_BUDGET_CONFIG, updated() {} });
+  const extraction = createMemoryExtraction({ store: createMemoryStore(join(root, ".runloom/memory.json"), null), threadId: "t", getMessages: async () => messages, model, budget: DEFAULT_CONTEXT_BUDGET_CONFIG, updated() {} });
   try {
     t.mock.timers.enable({ apis: ["setTimeout"] }); extraction.idle();
     for (let i = 0; i < 20000 && extraction.diagnostics().running; i++) await new Promise<void>(resolve => setImmediate(resolve));

@@ -59,7 +59,7 @@ test("C04 binds the specific confirmation; short acknowledgement and external ev
 test("ordinary memory module registers exactly one host-bound writer with primary-only approval", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm4-module-"));
   try {
-    const user = message("u", "user", "记住：我喝咖啡不加糖"), store = createMemoryStore(join(root, ".runloom/memory.json"));
+    const user = message("u", "user", "记住：我喝咖啡不加糖"), store = createMemoryStore(join(root, ".runloom/memory.json"), null);
     const host = createModuleHost([createMemoryModule(store, async () => [], { threadId: "t", getCurrentUserMessage: () => user })], { notify() {} });
     assert.deepEqual(host.tools.map(tool => tool.metadata.name), ["memory_write"]);
     assert.deepEqual(host.toolPermissions.get("memory_write")?.defaults, { approvalAgents: ["calculator"], remember: "never" });

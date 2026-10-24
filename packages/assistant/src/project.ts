@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { createHash, randomUUID } from "node:crypto";
 import { lstat, mkdir, open, readFile, realpath, rename, rm } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join } from "node:path";
@@ -5,7 +7,7 @@ import { z } from "zod";
 import { acquireFlock } from "./flock.js";
 
 const projectSchema = z.object({ id: z.string(), directory: z.string(), name: z.string(), kind: z.enum(["git", "folder"]) }).strict();
-const registrySchema = z.object({ version: z.literal(1), projects: z.array(projectSchema), selected: z.string().nullable() }).strict();
+export const projectRegistrySchema = z.object({ version: z.literal(1), projects: z.array(projectSchema), selected: z.string().nullable() }).strict();
 export type Project = z.infer<typeof projectSchema>;
 
 export async function identifyProject(directory: string | null): Promise<Project | null> {
@@ -28,18 +30,23 @@ export async function identifyProject(directory: string | null): Promise<Project
 export async function selectProject(options: { dataDirectory: string; directory?: string | null; cwd: string }): Promise<Project | null> {
   const file = join(options.dataDirectory, "projects.json");
   const read = async () => {
-    try { return registrySchema.parse(JSON.parse(await readFile(file, "utf8"))); }
+    try { return projectRegistrySchema.parse(JSON.parse(await readFile(file, "utf8"))); }
     catch (error) { if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined; throw error; }
   };
   const saved = await read();
-  if (options.directory === undefined && saved) {
-    const selected = saved.projects.find(project => project.id === saved.selected) ?? null;
-    if (!selected) return null;
-    try {
-      const current = await identifyProject(selected.directory);
-      return current?.id === selected.id ? current : null;
-    } catch (error) { if (error instanceof Error && "code" in error && error.code === "ENOENT") return null; throw error; }
-  }
+  const selected = saved?.projects.find(project => project.id === saved.selected) ?? null;
+  if (selected) {
+    let current: Project | null = null;
+    try { current = await identifyProject(selected.directory); }
+    catch (error) { if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error; }
+    if (current?.id !== selected.id) {
+      const node = process.versions.electron ? z.object({ nodeExecutable: z.string() }).parse(JSON.parse(readFileSync(new URL("./node-runtime.json", import.meta.url), "utf8"))).nodeExecutable : process.execPath;
+      const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'";
+      const command = [node, fileURLToPath(new URL("../scripts/project-rebind.mjs", import.meta.url)), "--data", options.dataDirectory, "--from", selected.id, "--to", "/新项目的绝对路径", "--dry-run"].map(quote).join(" ");
+      throw new Error(`项目 ${selected.name} 在 ${selected.directory} 找不到了；如已移动，运行 ${command} 重绑。将 --to 改为实际新路径，预览后将 --dry-run 改为 --upgrade 执行；先停止全部 Serika 写入者。`);
+    }
+    if (options.directory === undefined) return current;
+  } else if (options.directory === undefined && saved) return null;
   const project = await identifyProject(options.directory === undefined ? options.cwd : options.directory);
   await mkdir(options.dataDirectory, { recursive: true });
   const lock = await acquireFlock(`${file}.lock`);

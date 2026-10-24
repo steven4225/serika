@@ -9,7 +9,7 @@ import { readMemoryFactReceipts } from "./memory-factual-receipts.js";
 test("v7 receipts bind original source and replacement/withdrawal state across reopen; receipts use validated records before transcript commit", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm4-receipts-"));
   const source = (i: number) => ({ kind: "conversation" as const, threadId: "t", messageId: String(i), quote: ["旧值", "新值", "撤回"][i]!, sentAt: null });
-  let store = createMemoryStore(join(root, ".runloom/memory.json"));
+  let store = createMemoryStore(join(root, ".runloom/memory.json"), null);
   try {
     const saved = await store.writeV7!([{ operation: "add", scope: { kind: "user" }, text: "旧值", category: "note", source: source(0) }]); assert.ok(saved.ok);
     const immediate = await readMemoryFactReceipts(store, "t");
@@ -23,7 +23,7 @@ test("v7 receipts bind original source and replacement/withdrawal state across r
     const before = await readMemoryFactReceipts(store, "t"); assert.ok(before.ok); assert.equal(before.value.length, 3);
     assert.match(before.value.find(row => row.sourceMessageId === "0")!.text, /被取代/);
     assert.match(before.value.find(row => row.sourceMessageId === "2")!.text, /撤回/);
-    store = createMemoryStore(join(root, ".runloom/memory.json")); assert.deepEqual(await readMemoryFactReceipts(store, "t"), before);
+    store = createMemoryStore(join(root, ".runloom/memory.json"), null); assert.deepEqual(await readMemoryFactReceipts(store, "t"), before);
     assert.deepEqual(await readMemoryFactReceipts(store, "other"), { ok: true, value: [] });
   } finally { await rm(root, { recursive: true, force: true }); }
 });

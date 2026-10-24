@@ -71,7 +71,7 @@ test("a null tip boundary remains valid after append while a changed covered pre
 test("privacy exclusions survive restart, preserve original chat and redact memory, snapshots, search and numbered reads", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm6-exclude-"));
   try {
-    const store = new JsonlAgentStore({ directory: join(root, "transcripts") }), memory = createMemoryStore(join(root, ".runloom/memory.json"));
+    const store = new JsonlAgentStore({ directory: join(root, "transcripts") }), memory = createMemoryStore(join(root, ".runloom/memory.json"), null);
     const text = "Secret preference alpha", source = msg("source", "user", text);
     const saved = await memory.writeV7!([{ operation: "add", scope: { kind: "user" }, text, category: "preference", source: { kind: "conversation", threadId: "t", messageId: "source", quote: text, sentAt: null } }]); assert.ok(saved.ok);
     await store.save("t", [source, { ...msg("later", "user", "Continue"), metadata: { contextSnapshot: [msg("stale", "assistant", text)] } }]);
@@ -83,7 +83,7 @@ test("privacy exclusions survive restart, preserve original chat and redact memo
     const read = await memory.readV7!(); assert.ok(read.ok); assert.doesNotMatch(JSON.stringify(read.value), /Secret preference alpha/);
     assert.equal(read.value.entries[0]?.state, "retracted");
     const undo = await memory.writeV7!([{ operation: "undo", id: read.value.entries[0]!.id, expectedRevision: read.value.entries[0]!.revision, source: { kind: "manual" } }]); assert.equal(undo.ok, false);
-    const reopened = createTranscriptAccess({ store: new JsonlAgentStore({ directory: join(root, "transcripts") }), threadId: "t", memory: createMemoryStore(join(root, ".runloom/memory.json")), invalidated() {} });
+    const reopened = createTranscriptAccess({ store: new JsonlAgentStore({ directory: join(root, "transcripts") }), threadId: "t", memory: createMemoryStore(join(root, ".runloom/memory.json"), null), invalidated() {} });
     const tools = historyTools(reopened, budgets[0]!);
     for (const [index, input] of [[0, { query: text, start: 0 }], [1, { id: "source", start: 0 }]] as const) {
       const result = await tools[index]!.tool.execute!(input as never, { toolCallId: "read", messages: [], context: undefined, abortSignal: new AbortController().signal });
@@ -106,7 +106,7 @@ test("oversized leading assistant and user material is extracted chronologically
   const root = await mkdtemp(join(tmpdir(), "cm6-fragments-"));
   try {
     const assistantText = "assistant-material ".repeat(1600);
-    const store = createMemoryStore(join(root, ".runloom/memory.json")), messages = [msg("leading", "assistant", assistantText), msg("long", "user", "x".repeat(24000))];
+    const store = createMemoryStore(join(root, ".runloom/memory.json"), null), messages = [msg("leading", "assistant", assistantText), msg("long", "user", "x".repeat(24000))];
     let assistantSeen = "";
     let calls = 0;
     const model = new MockLanguageModelV3({ doGenerate: async ({ prompt }) => {
@@ -188,7 +188,7 @@ test("a complete proportional block below the physical window retains every ordi
 test("extraction gives the model its exact schema and accepts one complete fenced JSON response without a retry", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm6-extraction-format-"));
   try {
-    const store = createMemoryStore(join(root, ".runloom/memory.json")), messages = [msg("u", "user", "嗯")]; let calls = 0;
+    const store = createMemoryStore(join(root, ".runloom/memory.json"), null), messages = [msg("u", "user", "嗯")]; let calls = 0;
     const model = new MockLanguageModelV3({ doGenerate: async ({ prompt }) => {
       calls++; const text = JSON.stringify(prompt);
       assert.match(text, /Exact response JSON Schema/); assert.match(text, /no_memory/); assert.match(text, /sourceMessageId/);

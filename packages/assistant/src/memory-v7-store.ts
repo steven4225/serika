@@ -69,7 +69,7 @@ export class V7MemoryStore {
   readonly #file: string;
   readonly #projectId: string | null;
   readonly #boundary: ((phase: "before-rename" | "after-rename") => void | Promise<void>) | undefined;
-  constructor(filePath: string, projectId: string | null = null, boundary?: (phase: "before-rename" | "after-rename") => void | Promise<void>) {
+  constructor(filePath: string, projectId: string | null, boundary?: (phase: "before-rename" | "after-rename") => void | Promise<void>) {
     this.#file = resolve(filePath); this.#projectId = string.nullable().parse(projectId); this.#boundary = boundary;
   }
   async #result<T>(signal: AbortSignal, body: () => Promise<T>): Promise<{ ok: true; value: T } | MemoryFailure> {
@@ -387,4 +387,4 @@ export class V7MemoryStore {
     return this.#result(signal, async () => (await this.#read()).importReceipts.find(item => item.operationId === operationId && item.threadId === threadId && item.projectId === this.#projectId) ?? null);
   }
 }
-export function createMemoryStore(filePath: string, projectId: string | null = null): ScopedMemoryStore { return new V7MemoryStore(filePath, projectId); }
+export function createMemoryStore(filePath: string, projectId: string | null): ScopedMemoryStore { return new V7MemoryStore(filePath, projectId); }

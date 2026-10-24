@@ -14,7 +14,7 @@ test("v5 requires migration for reads and writes without creating locks, sibling
     await mkdir(join(root, ".runloom"));
     const file = join(root, ".runloom/memory.json"), original = JSON.stringify({ version: 5, lastWrittenAt: null, entries: [], candidates: [], consolidationCursors: [], library: { revision: 0, folders: [], documents: [] } });
     await writeFile(file, original);
-    const store = new V7MemoryStore(join(root, ".runloom/memory.json")); assert.equal((await store.list()).ok, false);
+    const store = new V7MemoryStore(join(root, ".runloom/memory.json"), null); assert.equal((await store.list()).ok, false);
     for (const result of [await store.add({ text: "test", scope: { kind: "user" } }), await store.update("missing", { text: "test", expectedRevision: 1 }), await store.delete("missing"), await store.writeV7([change()])]) {
       assert.equal(result.ok, false); if (!result.ok) assert.equal(result.error.code, "MEMORY_MIGRATION_REQUIRED");
     }
@@ -26,11 +26,11 @@ test("v5 requires migration for reads and writes without creating locks, sibling
 test("v7 replacement/undo, withdrawal/undo, conflict diagnostics and source-specific deletion survive reopen", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm4-chain-"));
   try {
-    let store = new V7MemoryStore(join(root, ".runloom/memory.json"));
+    let store = new V7MemoryStore(join(root, ".runloom/memory.json"), null);
     const added = await store.writeV7([{ ...change(), uncertain: true }]); assert.ok(added.ok); assert.equal(added.value[0]!.uncertain, true); const old = added.value[0]!;
     const replacement = change("上海"); assert.ok("text" in replacement);
     const replaced = await store.writeV7([{ ...replacement, operation: "replace", id: old.id, expectedRevision: old.revision! }]); assert.ok(replaced.ok);
-    store = new V7MemoryStore(join(root, ".runloom/memory.json"));
+    store = new V7MemoryStore(join(root, ".runloom/memory.json"), null);
     const next = replaced.value[0]!; assert.ok((await store.writeV7([{ operation: "undo", id: next.id, expectedRevision: next.revision!, source: { kind: "manual" } }])).ok);
     const current = await store.get(old.id); assert.ok(current.ok); assert.equal(current.entry.enabled, true); assert.equal(current.entry.uncertain, true);
     const withdrawn = await store.writeV7([{ operation: "retract", id: old.id, expectedRevision: current.entry.revision!, source: { kind: "manual" } }]); assert.ok(withdrawn.ok);
@@ -47,7 +47,7 @@ test("v7 replacement/undo, withdrawal/undo, conflict diagnostics and source-spec
     assert.equal(after.value.suppressed.length, 1);
     const rephrased = change(); rephrased.text = "北京是我的住址";
     assert.ok((await store.writeV7([rephrased])).ok);
-    const reextracted = await new V7MemoryStore(join(root, ".runloom/memory.json")).readV7(); assert.ok(reextracted.ok);
+    const reextracted = await new V7MemoryStore(join(root, ".runloom/memory.json"), null).readV7(); assert.ok(reextracted.ok);
     assert.equal(reextracted.value.entries.some(entry => entry.text === rephrased.text), false);
     const independent = change("北京", "办公习惯"); independent.text = "我工作时先列结论"; independent.source = { kind: "conversation", threadId: "t", messageId: "北京", quote: independent.text, sentAt: null };
     assert.ok((await store.writeV7([independent])).ok);
@@ -67,7 +67,7 @@ test("memory and progress share the commit barrier; pre-rename and post-rename f
       const writer = new V7MemoryStore(join(workspace, ".runloom/memory.json"), null, observed => { if (observed === phase) throw new Error(phase); });
       const result = await writer.writeV7([change()], undefined, { progress, expectedProgress: null }); assert.equal(result.ok, false);
       if (!result.ok) assert.equal(result.error.code, phase === "after-rename" ? "MEMORY_COMMIT_UNCERTAIN" : "WRITE_FAILED");
-      const read = await new V7MemoryStore(join(workspace, ".runloom/memory.json")).readV7(); assert.ok(read.ok);
+      const read = await new V7MemoryStore(join(workspace, ".runloom/memory.json"), null).readV7(); assert.ok(read.ok);
       assert.equal(read.value.entries.length, phase === "after-rename" ? 1 : 0);
       assert.equal(read.value.progress.length, read.value.entries.length);
     }
@@ -77,7 +77,7 @@ test("memory and progress share the commit barrier; pre-rename and post-rename f
 test("automatic extraction reserves space; explicit remember still tries the actual hard limit", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm4-capacity-"));
   try {
-    const store = new V7MemoryStore(join(root, ".runloom/memory.json")), first = await store.writeV7([change()]); assert.ok(first.ok);
+    const store = new V7MemoryStore(join(root, ".runloom/memory.json"), null), first = await store.writeV7([change()]); assert.ok(first.ok);
     const loaded = await store.readV7(); assert.ok(loaded.ok);
     const document = loaded.value, entry = document.entries[0]!;
     document.entries = Array.from({ length: 511 }, (_, index) => ({ ...entry, id: String(index) }));
@@ -96,14 +96,14 @@ test("daily data path and a symlink alias fail before any store write", async ()
     assert.throws(() => assertExperimentalDataPaths([daily, join(daily, "workspaces/personal")]), /拒绝写入/);
     await symlink(daily, join(root, "alias"));
     assert.throws(() => assertExperimentalDataPaths([join(root, "alias", "child")]), /拒绝写入/);
-    const result = await new V7MemoryStore(join(join(root, "alias"), ".runloom/memory.json")).writeV7([change()]); assert.equal(result.ok, false);
+    const result = await new V7MemoryStore(join(join(root, "alias"), ".runloom/memory.json"), null).writeV7([change()]); assert.equal(result.ok, false);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("privacy redaction survives an uncertain acknowledgement, blocks replacement-chain undo and is read-before-write idempotent", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm6-private-barrier-"));
   try {
-    const store = new V7MemoryStore(join(root, ".runloom/memory.json")), seed = await store.writeV7([change()]); assert.ok(seed.ok);
+    const store = new V7MemoryStore(join(root, ".runloom/memory.json"), null), seed = await store.writeV7([change()]); assert.ok(seed.ok);
     const newer = await store.writeV7([{ ...change("上海"), operation: "replace", id: seed.value[0]!.id, expectedRevision: seed.value[0]!.revision! }]); assert.ok(newer.ok);
     const faulty = new V7MemoryStore(join(root, ".runloom/memory.json"), null, phase => { if (phase === "after-rename") throw new Error("ack lost"); });
     const result = await faulty.excludeSources("t", ["北京"]); assert.equal(result.ok, false);
@@ -112,7 +112,7 @@ test("privacy redaction survives an uncertain acknowledgement, blocks replacemen
     assert.doesNotMatch(JSON.stringify(read.value), /我住在北京/);
     const undo = await store.writeV7([{ operation: "undo", id: newer.value[0]!.id, expectedRevision: newer.value[0]!.revision!, source: { kind: "manual" } }]); assert.equal(undo.ok, false);
     const before = await readFile(join(root, ".runloom/memory.json"));
-    assert.ok((await new V7MemoryStore(join(root, ".runloom/memory.json")).excludeSources("t", ["北京"])).ok);
+    assert.ok((await new V7MemoryStore(join(root, ".runloom/memory.json"), null).excludeSources("t", ["北京"])).ok);
     assert.deepEqual(await readFile(join(root, ".runloom/memory.json")), before);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
@@ -120,7 +120,7 @@ test("privacy redaction survives an uncertain acknowledgement, blocks replacemen
 test("v7 scopes isolate reads, mutation targets, conflicts, merges and extraction progress across projects", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm45-scope-"));
   try {
-    const file = join(root, "memory.json"), a = new V7MemoryStore(file, "a"), b = new V7MemoryStore(file, "b"), none = new V7MemoryStore(file);
+    const file = join(root, "memory.json"), a = new V7MemoryStore(file, "a"), b = new V7MemoryStore(file, "b"), none = new V7MemoryStore(file, null);
     const projectScope = { kind: "project", projectId: "a" } as const;
     const progress: V7Document["progress"][number] = { threadId: "t", projectId: "a", throughMessageId: "北京", prefixHash: "a", pending: [], retry: null };
     const written = await a.writeV7([change(), { ...change("上海"), scope: projectScope }], undefined, { progress, expectedProgress: null }); assert.ok(written.ok);
@@ -152,7 +152,7 @@ test("v6 is rejected without writes and diagnostics contain absolute dry-run and
   const root = await mkdtemp(join(tmpdir(), "cm45-v6-"));
   try {
     const file = join(root, "memory.json"), original = '{"version":6}'; await writeFile(file, original);
-    const result = await new V7MemoryStore(file).readV7(); assert.equal(result.ok, false);
+    const result = await new V7MemoryStore(file, null).readV7(); assert.equal(result.ok, false);
     if (!result.ok) { assert.equal(result.error.code, "MEMORY_MIGRATION_REQUIRED"); assert.ok(result.error.message.includes(file)); assert.match(result.error.message, /memory-upgrade\.mjs.*--dry-run/); assert.match(result.error.message, /--upgrade/); }
     assert.equal(await readFile(file, "utf8"), original); assert.deepEqual(await readdir(root), ["memory.json"]);
   } finally { await rm(root, { recursive: true, force: true }); }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
@@ -30,6 +30,15 @@ it("switches only project context and restores selection without modifying confi
     assert.deepEqual(host.info().authorizedDirectories, original.authorizedDirectories);
     await host.selectProject(null);
     assert.equal(host.info().project, null);
+    assert.equal(await readFile(configPath, "utf8"), config);
+    await host.selectProject(project);
+    const registry = join(root, "home/data/projects.json"), saved = await readFile(registry, "utf8");
+    await rename(project, join(root, "moved"));
+    await assert.rejects(host.selectProject(personal), /项目 serika-v2 在 .*serika-v2 找不到了；如已移动，运行 .*project-rebind.mjs/);
+    assert.equal(await readFile(registry, "utf8"), saved);
+    await host.shutdown(); host = undefined;
+    await assert.rejects(DesktopRuntime.create(options), /项目 serika-v2 在 .*找不到了/);
+    assert.equal(await readFile(registry, "utf8"), saved);
     assert.equal(await readFile(configPath, "utf8"), config);
     assert.equal(calls, 0);
   } finally { await host?.shutdown(); await rm(root, { recursive: true, force: true }); }
