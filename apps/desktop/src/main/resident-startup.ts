@@ -2,7 +2,7 @@ import { lstat, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promi
 import { dirname, isAbsolute } from "node:path";
 import { randomUUID } from "node:crypto";
 
-const IDENTITY_KEYS = ["RUNLOOM_CONFIG", "RUNLOOM_WORKSPACE", "RUNLOOM_THREAD", "RUNLOOM_TRANSCRIPTS", "RUNLOOM_DESKTOP_TEST", "RUNLOOM_MODEL", "RUNLOOM_NOTIFICATION_HELPER"] as const;
+const IDENTITY_KEYS = ["RUNLOOM_CONFIG", "RUNLOOM_WORKSPACE", "RUNLOOM_THREAD", "RUNLOOM_TRANSCRIPTS", "RUNLOOM_DESKTOP_TEST", "RUNLOOM_MODEL", "RUNLOOM_NOTIFICATION_HELPER", "CHANNELS_CONFIG", "QQ_CONFIG"] as const;
 /** Retain Node's trusted env-file source for the pre-existing worker adapter. */
 export function retainResidentEnvironmentSource(env: NodeJS.ProcessEnv, execArgs: readonly string[]): void {
   const argument = execArgs.find(value => value.startsWith("--env-file="));

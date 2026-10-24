@@ -216,15 +216,21 @@ async function main(): Promise<void> {
   }
 
   const drafts = new ConversationDraftSession(host, new ConversationDraftStore(app.getPath("userData")));
-  ipcMain.handle(IPC.telegramStatus, () => host.telegramStatus());
-  ipcMain.handle(IPC.telegramAutonomyEnabled, (_event, input) => host.setTelegramAutonomyEnabled(input));
-  ipcMain.handle(IPC.telegramEnabled, (_event, enabled: boolean) => host.setTelegramEnabled(enabled));
-  ipcMain.handle(IPC.telegramPairing, () => host.beginTelegramPairing());
-  ipcMain.handle(IPC.telegramBind, (_event, code: string) => host.confirmTelegramPairing(code));
-  ipcMain.handle(IPC.telegramReview, (_event, input) => host.reviewTelegramInput(input));
-  ipcMain.handle(IPC.telegramTaskRoute, (_event, input) => host.setTelegramTaskRoute(input));
-  ipcMain.handle(IPC.telegramRetryDelivery, (_event, key) => host.retryTelegramDelivery(key));
-  ipcMain.handle(IPC.telegramResolveDelivery, (_event, input) => host.resolveTelegramDelivery(input));
+  ipcMain.handle(IPC.channelResourceStatus, () => host.channelResourceStatus());
+  ipcMain.handle(IPC.channelResourceReview, (_event, input) => host.reviewChannelResource(input));
+  ipcMain.handle(IPC.channelAccounts, () => host.channelAccounts());
+  ipcMain.handle(IPC.channelHistory, (_event, accountId, input) => host.channelHistory(accountId, input));
+  ipcMain.handle(IPC.telegramAccounts, () => host.telegramAccounts());
+  ipcMain.handle(IPC.telegramBinding, (_event, input, target) => host.changeTelegramBinding(input, target));
+  ipcMain.handle(IPC.telegramStatus, (_event, target) => host.telegramStatus(target));
+  ipcMain.handle(IPC.telegramAutonomyEnabled, (_event, input, target) => host.setTelegramAutonomyEnabled(input, target));
+  ipcMain.handle(IPC.telegramEnabled, (_event, enabled: boolean, target) => host.setTelegramEnabled(enabled, target));
+  ipcMain.handle(IPC.telegramPairing, (_event, target) => host.beginTelegramPairing(target));
+  ipcMain.handle(IPC.telegramBind, (_event, code: string, target) => host.confirmTelegramPairing(code, target));
+  ipcMain.handle(IPC.telegramReview, (_event, input, target) => host.reviewTelegramInput(input, target));
+  ipcMain.handle(IPC.telegramTaskRoute, (_event, input, target) => host.setTelegramTaskRoute(input, target));
+  ipcMain.handle(IPC.telegramRetryDelivery, (_event, key, target) => host.retryTelegramDelivery(key, target));
+  ipcMain.handle(IPC.telegramResolveDelivery, (_event, input, target) => host.resolveTelegramDelivery(input, target));
   ipcMain.handle(IPC.draftLoad, (_event, scope) => drafts.load(scope));
   ipcMain.handle(IPC.draftSave, (_event, scope, draft) => drafts.save(scope, draft));
   ipcMain.handle(IPC.taskDraftSave, (_event, scope, update) => drafts.saveTask(scope, update));
@@ -356,9 +362,16 @@ async function main(): Promise<void> {
     } finally { restoreWorking = false; }
   });
   ipcMain.handle(IPC.home, () => host.current.home());
-  ipcMain.handle(IPC.run, (_event, text: string, options) => host.current.run(text, options));
+  ipcMain.handle(IPC.run, (_event, text: string, options) => {
+    if (options?.expectedThreadId !== undefined && (options.expectedThreadId !== host.info().threadId || options.expectedViewRevision !== host.info().viewRevision)) throw new Error("对话已变化，消息未派发，请核对草稿后重发");
+    return host.current.run(text, options);
+  });
   ipcMain.handle(IPC.steer, (_event, input) => drafts.steer(input));
-  ipcMain.handle(IPC.cancel, () => host.current.cancel());
+  ipcMain.handle(IPC.cancel, (_event, target) => {
+    const info = host.info(), state = host.current.snapshot().state;
+    if (target && (target.threadId !== info.threadId || target.viewRevision !== info.viewRevision || target.runId !== (state.kind === "running" ? state.runId : null))) throw new Error("对话或执行已变化，旧停止请求未派发");
+    return host.current.cancel();
+  });
   ipcMain.handle(IPC.confirm, (_event, input: ConfirmInput) => host.current.confirm(input));
   ipcMain.handle(IPC.command, (_event, line: string) => host.current.command(line));
   ipcMain.handle(IPC.listRuns, () => host.current.listRuns());

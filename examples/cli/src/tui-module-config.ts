@@ -68,10 +68,11 @@ export const TUI_MAX_CONFIGURABLE_STEPS = 32;
 export const TUI_DEFAULT_TOTAL_TIMEOUT_MS = 120_000;
 export const TUI_MAX_TOTAL_TIMEOUT_MS = 30 * 60_000;
 
-export interface TelegramAutonomyGrant { workspaceRoot: string; botId: number; userId: number; chatId: number; threadId: string; toolApproval?: "skip" | undefined }
+export interface TelegramAutonomyGrant { workspaceRoot: string; botId: number; userId: number; chatId: number; threadId: string; topicId?: number | undefined; bindingRevision?: number | undefined; toolApproval?: "skip" | undefined }
 
 export interface ResolvedTuiModuleConfig {
   telegramAutonomy?: TelegramAutonomyGrant;
+  telegramAutonomyGrants?: TelegramAutonomyGrant[];
   desktopAutonomy?: { workspaceRoot: string };
   herdrBinding?: HerdrBinding;
   configPath: string | null;
@@ -204,7 +205,8 @@ const tuiModuleConfigV1Schema = z
         computer: computerConfigSchema.optional(),
     })
     .strict(),
-    telegramAutonomy: z.object({ workspaceRoot: nonEmptyString, botId: z.number().int().positive().safe(), userId: z.number().int().positive().safe(), chatId: z.number().int().positive().safe(), threadId: nonEmptyString, toolApproval: z.literal("skip").optional() }).strict().optional(),
+    telegramAutonomy: z.object({ workspaceRoot: nonEmptyString, botId: z.number().int().positive().safe(), userId: z.number().int().positive().safe(), chatId: z.number().int().positive().safe(), threadId: nonEmptyString, topicId: z.number().int().positive().safe().optional(), bindingRevision: z.number().int().positive().safe().optional(), toolApproval: z.literal("skip").optional() }).strict().optional(),
+    telegramAutonomyGrants: z.array(z.object({ workspaceRoot: nonEmptyString, botId: z.number().int().positive().safe(), userId: z.number().int().positive().safe(), chatId: z.number().int().positive().safe(), threadId: nonEmptyString, topicId: z.number().int().positive().safe().optional(), bindingRevision: z.number().int().positive().safe().optional(), toolApproval: z.literal("skip").optional() }).strict()).max(100).optional(),
     herdrBinding: herdrBindingSchema.optional(),
     desktopAutonomy: z.object({ workspaceRoot: nonEmptyString }).strict().optional(),
     fileAuthorizations: z.array(fileAuthorizationSchema).optional(),
@@ -260,6 +262,7 @@ export interface TuiModuleConfigV1 {
       | undefined;
   };
   telegramAutonomy?: TelegramAutonomyGrant | undefined;
+  telegramAutonomyGrants?: TelegramAutonomyGrant[] | undefined;
   desktopAutonomy?: { workspaceRoot: string } | undefined;
   herdrBinding?: HerdrBinding | undefined;
   fileAuthorizations?: FileAuthorizationRule[] | undefined;
@@ -571,7 +574,7 @@ async function resolveConfiguredMode(
     workspaceRoot,
     enabled,
   );
-  if (config.herdrBinding || config.telegramAutonomy || config.desktopAutonomy || fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || memoryWritePolicy === "automatic" || config.automation !== undefined || memorySemantic) {
+  if (config.herdrBinding || config.telegramAutonomy || config.telegramAutonomyGrants?.length || config.desktopAutonomy || fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || memoryWritePolicy === "automatic" || config.automation !== undefined || memorySemantic) {
     const configRealPath = await realpath(absoluteConfigPath);
     if (workspaceRoot !== null && isPathWithin(workspaceRoot, configRealPath)) {
       throw new Error(
@@ -601,6 +604,7 @@ async function resolveConfiguredMode(
     : null;
 
   return {
+    ...(config.telegramAutonomyGrants ? { telegramAutonomyGrants: config.telegramAutonomyGrants.filter(grant => grant.workspaceRoot === workspaceRoot) } : {}),
     ...(config.telegramAutonomy?.workspaceRoot === workspaceRoot ? { telegramAutonomy: config.telegramAutonomy } : {}),
     ...(config.herdrBinding?.workspaceRoot === workspaceRoot ? { herdrBinding: config.herdrBinding } : {}),
     ...(config.desktopAutonomy && config.desktopAutonomy.workspaceRoot === workspaceRoot

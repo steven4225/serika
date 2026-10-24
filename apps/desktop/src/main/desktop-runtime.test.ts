@@ -8,6 +8,7 @@ import { describe, it, mock } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { DesktopRuntime } from "./desktop-runtime.js";
+import { ChannelEffectGuard } from "./channel-effect-guard.js";
 import { ExecutionRecordStore } from "@aisdk-agent/example-cli/dist/execution-record-store.js";
 import { discoverThreadDirectory } from "./thread-history.js";
 import type { MainToRenderer } from "../shared/ui-contract.js";
@@ -42,6 +43,40 @@ async function idle(host: DesktopRuntime) {
     await new Promise(resolve => setTimeout(resolve, 5));
   }
 }
+
+it("shutdown waits for the terminal resource write before the workspace can be removed", { timeout: 10_000 }, async t => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "serika-resource-shutdown-")));
+  const workspace = join(root, "workspace"), configPath = join(root, "config.json");
+  await mkdir(workspace);
+  await writeFile(configPath, JSON.stringify({ version: 1, workspace, desktopAutonomy: { workspaceRoot: workspace }, modules: { shell: { enabled: true } }, automation: { hooks: [] } }));
+  let calls = 0;
+  const host = await DesktopRuntime.create({ userData: join(root, "profile"), cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
+    model: new MockLanguageModelV3({ doStream: async () => ++calls === 1 ? response("shell_exec", { command: "printf payload > effect.txt", cwd: "." }) : response() }), send: () => {} });
+  let releaseWrite!: () => void, enteredWrite!: () => void, bridgeStopped!: () => void;
+  const writeGate = new Promise<void>(resolve => { releaseWrite = resolve; });
+  const writeEntered = new Promise<void>(resolve => { enteredWrite = resolve; });
+  const stoppedBridge = new Promise<void>(resolve => { bridgeStopped = resolve; });
+  const release = ChannelEffectGuard.prototype.release;
+  t.mock.method(ChannelEffectGuard.prototype, "release", async function(this: ChannelEffectGuard, ...args: Parameters<ChannelEffectGuard["release"]>) {
+    enteredWrite(); await writeGate; return release.apply(this, args);
+  });
+  const bridge = host.current, stop = bridge.shutdown.bind(bridge);
+  t.mock.method(bridge, "shutdown", async () => { await stop(); bridgeStopped(); });
+  let closing: Promise<void> | undefined;
+  try {
+    assert.ok((await host.current.run("创建 effect.txt，写入 payload。")).ok);
+    await writeEntered;
+    assert.equal(await readFile(join(workspace, "effect.txt"), "utf8"), "payload");
+    let closed = false;
+    closing = host.shutdown().then(() => { closed = true; });
+    await stoppedBridge;
+    await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(closed, false, "shutdown returned while the terminal resource write was still blocked");
+    releaseWrite(); await closing;
+    assert.equal(host.channelResourceStatus(), null);
+    assert.equal(calls, 2);
+  } finally { releaseWrite(); await (closing ?? host.shutdown()); await rm(root, { recursive: true, force: true }); }
+});
 
 describe("normal desktop memory and history entry", () => {
   it("can disable computer control after its driver disappears and reopen the same Thread", { skip: process.platform !== "darwin" }, async () => {
@@ -321,7 +356,9 @@ describe("normal desktop memory and history entry", () => {
       assert.equal(initial.memory.enabled, true); assert.equal(initial.memory.autoConsolidate, true);
       assert.equal(initial.workspaceRoot, await realpath(join(root, "profile", "workspaces", "personal")));
       assert.ok((await host.current.run("我的复盘长期偏好：先结论，再两条步骤。")).ok);
-      await assert.rejects(host.createThread(), /等待/);
+      await host.createThread({ preserveDraft: true });
+      assert.notEqual(host.info().threadId, initial.threadId);
+      await host.selectThread(initial.threadId);
       await idle(host);
       const candidates = await host.current.listMemoryCandidates({ status: "pending" }); assert.ok(candidates.ok); assert.equal(candidates.value.candidates.length, 1);
       const candidate = candidates.value.candidates[0]!;
@@ -344,7 +381,7 @@ describe("normal desktop memory and history entry", () => {
       await host.shutdown();
       host = await DesktopRuntime.create(options);
       assert.equal(host.info().threadId, other);
-      assert.equal((await host.listThreads()).length, 2);
+      assert.equal((await host.listThreads()).length, 3);
       assert.ok(events.some(event => event.type === "identity-changed"));
       failStage = true;
       assert.ok((await host.current.run("长期排版偏好：使用大标题。")).ok); await idle(host);
@@ -428,8 +465,8 @@ describe("normal desktop memory and history entry", () => {
     try {
       const previous = host.info();
       assert.ok((await host.current.run("切换失败后仍能看到的旧消息", { memoryConsolidation: "exclude" })).ok); await idle(host);
-      await host.createThread(); const target = host.info();
-      await host.selectThread(previous.threadId);
+      const registered = await host.channelCreateThread();
+      const target = { threadId: registered.threadId, directory: registered.transcriptDirectory };
       owner = await DesktopRuntime.create({ ...options, userData: join(root, "other-profile"),
         env: { RUNLOOM_CONFIG: previous.configPath!, RUNLOOM_THREAD: target.threadId, RUNLOOM_TRANSCRIPTS: target.directory } });
       await assert.rejects(host.selectThread(target.threadId));

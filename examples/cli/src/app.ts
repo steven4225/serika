@@ -141,6 +141,10 @@ export interface RuntimeAppOptions {
   pomodoroService?: PomodoroService;
   /** Host-only source association persisted before a primary Run can dispatch. */
   beforePrimaryRunCreate?: (record: import("@aisdk-agent/core").RunRecord) => Promise<void>;
+  /** Embedding host's workspace resource check, after tool approval and before dispatch. */
+  beforeToolDispatch?: import("@aisdk-agent/core").BeforeToolExecute;
+  /** A single host-owned background lifecycle grant; null means yield to foreground. */
+  backgroundAdmission?: () => (() => void) | null;
   /** Trusted test/host port; never selected by the model or inherited from chat credentials. */
   memoryEmbedding?: MemoryEmbeddingPort;
 }
@@ -151,6 +155,7 @@ export interface RuntimeAppOptions {
  * fields without re-assembling modules, stores, or the AgentLoop.
  */
 export interface RuntimeApp {
+  backgroundAdmission?: () => (() => void) | null;
   tuiMode: boolean;
   agentId: typeof PRIMARY_AGENT_ID;
   runtime: DefaultAgentRuntime;
@@ -162,8 +167,8 @@ export interface RuntimeApp {
   endForegroundExecution?: () => void;
   desktopAutonomyEnabled?: boolean;
   herdrBinding?: HerdrBinding;
-  telegramAutonomyEnabled?: () => boolean;
-  telegramToolApprovalSkipped?: () => boolean;
+  telegramAutonomyEnabled?: (grant?: import("./tui-module-config.js").TelegramAutonomyGrant | null) => boolean;
+  telegramToolApprovalSkipped?: (grant?: import("./tui-module-config.js").TelegramAutonomyGrant | null) => boolean;
   bindNextExecutionWorkTask: (input: { id: string; expectedRevision: number }) => () => void;
   workTasks: WorkTaskStore | undefined;
   workTaskContext: {
@@ -221,8 +226,12 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   const workspaceRoot = moduleConfig?.workspaceRoot ?? undefined;
   const desktopAutonomyEnabled = options.allowDesktopAutonomy === true &&
     moduleConfig?.desktopAutonomy?.workspaceRoot === workspaceRoot && workspaceRoot !== undefined && !moduleConfig?.shellSandbox;
-  const telegramAutonomyEnabled = () => !!moduleConfig?.telegramAutonomy && !moduleConfig.shellSandbox &&
-    options.authorizeTelegramAutonomy?.(moduleConfig.telegramAutonomy) === true;
+  const telegramGrants = [...(moduleConfig?.telegramAutonomy ? [moduleConfig.telegramAutonomy] : []), ...(moduleConfig?.telegramAutonomyGrants ?? [])];
+  const sameTelegramGrant = (a: import("./tui-module-config.js").TelegramAutonomyGrant, b: import("./tui-module-config.js").TelegramAutonomyGrant) =>
+    ["workspaceRoot", "botId", "userId", "chatId", "threadId", "topicId", "bindingRevision"].every(key => a[key as keyof typeof a] === b[key as keyof typeof b]);
+  const telegramGrant = (expected?: import("./tui-module-config.js").TelegramAutonomyGrant | null) => moduleConfig?.shellSandbox ? undefined :
+    telegramGrants.find(grant => expected ? sameTelegramGrant(grant, expected) : grant.threadId === threadId && options.authorizeTelegramAutonomy?.(grant) === true);
+  const telegramAutonomyEnabled = (expected?: import("./tui-module-config.js").TelegramAutonomyGrant | null) => expected === null ? false : telegramGrant(expected) !== undefined;
   let autonomousRun = false;
   let trustedTelegramRun = false;
   let foregroundTaskRequest: UIMessage | undefined;
@@ -1538,7 +1547,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           }
         : {}),
       ...(toolConfirmation
-        ? { beforeToolExecute: (input) => {
+        ? { beforeToolExecute: async (input) => {
+          const decide = async (): Promise<import("@aisdk-agent/core").ToolExecutionDecision> => {
           if (input.definition.id === PRIMARY_AGENT_ID && input.toolName === "capability_status" &&
             registeredTools.find(item => item.metadata.name === input.toolName) === statusRegistration) {
             input.signal.throwIfAborted(); return { allow: true };
@@ -1559,6 +1569,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             return { allow: true };
           }
           return toolConfirmation.beforeToolExecute(input);
+          };
+          const decision = await decide();
+          if (!decision.allow || !options.beforeToolDispatch) return decision;
+          input.signal.throwIfAborted(); input.steerSignal?.throwIfAborted();
+          return options.beforeToolDispatch(input);
         } }
         : {}),
       ...(tuiMode ? { beforeRunFinish: createWorkTaskFinishCheck({ workspaceRoot, executionRecords, workTasks }) } : {}),
@@ -1636,6 +1651,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       getMemoryReferences: () => memoryReference === null ? null : structuredClone(memoryReference),
       subscribeMemoryReferences: (listener) => { memoryReferenceListeners.add(listener); return () => { memoryReferenceListeners.delete(listener); }; },
       resume,
+      ...(options.backgroundAdmission ? { backgroundAdmission: options.backgroundAdmission } : {}),
       autoConsolidationAgentId: moduleConfig?.autoConsolidate ? consolidationAgent.id : undefined,
       ...(moduleConfig?.autoConsolidate ? { hostConsolidationExtraction: true as const } : {}),
       automation,
@@ -1646,11 +1662,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       desktopAutonomyEnabled,
       ...(options.allowLocalTerminalControl && moduleConfig?.herdrBinding ? { herdrBinding: moduleConfig.herdrBinding } : {}),
       telegramAutonomyEnabled,
-      telegramToolApprovalSkipped: () => telegramAutonomyEnabled() && moduleConfig?.telegramAutonomy?.toolApproval === "skip",
+      telegramToolApprovalSkipped: expected => expected !== null && telegramGrant(expected)?.toolApproval === "skip",
       beginForegroundExecution: (entry, request) => {
         foregroundEntry = entry;
-        autonomousRun = entry === "desktop" ? desktopAutonomyEnabled : entry === "telegram" && moduleConfig?.telegramAutonomy?.threadId === threadId && telegramAutonomyEnabled();
-        trustedTelegramRun = entry === "telegram" && autonomousRun && moduleConfig?.telegramAutonomy?.toolApproval === "skip";
+        autonomousRun = entry === "desktop" ? desktopAutonomyEnabled : entry === "telegram" && telegramAutonomyEnabled();
+        trustedTelegramRun = entry === "telegram" && autonomousRun && telegramGrant()?.toolApproval === "skip";
         foregroundTaskRequest = autonomousRun && request ? structuredClone(request) : undefined;
         return autonomousRun;
       },

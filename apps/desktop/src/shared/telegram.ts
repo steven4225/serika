@@ -1,7 +1,15 @@
-export interface TelegramAutonomySettingInput { enabled: boolean; expectedEnabled: boolean; toolApproval?: "skip"; expectedToolApproval?: "skip"; expectedOwner: { userId: number; chatId: number; threadId: string } }
+export interface TelegramAutonomySettingInput { expectedBindingRevision?: number; enabled: boolean; expectedEnabled: boolean; toolApproval?: "skip"; expectedToolApproval?: "skip"; expectedOwner: { userId: number; chatId: number; threadId: string } }
 
 /** Status only. Bot credentials never cross renderer or resident IPC. */
 export interface TelegramStatus {
+  accountId?: string;
+  accountName?: string;
+  topicId?: number;
+  bindingRevision?: number;
+  bindingEnabled?: boolean;
+  topicsEnabled?: boolean;
+  usersCanCreateTopics?: boolean;
+  conversations?: TelegramStatus[];
   available: boolean;
   tokenConfigured: boolean;
   enabled: boolean;

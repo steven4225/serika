@@ -41,7 +41,7 @@ test("host timer survives capability reassembly and Thread switching; only expli
     assert.equal(host.pomodoro("start", 3).status.state, "running");
     const started = service.status().status;
     assert.equal(started.state, "running");
-    assert.deepEqual(host.getLifecycleStatus(), { pomodoroRunning: true });
+    assert.deepEqual(host.getLifecycleStatus(), { activeRuns: 0, pomodoroRunning: true });
     await host.setModuleEnabled({ id: "web", enabled: true, expectedEnabled: false });
     advance(10_000);
     assert.equal(timers.size, 1);
@@ -59,13 +59,13 @@ test("host timer survives capability reassembly and Thread switching; only expli
     // Assembly fails on missing credentials, then restores the original
     // controller. A failed operation must not cancel the running timer.
     await assert.rejects(host.setModuleEnabled({ id: "todoist", enabled: true, expectedEnabled: false }), /TODOIST|Todoist|token|TOKEN/);
-    assert.deepEqual(host.getLifecycleStatus(), { pomodoroRunning: true });
+    assert.deepEqual(host.getLifecycleStatus(), { activeRuns: 0, pomodoroRunning: true });
     assert.equal(timers.size, 1);
     await assert.rejects(host.setModuleEnabled({ id: "pomodoro", enabled: false, expectedEnabled: false }), /变化|修改|刷新|加载/);
-    assert.deepEqual(host.getLifecycleStatus(), { pomodoroRunning: true });
+    assert.deepEqual(host.getLifecycleStatus(), { activeRuns: 0, pomodoroRunning: true });
 
     await host.setModuleEnabled({ id: "pomodoro", enabled: false, expectedEnabled: true });
-    assert.deepEqual(host.getLifecycleStatus(), { pomodoroRunning: false });
+    assert.deepEqual(host.getLifecycleStatus(), { activeRuns: 0, pomodoroRunning: false });
     assert.equal(timers.size, 0);
     assert.equal(host.info().commands.includes("pomodoro"), false);
     advance(180_000);

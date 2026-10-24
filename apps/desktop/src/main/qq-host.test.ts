@@ -6,6 +6,7 @@ import { it } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { startQqHost } from "./qq-host.js";
+import { DesktopRuntime } from "./desktop-runtime.js";
 import { readQqConfig } from "./qq-config.js";
 import { OneBotError, type OneBotApi, type OneBotSegment } from "./onebot-api.js";
 
@@ -220,4 +221,31 @@ it("QQ text received before final settlement stays rejected even if a queued fin
     await f.host.gateway.receive(message(1, "first question")); await f.idle();
     assert.equal(injected, true); assert.equal(f.calls(), 1); assert.match(f.api.texts().join("\n"), /未排队/);
   } finally { remove(); await f.cleanup(); }
+});
+
+
+it("unified channel management reads a registered live QQ host without a second Controller or personal authority", async () => {
+  const f = await fixture();
+  const personal = await DesktopRuntime.create({ userData: join(f.root, "personal-profile"), cwd: f.root, env: {}, modelAlias: "mock", model: f.model, send: () => {} });
+  try {
+    await f.host.gateway.receive(message(1, "only in the group history")); await f.idle();
+    const calls = f.calls(), identity = personal.info();
+    await personal.registerQqAccount({ platform: "qq", id: "group", name: "Group assistant", configPath: f.configPath });
+    const account = personal.channelAccounts().find(item => item.id === "group")!;
+    assert.equal(account.connection, "unverified", "a readable config cannot prove external host liveness");
+    assert.equal(account.conversations[0]!.readOnly, true);
+    assert.equal(account.conversations[0]!.workspace, f.workspace);
+    const history = await personal.channelHistory("group");
+    assert.equal(history.threadId, f.host.config.binding.threadId);
+    assert.match(JSON.stringify(history.messages), /only in the group history/);
+    assert.equal(personal.info().threadId, identity.threadId);
+    assert.equal((await personal.current.history()).length, 0);
+    await assert.rejects(personal.channelHistory("unregistered"), /显式注册/);
+    await assert.rejects(personal.registerQqAccount({ platform: "qq", id: "duplicate", name: "Duplicate", configPath: f.configPath }), /重复注册/);
+    const ownPath = join(f.root, "personal-qq.json");
+    await writeFile(ownPath, JSON.stringify({ ...f.config, workspace: identity.workspaceRoot }));
+    await assert.rejects(personal.registerQqAccount({ platform: "qq", id: "personal", name: "Forbidden", configPath: ownPath }), /独立群工作区/);
+    assert.equal(f.calls(), calls);
+    assert.equal(f.host.controller.getSnapshot().state.kind, "idle");
+  } finally { await personal.shutdown(); await f.cleanup(); }
 });

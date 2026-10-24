@@ -97,6 +97,7 @@ export interface ToolActivity {
 }
 
 export interface AppInfo {
+  viewRevision?: number;
   memoryLibrary?: true;
   attachments?: true;
   pomodoroControls?: true;
@@ -224,15 +225,21 @@ export interface RendererApi {
   listRecipes(): Promise<MemoryResult<RecipeEntry[]>>;
   changeRecipe(input: RecipeChange): Promise<MemoryResult<RecipeEntry>>;
 
-  telegramStatus?(): Promise<import("./telegram.js").TelegramStatus>;
-  setTelegramAutonomyEnabled?(input: import("./telegram.js").TelegramAutonomySettingInput): Promise<import("./telegram.js").TelegramStatus>;
-  setTelegramEnabled?(enabled: boolean): Promise<import("./telegram.js").TelegramStatus>;
-  beginTelegramPairing?(): Promise<import("./telegram.js").TelegramStatus>;
-  confirmTelegramPairing?(code: string): Promise<import("./telegram.js").TelegramStatus>;
-  reviewTelegramInput?(input: { key: string; note: string }): Promise<import("./telegram.js").TelegramStatus>;
-  setTelegramTaskRoute?(input: { id: string; kind: "once" | "recurring"; enabled: boolean }): Promise<import("./telegram.js").TelegramStatus>;
-  retryTelegramDelivery?(key: string): Promise<import("./telegram.js").TelegramStatus>;
-  resolveTelegramDelivery?(input: { key: string; action: "cancel" | "review"; note?: string }): Promise<import("./telegram.js").TelegramStatus>;
+  channelResourceStatus?(): Promise<{ threadId: string; runId: string; unknown?: boolean } | null>;
+  reviewChannelResource?(input: { threadId: string; runId: string; note: string }): Promise<void>;
+  channelAccounts?(): Promise<import("./channels.js").ChannelAccountStatus[]>;
+  channelHistory?(accountId: string, input?: HistoryPageInput): Promise<HistoryPage>;
+  telegramAccounts?(): Promise<import("./telegram.js").TelegramStatus[]>;
+  changeTelegramBinding?(input: { threadId: string | null; expectedRevision: number }, target?: import("./channels.js").ChannelTarget): Promise<import("./telegram.js").TelegramStatus>;
+  telegramStatus?(target?: import("./channels.js").ChannelTarget): Promise<import("./telegram.js").TelegramStatus>;
+  setTelegramAutonomyEnabled?(input: import("./telegram.js").TelegramAutonomySettingInput, target?: import("./channels.js").ChannelTarget): Promise<import("./telegram.js").TelegramStatus>;
+  setTelegramEnabled?(enabled: boolean, target?: import("./channels.js").ChannelTarget): Promise<import("./telegram.js").TelegramStatus>;
+  beginTelegramPairing?(target?: import("./channels.js").ChannelTarget): Promise<import("./telegram.js").TelegramStatus>;
+  confirmTelegramPairing?(code: string, target?: import("./channels.js").ChannelTarget): Promise<import("./telegram.js").TelegramStatus>;
+  reviewTelegramInput?(input: { key: string; note: string }, target?: import("./channels.js").ChannelTarget): Promise<import("./telegram.js").TelegramStatus>;
+  setTelegramTaskRoute?(input: { id: string; kind: "once" | "recurring"; enabled: boolean }, target?: import("./channels.js").ChannelTarget): Promise<import("./telegram.js").TelegramStatus>;
+  retryTelegramDelivery?(key: string, target?: import("./channels.js").ChannelTarget): Promise<import("./telegram.js").TelegramStatus>;
+  resolveTelegramDelivery?(input: { key: string; action: "cancel" | "review"; note?: string }, target?: import("./channels.js").ChannelTarget): Promise<import("./telegram.js").TelegramStatus>;
   residentStatus?(): Promise<ResidentServiceState>;
   setResidentEnabled?(enabled: boolean): Promise<ResidentServiceState>;
   loadConversationDraft(scope: ConversationDraftScope): Promise<ConversationDraftState>;
@@ -279,9 +286,9 @@ export interface RendererApi {
   restoreData(previewId?: string): Promise<RestoreResult | null>;
   activateRestoreData?(previewId: string | null): Promise<void>;
   home(): Promise<CommandResponse>;
-  run(text: string, options?: AssistantRunOptions): Promise<RunResponse>;
+  run(text: string, options?: AssistantRunOptions & { expectedThreadId?: string; expectedViewRevision?: number }): Promise<RunResponse>;
   steer(input: DesktopSteerInput): Promise<DesktopSteerResponse>;
-  cancel(): Promise<void>;
+  cancel(target?: { threadId: string; runId: string | null; viewRevision?: number }): Promise<void>;
   confirm(input: ConfirmInput): Promise<ConfirmResponse>;
   command(line: string): Promise<CommandResponse>;
   listRuns(): Promise<ListRunsResponse>;
@@ -343,6 +350,12 @@ export const IPC = {
   listRecipes: "runloom:listRecipes",
   changeRecipe: "runloom:changeRecipe",
 
+  channelResourceStatus: "runloom:channelResourceStatus",
+  channelResourceReview: "runloom:channelResourceReview",
+  channelAccounts: "runloom:channelAccounts",
+  channelHistory: "runloom:channelHistory",
+  telegramAccounts: "runloom:telegramAccounts",
+  telegramBinding: "runloom:telegramBinding",
   telegramStatus: "runloom:telegramStatus",
   telegramAutonomyEnabled: "runloom:telegramAutonomyEnabled",
   telegramEnabled: "runloom:telegramEnabled",

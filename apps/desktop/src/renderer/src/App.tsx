@@ -969,7 +969,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
       }
       sentAttachments.current = attachments.length ? { runId: null, files: attachments, text: line } : null;
       setRecoverableAttachments(null);
-      const response = await window.runloom.run(line, { ...(excludeFromMemory ? { memoryConsolidation: "exclude" as const } : {}), ...(attachments.length ? { attachments } : {}) });
+      const response = await window.runloom.run(line, { expectedThreadId: info.threadId, ...(info.viewRevision === undefined ? {} : { expectedViewRevision: info.viewRevision }), ...(excludeFromMemory ? { memoryConsolidation: "exclude" as const } : {}), ...(attachments.length ? { attachments } : {}) });
       if (!response.ok) {
         setError(response.reason === "empty" ? "输入为空" : response.reason === "busy" ? "本条消息未接收、未排队；请在当前处理结束后重发。草稿已保留。" : "未能开始处理，草稿和附件已保留。请核对错误后重试。");
         return;
@@ -1110,7 +1110,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const pageTitle = !detailsOpen ? conversationTitle : ({ threads: "全部对话", tasks: "任务", reminders: "提醒", home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力", settings: "设置" })[detailTab];
   const pageDescription = ({ threads: "继续之前的对话，或开始一段新对话。", tasks: "把需要执行和验收的事放在这里；普通聊天不用创建任务。", reminders: "查看已经设好的提醒，以及刚刚触发的结果。", home: "查看保存的进度、订阅和当前配置。提醒列表在「提醒」。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "已经记住的偏好、项目和工作。", context: "长对话由系统自动管理，通常不需要你操作。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "决定助手可以使用哪些能力。", settings: "外观、偏好和应用信息" })[detailTab];
   const newConversation = async (chatDraft?: string) => {
-    if (busy || sending || threadSwitchInFlight.current || !info) return;
+    if (sending || threadSwitchInFlight.current || !info) return;
     threadSwitchInFlight.current = true;
     setSwitchingThread(true);
     try {
@@ -1124,7 +1124,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     finally { threadSwitchInFlight.current = false; setSwitchingThread(false); }
   };
   const selectConversation = async (id: string) => {
-    if (busy || sending || threadSwitchInFlight.current || !info) return;
+    if (sending || threadSwitchInFlight.current || !info) return;
     if (id === info.threadId) { setDetailsOpen(false); setMobileDashboard(false); return; }
     threadSwitchInFlight.current = true;
     setSwitchingThread(true);
@@ -1164,7 +1164,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           {info?.workTasks && !creatingTask && !(detailsOpen && detailTab === "tasks") ? <button className="personal-create-task" type="button" disabled={busy || sending || switchingThread} title={busy ? "本轮结束后可创建新任务" : "在新对话中创建任务"} onClick={() => void openCreateTask()}><Icon name="new-chat" size={15} />创建任务</button> : null}
           {!dashboardOpen ? <button className="personal-sidebar-toggle" type="button" aria-label="搜索" title="搜索" onClick={() => setSearchOpen(true)}><Search size={16} /></button> : null}
           <button className="personal-sidebar-toggle" type="button" aria-pressed={dashboardOpen} aria-label={dashboardOpen ? "收起侧栏" : "展开侧栏"} title={dashboardOpen ? "收起侧栏，对话占满窗口" : "展开侧栏"} onClick={toggleSidebar}><Icon name="panel" size={16} /></button>
-          <button className="icon-button personal-new-chat" type="button" aria-label="新对话" title="新对话；保留当前草稿" disabled={busy || sending || switchingThread || !info} onClick={() => void newConversation()}><Icon name="new-chat" /></button>
+          <button className="icon-button personal-new-chat" type="button" aria-label="新对话" title="新对话；保留当前草稿" disabled={sending || switchingThread || !info} onClick={() => void newConversation()}><Icon name="new-chat" /></button>
         </header>
         {isMockModel(info?.modelAlias) || info?.entryMode === "test" ? <div className="model-mode-notice" role="status">{info?.entryMode === "test" ? "隔离测试 · 会话和记忆不属于日用工作区。" : ""}{isMockModel(info?.modelAlias) ? "模拟模型，不会调用真实模型。" : ""}</div> : null}
         {info ? <SavedTaskNotice key={`${info.configPath}:${info.workspaceRoot}`} enabled={!!info.workspaceRoot} workspaceRoot={info.workspaceRoot ?? ""} refreshSequence={automationRefresh} onDismiss={() => setAutomationRefresh(value => value + 1)} onOpen={taskId => {
@@ -1247,7 +1247,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 {!composingTask && input ? <span className="hint" role="status">{draftError ? "草稿未保存" : draftSaving ? "保存草稿…" : "草稿已保存"}</span> : null}
                 {composingTask ? <span className="hint" role="status">{workTasks.draftError ? "任务草稿未保存" : workTasks.draftSaving ? "保存任务草稿…" : workTasks.draftReady ? "任务草稿已保存" : "正在恢复任务草稿…"}</span> : null}
                 <span className="zcode-model-name" title="当前配置的模型；不代表本轮已联网验证">{info?.modelId ?? info?.modelAlias ?? "连接中"}</span>
-                {busy ? <Button type="button" variant="outline" size="icon" className="zcode-stop-button" aria-label={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮"} title={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮；已执行的操作不会撤回"} onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Square size={12} /></Button> : null}
+                {busy ? <Button type="button" variant="outline" size="icon" className="zcode-stop-button" aria-label={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮"} title={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮；已执行的操作不会撤回"} onClick={() => void window.runloom.cancel(info ? { threadId: info.threadId, runId: state.kind === "running" ? state.runId : null, ...(info.viewRevision === undefined ? {} : { viewRevision: info.viewRevision }) } : undefined).catch(() => setError("取消结果未收到，请核对当前状态。"))}><Square size={12} /></Button> : null}
                 {composerReady ? <Button type="button" size={(creatingTask || composingTask) && !steering ? "default" : "icon"} className={`send-button${(creatingTask || composingTask) && !steering ? " task-send" : ""}`}
                   aria-label={creatingTask ? "创建并开始" : composingTask && !steering ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : "发送消息"}
                   title={steering ? "发送到当前这轮，等待正在执行的步骤结束后处理" : composingTask ? "显式开始下一次任务处理；工具仍需确认" : "发送（Enter）· 换行（Shift + Enter）"}
@@ -1291,7 +1291,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           <section className="inspector" hidden={!detailsOpen} aria-label={pageTitle}>
             {detailTab === "tasks" || detailTab === "settings" || detailTab === "memory" ? null : <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" title="回到手札 · Escape" onClick={() => { setDetailsOpen(false); setMobileDashboard(false); }}><Icon name="close" size={16} />回到手札</button></div>}
             <div className="inspector-pane" ref={inspectorScroll} onScroll={() => { if (inspectorScroll.current) inspectorPositions.current.set(inspectorKey, inspectorScroll.current.scrollTop); }}>
-              {detailTab === "threads" && info ? <ThreadsPanel info={info} drafts={threadDrafts} busy={busy || switchingThread} onSelect={selectConversation} onCreate={() => newConversation()} onChanged={() => setThreadsRefresh(value => value + 1)} /> : null}
+              {detailTab === "threads" && info ? <ThreadsPanel info={info} drafts={threadDrafts} busy={switchingThread} onSelect={selectConversation} onCreate={() => newConversation()} onChanged={() => setThreadsRefresh(value => value + 1)} /> : null}
               <div hidden={detailTab !== "tasks"}>
                 <TasksHome
                   tasksEnabled={info?.workTasks === true} tasks={workTasks.tasks} selected={workTasks.task} loading={workTasks.loading} error={workTasks.error}
@@ -1346,7 +1346,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
             </div>
           </section>
       </section>
-      {searchOpen ? <SearchOverlay drafts={threadDrafts} busy={busy || switchingThread} onClose={() => setSearchOpen(false)} onOpenThread={id => { setSearchOpen(false); void selectConversation(id); }} /> : null}
+      {searchOpen ? <SearchOverlay drafts={threadDrafts} busy={switchingThread} onClose={() => setSearchOpen(false)} onOpenThread={id => { setSearchOpen(false); void selectConversation(id); }} /> : null}
     </div>
   );
 }
