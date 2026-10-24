@@ -12,7 +12,7 @@
     "manual:cm6:export": "node apps/desktop/scripts/cm6-manual.mjs --export",
     "manual:cm6:selftest": "pnpm build && node apps/desktop/scripts/cm6-manual-selftest.mjs",
     "build": "pnpm build:runtime && pnpm --filter @serika/desktop build",
-    "build:runtime": "tsc -b",
+    "build:runtime": "tsc -b && node packages/assistant/scripts/write-node-runtime.mjs",
     "clean": "tsc -b --clean",
     "typecheck": "tsc -b --pretty false && pnpm --filter @serika/desktop typecheck",
     "test": "node scripts/test-home.mjs --home \"$SERIKA_TEST_HOME\" -- /bin/sh -c 'pnpm test:runtime && pnpm desktop:test'",

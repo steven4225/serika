@@ -38,7 +38,7 @@ async function launch(upgraded) {
     assert.deepEqual(await page.locator('[role="alert"]:visible, [class*="error"]:visible, [class*="warning"]:visible').allTextContents(), []);
     report.launches.push({ main, renderer, result: 'v2-started', directories: info.authorizedDirectories });
   } else {
-    const message = '配置为 v1，请运行 node packages/assistant/scripts/config-upgrade.mjs --config <配置文件> --upgrade 升级';
+    const message = `配置为 v1，请运行 '${process.execPath}' '${join(repo, 'packages/assistant/scripts/config-upgrade.mjs')}' '--config' '${configPath}' '--upgrade' 升级`;
     const alert = page.getByRole("alert").filter({ hasText: message });
     await expect(alert).toBeVisible();
     report.launches.push({ main, renderer, result: 'v1-rejected', message, visibleError: await alert.innerText() });

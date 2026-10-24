@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "@serika/assistant/testing";
 import { defaultContextBudget } from "@serika/assistant";
@@ -25,7 +26,7 @@ describe("desktop TUI config", () => {
     try {
       await assert.rejects(resolveDesktopConfig({ env: {}, applicationHome: root }), error => {
         assert.ok(error instanceof Error);
-        assert.equal(safeStartupError(error, {}), "Runtime 无法启动：配置为 v1，请运行 node packages/assistant/scripts/config-upgrade.mjs --config <配置文件> --upgrade 升级");
+        assert.equal(safeStartupError(error, {}), `Runtime 无法启动：配置为 v1，请运行 '${process.execPath}' '${fileURLToPath(new URL("../../../../packages/assistant/scripts/config-upgrade.mjs", import.meta.url))}' '--config' '${configPath}' '--upgrade' 升级`);
         return true;
       });
       assert.equal(await readFile(configPath, "utf8"), original);

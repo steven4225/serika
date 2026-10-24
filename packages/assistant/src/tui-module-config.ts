@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { lstat, readFile, realpath } from "node:fs/promises";
 import {
   dirname,
@@ -430,7 +433,14 @@ async function normalizeShellSandbox(
 }
 
 export class ConfigUpgradeRequiredError extends Error {
-  constructor() { super("配置为 v1，请运行 node packages/assistant/scripts/config-upgrade.mjs --config <配置文件> --upgrade 升级"); }
+  constructor(configPath = resolvePath(homedir(), ".serika/config.json")) {
+    const nodeExecutable = process.versions.electron
+      ? z.object({ nodeExecutable: z.string() }).parse(JSON.parse(readFileSync(new URL("./node-runtime.json", import.meta.url), "utf8"))).nodeExecutable
+      : process.execPath;
+    const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'";
+    const command = [nodeExecutable, fileURLToPath(new URL("../scripts/config-upgrade.mjs", import.meta.url)), "--config", resolvePath(configPath), "--upgrade"].map(quote).join(" ");
+    super(`配置为 v1，请运行 ${command} 升级`);
+  }
 }
 
 /** Pure schema read for other trusted hosts; does not resolve unrelated module paths. */
@@ -449,12 +459,12 @@ export async function readTuiModuleConfig(configPath: string): Promise<TuiModule
     throw new Error("Invalid TUI config JSON");
   }
 
-  return parseTuiModuleConfig(value);
+  return parseTuiModuleConfig(value, configPath);
 }
 
-export function parseTuiModuleConfig(value: unknown): TuiModuleConfig {
+export function parseTuiModuleConfig(value: unknown, configPath?: string): TuiModuleConfig {
   if (typeof value === "object" && value !== null) {
-    if ("version" in value && value.version === 1) throw new ConfigUpgradeRequiredError();
+    if ("version" in value && value.version === 1) throw new ConfigUpgradeRequiredError(configPath);
     const autonomyHasOldField = ["desktopAutonomy" in value ? value.desktopAutonomy : undefined, "telegramAutonomy" in value ? value.telegramAutonomy : undefined].some(grant =>
       typeof grant === "object" && grant !== null && "workspaceRoot" in grant);
     const modules = "modules" in value ? value.modules : undefined;

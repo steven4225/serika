@@ -24,8 +24,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function withDesktopTimeouts(
   config: Record<string, unknown>,
   workspace?: string,
+  configPath?: string,
 ): { config: Record<string, unknown>; patched: boolean } {
-  if (config.version === 1) throw new ConfigUpgradeRequiredError();
+  if (config.version === 1) throw new ConfigUpgradeRequiredError(configPath);
   let patched = false;
   const run = isRecord(config.run) ? { ...config.run } : {};
   if (typeof run.totalTimeoutMs !== "number") {
@@ -102,7 +103,7 @@ export async function resolveDesktopConfig(options: {
       }
       const parsed: unknown = JSON.parse(raw);
       if (!isRecord(parsed)) throw new Error("Desktop config must be an object");
-      const next = withDesktopTimeouts(parsed, workspace);
+      const next = withDesktopTimeouts(parsed, workspace, configPath);
       patched = next.patched;
       return patched ? `${JSON.stringify(next.config, null, 2)}\n` : undefined;
     }, { allowCreate: true, dataDirectory: join(options.applicationHome, "data") });

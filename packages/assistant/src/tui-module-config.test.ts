@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, realpath, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 import { resolveTuiModuleConfig } from "./tui-module-config.js";
 import { availableInputTokens, defaultContextBudget } from "./context-budget.js";
 
@@ -37,7 +38,7 @@ describe("resolveTuiModuleConfig", () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     const path = await writeConfig(configDirectory, { version: 1, authorizedDirectory: workspace, desktopAutonomy: { authorizedDirectory: workspace }, modules: {} });
     await assert.rejects(resolveTuiModuleConfig(configArgs(path), { cwd: configDirectory }), {
-      message: "配置为 v1，请运行 node packages/assistant/scripts/config-upgrade.mjs --config <配置文件> --upgrade 升级",
+      message: `配置为 v1，请运行 '${process.execPath}' '${fileURLToPath(new URL("../scripts/config-upgrade.mjs", import.meta.url))}' '--config' '${path}' '--upgrade' 升级`,
     });
   });
   it("rejects legacy configuration fields and requires the offline importer", async () => {
