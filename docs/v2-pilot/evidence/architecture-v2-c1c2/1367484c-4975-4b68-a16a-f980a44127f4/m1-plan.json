@@ -1,0 +1,667 @@
+{
+  "fixture": true,
+  "planned": 16,
+  "stopped": false,
+  "passed": true,
+  "calls": 0,
+  "fixtureCalls": 16,
+  "costUsd": 0,
+  "results": [
+    {
+      "case": "ack-0",
+      "window": "32k",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:4779aab57c6b65449b91aea4a84a5b36f998442fcc6c4b7c2864568bd36ccee1",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:434a3aaeafe9bc15966b238b769080af4c2ec3525533d691dd880d0eb5238f03",
+          "inputBound": 2908,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:a489a2e8d9fbd9d6ee73b081edf514bdd9284a93f8d1cdd19b1ed8f9f3c50104",
+          "durationMs": 0.22124999999999773
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 67,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    },
+    {
+      "case": "ack-1",
+      "window": "32k",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:50b2074712df3fd4eecb249f746573bae3c9120f5e87b66a69e1cf61f52389bb",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:da599551219e6d99ff45499913bc6f064f2a02adcd6d7fb137a2c48e4fdf1819",
+          "inputBound": 2909,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:a489a2e8d9fbd9d6ee73b081edf514bdd9284a93f8d1cdd19b1ed8f9f3c50104",
+          "durationMs": 0.08283399999999119
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 53,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    },
+    {
+      "case": "web-only",
+      "window": "32k",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:cc9bf14e296bd960410d6d7695e0e39913229a1b7dd34adf3376c910e6def0f4",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:6e42a2f6972be7361a39bb528d7755cd0343eb512ad49c34838e411128ac10de",
+          "inputBound": 2931,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:a489a2e8d9fbd9d6ee73b081edf514bdd9284a93f8d1cdd19b1ed8f9f3c50104",
+          "durationMs": 0.07370799999998212
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 50,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    },
+    {
+      "case": "tool-only",
+      "window": "32k",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:e8312d1611747845c4da7ab32629c3d00dfb18a038cfc5856058c6dfef45b956",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:16cfb2ef30b46d50013cf61b2fcfdac6b89d6f4132bbeba61bb8f6aff7f186b5",
+          "inputBound": 2931,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:a489a2e8d9fbd9d6ee73b081edf514bdd9284a93f8d1cdd19b1ed8f9f3c50104",
+          "durationMs": 0.07925000000000182
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 50,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    },
+    {
+      "case": "confirmation",
+      "window": "32k",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:e248e60b4bf3f98f35d938f5a6e2485f28955b9ef236bff30e3f177ebbe0bb4a",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:9c784a7f2f96b08f2c02298ef3aec69643ca1ebc0ef76b956f3633ac8181e3cf",
+          "inputBound": 2912,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:98cada3ae7e1ccffe99bbbe7bbbab18f382e1719ca1fd0b69398f7bbe5679167",
+          "durationMs": 0.12104099999999107
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 54,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    },
+    {
+      "case": "conflict",
+      "window": "32k",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:244d94c350aaa7af8736ac9a295f5182e78249bdd5910716fe93edd9d495df51",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:c39d3dc7fb5bdf39c1d3918df6c5a1dc526ef462916e7cec19ce6478f9b53774",
+          "inputBound": 2915,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:d12e2e1d4d754ee9118f0156e6e400fabf9e2124de9cc19e04663e0c815d9f65",
+          "durationMs": 0.07699999999999818
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 62,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    },
+    {
+      "case": "independent",
+      "window": "32k",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:b522ab765634cb86560e806a50424899fedd16c85b04b9da3c33f30a3676ae5d",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:236c580033a9503cddd7df42823aaf52bfedf8a587e63404388b4f3758255324",
+          "inputBound": 2916,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:0144a02711b3f8dd842203c5fe29ac5e1a28a07e2e6351f998992d271ce6feff",
+          "durationMs": 0.08091699999999946
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 65,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    },
+    {
+      "case": "uncertain",
+      "window": "32k",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:222bd528446ea431540490391b56cea0c5ee3d1024fa95f09e50a699e37b0128",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:58aaa240f2e24380d29286dab3fee903a495120753c711120aa61420d2860624",
+          "inputBound": 2818,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:b1bf823e5f20ec87b11fd6e12e04d4f0d8926474f6bc3fd664c3be4d37f63159",
+          "durationMs": 0.07020799999997962
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 47,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    },
+    {
+      "case": "ack-0",
+      "window": "daily",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:4779aab57c6b65449b91aea4a84a5b36f998442fcc6c4b7c2864568bd36ccee1",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:434a3aaeafe9bc15966b238b769080af4c2ec3525533d691dd880d0eb5238f03",
+          "inputBound": 2908,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:a489a2e8d9fbd9d6ee73b081edf514bdd9284a93f8d1cdd19b1ed8f9f3c50104",
+          "durationMs": 0.07437500000003183
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 48,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    },
+    {
+      "case": "ack-1",
+      "window": "daily",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:50b2074712df3fd4eecb249f746573bae3c9120f5e87b66a69e1cf61f52389bb",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:da599551219e6d99ff45499913bc6f064f2a02adcd6d7fb137a2c48e4fdf1819",
+          "inputBound": 2909,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:a489a2e8d9fbd9d6ee73b081edf514bdd9284a93f8d1cdd19b1ed8f9f3c50104",
+          "durationMs": 0.07799999999997453
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 47,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    },
+    {
+      "case": "web-only",
+      "window": "daily",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:cc9bf14e296bd960410d6d7695e0e39913229a1b7dd34adf3376c910e6def0f4",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:6e42a2f6972be7361a39bb528d7755cd0343eb512ad49c34838e411128ac10de",
+          "inputBound": 2931,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:a489a2e8d9fbd9d6ee73b081edf514bdd9284a93f8d1cdd19b1ed8f9f3c50104",
+          "durationMs": 0.07200000000000273
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 50,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    },
+    {
+      "case": "tool-only",
+      "window": "daily",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:e8312d1611747845c4da7ab32629c3d00dfb18a038cfc5856058c6dfef45b956",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:16cfb2ef30b46d50013cf61b2fcfdac6b89d6f4132bbeba61bb8f6aff7f186b5",
+          "inputBound": 2931,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:a489a2e8d9fbd9d6ee73b081edf514bdd9284a93f8d1cdd19b1ed8f9f3c50104",
+          "durationMs": 0.06695799999999963
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 52,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    },
+    {
+      "case": "confirmation",
+      "window": "daily",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:e248e60b4bf3f98f35d938f5a6e2485f28955b9ef236bff30e3f177ebbe0bb4a",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:9c784a7f2f96b08f2c02298ef3aec69643ca1ebc0ef76b956f3633ac8181e3cf",
+          "inputBound": 2912,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:98cada3ae7e1ccffe99bbbe7bbbab18f382e1719ca1fd0b69398f7bbe5679167",
+          "durationMs": 0.07633299999997689
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 48,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    },
+    {
+      "case": "conflict",
+      "window": "daily",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:244d94c350aaa7af8736ac9a295f5182e78249bdd5910716fe93edd9d495df51",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:c39d3dc7fb5bdf39c1d3918df6c5a1dc526ef462916e7cec19ce6478f9b53774",
+          "inputBound": 2915,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:d12e2e1d4d754ee9118f0156e6e400fabf9e2124de9cc19e04663e0c815d9f65",
+          "durationMs": 0.07104200000003402
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 46,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    },
+    {
+      "case": "independent",
+      "window": "daily",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:b522ab765634cb86560e806a50424899fedd16c85b04b9da3c33f30a3676ae5d",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:236c580033a9503cddd7df42823aaf52bfedf8a587e63404388b4f3758255324",
+          "inputBound": 2916,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:0144a02711b3f8dd842203c5fe29ac5e1a28a07e2e6351f998992d271ce6feff",
+          "durationMs": 0.06766700000002857
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 47,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    },
+    {
+      "case": "uncertain",
+      "window": "daily",
+      "fixture": true,
+      "sourceHash": "jcs-sha256:v1:222bd528446ea431540490391b56cea0c5ee3d1024fa95f09e50a699e37b0128",
+      "rows": [
+        {
+          "inputHash": "jcs-sha256:v1:58aaa240f2e24380d29286dab3fee903a495120753c711120aa61420d2860624",
+          "inputBound": 2818,
+          "status": "returned",
+          "usage": {
+            "inputTokens": {
+              "total": 0
+            },
+            "outputTokens": {
+              "total": 0
+            }
+          },
+          "outputHash": "jcs-sha256:v1:b1bf823e5f20ec87b11fd6e12e04d4f0d8926474f6bc3fd664c3be4d37f63159",
+          "durationMs": 0.07070800000008148
+        }
+      ],
+      "diagnostics": {
+        "running": false,
+        "calls": 1,
+        "completed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "durationMs": 52,
+        "pendingSegments": 0
+      },
+      "checks": {
+        "completed": true,
+        "singleCall": true,
+        "saved": true,
+        "conflicts": true,
+        "confirmation": true,
+        "uncertain": true
+      },
+      "passed": true
+    }
+  ]
+}

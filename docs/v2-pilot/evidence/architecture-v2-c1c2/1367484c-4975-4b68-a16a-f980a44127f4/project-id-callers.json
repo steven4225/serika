@@ -1,0 +1,823 @@
+{
+  "sourceCommitAtScan": "418e146f7e0438b278efbaa84daa3f032d10cf74",
+  "calls": [
+    {
+      "file": "examples/eval/cm-step4.mjs",
+      "line": 48,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(join(root, `${window}-${fixture.id}`), \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "apps/desktop/src/main/backup.test.ts",
+      "line": 27,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(workspace, \"data/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "apps/desktop/src/main/backup.test.ts",
+      "line": 218,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(f.workspace, \"data/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "apps/desktop/src/main/backup.test.ts",
+      "line": 265,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(f.workspace, \"data/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "apps/desktop/src/main/application-home.test.ts",
+      "line": 46,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(firstHome, \"data/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "apps/desktop/src/main/runtime-ownership.test.ts",
+      "line": 72,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(f.options.applicationHome, \"data/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/task-worker-context-acceptance.test.ts",
+      "line": 43,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \"data/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/consolidation-runtime.test.ts",
+      "line": 28,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/scheduled-skill-acceptance.test.ts",
+      "line": 91,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(f.workspace, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-m1-acceptance.test.ts",
+      "line": 22,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-m1-acceptance.test.ts",
+      "line": 86,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-m1-acceptance.test.ts",
+      "line": 100,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-m1-acceptance.test.ts",
+      "line": 116,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-m1-acceptance.test.ts",
+      "line": 145,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-m1-acceptance.test.ts",
+      "line": 162,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/task-worker-delivery.test.ts",
+      "line": 23,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/task-worker-delivery.test.ts",
+      "line": 45,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-import.test.ts",
+      "line": 20,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-import.test.ts",
+      "line": 30,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-import.test.ts",
+      "line": 38,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-import.test.ts",
+      "line": 43,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-import.test.ts",
+      "line": 47,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-import.test.ts",
+      "line": 64,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null",
+        "phase => { if (phase === \"after-rename\") throw new Error(\"lost acknowledgement\"); }"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-import.test.ts",
+      "line": 67,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-import.test.ts",
+      "line": 73,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-import.test.ts",
+      "line": 74,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-import.test.ts",
+      "line": 81,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "file",
+        "\"a\""
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-import.test.ts",
+      "line": 81,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "file",
+        "\"b\""
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/modules/memory-module.test.ts",
+      "line": 62,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/app-five-layer.test.ts",
+      "line": 23,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(workspace, \".runloom/memory.json\")",
+        "project.id"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/app-five-layer.test.ts",
+      "line": 80,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "\"read-recheck-project\""
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-library.test.ts",
+      "line": 15,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "\"project-a\""
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-library.test.ts",
+      "line": 42,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "\"project-a\""
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-library.test.ts",
+      "line": 48,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "\"project-a\""
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-library.test.ts",
+      "line": 114,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "\"project-a\"",
+        "async phase => { if (phase === boundary) throw new Error(\"injected boundary failure\"); }"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-library.test.ts",
+      "line": 146,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "file",
+        "projectId"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-library.test.ts",
+      "line": 152,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "file",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-merge.test.ts",
+      "line": 35,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-merge.test.ts",
+      "line": 43,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-merge.test.ts",
+      "line": 50,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-merge.test.ts",
+      "line": 63,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-merge.test.ts",
+      "line": 83,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-merge.test.ts",
+      "line": 102,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null",
+        "phase => { if (fault && phase === \"after-rename\") throw new Error(\"lost acknowledgement\"); }"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-merge.test.ts",
+      "line": 110,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/context-background.test.ts",
+      "line": 74,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/context-background.test.ts",
+      "line": 86,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/context-background.test.ts",
+      "line": 109,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/context-background.test.ts",
+      "line": 191,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/transcript-maintenance.test.ts",
+      "line": 49,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(workspace, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-store.test.ts",
+      "line": 12,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-store.test.ts",
+      "line": 28,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-store.test.ts",
+      "line": 33,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/task-worker-context.test.ts",
+      "line": 101,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/task-worker-context.test.ts",
+      "line": 136,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-context-scope.test.ts",
+      "line": 63,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \"memory.json\")",
+        "\"A\""
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.ts",
+      "line": 390,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "filePath",
+        "projectId"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 17,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 29,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 33,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 50,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 67,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(workspace, \".runloom/memory.json\")",
+        "null",
+        "observed => { if (observed === phase) throw new Error(phase); }"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 70,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(workspace, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 80,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 99,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(join(root, \"alias\"), \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 106,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 108,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null",
+        "phase => { if (phase === \"after-rename\") throw new Error(\"ack lost\"); }"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 115,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 123,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "file",
+        "\"a\""
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 123,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "file",
+        "\"b\""
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 123,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "file",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 139,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "file",
+        "\"a\""
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-v7-store.test.ts",
+      "line": 155,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "file",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/app.ts",
+      "line": 309,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "dataPaths!.memory",
+        "project?.id ?? null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-factual-receipts.test.ts",
+      "line": 12,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/memory-factual-receipts.test.ts",
+      "line": 26,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "join(root, \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/task-worker-context.ts",
+      "line": 115,
+      "symbol": "createMemoryStore",
+      "arguments": [
+        "assistantDataPaths(dataDirectory).memory",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/src/testing.ts",
+      "line": 58,
+      "symbol": "memoryStoreForFacts",
+      "arguments": [
+        "join(\".\", \".runloom/memory.json\")",
+        "null"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/scripts/project-rebind.test.mjs",
+      "line": 44,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "f.memoryPath",
+        "target.id"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/scripts/project-rebind.test.mjs",
+      "line": 45,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "f.memoryPath",
+        "f.old.id"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/scripts/project-rebind.test.mjs",
+      "line": 86,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "f.memoryPath",
+        "result.to.id"
+      ],
+      "explicitProjectId": true
+    },
+    {
+      "file": "packages/assistant/scripts/memory-upgrade.test.mjs",
+      "line": 48,
+      "symbol": "V7MemoryStore",
+      "arguments": [
+        "f.memoryPath",
+        "project.id"
+      ],
+      "explicitProjectId": true
+    }
+  ],
+  "total": 81,
+  "files": 27,
+  "missingExplicitProjectId": 0
+}

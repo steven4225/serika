@@ -1,0 +1,57 @@
+[
+  {
+    "path": "first-electron-failure-original/electron/failure.png",
+    "sha256": "8e324bb0067d32e08d19875e782d385969209e1628aa3ffba3c6c46013b7fd72",
+    "bytes": 307734
+  },
+  {
+    "path": "first-electron-failure-original/electron/moved-project-diagnostic.png",
+    "sha256": "e5724669814dd8fe935e493dd4bf3ae87a162ccc189205d848240e542280e4f3",
+    "bytes": 277961
+  },
+  {
+    "path": "first-electron-failure-original/electron/no-project-isolated.png",
+    "sha256": "64b1cba3ef57c7644d6ea178fee10e3abec010737ce92b446eae4eebb858b4e0",
+    "bytes": 304098
+  },
+  {
+    "path": "first-electron-failure-original/electron/personal-project-isolated.png",
+    "sha256": "4129613a2c6cd977e23cc855157bb959da6f8811e7c679c6437fee400df43d30",
+    "bytes": 304030
+  },
+  {
+    "path": "first-electron-failure-original/electron/rebound-project-visible.png",
+    "sha256": "571ac9d7eb3fdf8906e1532c3179a11ab314c13c81530ba31accb724b2074005",
+    "bytes": 337448
+  },
+  {
+    "path": "first-electron-failure-original/electron/remember-and-retract.png",
+    "sha256": "7da272ba3121ba2cd9dfa6b9986a7069ffbebb52a805f5b48a92a12e71f6d076",
+    "bytes": 339505
+  },
+  {
+    "path": "first-electron-failure-original/electron/restart-project-and-memory.png",
+    "sha256": "e70c6a720b2dbce0aded5653d042bf4ddb597fd07b18c88fc78b704c567bf250",
+    "bytes": 337436
+  },
+  {
+    "path": "first-electron-failure-original/electron/result.json",
+    "sha256": "415ce462e2da46ab364b0905d00a79aaac0cd6b5121e3337e2672471e054e1c7",
+    "bytes": 12099
+  },
+  {
+    "path": "first-electron-failure-original/electron/return-to-serika-visible.png",
+    "sha256": "caf6c27eae3addb0882c6a759fa5892aabf276f56466132f8941e4d021b74d45",
+    "bytes": 303911
+  },
+  {
+    "path": "first-electron-failure-original/electron/serika-project-visible.png",
+    "sha256": "57eb2a472e3d463fb2b58d73336ca0abdd4eea4a1284281ad920def7d4862d41",
+    "bytes": 337538
+  },
+  {
+    "path": "first-electron-failure-original/electron/ui-project-selection.png",
+    "sha256": "06b1aea07d76e1dfca67f153a3fb8c2dc355882b8589ad78717ed7989c11a98f",
+    "bytes": 297289
+  }
+]

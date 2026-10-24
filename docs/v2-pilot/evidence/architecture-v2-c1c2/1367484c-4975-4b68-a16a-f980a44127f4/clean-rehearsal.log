@@ -1,0 +1,10 @@
+✔ moved project reports an absolute CLI command, rebinds all v7 associations and rolls back both exact SHAs (679.348625ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 769.585542
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-review-rebind-finalsource.HV1t25/write-guard-5Wmosa/result.json","violations":0,"changes":0,"metadataUnchanged":true}

@@ -1,0 +1,10 @@
+✔ switches only project context and restores selection without modifying configured authority (841.222125ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1189.582208
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-review-desktop-target.yQmMzB/write-guard-ZO6m2u/result.json","violations":0,"changes":3,"metadataUnchanged":false}

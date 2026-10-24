@@ -1,0 +1,693 @@
+{
+  "runId": "1367484c-4975-4b68-a16a-f980a44127f4",
+  "generatedAt": "2026-10-24T17:39:02.263463+00:00",
+  "artifactType": "collected-verification-and-source-audit",
+  "sourceCommitAtCollection": "418e146f7e0438b278efbaa84daa3f032d10cf74",
+  "baseCommit": "2399b23aa36053891fd0df968600516196d0aecb",
+  "commands": [
+    {
+      "name": "first-electron-failure",
+      "command": "pnpm build; node apps/desktop/scripts/electron-scope-smoke.mjs",
+      "observedExitCode": 1,
+      "log": "first-electron-failure.log",
+      "sha256": "0154f703539248973850cef99dcff789f66b512c7b4b5057d90d4552c8907e9d",
+      "bytes": 3356,
+      "counts": [],
+      "outerGuards": [
+        {
+          "testHomeGuard": "failed",
+          "evidence": "/private/tmp/serika-review-electron.ow1IMt/write-guard-jZjc1K/result.json",
+          "violations": 0,
+          "changes": 80,
+          "metadataUnchanged": false
+        }
+      ]
+    },
+    {
+      "name": "typecheck",
+      "command": "pnpm typecheck",
+      "observedExitCode": 0,
+      "log": "typecheck.log",
+      "sha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "bytes": 141,
+      "counts": [],
+      "outerGuards": []
+    },
+    {
+      "name": "UTC",
+      "command": "TZ=UTC pnpm test",
+      "observedExitCode": 0,
+      "log": "UTC.log",
+      "sha256": "c09edf38558dd243767bf672ca1225fff8ae78b814e92a718db893d37f856063",
+      "bytes": 242326,
+      "counts": [
+        {
+          "tests": 1189,
+          "pass": 1182,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 7
+        },
+        {
+          "tests": 659,
+          "pass": 659,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 12,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "outerGuards": [
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-review-full.HTgrNH/write-guard-2rkDP4/result.json",
+          "violations": 0,
+          "changes": 81,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-review-full.HTgrNH/write-guard-Hh62Ag/result.json",
+          "violations": 0,
+          "changes": 131,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-review-full.HTgrNH/write-guard-q5wmVr/result.json",
+          "violations": 0,
+          "changes": 212,
+          "metadataUnchanged": false
+        }
+      ]
+    },
+    {
+      "name": "Asia-Shanghai",
+      "command": "TZ=Asia/Shanghai pnpm test",
+      "observedExitCode": 0,
+      "log": "Asia-Shanghai.log",
+      "sha256": "fb7cfafffd6a9a4336dcb544a5f1c823ab8fad71098385264e312eb13bd29f8b",
+      "bytes": 242381,
+      "counts": [
+        {
+          "tests": 1189,
+          "pass": 1182,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 7
+        },
+        {
+          "tests": 659,
+          "pass": 659,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 12,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "outerGuards": [
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-review-shanghai.Qsy8rP/write-guard-2pbqOG/result.json",
+          "violations": 0,
+          "changes": 82,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-review-shanghai.Qsy8rP/write-guard-xoZ5z3/result.json",
+          "violations": 0,
+          "changes": 133,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-review-shanghai.Qsy8rP/write-guard-TULDfL/result.json",
+          "violations": 0,
+          "changes": 215,
+          "metadataUnchanged": false
+        }
+      ]
+    },
+    {
+      "name": "eval",
+      "command": "pnpm eval:test",
+      "observedExitCode": 0,
+      "log": "eval.log",
+      "sha256": "f1cd5d4bc805e894e77af310973bad02d0be379549498ceddeefcd91314a770f",
+      "bytes": 20491,
+      "counts": [
+        {
+          "tests": 101,
+          "pass": 101,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "outerGuards": [
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-review-eval.C5N37A/write-guard-ZXcksV/result.json",
+          "violations": 0,
+          "changes": 7,
+          "metadataUnchanged": false
+        },
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-review-eval.C5N37A/write-guard-BIngHQ/result.json",
+          "violations": 0,
+          "changes": 10,
+          "metadataUnchanged": false
+        }
+      ]
+    },
+    {
+      "name": "M1",
+      "command": "node examples/eval/cm-step4.mjs",
+      "observedExitCode": 0,
+      "log": "M1.log",
+      "sha256": "97125d83c7b67157b6a0e1ccc15a09c4ca59eab632f0f16aca24d5a2a813b679",
+      "bytes": 225,
+      "counts": [],
+      "outerGuards": [
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-review-m1.iy70FM/write-guard-WGEE6r/result.json",
+          "violations": 0,
+          "changes": 0,
+          "metadataUnchanged": true
+        }
+      ]
+    },
+    {
+      "name": "rebind-tests",
+      "command": "node --test packages/assistant/scripts/project-rebind.test.mjs",
+      "observedExitCode": 0,
+      "log": "rebind-tests.log",
+      "sha256": "d8c844d2e2b4d8b1a2e3f6db3b63a1b428564bc2d959430030b287d3223994b3",
+      "bytes": 770,
+      "counts": [
+        {
+          "tests": 4,
+          "pass": 4,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "outerGuards": [
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-review-rebind-final.elgMWx/write-guard-I6cMXz/result.json",
+          "violations": 0,
+          "changes": 3,
+          "metadataUnchanged": false
+        }
+      ]
+    },
+    {
+      "name": "clean-rehearsal",
+      "command": "node --test --test-name-pattern=\"moved project reports\" packages/assistant/scripts/project-rebind.test.mjs",
+      "observedExitCode": 0,
+      "log": "clean-rehearsal.log",
+      "sha256": "77a1a49f76690de687f4b1b0566efaeb79e77258c2058978dfe6d9b529fd257a",
+      "bytes": 416,
+      "counts": [
+        {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "outerGuards": [
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-review-rebind-finalsource.HV1t25/write-guard-5Wmosa/result.json",
+          "violations": 0,
+          "changes": 0,
+          "metadataUnchanged": true
+        }
+      ]
+    },
+    {
+      "name": "desktop-target",
+      "command": "pnpm --filter @serika/desktop exec tsx --test src/main/project-selection.test.ts",
+      "observedExitCode": 0,
+      "log": "desktop-target.log",
+      "sha256": "3c5f76a891be7fd0b532686fc6cdeedf1388fc8fcaab31b1cef4ac7e20fd7be9",
+      "bytes": 400,
+      "counts": [
+        {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "outerGuards": [
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-review-desktop-target.yQmMzB/write-guard-ZO6m2u/result.json",
+          "violations": 0,
+          "changes": 3,
+          "metadataUnchanged": false
+        }
+      ]
+    },
+    {
+      "name": "electron",
+      "command": "pnpm build; node apps/desktop/scripts/electron-scope-smoke.mjs",
+      "observedExitCode": 0,
+      "log": "electron.log",
+      "sha256": "effb8621b611a8d2c4dc4588853dc6e715c5512dc8c66bf1860e93c8b46cd712",
+      "bytes": 3011,
+      "counts": [],
+      "outerGuards": [
+        {
+          "testHomeGuard": "passed",
+          "evidence": "/private/tmp/serika-review-electron2.CY0xoj/write-guard-Gji5O9/result.json",
+          "violations": 0,
+          "changes": 97,
+          "metadataUnchanged": false
+        }
+      ]
+    },
+    {
+      "name": "initial-desktop-failure",
+      "command": "pnpm --filter @serika/desktop exec tsx --test src/main/project-selection.test.ts",
+      "observedExitCode": 1,
+      "log": "initial-desktop-failure.log.json",
+      "sha256": "a85d6d4de3de2d9c844cf1efcf4427fad37d15460edfd940452623b7435b82c9",
+      "bytes": 2378,
+      "counts": [
+        {
+          "tests": 1,
+          "pass": 0,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 0
+        }
+      ],
+      "outerGuards": [],
+      "originalSha256": "b80cb5aa99305f7f727e2d6d81e130f9a9701610e14de084c4b48ec4cac32016",
+      "originalBytes": 2210,
+      "encoding": "JSON text field preserves complete original output"
+    }
+  ],
+  "frozen": [
+    {
+      "path": "apps/desktop/scripts/electron-smoke.mjs",
+      "beforeSha256": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+      "afterSha256": "03a3c7e6d174842edda61770f8f17b7480e6545ee52ffbda2f63a288d07a6c34",
+      "identical": true
+    },
+    {
+      "path": "examples/eval/cm-step6-live.mjs",
+      "beforeSha256": "6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546",
+      "afterSha256": "6a5572c3a0a37bb0979e2badcbc3cdbd16cda0849683c716f096a43815de1546",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/scripts/cm-step6-verify.mjs",
+      "beforeSha256": "7fc93222da184d9f27cd9fc2601dde208e9a9690cc277b0c879d280d41840ffb",
+      "afterSha256": "7fc93222da184d9f27cd9fc2601dde208e9a9690cc277b0c879d280d41840ffb",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/scripts/v2-round1-verify.mjs",
+      "beforeSha256": "5fdc8099ac5fa0f4c4442d40acc45aa8426c80991e1c460c95876b9f0034cced",
+      "afterSha256": "5fdc8099ac5fa0f4c4442d40acc45aa8426c80991e1c460c95876b9f0034cced",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/scripts/v2-round2-verify.mjs",
+      "beforeSha256": "316945d04e36e3f489e801d65362bf6cd0289013db318994778dfe5b234e99df",
+      "afterSha256": "316945d04e36e3f489e801d65362bf6cd0289013db318994778dfe5b234e99df",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/scripts/v2-round3-verify.mjs",
+      "beforeSha256": "1807fd4ee0d7f09ad3469b8cda0d6291a699397cd81b8778f6a4f1ef66c137fe",
+      "afterSha256": "1807fd4ee0d7f09ad3469b8cda0d6291a699397cd81b8778f6a4f1ef66c137fe",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/permission-decisions.snapshot.ts",
+      "beforeSha256": "08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace",
+      "afterSha256": "08acd418d5d3831504b7393f72472c2910093a4b4b5d70394275f9847981bace",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/permission-boundary.snapshot.json",
+      "beforeSha256": "a2bbdba40020eff88836ad53d060bcf619db6a42f98cb3ae083295668c2617de",
+      "afterSha256": "a2bbdba40020eff88836ad53d060bcf619db6a42f98cb3ae083295668c2617de",
+      "identical": true
+    },
+    {
+      "path": "apps/desktop/src/main/__baseline__/desktop-hashes.json",
+      "beforeSha256": "e0fd304871bc3c37fc3e0b52c29a89d268912c6fb195f26a9577eda05cb5ed62",
+      "afterSha256": "e0fd304871bc3c37fc3e0b52c29a89d268912c6fb195f26a9577eda05cb5ed62",
+      "identical": true
+    },
+    {
+      "path": "apps/desktop/src/main/__baseline__/desktop-paths.txt",
+      "beforeSha256": "6c635bfaea09a0447714ada6bcf123bb71f35daddfb6b7490bbae44094ee5ca4",
+      "afterSha256": "6c635bfaea09a0447714ada6bcf123bb71f35daddfb6b7490bbae44094ee5ca4",
+      "identical": true
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/__baseline__/home-task-rows.json",
+      "beforeSha256": "e01427b7d520615cf9611d049bec4f2eed58c2577afb467ba6fb360fa74e3971",
+      "afterSha256": "e01427b7d520615cf9611d049bec4f2eed58c2577afb467ba6fb360fa74e3971",
+      "identical": true
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/__baseline__/home-view.json",
+      "beforeSha256": "deb233a52e81d196342ce5e7968694f99d5a5ea71ae8549b16c9ef39988e4adc",
+      "afterSha256": "deb233a52e81d196342ce5e7968694f99d5a5ea71ae8549b16c9ef39988e4adc",
+      "identical": true
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/__baseline__/reminder-cards.json",
+      "beforeSha256": "dec2c857e89258b0ba8958b12739170f8958800a78dc6e517dd39cf8517f4887",
+      "afterSha256": "dec2c857e89258b0ba8958b12739170f8958800a78dc6e517dd39cf8517f4887",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/assembly-full-desktop-autonomous.txt",
+      "beforeSha256": "1aee4b01210eebf3ea8b22ec2f14612814b6bdd7237025c6b89d466c29f3358a",
+      "afterSha256": "1aee4b01210eebf3ea8b22ec2f14612814b6bdd7237025c6b89d466c29f3358a",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/assembly-full-without-todoist.txt",
+      "beforeSha256": "0899c67a7b101494abef1fc02cd573543aeebbb4a65d590930cc8b85605803d3",
+      "afterSha256": "0899c67a7b101494abef1fc02cd573543aeebbb4a65d590930cc8b85605803d3",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/assembly-full.txt",
+      "beforeSha256": "f44f13205cfebc29c98e6d6c7ae41d74c894ac3a54c801ec856eb38450007f1a",
+      "afterSha256": "f44f13205cfebc29c98e6d6c7ae41d74c894ac3a54c801ec856eb38450007f1a",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/assembly-minimal.txt",
+      "beforeSha256": "426957a55b19e739bb49cbafac903f46029dfc222474d75afb6fb3a48e927873",
+      "afterSha256": "426957a55b19e739bb49cbafac903f46029dfc222474d75afb6fb3a48e927873",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/hashes.json",
+      "beforeSha256": "6064e6bcb0a64490eb72d1fc05dee61eca6cbf1c00be3bb9353f6d9201ebb571",
+      "afterSha256": "6064e6bcb0a64490eb72d1fc05dee61eca6cbf1c00be3bb9353f6d9201ebb571",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/home-app.txt",
+      "beforeSha256": "9a2b499b5f5f44c15965ba4d44fa143ec25667a254d6ba79c7af4bf4c3e4f78f",
+      "afterSha256": "9a2b499b5f5f44c15965ba4d44fa143ec25667a254d6ba79c7af4bf4c3e4f78f",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/home-snapshots.json",
+      "beforeSha256": "6b9336a9058890e7c7fcbf63b5cb9a2af6c3049f0b22bbc7ac8ba541adadd203",
+      "afterSha256": "6b9336a9058890e7c7fcbf63b5cb9a2af6c3049f0b22bbc7ac8ba541adadd203",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/home.txt",
+      "beforeSha256": "b8363d6db8dfcaf95fa5575cfbe560031d3d3b181765d5a15a146c7de9220000",
+      "afterSha256": "b8363d6db8dfcaf95fa5575cfbe560031d3d3b181765d5a15a146c7de9220000",
+      "identical": true
+    },
+    {
+      "path": "packages/assistant/src/__baseline__/paths.txt",
+      "beforeSha256": "cadbd6c0e0feafe585e6ea7c5f0f1ef3ec068fc5464e19e9c99c6ec4d292b634",
+      "afterSha256": "cadbd6c0e0feafe585e6ea7c5f0f1ef3ec068fc5464e19e9c99c6ec4d292b634",
+      "identical": true
+    }
+  ],
+  "frozenDiff": "",
+  "permissionSnapshotRows": 129,
+  "permissionSnapshotDiff": "",
+  "pendingPermissionApprovals": [],
+  "callerCount": 81,
+  "callerFiles": 27,
+  "missingProjectId": 0,
+  "codeLineChanges": {
+    "groups": {
+      "tool": {
+        "added": 156,
+        "deleted": 5,
+        "net": 151
+      },
+      "test": {
+        "added": 167,
+        "deleted": 60,
+        "net": 107
+      },
+      "product": {
+        "added": 26,
+        "deleted": 17,
+        "net": 9
+      },
+      "docs": {
+        "added": 23,
+        "deleted": 2,
+        "net": 21
+      }
+    },
+    "files": [
+      {
+        "path": "apps/desktop/scripts/electron-scope-smoke.mjs",
+        "kind": "tool",
+        "added": 22,
+        "deleted": 4
+      },
+      {
+        "path": "apps/desktop/src/main/application-home.test.ts",
+        "kind": "test",
+        "added": 1,
+        "deleted": 1
+      },
+      {
+        "path": "apps/desktop/src/main/backup.test.ts",
+        "kind": "test",
+        "added": 3,
+        "deleted": 3
+      },
+      {
+        "path": "apps/desktop/src/main/desktop-runtime.ts",
+        "kind": "product",
+        "added": 3,
+        "deleted": 1
+      },
+      {
+        "path": "apps/desktop/src/main/project-selection.test.ts",
+        "kind": "test",
+        "added": 10,
+        "deleted": 1
+      },
+      {
+        "path": "apps/desktop/src/main/runtime-ownership.test.ts",
+        "kind": "test",
+        "added": 1,
+        "deleted": 1
+      },
+      {
+        "path": "apps/desktop/src/renderer/src/capabilities.tsx",
+        "kind": "product",
+        "added": 1,
+        "deleted": 1
+      },
+      {
+        "path": "docs/v2-pilot/architecture-v2-c1c2.md",
+        "kind": "docs",
+        "added": 4,
+        "deleted": 2
+      },
+      {
+        "path": "docs/v2-pilot/cutover-runbook.md",
+        "kind": "docs",
+        "added": 19,
+        "deleted": 0
+      },
+      {
+        "path": "examples/eval/cm-step4.mjs",
+        "kind": "tool",
+        "added": 1,
+        "deleted": 1
+      },
+      {
+        "path": "package.json",
+        "kind": "product",
+        "added": 1,
+        "deleted": 1
+      },
+      {
+        "path": "packages/assistant/scripts/project-rebind.mjs",
+        "kind": "tool",
+        "added": 133,
+        "deleted": 0
+      },
+      {
+        "path": "packages/assistant/scripts/project-rebind.test.mjs",
+        "kind": "test",
+        "added": 89,
+        "deleted": 0
+      },
+      {
+        "path": "packages/assistant/src/consolidation-runtime.test.ts",
+        "kind": "test",
+        "added": 1,
+        "deleted": 1
+      },
+      {
+        "path": "packages/assistant/src/context-background.test.ts",
+        "kind": "test",
+        "added": 4,
+        "deleted": 4
+      },
+      {
+        "path": "packages/assistant/src/memory-factual-receipts.test.ts",
+        "kind": "test",
+        "added": 2,
+        "deleted": 2
+      },
+      {
+        "path": "packages/assistant/src/memory-import.test.ts",
+        "kind": "test",
+        "added": 8,
+        "deleted": 8
+      },
+      {
+        "path": "packages/assistant/src/memory-library.test.ts",
+        "kind": "test",
+        "added": 1,
+        "deleted": 1
+      },
+      {
+        "path": "packages/assistant/src/memory-m1-acceptance.test.ts",
+        "kind": "test",
+        "added": 6,
+        "deleted": 6
+      },
+      {
+        "path": "packages/assistant/src/memory-merge.test.ts",
+        "kind": "test",
+        "added": 6,
+        "deleted": 6
+      },
+      {
+        "path": "packages/assistant/src/memory-store.test.ts",
+        "kind": "test",
+        "added": 3,
+        "deleted": 3
+      },
+      {
+        "path": "packages/assistant/src/memory-v7-store.test.ts",
+        "kind": "test",
+        "added": 11,
+        "deleted": 11
+      },
+      {
+        "path": "packages/assistant/src/memory-v7-store.ts",
+        "kind": "product",
+        "added": 2,
+        "deleted": 2
+      },
+      {
+        "path": "packages/assistant/src/modules/memory-module.test.ts",
+        "kind": "test",
+        "added": 1,
+        "deleted": 1
+      },
+      {
+        "path": "packages/assistant/src/project.test.ts",
+        "kind": "test",
+        "added": 13,
+        "deleted": 4
+      },
+      {
+        "path": "packages/assistant/src/project.ts",
+        "kind": "product",
+        "added": 17,
+        "deleted": 10
+      },
+      {
+        "path": "packages/assistant/src/scheduled-skill-acceptance.test.ts",
+        "kind": "test",
+        "added": 1,
+        "deleted": 1
+      },
+      {
+        "path": "packages/assistant/src/task-worker-context-acceptance.test.ts",
+        "kind": "test",
+        "added": 1,
+        "deleted": 1
+      },
+      {
+        "path": "packages/assistant/src/task-worker-context.test.ts",
+        "kind": "test",
+        "added": 2,
+        "deleted": 2
+      },
+      {
+        "path": "packages/assistant/src/task-worker-context.ts",
+        "kind": "product",
+        "added": 1,
+        "deleted": 1
+      },
+      {
+        "path": "packages/assistant/src/task-worker-delivery.test.ts",
+        "kind": "test",
+        "added": 2,
+        "deleted": 2
+      },
+      {
+        "path": "packages/assistant/src/testing.ts",
+        "kind": "product",
+        "added": 1,
+        "deleted": 1
+      },
+      {
+        "path": "packages/assistant/src/transcript-maintenance.test.ts",
+        "kind": "test",
+        "added": 1,
+        "deleted": 1
+      }
+    ]
+  },
+  "smoke": "docs/v2-pilot/evidence/architecture-v2-c1c2/d4c98d84-8195-4d44-9fcb-865ee747f48c/electron/result.json",
+  "smokeSha256": "143b866675be476143a89ca60a558c6e29c97a019d7f196dd6fb9495cec59602",
+  "rehearsal": "rebind-rehearsal.json",
+  "rehearsalSha256": "1f2385b9332e89c1d08272c9eb56af373c5b1551f966f69246d5f174aeee1e81",
+  "notes": [
+    "Counts and guard records are parsed from actual logs; observed exit codes were returned by command tools.",
+    "Full test logs include expected isolated guard self-tests; outer guards record verification writes.",
+    "Frozen historical result and screenshot files have not been replaced.",
+    "Whitespace-only delivery formatting is normalized for rebind-rehearsal.json. Its original bytes and the initial desktop failure output are preserved losslessly in JSON text fields. Runtime result fields are unchanged."
+  ],
+  "rehearsalOriginal": {
+    "path": "rebind-rehearsal-original.json",
+    "originalSha256": "ddf23eb29e80ae4425ee6bf97048ffabf0569c0ece9df346c2b9627bf106a64a",
+    "encoding": "JSON text field preserves complete original output"
+  }
+}

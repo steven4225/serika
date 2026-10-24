@@ -1,0 +1,43 @@
+{
+    "runId": "83decbad-f375-449b-aad5-58816e84209a",
+    "sourceCommit": "418e146f7e0438b278efbaa84daa3f032d10cf74",
+    "sourceWorktreeDirty": false,
+    "scriptSha256": "3de4bbfcb115d26042e98f4c7780b1e5896a586bc6272d34df5bb40e20a525c4",
+    "verification": "synthetic-data-real-cli-offline-rebind-v7-store-rollback",
+    "realModelCalls": 0,
+    "status": "passed",
+    "diagnostic": "项目 old-project 在 /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-project-rebind-f5gqzX/old-project 找不到了；如已移动，运行 '/opt/homebrew/Cellar/node/26.4.0/bin/node' '/Users/a1-6/Code/agents/serika-v2/packages/assistant/scripts/project-rebind.mjs' '--data' '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-project-rebind-f5gqzX/home/data' '--from' 'e097e7ac378293a7d6901ac87d7190cb6b3dd9cf165841c483b30f1ac188b4d4' '--to' '/新项目的绝对路径' '--dry-run' 重绑。将 --to 改为实际新路径，预览后将 --dry-run 改为 --upgrade 执行；先停止全部 Serika 写入者。",
+    "affected": {
+        "entries": 2,
+        "documents": 1,
+        "progress": 1,
+        "receipts": 1,
+        "suppressed": 1,
+        "registrations": 1,
+        "selected": 1
+    },
+    "visibleAfterRebind": {
+        "entries": 3,
+        "projectEntries": 2,
+        "documents": 1,
+        "progress": 1,
+        "receipts": 1,
+        "suppressed": 1
+    },
+    "originalHistoricalHashesPreserved": true,
+    "files": [
+        {
+            "path": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-project-rebind-f5gqzX/home/data/memory.json",
+            "originalSha256": "72174cba07eb61aa4b0862cba62f64c96cff2a9f401c8a87b7300980cfb2d3fa",
+            "restoredSha256": "72174cba07eb61aa4b0862cba62f64c96cff2a9f401c8a87b7300980cfb2d3fa",
+            "identical": true
+        },
+        {
+            "path": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-project-rebind-f5gqzX/home/data/projects.json",
+            "originalSha256": "8dfb686b3e70656790fe793bc100f7f7c117eaaf44e141203a74772e42abfc18",
+            "restoredSha256": "8dfb686b3e70656790fe793bc100f7f7c117eaaf44e141203a74772e42abfc18",
+            "identical": true
+        }
+    ],
+    "modesIdentical": true
+}

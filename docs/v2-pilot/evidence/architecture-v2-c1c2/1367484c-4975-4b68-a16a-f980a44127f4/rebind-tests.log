@@ -1,0 +1,13 @@
+✔ moved project reports an absolute CLI command, rebinds all v7 associations and rolls back both exact SHAs (717.74175ms)
+✔ existing target associations stop rebind without merging, including inactive entries and progress-only targets (1094.978209ms)
+✔ partial two-file commit rolls back, while drift, corrupt backup, links and a held lock refuse overwrites (1245.468666ms)
+✔ a registered project without memory can rebind and rollback without creating memory (453.244166ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3598.974833
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-review-rebind-final.elgMWx/write-guard-I6cMXz/result.json","violations":0,"changes":3,"metadataUnchanged":false}
