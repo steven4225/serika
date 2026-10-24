@@ -56,5 +56,5 @@ try {
   report.restoredSha256 = sha(await readFile(configPath)); assert.equal(report.restoredSha256, report.originalSha256);
   report.rollbackReceipt = JSON.parse(await readFile(report.rollback.rollbackReceiptPath, 'utf8'));
   await launch(false); await stop(); report.status = 'passed';
-} catch (error) { report.failure = { name: error.name, message: error.message }; process.exitCode = 1; }
+} catch (error) { report.failure = { name: error.name, message: error.message, body: running ? await running.windows()[0]?.locator("body").innerText().catch(() => "unavailable") : "closed" }; process.exitCode = 1; }
 finally { await stop(); await rm(root, { recursive: true, force: true }); report.temporaryDirectoryRemoved = true; await writeFile(join(evidence, 'result.json'), JSON.stringify(report, null, 2) + '\n'); console.log(JSON.stringify({ status: report.status, evidence, originalSha256: report.originalSha256, restoredSha256: report.restoredSha256, failure: report.failure })); }

@@ -134,9 +134,11 @@ it("b2 protects real targets of credential and Git control aliases in files and 
     const repo = join(root, "repo"), home = join(root, "H"); await mkdir(join(repo, ".git"), { recursive: true }); await mkdir(home);
     await writeFile(join(repo, "git-target"), "trusted"); await symlink("../git-target", join(repo, ".git/config"));
     await writeFile(join(repo, "credential-target"), "credential"); await symlink("credential-target", join(repo, ".env"));
+    await mkdir(join(repo, "worktree")); await mkdir(join(repo, "metadata/hooks"), { recursive: true });
+    await writeFile(join(repo, "worktree/.git"), "gitdir: ../metadata\n"); await writeFile(join(repo, "metadata/config"), "trusted");
     const access = new DirectoryAccess({ load: async () => [{ path: repo, access: "readwrite" }], protectedPaths: [] });
     assert.equal((await access.resolve({ path: join(repo, "git-target"), write: false })).ok, true);
-    for (const [path, write] of [["git-target", true], ["credential-target", false]] satisfies [string, boolean][]) {
+    for (const [path, write] of [["git-target", true], ["metadata/config", true], ["credential-target", false]] satisfies [string, boolean][]) {
       const result = await access.resolve({ path, directory: repo, write }); assert.equal(result.ok, false); if (!result.ok) assert.equal(result.code, "PROTECTED_PATH");
     }
     const host = createModuleHost([createReadFileModule(access)], { notify() {} });
@@ -144,7 +146,7 @@ it("b2 protects real targets of credential and Git control aliases in files and 
     assert.deepEqual(await search.tool.execute!({ query: "credential", path: "." }, { toolCallId: "alias", messages: [], context: {} }), { ok: true, matches: [], truncated: false, skippedOversize: 0 });
     if (process.platform === "darwin") {
       const runner = new SeatbeltShellRunner({ home, directories: access, protectedPaths: [] });
-      for (const command of ["printf bad > git-target", "cat credential-target"]) {
+      for (const command of ["printf bad > git-target", "printf bad > metadata/config", "cat credential-target"]) {
         const result = await runner.execute({ directory: repo, input: { command }, signal: new AbortController().signal, execution: { timeoutMs: 30_000, maxOutputBytes: 65_536, killGraceMs: 250 } });
         assert.ok(result.ok, JSON.stringify(result)); assert.notEqual(result.exitCode, 0, result.output);
       }
