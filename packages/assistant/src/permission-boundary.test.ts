@@ -33,7 +33,7 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
   try {
     for (const mode of ["plain", "desktop", "telegram-desktop-only", "telegram", "foreign-grant", "other-thread", "tui"] as const) {
       const configPath = join(root, `${mode}.json`), threadId = mode === "other-thread" ? "other" : "thread";
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace,
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
         desktopAutonomy: { authorizedDirectory: mode === "foreign-grant" ? join(root, "foreign") : workspace },
         ...(mode === "telegram" || mode === "other-thread" ? { telegramAutonomy: { authorizedDirectory: workspace, botId: 1, userId: 2, chatId: 3, threadId: "thread" } } : {}),
         modules: { memory: { enabled: true }, task: { enabled: true }, "read-file": { enabled: true }, shell: { enabled: true } } }));
@@ -85,7 +85,7 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
     }
     for (const source of ["desktop", "telegram"] as const) {
       const configPath = join(root, `terminal-${source}.json`);
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace,
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
         desktopAutonomy: { authorizedDirectory: workspace },
         telegramAutonomy: { authorizedDirectory: workspace, botId: 1, userId: 2, chatId: 3, threadId: "thread" },
         modules: { terminal: { enabled: true } } }));
@@ -135,7 +135,7 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
     ] as const;
     for (const source of ["desktop", "telegram"] as const) {
       const configPath = join(root, `round3-${source}.json`);
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace,
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
         desktopAutonomy: { authorizedDirectory: workspace },
         telegramAutonomy: { authorizedDirectory: workspace, botId: 1, userId: 2, chatId: 3, threadId: "thread" },
         modules: { terminal: { enabled: true }, computer: { enabled: true, executable: process.execPath, allowedBundleIds: ["com.example.Offline"] } } }));
@@ -181,7 +181,7 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
     }
     for (const inside of [false, true]) for (const policy of ["implicit", "files", "autonomy", "docker"] as const) {
       const directory = inside ? workspace : root, configPath = join(directory, `policy-${policy}.json`);
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: inside ? "." : "./directory",
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: inside ? "." : "./directory", access: "readwrite" }],
         ...(policy === "autonomy" ? { desktopAutonomy: { authorizedDirectory: workspace } } : {}),
         ...(policy === "files" ? { fileAuthorizations: [{ tools: ["read_file"], allowedPaths: ["."] }] } : {}),
         modules: { memory: { enabled: true, autoConsolidate: true },
@@ -206,7 +206,7 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
     const baseline: Record<string, unknown> = JSON.parse(await readFile(new URL("../src/permission-boundary.snapshot.json", import.meta.url), "utf8"));
     // e removes mode metadata and explicit review/automatic config inputs; the stored baseline stays frozen.
     for (const [key, value] of Object.entries(baseline)) {
-      if (/^config\/(inside|outside)\/(automatic|review)$/.test(key)) delete baseline[key];
+      if (key.startsWith("b2/") || /^config\/(inside|outside)\/(automatic|review)$/.test(key)) delete baseline[key];
       else if (key.startsWith("config/") && typeof value === "object" && value !== null && "policy" in value) delete value.policy;
     }
     assert.deepEqual(normalized, baseline);

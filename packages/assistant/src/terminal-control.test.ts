@@ -22,7 +22,7 @@ for (const source of ["desktop", "telegram"] as const) it(`${source} browser CLI
 const argv=process.argv.slice(2);appendFileSync(${JSON.stringify(log)},JSON.stringify(argv)+'\\n');
 console.log(argv.includes('skill')?'Offline fixture guide END':'Offline fixture observed');`);
   const configPath = join(root, "config.json");
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: directory,
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: directory, access: "readwrite" }],
     desktopAutonomy: { authorizedDirectory: directory },
     telegramAutonomy: { authorizedDirectory: directory, botId: 1, userId: 2, chatId: 3, threadId: "thread" },
     modules: { terminal: { enabled: true } } }));
@@ -60,14 +60,14 @@ console.log(argv.includes('skill')?'Offline fixture guide END':'Offline fixture 
 it("terminal target/config boundaries reject writable config, foreign directory and Docker coexistence", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-terminal-config-")));
   const directory = join(root, "directory"); await mkdir(directory);
-  const config = { version: 1, authorizedDirectory: directory, modules: { terminal: { enabled: true } } };
+  const config = { version: 1, authorizedDirectories: [{ path: directory, access: "readwrite" }], modules: { terminal: { enabled: true } } };
   try {
     const inside = join(directory, "config.json"); await writeFile(inside, JSON.stringify(config));
     await assert.rejects(resolveTuiModuleConfig({ configPath: inside, dataDirectory: join(root, "data") }, { cwd: root }), /outside the workspace/);
     const outside = join(root, "config.json");
     await writeFile(outside, JSON.stringify({ ...config, modules: { terminal: { enabled: true, target: { authorizedDirectory: root, session: "offline", paneId: "p1", terminalId: "t1" } } } }));
-    await assert.rejects(resolveTuiModuleConfig({ configPath: outside, dataDirectory: join(root, "data") }, { cwd: root }), /exact authorizedDirectory/);
-    await writeFile(outside, JSON.stringify({ ...config, authorizedDirectory: "./directory", modules: { ...config.modules, shell: { enabled: true, sandbox: { backend: "docker", image: "fixture", readablePaths: ["."], writablePaths: ["."] } } } }));
+    await assert.rejects(resolveTuiModuleConfig({ configPath: outside, dataDirectory: join(root, "data") }, { cwd: root }), /exact projectDirectory/);
+    await writeFile(outside, JSON.stringify({ ...config, authorizedDirectories: [{ path: "./directory", access: "readwrite" }], modules: { ...config.modules, shell: { enabled: true, sandbox: { backend: "docker", image: "fixture", readablePaths: ["."], writablePaths: ["."] } } } }));
     await assert.rejects(resolveTuiModuleConfig({ configPath: outside, dataDirectory: join(root, "data") }, { cwd: root }), /cannot be combined with Docker/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

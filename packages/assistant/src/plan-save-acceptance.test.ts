@@ -1,3 +1,4 @@
+import { DirectoryAccess } from "./directory-access.js";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -224,7 +225,7 @@ async function createFixture(options: { writeDenied: boolean }) {
         now: fixedNow,
         fetch: fakeTodoistFetch(),
       }),
-      createReadFileModule(root),
+      createReadFileModule(new DirectoryAccess({ load: async () => [{ path: root, access: "readwrite" }], protectedPaths: [] })),
     ],
     { notify: () => undefined },
   );

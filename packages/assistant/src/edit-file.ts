@@ -9,7 +9,9 @@ import {
 } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { TextDecoder } from "node:util";
+import type { DirectoryAccess } from "./directory-access.js";
 import { tool, type Tool } from "ai";
+import { DIRECTORY_FILE_INSTRUCTIONS, directoryFileExecution, directoryFileOutputSchema, type DirectoryFileFailure } from "./directory-file-tool.js";
 import { z } from "zod";
 import {
   abortReason,
@@ -133,7 +135,7 @@ async function readFileForEdit(
   if (stats.isSymbolicLink()) {
     return { ok: false, result: failure("SYMLINK_NOT_ALLOWED", "Symbolic links are not allowed") };
   }
-  if (!stats.isFile()) {
+  if (!stats.isFile() || stats.nlink > 1) {
     return { ok: false, result: failure("NOT_REGULAR_FILE", "Target is not a regular file") };
   }
 
@@ -294,7 +296,7 @@ export async function editFileInWorkspace(
 const editFileOutputSchema = z.discriminatedUnion("ok", [
   z.object({
     ok: z.literal(true),
-    path: z.string(),
+    path: z.string().describe("Relative path below the configured workspace."),
     bytes: z.number().int().nonnegative(),
     sha256: z.string().regex(/^[0-9a-f]{64}$/),
   }),
@@ -307,20 +309,20 @@ const editFileOutputSchema = z.discriminatedUnion("ok", [
   }),
 ]);
 
-export function createEditFileTool(
-  workspace: string,
-): Tool<EditFileInput, EditFileResult> {
-  const workspaceRoot = resolve(workspace);
-  return tool({
-    description:
-      "Replace exactly one literal occurrence in an existing UTF-8 text file below the configured workspace. Required argument names are path, oldText and newText (camelCase, not old_text/new_text). Read the current file first; oldText must match exactly once. No match or multiple matches is rejected before editing.",
-    inputSchema: z.object({
+export function createEditFileTool(access: DirectoryAccess, directory?: string): Tool<EditFileInput & { directory?: string | undefined }, EditFileResult | DirectoryFileFailure> {
+  const inputSchema = z.object({
       path: z.string().describe("Relative path below the configured workspace."),
       oldText: z.string().describe("Exact existing text to replace; use the camelCase key oldText."),
       newText: z.string().describe("Replacement text; use the camelCase key newText."),
+      directory: z.string().optional(),
+    });
+  return tool({
+    description: "Replace exactly one literal occurrence in an existing UTF-8 text file below the configured workspace. Required argument names are path, oldText and newText (camelCase, not old_text/new_text). Read the current file first; oldText must match exactly once. No match or multiple matches is rejected before editing." + DIRECTORY_FILE_INSTRUCTIONS,
+    inputSchema,
+    outputSchema: directoryFileOutputSchema(editFileOutputSchema),
+    execute: directoryFileExecution<z.infer<typeof inputSchema>, EditFileResult>({
+      access, directory, write: true,
+      execute: (root, input, signal) => editFileInWorkspace(root, input, signal),
     }),
-    outputSchema: editFileOutputSchema,
-    execute: async (input, { abortSignal }) =>
-      editFileInWorkspace(workspaceRoot, input, abortSignal),
   });
 }

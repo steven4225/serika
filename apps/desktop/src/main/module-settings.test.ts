@@ -14,7 +14,7 @@ it("serializes real competing processes so unrelated capability writes both surv
   try {
     const workspace = join(root, "workspace"); await mkdir(workspace);
     const path = join(root, "config.json");
-    await writeFile(path, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { shell: { enabled: true, timeoutMs: 45000 }, pomodoro: { enabled: true } } }));
+    await writeFile(path, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { shell: { enabled: true, timeoutMs: 45000 }, pomodoro: { enabled: true } } }));
     lock = await acquireFlock(`${path}.lock`);
     const operation = (id: "shell" | "pomodoro") => {
       const script = `import { changeModuleSetting } from ${JSON.stringify(new URL("./module-settings.ts", import.meta.url).href)}; process.stdout.write("ready\\n"); await changeModuleSetting(${JSON.stringify(path)}, {id:${JSON.stringify(id)},enabled:false,expectedEnabled:true},{cwd:${JSON.stringify(root)}}); process.stdout.write("done\\n");`;
@@ -50,7 +50,7 @@ it("rechecks state after taking the configuration lock, preserves mode, and reje
   try {
     const workspace = join(root, "workspace"); await mkdir(workspace);
     const path = join(root, "config.json");
-    const config = { version: 1, authorizedDirectory: workspace, modules: { shell: { enabled: true } } };
+    const config = { version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { shell: { enabled: true } } };
     await writeFile(path, JSON.stringify(config), { mode: 0o600 });
     const lock = await acquireFlock(`${path}.lock`);
     const pending = changeModuleSetting(path, { id: "shell", enabled: false, expectedEnabled: true }, { cwd: root });
@@ -76,7 +76,7 @@ it("changes only the requested switch, detects stale state, and does not overwri
   try {
     const workspace = join(root, "workspace"); await mkdir(workspace);
     const path = join(root, "config.json");
-    const config = { version: 1, authorizedDirectory: workspace, modules: { shell: { enabled: true, timeoutMs: 45000 }, memory: { enabled: true, autoConsolidate: true }, pomodoro: { enabled: true } } };
+    const config = { version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { shell: { enabled: true, timeoutMs: 45000 }, memory: { enabled: true, autoConsolidate: true }, pomodoro: { enabled: true } } };
     const before = JSON.stringify(config); await writeFile(path, before);
     const undo = await changeModuleSetting(path, { id: "shell", enabled: false, expectedEnabled: true }, { cwd: root });
     const changed = JSON.parse(await readFile(path, "utf8"));
@@ -99,11 +99,11 @@ it("enables undeclared built-ins without adding authorization or automatic memor
   try {
     const workspace = join(root, "workspace"); await mkdir(workspace);
     const path = join(root, "config.json");
-    const before = JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: {} });
+    const before = JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: {} });
     await writeFile(path, before);
     for (const id of ["pomodoro", "read-file", "memory", "checkpoint", "task", "shell", "web", "todoist"] as const) {
       const undo = await changeModuleSetting(path, { id, enabled: true, expectedEnabled: false }, { cwd: root });
-      assert.deepEqual(JSON.parse(await readFile(path, "utf8")), { version: 1, authorizedDirectory: workspace, modules: { [id]: { enabled: true } } });
+      assert.deepEqual(JSON.parse(await readFile(path, "utf8")), { version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { [id]: { enabled: true } } });
       await undo(); assert.equal(await readFile(path, "utf8"), before);
     }
   } finally { await rm(root, { recursive: true, force: true }); }

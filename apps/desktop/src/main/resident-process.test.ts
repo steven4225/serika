@@ -16,7 +16,7 @@ it("the actual headless entry retains Thread, Run receipts and a timer when clie
   const paths = { directory, token: join(directory, "auth-token"), socket };
   const scope = { applicationHome, configPath };
   await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { pomodoro: { enabled: true }, shell: { enabled: false }, memory: { enabled: false } },
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { pomodoro: { enabled: true }, shell: { enabled: false }, memory: { enabled: false } },
     contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, contextWindowTokens: 512_000 },
     modelContextWindows: [{ provider: "mock-provider", modelId: "mock-model-id", contextWindowTokens: 512_000 }] }));
   await saveResidentStartup(identityPath, residentStartup(applicationHome, root, { RUNLOOM_CONFIG: configPath, RUNLOOM_MODEL: "mock", RUNLOOM_DESKTOP_TEST: "1" }), false);

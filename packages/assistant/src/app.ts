@@ -1,3 +1,4 @@
+import { configuredDirectoryAccess } from "./directory-access.js";
 import { assistantDataPaths, type AssistantDataPaths } from "./data-paths.js";
 import { createTranscriptAccess } from "./transcript-access.js";
 import { historyTools } from "./history-tools.js";
@@ -190,7 +191,7 @@ export interface RuntimeApp {
   threadId: string;
   directory: string;
   workspaceRoot: string | undefined;
-  authorizedDirectory: string | undefined;
+  projectDirectory: string | undefined;
   dataPaths?: AssistantDataPaths;
   moduleConfig: ResolvedTuiModuleConfig | undefined;
   getCapabilities?(): CapabilityStatus;
@@ -255,9 +256,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   const modelCapacity = typeof model === "string" ? undefined : resolveModelContextWindow(model, env, moduleConfig?.modelContextWindows);
   if (moduleConfig && modelCapacity) moduleConfig.contextCompaction = effectiveContextBudget(moduleConfig.contextCompaction, modelCapacity);
   const workspaceRoot = moduleConfig?.workspaceRoot ?? undefined;
-  const authorizedDirectory = moduleConfig?.authorizedDirectory ?? undefined;
+  const projectDirectory = moduleConfig?.projectDirectory ?? undefined;
+  const directoryAccess = configuredDirectoryAccess({ assembly, config: moduleConfig, cwd,
+    home: options.desktopAutonomyHost?.home, env, todoistTimeZone: todoistTimeZoneFromEnv(env) });
   const desktopAutonomyEnabled = options.desktopAutonomyHost !== undefined &&
-    moduleConfig?.desktopAutonomy?.directory === authorizedDirectory && authorizedDirectory !== undefined && !moduleConfig?.shellSandbox;
+    moduleConfig?.desktopAutonomy?.directory === projectDirectory && projectDirectory !== undefined && !moduleConfig?.shellSandbox;
   const telegramAutonomyEnabled = () => !!moduleConfig?.telegramAutonomy && !moduleConfig.shellSandbox &&
     options.authorizeTelegramAutonomy?.(moduleConfig.telegramAutonomy) === true;
   // Per-Run state (docs/v2-pilot/run-context.md). Each begin/end pair below
@@ -273,14 +276,14 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   const webSearchEnabled = moduleConfig?.webSearchEnabled ?? false;
   const webFeedEnabled = moduleConfig?.webFeedEnabled ?? false;
   const skillRegistrations = moduleConfig?.automation?.skills ?? [];
-  if (skillRegistrations.length > 0 && authorizedDirectory === undefined) throw new Error("External Skills require an explicit workspace identity");
-  const externalSkills = await loadSkillPackages(skillRegistrations, authorizedDirectory ?? cwd);
+  if (skillRegistrations.length > 0 && projectDirectory === undefined) throw new Error("External Skills require an explicit workspace identity");
+  const externalSkills = await loadSkillPackages(skillRegistrations, projectDirectory ?? cwd);
   let registeredAutomation: RuntimeAutomation | undefined;
-  const activateTaskAutomation = options.taskAutomation && authorizedDirectory
+  const activateTaskAutomation = options.taskAutomation && projectDirectory
     ? async () => {
-        const service = await options.taskAutomation!.enable(authorizedDirectory, moduleConfig?.configPath ?? undefined);
+        const service = await options.taskAutomation!.enable(projectDirectory, moduleConfig?.configPath ?? undefined);
         try {
-          const status = await options.taskAutomation!.status(authorizedDirectory, moduleConfig?.configPath ?? undefined);
+          const status = await options.taskAutomation!.status(projectDirectory, moduleConfig?.configPath ?? undefined);
           return { ...service, ready: service.enabled && status.available && status.registered && status.running && status.ready === true };
         } catch { return { ...service, ready: false, message: "安排已保存，但后台状态未能确认；请核对后台提醒，不要重复创建。" }; }
       } : undefined;
@@ -328,7 +331,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   let invalidateTranscriptView = () => {};
   const transcript = createTranscriptAccess({ store, threadId, memory: memoryStore, invalidated: () => invalidateTranscriptView() });
   const executionRecords = createExecutionRecordStore(directory);
-  const recipes = tuiMode && shellEnabled && authorizedDirectory ? new RecipeStore(authorizedDirectory, dataPaths!.recipes) : undefined;
+  const recipes = tuiMode && shellEnabled && projectDirectory ? new RecipeStore(projectDirectory, dataPaths!.recipes) : undefined;
   let usageEnabled = false;
   const workTasks = workspaceRoot === undefined || !dataPaths ? undefined : createWorkTaskStore(workspaceRoot, { filePath: dataPaths.workTasks, executionRecords });
   const executionRecordAdapter = createExecutionRecordAdapter(store, executionRecords, workTasks, agentId => {
@@ -393,11 +396,12 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     }
   };
 
-  const taskReadApproval = options.allowDirectoryTaskReads === true && authorizedDirectory !== undefined
-    ? createDirectoryTaskReadApproval(authorizedDirectory, PRIMARY_AGENT_ID) : undefined;
+  const taskReadApproval = options.allowDirectoryTaskReads === true && projectDirectory !== undefined
+    ? createDirectoryTaskReadApproval(projectDirectory, PRIMARY_AGENT_ID) : undefined;
   const seatbeltRunner = options.desktopAutonomyHost && !moduleConfig?.shellSandbox &&
     (desktopAutonomyEnabled || moduleConfig?.telegramAutonomy && options.authorizeTelegramAutonomy) ? new SeatbeltShellRunner({
     home: resolve(cwd, options.desktopAutonomyHost!.home),
+    directories: directoryAccess,
     protectedPaths: [resolve(cwd, assembly!.dataDirectory!), ...(options.directory ? [resolve(options.directory)] : [])],
     ...(moduleConfig!.configPath ? { configPath: moduleConfig!.configPath } : {}),
   }) : undefined;
@@ -412,14 +416,15 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               ? [createPomodoroModule(options.pomodoroService ? { service: options.pomodoroService } : {})]
               : []),
             ...(todoist.module ? [todoist.module] : []),
-            ...(moduleConfig!.enabled["read-file"]
+            ...(moduleConfig!.enabled["read-file"] && moduleConfig!.authorizedDirectories.length > 0
               ? [
-                  createReadFileModule(authorizedDirectory!),
+                  createReadFileModule(directoryAccess, projectDirectory),
                 ]
               : []),
-            ...(shellEnabled
+            ...(shellEnabled && moduleConfig!.authorizedDirectories.length > 0
               ? [
-                  createShellModule(authorizedDirectory!, {
+                  createShellModule(projectDirectory, {
+                    directories: directoryAccess,
                     ...(shellSandbox === undefined ? {} : { sandbox: shellSandbox }),
                     ...(seatbeltRunner ? { seatbelt: { active: seatbeltRun, runner: seatbeltRunner } } : {}),
                     timeoutMs: !moduleConfig!.shellSandbox && (desktopAutonomyEnabled || moduleConfig!.telegramAutonomy && options.authorizeTelegramAutonomy) ? AUTONOMOUS_SHELL_TIMEOUT_MS : moduleConfig!.shellTimeoutMs,
@@ -429,7 +434,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                 ]
               : []),
             ...(moduleConfig!.enabled.terminal && options.desktopAutonomyHost
-              ? [createTerminalModule({ directory: authorizedDirectory!, env, target: moduleConfig!.terminalTarget,
+              ? [createTerminalModule({ directory: projectDirectory!, env, target: moduleConfig!.terminalTarget,
                   timeoutMs: moduleConfig!.shellTimeoutMs, onProgress: notifyShellProgress })] : []),
             ...(moduleConfig!.computer
               ? [createComputerModule(moduleConfig!.computer, { env })]
@@ -478,14 +483,14 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               : []),
             ...(taskEnabled ? [captureBuiltinTaskModule(createTaskModule(taskStore!, {
               ...(options.taskAutomation ? { backgroundStatus: async () => {
-                const status = await options.taskAutomation!.status(authorizedDirectory!, moduleConfig?.configPath ?? undefined);
+                const status = await options.taskAutomation!.status(projectDirectory!, moduleConfig?.configPath ?? undefined);
                 return { ready: status.available && status.registered && status.running && status.ready === true, ...(status.message ? { message: status.message } : {}) };
               } } : {}),
               todoistPlanning: todoist.planning(options.taskAutomation
-                ? async () => (await options.taskAutomation!.status(authorizedDirectory!, moduleConfig?.configPath ?? undefined)).todoistPlanningAvailable
+                ? async () => (await options.taskAutomation!.status(projectDirectory!, moduleConfig?.configPath ?? undefined)).todoistPlanningAvailable
                 : undefined),
               ...(options.taskAutomation ? {
-                automationStatus: () => options.taskAutomation!.status(authorizedDirectory!, moduleConfig?.configPath ?? undefined),
+                automationStatus: () => options.taskAutomation!.status(projectDirectory!, moduleConfig?.configPath ?? undefined),
               } : {}),
               ...(options.taskArrangementDestination ? { arrangementDestination: options.taskArrangementDestination } : {}),
               schedulableSkills: externalSkills.flatMap(skill => skill.kind === "text"
@@ -652,7 +657,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   try {
     const automation = createRuntimeAutomation({
       skills: externalSkills,
-      registrations: skillRegistrations, directory: authorizedDirectory,
+      registrations: skillRegistrations, directory: projectDirectory,
       ...(moduleConfig?.automation?.hooks === undefined ? {} : { hooks: moduleConfig.automation.hooks }),
     });
     registeredAutomation = automation;
@@ -862,12 +867,13 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     };
     const permission = tuiMode
       ? createPermissionExtension(output, {
-          directory: authorizedDirectory,
+          directory: projectDirectory,
           fileAuthorizations: moduleConfig?.fileAuthorizations ?? [],
+          directories: directoryAccess,
           shell: { enabled: shellEnabled, sandbox: shellSandbox },
           web: { enabled: webEnabled, searchEnabled: webSearchEnabled },
           report: moduleConfig === undefined ? undefined
-            : { configPath: moduleConfig.configPath, directory: moduleConfig.authorizedDirectory },
+            : { configPath: moduleConfig.configPath, directory: moduleConfig.projectDirectory },
           autoApprove: [
             input => input.definition.id === PRIMARY_AGENT_ID && seatbeltRun() && input.toolName === "shell_exec" &&
               moduleHost?.toolModules.get(input.toolName) === "shell",
@@ -881,7 +887,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
               const skill = automation.skills.find(skill => skill.agentId === input.definition.id);
               return skill?.kind === "memory-consolidate" && skill.tools.includes(input.toolName);
             },
-            (input) => taskReadApproval?.allows({ agentId: input.definition.id, directory: authorizedDirectory,
+            (input) => taskReadApproval?.allows({ agentId: input.definition.id, directory: projectDirectory,
               toolName: input.toolName, registeredTool: registeredTools.find(tool => tool.metadata.name === input.toolName) }) === true,
           ],
           toolRisk: (name) => tools.metadata(name)?.risk,
@@ -977,7 +983,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       threadId,
       directory,
       workspaceRoot,
-      authorizedDirectory,
+      projectDirectory,
       ...(dataPaths ? { dataPaths } : {}),
       moduleConfig,
       getCapabilities,

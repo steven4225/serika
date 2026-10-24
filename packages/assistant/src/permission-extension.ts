@@ -25,6 +25,7 @@ export function createPermissionExtension(output: Writable, options: {
   directory: string | undefined;
   /** Explicit `fileAuthorizations` from the trusted config; they load once. */
   fileAuthorizations: readonly FileAuthorizationRule[];
+  directories?: import("./directory-access.js").DirectoryAccess;
   shell: { enabled: boolean; sandbox: DockerShellSandboxConfig | undefined };
   /** Only for the `/permissions` report. */
   web: { enabled: boolean; searchEnabled: boolean };
@@ -73,7 +74,7 @@ export function createPermissionExtension(output: Writable, options: {
   if (pathTools.length > 0 && directory !== undefined) {
     commands.push({
       name: "authorize",
-      execute(args) {
+      async execute(args) {
         const tokens = args.trim().split(/\s+/).filter(Boolean);
         const toolToken = tokens.shift();
         const allowedPaths = tokens;
@@ -157,7 +158,7 @@ export function createPermissionExtension(output: Writable, options: {
   if (report !== undefined) {
     commands.push({
       name: "permissions",
-      execute(args) {
+      async execute(args) {
         const tokens = args.trim().split(/\s+/).filter(Boolean);
         if (tokens[0] === "forget" && tokens.length === 2) {
           output.write(confirmation.forgetRemembered(tokens[1]!)
@@ -168,6 +169,12 @@ export function createPermissionExtension(output: Writable, options: {
         if (tokens.length !== 0) {
           output.write("\n[permissions] Usage: /permissions | /permissions forget <编号>\n");
           return;
+        }
+        if (options.directories) {
+          const directories = await options.directories.declarations();
+          output.write(`\n持久目录授权: ${directories.length} 条\n`);
+          for (const item of directories) output.write(`  ${item.access === "read" ? "读" : "读写"}: ${item.path}\n`);
+          output.write("一次批准仅当前调用；本对话记住单独列在下方，均不能扩大目录范围。\n");
         }
         const source =
           report.configPath === null

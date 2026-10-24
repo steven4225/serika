@@ -5,7 +5,7 @@ import type {
   BeforeToolExecuteInput,
   ToolExecutionDecision,
 } from "@serika/core";
-import { dirname, resolve, sep } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import type { ToolConfirmationCard, ToolPermissionFacts } from "./module-host.js";
 import type { ReminderConfirmationFields } from "./reminder-speech.js";
 import { validateWorkspacePath } from "./workspace-path.js";
@@ -168,7 +168,7 @@ function authorizationAllows(
   if (!(authorization.tools as readonly string[]).includes(input.toolName)) return false;
   const requested = validateWorkspacePath(
     authorization.directory,
-    scopedPath(facts, input.input),
+    relative(authorization.directory, resolve(stringArgument(input.input, "directory") ?? authorization.directory, scopedPath(facts, input.input))),
   );
   if (!requested.ok) return false;
   return authorization.allowedPaths.some((allowed) =>
@@ -254,7 +254,11 @@ function grantCandidate(
   if (facts?.defaults?.remember === "never") return undefined;
   if (facts?.defaults?.remember === "scope" && facts.scope?.kind === "directoryPath") {
     if (directory === undefined) return undefined;
-    const scope = fileDirectory(directory, stringArgument(input.input, facts.scope.argument));
+    const requestedPath = stringArgument(input.input, facts.scope.argument);
+    const selected = stringArgument(input.input, "directory");
+    const scopedDirectory = selected ?? directory;
+    const localScope = fileDirectory(scopedDirectory, requestedPath && isAbsolute(requestedPath) ? relative(scopedDirectory, requestedPath) : requestedPath);
+    const scope = localScope === undefined ? undefined : selected || requestedPath && isAbsolute(requestedPath) ? resolve(scopedDirectory, localScope) : localScope;
     if (scope === undefined) return undefined;
     const place = scope === "" ? "工作区根目录" : `${scope}${sep}`;
     return { agentId, toolName, kind: "directory", scope,

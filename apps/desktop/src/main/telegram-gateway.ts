@@ -93,7 +93,7 @@ export class TelegramGateway {
   }
   autonomyBinding(): import("@serika/assistant").TelegramAutonomyGrant | null {
     const data = this.store.snapshot();
-    const directory = this.host.channelSnapshot().info.authorizedDirectory;
+    const directory = this.host.channelSnapshot().info.projectDirectory;
     return data.owner && data.botId && directory ? { directory, botId: data.botId, userId: data.owner.userId, chatId: data.owner.chatId, threadId: data.owner.threadId } : null;
   }
   matchesAutonomyGrant(grant: import("@serika/assistant").TelegramAutonomyGrant) {

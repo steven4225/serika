@@ -21,7 +21,7 @@ describe("desktop TUI config", () => {
     try {
       const workspace = join(root, "workspace"); await mkdir(workspace);
       const configPath = join(root, "config.json");
-      const config = { version: 1, authorizedDirectory: workspace, modules: {
+      const config = { version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: {
         memory: { enabled: false, autoConsolidate: false },
         shell: { enabled: false, timeoutMs: 45_000 }, pomodoro: { enabled: false },
       }, run: { maxSteps: 6 } };
@@ -32,7 +32,7 @@ describe("desktop TUI config", () => {
         memory: { enabled: true, autoConsolidate: true },
       } });
       // Missing modules is a valid legacy config, not a reason to report an empty/disabled module forever.
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace }));
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }] }));
       await enableDesktopMemory(configPath);
       assert.equal(JSON.parse(await readFile(configPath, "utf8")).modules.memory.enabled, true);
       const invalid = JSON.stringify({ version: 1 });
@@ -84,7 +84,7 @@ describe("desktop TUI config", () => {
     try {
       const workspace = join(root, "workspace"); await mkdir(workspace);
       const configPath = join(root, "config.json");
-      const config = { version: 1, authorizedDirectory: workspace, modules: { memory: { enabled: true, autoConsolidate: true }, shell: { enabled: false } } };
+      const config = { version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: true, autoConsolidate: true }, shell: { enabled: false } } };
       await writeFile(configPath, JSON.stringify(config));
       await resolveDesktopConfig({ env: {}, applicationHome: root, cwd: root });
       assert.deepEqual(JSON.parse(await readFile(configPath, "utf8")).modules.memory, config.modules.memory);
@@ -162,7 +162,7 @@ describe("desktop TUI config", () => {
     try {
       const workspace = join(root, "workspace"); await mkdir(workspace);
       const configPath = join(root, "config.json");
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { memory: { enabled: false }, pomodoro: { enabled: true }, shell: { enabled: false } } }));
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: false }, pomodoro: { enabled: true }, shell: { enabled: false } } }));
       await Promise.all([
         resolveDesktopConfig({ env: {}, applicationHome: root, cwd: root }),
         enableDesktopMemory(configPath, root),
@@ -175,7 +175,7 @@ describe("desktop TUI config", () => {
       assert.equal(config.modules.shell.enabled, false);
       assert.equal(config.modules.shell.timeoutMs, DESKTOP_DEFAULT_SHELL_TIMEOUT_MS);
       assert.equal(config.run.totalTimeoutMs, DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS);
-      assert.equal(config.authorizedDirectory, workspace);
+      assert.equal(config.authorizedDirectories[0].path, workspace);
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
@@ -190,7 +190,7 @@ describe("desktop TUI config", () => {
       assert.equal(results.filter(result => result.generated).length, 1);
       assert.equal(results.some(result => result.patched), false);
       const config = JSON.parse(await readFile(join(root, "config.json"), "utf8"));
-      assert.ok([join(root, "first"), join(root, "second")].includes(config.authorizedDirectory));
+      assert.ok([join(root, "first"), join(root, "second")].includes(config.authorizedDirectories[0].path));
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 });

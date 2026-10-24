@@ -1,3 +1,4 @@
+import { DirectoryAccess } from "./directory-access.js";
 import assert from "node:assert/strict";
 import { Writable } from "node:stream";
 import { describe, it } from "node:test";
@@ -9,7 +10,7 @@ import { builtinToolPermissions } from "./testing.js";
 
 type PermissionOptions = Parameters<typeof createPermissionExtension>[1];
 
-const fileFacts = createModuleHost([createReadFileModule("/tmp/ws")], { notify() {} }).toolPermissions;
+const fileFacts = createModuleHost([createReadFileModule(new DirectoryAccess({ load: async () => [{ path: "/tmp/ws", access: "readwrite" }], protectedPaths: [] }))], { notify() {} }).toolPermissions;
 
 function sink(): Writable & { text: string } {
   const stream = new Writable({ write(chunk, _encoding, done) { stream.text += String(chunk); done(); } }) as Writable & { text: string };

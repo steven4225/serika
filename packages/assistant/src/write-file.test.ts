@@ -1,3 +1,4 @@
+import { createTestDirectoryAccess } from "./testing.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
@@ -146,9 +147,9 @@ describe("writeFileToWorkspace", () => {
 });
 
 describe("createWriteFileTool", () => {
-  it("exposes the frozen input and structured output contract", async () => {
+  it("exposes the authorized input and structured output contract", async () => {
     const directory = await workspace();
-    const writeFile = createWriteFileTool(directory);
+    const writeFile = createWriteFileTool(createTestDirectoryAccess(directory));
 
     assert.deepEqual(
       await writeFile.execute!(

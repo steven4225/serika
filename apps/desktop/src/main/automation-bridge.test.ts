@@ -56,7 +56,7 @@ async function fixture(model: MockLanguageModelV3, options: {
   }));
   await writeFile(join(skillDirectory, "SKILL.md"), "Return a short text result; no tools are available.");
   await writeFile(join(root, "config.json"), JSON.stringify({
-    version: 1, authorizedDirectory: workspace, modules: { ...(options.memory ? { memory: { enabled: true, autoConsolidate: true } } : {}), ...(options.task ? { task: { enabled: true } } : {}) }, automation: {
+    version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { ...(options.memory ? { memory: { enabled: true, autoConsolidate: true } } : {}), ...(options.task ? { task: { enabled: true } } : {}) }, automation: {
       skills: [{ id: "brief", directory: skillDirectory }],
       hooks: options.automatic ? [{ id: "startup-brief", event: "thread.ready", handler: { type: "skill", id: "brief" } }] : [],
     },

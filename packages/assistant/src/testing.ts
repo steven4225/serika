@@ -1,3 +1,4 @@
+import { DirectoryAccess } from "./directory-access.js";
 import { join } from "node:path";
 // Test fixtures and internal constants for host tests. Not for production host code.
 
@@ -24,6 +25,10 @@ export { createBuiltinSkill } from "./skill-catalog.js";
 export { createToolConfirmation } from "./tool-confirmation.js";
 export type { RunAuthorization } from "./tool-confirmation.js";
 export { createWriteFileTool } from "./write-file.js";
+
+export function createTestDirectoryAccess(path: string): DirectoryAccess {
+  return new DirectoryAccess({ load: async () => [{ path, access: "readwrite" }], protectedPaths: [] });
+}
 
 import { createModuleHost as createHostForFacts, type ToolPermissionFacts } from "./module-host.js";
 import { createComputerModule as computerForFacts } from "./modules/computer-module.js";
@@ -54,7 +59,7 @@ export function builtinToolPermissions(options: { shell?: "host" | "docker" } = 
   const getMessages = async () => [];
   const host = createHostForFacts([
     pomodoroForFacts(),
-    readFileForFacts("."),
+    readFileForFacts(createTestDirectoryAccess(".")),
     shellForFacts(".", shell),
     recipesForFacts({ store: new RecipeStoreForFacts(".", join(".", ".runloom/recipes.json")), records: recordsForFacts("."), threadId: "facts",
       currentRun: () => undefined, shell }),

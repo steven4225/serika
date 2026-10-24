@@ -8,6 +8,7 @@ import {
   win32,
 } from "node:path";
 import { z } from "zod";
+import type { DirectoryAuthorization } from "./directory-access.js";
 import { resolveConfiguredTodoistTimeZone, resolveShorthandTodoistTimeZone, todoistModuleConfigSchema } from "./modules/todoist-module.js";
 import { validModelPrice, type ModelPrice } from "./model-usage.js";
 import { herdrTargetSchema, type HerdrTarget } from "./herdr.js";
@@ -76,7 +77,8 @@ export interface ResolvedTuiModuleConfig {
   desktopAutonomy?: { directory: string };
   configPath: string | null;
   workspaceRoot: string | null;
-  authorizedDirectory: string | null;
+  projectDirectory: string | null;
+  authorizedDirectories: readonly DirectoryAuthorization[];
   enabled: Record<BuiltinModuleId, boolean>;
   webSearchEnabled: boolean;
   webFeedEnabled: boolean;
@@ -173,7 +175,8 @@ const fileAuthorizationSchema = z
 const tuiModuleConfigV1Schema = z
   .object({
     version: z.literal(1),
-    authorizedDirectory: nonEmptyString.optional(),
+    projectDirectory: nonEmptyString.nullable().optional(),
+    authorizedDirectories: z.array(z.object({ path: nonEmptyString, access: z.enum(["read", "readwrite"]) }).strict()).optional(),
     modules: z
       .object({
         pomodoro: moduleToggleSchema.optional(),
@@ -212,7 +215,8 @@ const tuiModuleConfigV1Schema = z
 
 export interface TuiModuleConfigV1 {
   version: 1;
-  authorizedDirectory?: string | undefined;
+  projectDirectory?: string | null | undefined;
+  authorizedDirectories?: DirectoryAuthorization[] | undefined;
   modules: {
     computer?: ComputerConfig | undefined;
     terminal?: { enabled: boolean; target?: HerdrTarget | undefined } | undefined;
@@ -509,12 +513,17 @@ async function resolveConfiguredMode(
   if (config.modules.web?.feed?.enabled === true && !enabled.web) {
     throw new Error("web.feed requires web.enabled to be true");
   }
-  assertWorkspaceRequirement(
-    enabled,
-    config.authorizedDirectory,
-    "TUI config requires authorizedDirectory when read-file, memory, checkpoint, task, or shell is enabled",
-    args.dataDirectory,
-  );
+  const authorizedDirectories = await Promise.all((config.authorizedDirectories ?? []).map(async item => {
+    const path = resolvePath(dirname(absoluteConfigPath), item.path);
+    const canonical = await resolveWorkspace(item.path, dirname(absoluteConfigPath));
+    if ((await lstat(path)).isSymbolicLink()) throw new Error("Workspace must not be a symlink");
+    return { path: canonical, access: item.access };
+  }));
+  if (new Set(authorizedDirectories.map(item => item.path)).size !== authorizedDirectories.length) throw new Error("Duplicate authorized directory");
+  const requestedProjectDirectory = config.projectDirectory === null ? undefined : config.projectDirectory ?? (authorizedDirectories.length === 1 ? authorizedDirectories[0]!.path : undefined);
+  if (config.authorizedDirectories === undefined) assertWorkspaceRequirement(enabled, requestedProjectDirectory,
+    "TUI config requires projectDirectory when read-file, memory, checkpoint, task, or shell is enabled", args.dataDirectory);
+  if (enabled.terminal && !requestedProjectDirectory) throw new Error("Host terminal requires an explicit projectDirectory");
 
   const sandboxDefinition = config.modules.shell?.sandbox;
   if (sandboxDefinition !== undefined && !enabled.shell) {
@@ -525,32 +534,27 @@ async function resolveConfiguredMode(
       ? undefined
       : await normalizeShellSandbox(
           sandboxDefinition,
-          config.authorizedDirectory,
+          config.projectDirectory ?? (config.authorizedDirectories?.length === 1 ? config.authorizedDirectories[0]!.path : undefined),
           dirname(absoluteConfigPath),
         );
-  const authorizedDirectory =
+  const projectDirectory =
     sandboxResolution?.directory ??
-    (config.authorizedDirectory === undefined
-      ? null
-      : await resolveWorkspace(config.authorizedDirectory, dirname(absoluteConfigPath)));
+    (requestedProjectDirectory === undefined ? null : await resolveWorkspace(requestedProjectDirectory, dirname(absoluteConfigPath)));
   const shellSandbox = sandboxResolution?.shellSandbox ?? null;
   const terminalTarget = config.modules.terminal?.target;
-  if (terminalTarget && terminalTarget.authorizedDirectory !== authorizedDirectory) {
-    throw new Error("Herdr target must match the exact authorizedDirectory");
+  if (terminalTarget && terminalTarget.authorizedDirectory !== projectDirectory) {
+    throw new Error("Herdr target must match the exact projectDirectory");
   }
   if (enabled.terminal && shellSandbox) throw new Error("Host terminal control cannot be combined with Docker Shell");
   const fileAuthorizations = normalizeFileAuthorizations(
     config.fileAuthorizations,
-    authorizedDirectory,
+    projectDirectory,
     enabled,
   );
   if (enabled.terminal || terminalTarget || config.telegramAutonomy || config.desktopAutonomy || fileAuthorizations.length > 0 || shellSandbox !== null || enabled.computer || config.automation !== undefined) {
     const configRealPath = await realpath(absoluteConfigPath);
-    if (authorizedDirectory !== null && isPathWithin(authorizedDirectory, configRealPath)) {
-      throw new Error(
-        "TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace",
-      );
-    }
+    if (projectDirectory !== null && isPathWithin(projectDirectory, configRealPath)) throw new Error(
+      "TUI config with sandbox, fileAuthorizations, computer, automatic memory, automation or foreground autonomy must be outside the workspace");
   }
   const todoistTimeZone = resolveConfiguredTodoistTimeZone(enabled.todoist, config.modules.todoist);
 
@@ -562,18 +566,17 @@ async function resolveConfiguredMode(
       if (["ENOENT", "ENOTDIR", "EACCES", "EPERM"].includes((error as NodeJS.ErrnoException).code ?? "")) throw new ComputerDriverUnavailableError(absoluteConfigPath);
       throw error;
     }
-    if (authorizedDirectory !== null && isPathWithin(authorizedDirectory, executable)) {
-      throw new Error("Computer driver executable must be outside the workspace");
-    }
+    if (projectDirectory !== null && isPathWithin(projectDirectory, executable)) throw new Error("Computer driver executable must be outside the workspace");
     computer = { ...config.modules.computer!, executable };
   }
   return {
-    ...(config.telegramAutonomy?.authorizedDirectory === authorizedDirectory ? { telegramAutonomy: { directory: authorizedDirectory, botId: config.telegramAutonomy.botId, userId: config.telegramAutonomy.userId, chatId: config.telegramAutonomy.chatId, threadId: config.telegramAutonomy.threadId } } : {}),
-    ...(config.desktopAutonomy && config.desktopAutonomy.authorizedDirectory === authorizedDirectory
-      ? { desktopAutonomy: { directory: authorizedDirectory } } : {}),
+    ...(config.telegramAutonomy?.authorizedDirectory === projectDirectory ? { telegramAutonomy: { directory: projectDirectory, botId: config.telegramAutonomy.botId, userId: config.telegramAutonomy.userId, chatId: config.telegramAutonomy.chatId, threadId: config.telegramAutonomy.threadId } } : {}),
+    ...(config.desktopAutonomy && config.desktopAutonomy.authorizedDirectory === projectDirectory
+      ? { desktopAutonomy: { directory: projectDirectory } } : {}),
     configPath: absoluteConfigPath,
-    workspaceRoot: authorizedDirectory,
-    authorizedDirectory,
+    workspaceRoot: projectDirectory,
+    projectDirectory,
+    authorizedDirectories,
     enabled,
     webSearchEnabled,
     webFeedEnabled,
@@ -625,7 +628,8 @@ async function resolveLegacyMode(
   return {
     configPath: null,
     workspaceRoot,
-    authorizedDirectory: workspaceRoot,
+    projectDirectory: workspaceRoot,
+    authorizedDirectories: workspaceRoot === null ? [] : [{ path: workspaceRoot, access: "readwrite" }],
     enabled,
     webSearchEnabled: false,
     webFeedEnabled: false,

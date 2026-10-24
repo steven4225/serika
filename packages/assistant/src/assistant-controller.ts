@@ -174,7 +174,7 @@ export function dreamingThreadIdFor(workspaceRoot: string | undefined, threadId:
 }
 
 export function createAssistantController(app: RuntimeApp): AssistantController {
-  const automation = app.automation ?? createRuntimeAutomation({ skills: [], registrations: [], directory: app.authorizedDirectory });
+  const automation = app.automation ?? createRuntimeAutomation({ skills: [], registrations: [], directory: app.projectDirectory });
   app.enableExecutionRecords();
   let workTaskLease: Awaited<ReturnType<NonNullable<RuntimeApp["workTasks"]>["claimThread"]>> | undefined;
   let threadLease: Awaited<ReturnType<RuntimeApp["executionRecords"]["claimThread"]>> | undefined;

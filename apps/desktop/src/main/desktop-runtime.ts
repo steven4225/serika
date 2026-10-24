@@ -13,8 +13,8 @@ import { enableDesktopMemory, resolveDesktopConfig } from "./desktop-config.js";
 import { createDesktopThread, listDesktopThreads, resolveDesktopIdentity, selectDesktopThread, type DesktopIdentityResolution } from "./desktop-identity.js";
 import { inspectThread } from "./thread-history.js";
 import { RuntimeBridge, TeeOutput, type Send } from "./runtime-bridge.js";
-import { changeModuleSetting, changeAutonomySetting, changeTelegramAutonomySetting, type AutonomySettingInput, ConfigCommitUncertainError, type ModuleSettingInput } from "./module-settings.js";
-import { AppInfo } from "../shared/ui-contract.js";
+import { changeDirectorySettings, changeModuleSetting, changeAutonomySetting, changeTelegramAutonomySetting, type AutonomySettingInput, ConfigCommitUncertainError, type ModuleSettingInput } from "./module-settings.js";
+import { AppInfo, type DirectorySettingsInput } from "../shared/ui-contract.js";
 import { readLoadedBuild } from "./build-identity.js";
 import { createPomodoroService, type PomodoroService } from "@serika/assistant";
 import { ExecutionRecordStore } from "@serika/assistant";
@@ -82,7 +82,7 @@ export class DesktopRuntime {
     let undo: (() => Promise<void>) | undefined;
     await this.#replace(async () => {
       const binding = this.#telegram?.autonomyBinding();
-      if (!binding || binding.directory !== this.#bridge.info().authorizedDirectory) throw new Error("请先连接并核对当前工作区的 Telegram 私聊绑定");
+      if (!binding || binding.directory !== this.#bridge.info().projectDirectory) throw new Error("请先连接并核对当前工作区的 Telegram 私聊绑定");
       undo = await changeTelegramAutonomySetting({ configPath: this.#identity.configPath, input, cwd: this.#options.cwd, binding, state: { enabled: this.#bridge.telegramAutonomyEnabled(), paused: this.#telegram?.autonomyPaused === true } });
       return this.#identity;
     }, false, { rollback: async () => { await undo?.(); } });
@@ -226,7 +226,7 @@ export class DesktopRuntime {
     } finally { this.#changing = false; }
   }
 
-  async #replace(select: () => Promise<DesktopIdentityResolution>, reuseUnchanged = false, settings?: { rollback: () => Promise<void>; reason?: "modules" | "context" }, activate?: () => Promise<void>): Promise<void> {
+  async #replace(select: () => Promise<DesktopIdentityResolution>, reuseUnchanged = false, settings?: { rollback: () => Promise<void>; reason?: "modules" | "context" | "directories" }, activate?: () => Promise<void>): Promise<void> {
     this.#assertIdle();
     this.#changing = true;
     this.#options.send({ type: "state", state: { kind: "command", name: "thread-switch" } });
@@ -310,6 +310,13 @@ export class DesktopRuntime {
       return this.#identity;
     }, false, { rollback: async () => { await undo?.(); } });
   }
+  setAuthorizedDirectories(input: DirectorySettingsInput) {
+    let undo: (() => Promise<void>) | undefined;
+    return this.#replace(async () => {
+      undo = await changeDirectorySettings(this.#identity.configPath, input, { cwd: this.#options.cwd, dataDirectory: join(this.#options.applicationHome, "data") });
+      return this.#identity;
+    }, false, { reason: "directories", rollback: async () => { await undo?.(); } });
+  }
   async setModuleEnabled(input: ModuleSettingInput) {
     let undo: (() => Promise<void>) | undefined;
     await this.#replace(async () => {
@@ -319,7 +326,7 @@ export class DesktopRuntime {
     // Unrelated adapter disposal and failed/rolled-back changes never cancel.
     if (input.id === "pomodoro" && !input.enabled) this.#pomodoroService.cancel();
   }
-  #computerConnection() { return new ComputerConnection({ configPath: this.#identity.configPath, cwd: this.#options.cwd, env: this.#options.env, directory: this.current.info().authorizedDirectory, dataDirectory: join(this.#options.applicationHome, "data") }); }
+  #computerConnection() { return new ComputerConnection({ configPath: this.#identity.configPath, cwd: this.#options.cwd, env: this.#options.env, directory: this.current.info().projectDirectory, dataDirectory: join(this.#options.applicationHome, "data") }); }
   getComputerConnection() { return this.#computerConnection().view(); }
   findComputerDrivers() { return this.#computerConnection().find(); }
   checkComputerConnection(path: string) { this.#assertIdle(); return this.#computerConnection().check(path); }
@@ -328,7 +335,7 @@ export class DesktopRuntime {
     let undo: (() => Promise<void>) | undefined;
     return this.#replace(async () => { undo = await connection.save(input); return this.#identity; }, false, { rollback: async () => { await undo?.(); } });
   }
-  #herdrTargets() { return new HerdrTargets({ env: this.#options.env, cwd: this.#options.cwd, authorizedDirectory: this.current.info().authorizedDirectory }); }
+  #herdrTargets() { return new HerdrTargets({ env: this.#options.env, cwd: this.#options.cwd, authorizedDirectory: this.current.info().projectDirectory }); }
   listHerdrSessions() { return this.#herdrTargets().sessions(); }
   listHerdrPanes(session: string) { return this.#herdrTargets().panes(session); }
   setHerdrTarget(input: HerdrTargetInput) {
@@ -342,7 +349,7 @@ export class DesktopRuntime {
   setAutonomyEnabled(input: AutonomySettingInput) {
     let undo: (() => Promise<void>) | undefined;
     return this.#replace(async () => {
-      undo = await changeAutonomySetting(this.#identity.configPath, input, this.#options.cwd, this.#bridge.info().authorizedDirectory);
+      undo = await changeAutonomySetting(this.#identity.configPath, input, this.#options.cwd, this.#bridge.info().projectDirectory);
       return this.#identity;
     }, false, { rollback: async () => { await undo?.(); } });
   }

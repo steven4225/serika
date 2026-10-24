@@ -92,7 +92,7 @@ describe("createRuntimeApp", () => {
       const root = await mkdtemp(join(tmpdir(), "serika-memory-owner-"));
       await mkdir(join(root, "workspace"));
       const configPath = join(root, "config.json");
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: "./workspace", modules: {
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: {
         memory: { enabled: true, autoConsolidate },
       } }));
       let names: string[] = [];
@@ -134,7 +134,7 @@ describe("createRuntimeApp", () => {
       const workspace = join(root, "workspace");
       await mkdir(workspace);
       const configPath = join(root, "config.json");
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: {
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: {
         "read-file": { enabled: config.files },
         web: { enabled: config.web, search: { enabled: config.search } },
       } }));
@@ -228,7 +228,7 @@ else {fs.writeFileSync(${JSON.stringify(marker)},'dispatched');console.log('{}')
       const root = await mkdtemp(join(tmpdir(), "runloom-app-current-memory-"));
       const workspace = join(root, "workspace"); await mkdir(workspace);
       const configPath = join(root, "config.json");
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { memory: { enabled: true } },
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: true } },
         contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled } }));
       const prompts: string[][] = [];
       const model = new MockLanguageModelV3({ doStream: async options => {
@@ -273,7 +273,7 @@ else {fs.writeFileSync(${JSON.stringify(marker)},'dispatched');console.log('{}')
       await mkdir(workspace);
       const configPath = join(root, "runloom.json");
       await writeFile(configPath, JSON.stringify({
-        version: 1, authorizedDirectory: "./workspace", modules: { memory: { enabled: true } },
+        version: 1, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: { memory: { enabled: true } },
         contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled },
       }), "utf8");
       const app = await createRuntimeApp({
@@ -445,7 +445,7 @@ else {fs.writeFileSync(${JSON.stringify(marker)},'dispatched');console.log('{}')
     const transcripts = join(root, "transcripts");
     const configPath = join(root, "runloom.json");
     await writeFile(configPath, JSON.stringify({
-      version: 1, authorizedDirectory: "./workspace",
+      version: 1, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
       modules: { shell: { enabled: true, timeoutMs: 1_000 } },
       run: { totalTimeoutMs: 3_000 },
     }), "utf8");

@@ -30,7 +30,7 @@ export class HerdrTargets {
     }
     const saved = await updateDesktopConfig(configPath, this.options.cwd, async (before, path) => {
       const current = await resolveTuiModuleConfig({ configPath: path }, { cwd: this.options.cwd });
-      if (!this.options.authorizedDirectory || current.authorizedDirectory !== this.options.authorizedDirectory) throw new Error("授权目录已变化，请重新连接");
+      if (!this.options.authorizedDirectory || current.projectDirectory !== this.options.authorizedDirectory) throw new Error("授权目录已变化，请重新连接");
       if (!current.enabled.terminal || current.shellSandbox) throw new Error("请先开启本地终端控制；Docker 模式不能接管宿主终端");
       if (JSON.stringify(current.terminalTarget ?? null) !== JSON.stringify(expected)) throw new Error("Herdr 目标已变化，请刷新后重新选择");
       const config = JSON.parse(before!);

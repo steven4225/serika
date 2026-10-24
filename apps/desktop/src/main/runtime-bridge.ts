@@ -227,7 +227,7 @@ export class RuntimeBridge {
         id,
         enabled: this.#app.moduleConfig?.enabled[id] === true,
       })),
-      autonomy: { enabled: this.#app.desktopAutonomyEnabled === true, directory: this.#app.authorizedDirectory ?? null },
+      autonomy: { enabled: this.#app.desktopAutonomyEnabled === true, directory: this.#app.projectDirectory ?? null },
       ...(this.#app.moduleConfig?.terminalTarget ? { terminalTarget: this.#app.moduleConfig.terminalTarget } : {}),
       configPath: this.#app.moduleConfig?.configPath ?? null,
       moduleOptions: {
@@ -248,7 +248,8 @@ export class RuntimeBridge {
       directory: this.#app.directory,
       temporaryDirectory: this.#identity.temporaryDirectory,
       workspaceRoot: this.#app.workspaceRoot ?? null,
-      authorizedDirectory: this.#app.authorizedDirectory ?? null,
+      projectDirectory: this.#app.projectDirectory ?? null,
+      authorizedDirectories: this.#app.moduleConfig?.authorizedDirectories ?? [],
       tuiMode: this.#app.tuiMode,
       commands: [...new Set([
         ...(this.#app.commands ? [...this.#app.commands.keys()] : []),

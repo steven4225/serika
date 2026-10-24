@@ -1,3 +1,4 @@
+import type { DirectoryAccess } from "../directory-access.js";
 import { spawn, type ChildProcess } from "node:child_process";
 import { resolve } from "node:path";
 import { StringDecoder } from "node:string_decoder";
@@ -54,6 +55,7 @@ export const shellExecErrorCodes = [
   "CWD_NOT_ACCESSIBLE",
   "SPAWN_FAILED",
   "SANDBOX_UNAVAILABLE",
+  "DIRECTORY_SELECTION_REQUIRED", "READ_ONLY_DIRECTORY", "PROTECTED_PATH", "SYMLINK_NOT_ALLOWED", "HARDLINK_NOT_ALLOWED",
   "SANDBOX_CLEANUP_FAILED",
 ] as const;
 
@@ -62,6 +64,7 @@ export type ShellExecErrorCode = (typeof shellExecErrorCodes)[number];
 export interface ShellExecInput {
   command: string;
   cwd?: string | undefined;
+  directory?: string | undefined;
 }
 
 export interface ShellExecSuccess {
@@ -140,6 +143,7 @@ function shellPermission(sandbox: DockerShellSandboxConfig | undefined): ToolPer
 }
 
 export interface ShellModuleOptions {
+  directories?: DirectoryAccess;
   /** Trusted host Run snapshot; metadata still bounds the maximum invocation. */
   commandTimeoutMs?: () => number;
   timeoutMs?: number;
@@ -154,6 +158,7 @@ const neverAborted = new AbortController().signal;
 const shellExecInputSchema = z.object({
   command: z.string().min(1),
   cwd: z.string().min(1).optional(),
+  directory: z.string().min(1).optional(),
 });
 
 const shellExecOutputSchema = z.discriminatedUnion("ok", [
@@ -420,7 +425,7 @@ export async function executeShellCommand(
 }
 
 export function createShellExecTool(
-  workspaceRoot: string,
+  workspaceRoot: string | undefined,
   options: ShellModuleOptions = {},
 ): Tool<ShellExecInput, ShellExecResult> {
   return tool({
@@ -431,8 +436,14 @@ export function createShellExecTool(
         : "Run one non-interactive shell command inside the configured Docker sandbox from a workspace-relative directory. Only the configured mounts are visible; network access is disabled; the command is bounded by a timeout and output limit.",
     inputSchema: shellExecInputSchema,
     outputSchema: shellExecOutputSchema,
-    execute: ({ command, cwd }, { abortSignal, toolCallId }) => {
-      const input = { command, ...(cwd === undefined ? {} : { cwd }) };
+    execute: async ({ command, cwd, directory }, { abortSignal, toolCallId }) => {
+      let input = { command, ...(cwd === undefined ? {} : { cwd }), ...(directory === undefined ? {} : { directory }) };
+      let root = workspaceRoot;
+      if (options.directories && !options.seatbelt?.active()) {
+        const selected = await options.directories.resolve({ path: cwd ?? ".", directory: directory ?? workspaceRoot, write: false });
+        if (!selected.ok) return { ok: false, error: { code: selected.code, message: selected.message } };
+        root = selected.root; input = { command, cwd: selected.relativePath || "." };
+      }
       let sequence = 0;
       const onOutput = options.onProgress === undefined ? undefined : (
         stream: "stdout" | "stderr", text: string, truncated: boolean,
@@ -455,7 +466,7 @@ export function createShellExecTool(
             : { dockerExecutable: options.dockerExecutable }),
         };
         return executeDockerShellCommand(
-          workspaceRoot,
+          root!,
           input,
           options.sandbox,
           abortSignal ?? neverAborted,
@@ -463,12 +474,12 @@ export function createShellExecTool(
         );
       }
       if (options.seatbelt?.active()) return options.seatbelt.runner.execute({
-        directory: workspaceRoot, input, signal: abortSignal ?? neverAborted,
+        directory: root, input, signal: abortSignal ?? neverAborted,
         execution: { timeoutMs: options.commandTimeoutMs?.() ?? options.timeoutMs ?? SHELL_EXEC_TIMEOUT_MS,
           maxOutputBytes: SHELL_EXEC_MAX_OUTPUT_BYTES, killGraceMs: SHELL_EXEC_KILL_GRACE_MS, onOutput },
       });
       return executeShellCommand(
-        workspaceRoot,
+        root!,
         input,
         abortSignal ?? neverAborted,
         { timeoutMs: options.commandTimeoutMs?.() ?? options.timeoutMs ?? SHELL_EXEC_TIMEOUT_MS, onOutput },
@@ -478,7 +489,7 @@ export function createShellExecTool(
 }
 
 export function createShellModule(
-  workspaceRoot: string,
+  workspaceRoot: string | undefined,
   options: ShellModuleOptions = {},
 ): AgentModule {
   return {

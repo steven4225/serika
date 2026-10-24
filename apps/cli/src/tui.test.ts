@@ -1,6 +1,6 @@
 import { createDemoModel } from "@serika/assistant";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough, Writable } from "node:stream";
@@ -35,6 +35,7 @@ import {
   createReadFileModule,
   createToolConfirmation,
   createWriteFileTool,
+  createTestDirectoryAccess,
   type CheckpointDraft,
   type ReadFileResult,
   type RunAuthorization,
@@ -648,7 +649,7 @@ async function createWriteFileConfirmationRuntime(options: {
             timeoutMs: 1_000,
             idempotent: false,
           },
-          tool: createWriteFileTool(workspace),
+          tool: createWriteFileTool(createTestDirectoryAccess(workspace)),
         },
       ]),
     }),
@@ -785,7 +786,7 @@ async function createReadFileConfirmationRuntime(options: {
   const confirmation = moduleConfirmation(output);
   const store = new CountingStore();
   const readCount = { value: 0 };
-  const host = createModuleHost([createReadFileModule(workspace)], {
+  const host = createModuleHost([createReadFileModule(createTestDirectoryAccess(workspace))], {
     notify: (_moduleId, message) => output.write(message),
   });
   const readFile = host.tools[0]!.tool;
@@ -1911,11 +1912,11 @@ describe("runTui", () => {
   });
 
   it("runs /workspace on the shared output without starting a run", async () => {
-    const workspace = await mkdtemp(join(tmpdir(), "runloom-tui-module-"));
+    const workspace = await realpath(await mkdtemp(join(tmpdir(), "runloom-tui-module-")));
     const input = ttyInput();
     const output = ttyOutput();
     const runtime = testRuntime([]);
-    const host = createModuleHost([createReadFileModule(workspace)], {
+    const host = createModuleHost([createReadFileModule(createTestDirectoryAccess(workspace))], {
       notify: (moduleId, message) =>
         output.write(`[module:${moduleId}] ${message}\n`),
     });

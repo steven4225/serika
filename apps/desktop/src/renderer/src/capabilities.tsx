@@ -1,6 +1,6 @@
 import { ComputerConnectionSetting } from "./computer-connection-setting.js";
 import { HerdrTargetSetting } from "./herdr-target-setting.js";
-import type { AppInfo } from "../../shared/ui-contract.js";
+import type { AppInfo, DirectoryAuthorization } from "../../shared/ui-contract.js";
 import { useState } from "react";
 import { memoryAutomationLabel } from "./memory-copy.js";
 
@@ -18,6 +18,34 @@ const labels: Record<string, [string, string]> = {
 };
 
 const moduleName = (id: string) => labels[id]?.[0] ?? "这项能力";
+
+function DirectorySettings({ info, busy }: { info: AppInfo; busy: boolean }) {
+  const [directories, setDirectories] = useState<DirectoryAuthorization[]>(() => info.authorizedDirectories.map(item => ({ ...item })));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const locked = busy || saving || !!info.runtimeRecovery || !info.configPath || typeof window === "undefined" || !window.runloom.setAuthorizedDirectories;
+  const changed = JSON.stringify(directories) !== JSON.stringify(info.authorizedDirectories);
+  const apply = async () => {
+    setSaving(true); setError(null);
+    try { await window.runloom.setAuthorizedDirectories!({ directories, expectedDirectories: info.authorizedDirectories }); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setSaving(false); }
+  };
+  return <section className="capability-row" aria-label="持久目录授权"><div>
+    <strong>持久目录授权</strong>
+    <p>文件工具与沙箱 Shell 使用同一份目录列表。嵌套目录采用最深层权限，受保护的控制文件始终不可修改。</p>
+    <p className="hint">保存后立即应用于下一次请求，重启后保留。工具的“一次批准 / 本对话记住”单独管理，不能扩大目录权限。</p>
+    {directories.length === 0 ? <p className="hint">未授权任何目录。</p> : null}
+    {directories.map((item, index) => <div className="actions" key={index}>
+      <input aria-label={`目录 ${index + 1} 路径`} placeholder="绝对目录路径" value={item.path} disabled={locked} onChange={event => setDirectories(current => current.map((entry, position) => position === index ? { ...entry, path: event.target.value } : entry))} />
+      <select aria-label={`目录 ${index + 1} 权限`} value={item.access} disabled={locked} onChange={event => { const access = event.target.value === "read" ? "read" : "readwrite"; setDirectories(current => current.map((entry, position) => position === index ? { ...entry, access } : entry)); }}><option value="read">读</option><option value="readwrite">读写</option></select>
+      <button className="ghost" disabled={locked} aria-label={`删除目录 ${index + 1}`} onClick={() => setDirectories(current => current.filter((_, position) => position !== index))}>删除</button>
+    </div>)}
+    <div className="actions"><button className="ghost" disabled={locked} onClick={() => setDirectories(current => [...current, { path: "", access: "read" }])}>添加目录</button><button disabled={locked || !changed} onClick={() => void apply()}>{saving ? "正在应用…" : "保存目录授权"}</button></div>
+    {changed ? <p className="hint">有未保存的目录更改。</p> : null}
+    {error ? <p role="alert" className="error">{error}</p> : null}
+  </div></section>;
+}
 
 function AutonomySetting({ info, busy }: { info: AppInfo; busy: boolean }) {
   const [confirming, setConfirming] = useState(false);
@@ -40,7 +68,7 @@ function AutonomySetting({ info, busy }: { info: AppInfo; busy: boolean }) {
       <small>当前工作区：{info.autonomy.directory ?? "未选择"}</small>
       {confirming ? <div className="capability-confirm" role="group" aria-label="确认自主执行变更">
         <strong>{enabled ? "关闭本机自主执行？" : "信任此工作区并开启本机自主执行？"}</strong>
-        <p>Seatbelt 默认断网，仅授权目录和私密临时目录可写，运行时依赖只读，敏感路径不可访问。后端不可用会拒绝执行。需要联网或不支持的命令，请关闭自主执行，使用逐条确认的 host Shell。</p>
+        <p>Seatbelt 默认断网，仅读写授权目录和私密临时目录可写，运行时依赖只读，敏感路径不可访问。后端不可用会拒绝执行。需要联网或不支持的命令，请关闭自主执行，使用逐条确认的 host Shell。</p>
         <p>授权重启后仍有效，直到关闭。仅空闲时可更改；执行中可先停止。Telegram 和后台任务不继承此授权，其他工具保留原权限。</p>
         <p>开启后每轮最多 128 步、30 分钟，单条命令最长 10 分钟。未启用的工具不会自动开启。</p>
         <div className="actions"><button disabled={locked} onClick={() => void apply()}>{saving ? "正在应用…" : enabled ? "关闭并恢复逐次确认" : "信任并开启"}</button><button className="ghost" disabled={saving} onClick={() => setConfirming(false)}>取消</button></div>
@@ -65,6 +93,7 @@ export function CapabilitiesPanel({ info, busy = false, initialError = null, int
     finally { setSaving(false); }
   };
     return <section className="capability-page">
+    <DirectorySettings key={JSON.stringify(info.authorizedDirectories)} info={info} busy={busy} />
     <AutonomySetting info={info} busy={busy} />
     <ComputerConnectionSetting info={info} busy={busy} />
     {info.modules?.some(module => module.id === "terminal" && module.enabled) ? <HerdrTargetSetting key={JSON.stringify(info.terminalTarget ?? null)} info={info} busy={busy} /> : null}

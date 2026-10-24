@@ -2,7 +2,9 @@ import { lstat, open } from "node:fs/promises";
 import { constants } from "node:fs";
 import { resolve } from "node:path";
 import { TextDecoder } from "node:util";
+import type { DirectoryAccess } from "./directory-access.js";
 import { tool, type Tool } from "ai";
+import { DIRECTORY_FILE_INSTRUCTIONS, directoryFileExecution, directoryFileOutputSchema, type DirectoryFileFailure } from "./directory-file-tool.js";
 import { z } from "zod";
 import {
   rejectSymlinkComponents,
@@ -119,7 +121,7 @@ export async function readFileFromWorkspace(
   if (targetStats.isSymbolicLink()) {
     return failure("SYMLINK_NOT_ALLOWED", "Symbolic links are not allowed");
   }
-  if (!targetStats.isFile()) {
+  if (!targetStats.isFile() || targetStats.nlink > 1) {
     return failure("NOT_REGULAR_FILE", `Not a regular file: ${relativePath || "."}`);
   }
 
@@ -188,16 +190,15 @@ const readFileOutputSchema = z.discriminatedUnion("ok", [
   }),
 ]);
 
-export function createReadFileTool(
-  workspace: string,
-): Tool<{ path: string }, ReadFileResult> {
-  const workspaceRoot = resolve(workspace);
+export function createReadFileTool(access: DirectoryAccess, directory?: string): Tool<{ path: string } & { directory?: string | undefined }, ReadFileResult | DirectoryFileFailure> {
+  const inputSchema = z.object({ path: z.string().min(1), directory: z.string().optional() });
   return tool({
-    description:
-      "Read one UTF-8 text file below the configured workspace. The path must be relative to the workspace.",
-    inputSchema: z.object({ path: z.string().min(1) }),
-    outputSchema: readFileOutputSchema,
-    execute: async ({ path }, { abortSignal }) =>
-      readFileFromWorkspace(workspaceRoot, path, abortSignal),
+    description: "Read one UTF-8 text file below the configured workspace." + DIRECTORY_FILE_INSTRUCTIONS,
+    inputSchema,
+    outputSchema: directoryFileOutputSchema(readFileOutputSchema),
+    execute: directoryFileExecution<z.infer<typeof inputSchema>, ReadFileResult>({
+      access, directory, write: false,
+      execute: (root, input, signal) => readFileFromWorkspace(root, input.path, signal),
+    }),
   });
 }

@@ -1,3 +1,4 @@
+import { createTestDirectoryAccess } from "./testing.js";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -176,10 +177,10 @@ describe("readFileFromWorkspace", () => {
 });
 
 describe("createReadFileTool", () => {
-  it("exposes the frozen input and structured output contract", async () => {
+  it("exposes the authorized input and structured output contract", async () => {
     const directory = await workspace();
     await writeFile(join(directory, "file.txt"), "hello");
-    const readFile = createReadFileTool(directory);
+    const readFile = createReadFileTool(createTestDirectoryAccess(directory));
 
     assert.deepEqual(
       await readFile.execute!({ path: "file.txt" }, {

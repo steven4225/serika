@@ -70,7 +70,7 @@ test("opt-in real model: manual and scheduled registered Skill use the productio
   await writeFile(join(directory, "skill.json"), JSON.stringify({ version: 1, id: "simple-plan", kind: "text",
     description: "整理提供的事项为一行计划", tools: [], limits: { maxSteps: 1 } }));
   const configPath = join(root, "config.json");
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { task: { enabled: true } },
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { task: { enabled: true } },
     automation: { skills: [{ id: "simple-plan", directory }], hooks: [] } }));
   const output = new PassThrough(); output.resume();
   const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "origin", configPath },

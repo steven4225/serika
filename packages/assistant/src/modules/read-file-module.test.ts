@@ -1,5 +1,6 @@
+import { DirectoryAccess } from "../directory-access.js";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
@@ -26,7 +27,7 @@ describe("createReadFileModule", () => {
     const tools: RegisteredTool[] = [];
     const commands = new Map<string, { name: string; execute(args: string): void }>();
     const notifications: string[] = [];
-    createReadFileModule(workspaceRoot).setup({
+    createReadFileModule(new DirectoryAccess({ load: async () => [{ path: workspaceRoot, access: "readwrite" }], protectedPaths: [] })).setup({
       registerTool: (tool) => tools.push(tool),
       addInstructions: () => {}, isAssembled: () => false, registerCommand: (command) => commands.set(command.name, command),
       notify: (message) => notifications.push(message),
@@ -79,7 +80,7 @@ describe("createReadFileModule", () => {
 
     const notifications: string[] = [];
     const commands = new Map<string, { name: string; execute(args: string): void }>();
-    createReadFileModule(workspaceRoot).setup({
+    createReadFileModule(new DirectoryAccess({ load: async () => [{ path: workspaceRoot, access: "readwrite" }], protectedPaths: [] })).setup({
       registerTool: () => {},
       addInstructions: () => {}, isAssembled: () => false, registerCommand: (command) => commands.set(command.name, command),
       notify: (message) => notifications.push(message),
@@ -87,12 +88,12 @@ describe("createReadFileModule", () => {
 
     const workspace = commands.get("workspace");
     assert.ok(workspace);
-    workspace.execute("");
-    workspace.execute("unexpected");
-    assert.deepEqual(notifications, [workspaceRoot, "Usage: /workspace"]);
+    await workspace.execute("");
+    await workspace.execute("unexpected");
+    assert.deepEqual(notifications, [await realpath(workspaceRoot), "Usage: /workspace"]);
   });
   it("declares path-scoped permission facts, confirmation cards and its instructions", () => {
-    const host = createModuleHost([createReadFileModule("/tmp/ws")], { notify() {} });
+    const host = createModuleHost([createReadFileModule(new DirectoryAccess({ load: async () => [{ path: "/tmp/ws", access: "readwrite" }], protectedPaths: [] }))], { notify() {} });
     const facts = host.toolPermissions;
     assert.deepEqual([...facts.keys()].sort(), [...RUN_AUTHORIZED_FILE_TOOLS].sort());
     for (const name of RUN_AUTHORIZED_FILE_TOOLS) {

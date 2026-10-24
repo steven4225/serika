@@ -6,7 +6,9 @@ import {
   unlink,
 } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import type { DirectoryAccess } from "./directory-access.js";
 import { tool, type Tool } from "ai";
+import { DIRECTORY_FILE_INSTRUCTIONS, directoryFileExecution, directoryFileOutputSchema, type DirectoryFileFailure } from "./directory-file-tool.js";
 import { z } from "zod";
 import { AgentError } from "@serika/core";
 import {
@@ -262,16 +264,15 @@ const writeFileOutputSchema = z.discriminatedUnion("ok", [
   }),
 ]);
 
-export function createWriteFileTool(
-  workspace: string,
-): Tool<WriteFileInput, WriteFileResult> {
-  const workspaceRoot = resolve(workspace);
+export function createWriteFileTool(access: DirectoryAccess, directory?: string): Tool<WriteFileInput & { directory?: string | undefined }, WriteFileResult | DirectoryFileFailure> {
+  const inputSchema = z.object({ path: z.string().min(1), content: z.string(), directory: z.string().optional() });
   return tool({
-    description:
-      "Create one new UTF-8 text file below the configured workspace. Existing files are never overwritten; the path must be relative to the workspace.",
-    inputSchema: z.object({ path: z.string().min(1), content: z.string() }),
-    outputSchema: writeFileOutputSchema,
-    execute: async ({ path, content }, { abortSignal }) =>
-      writeFileToWorkspace(workspaceRoot, path, content, abortSignal),
+    description: "Create one new UTF-8 text file below the configured workspace. Existing files are never overwritten." + DIRECTORY_FILE_INSTRUCTIONS,
+    inputSchema,
+    outputSchema: directoryFileOutputSchema(writeFileOutputSchema),
+    execute: directoryFileExecution<z.infer<typeof inputSchema>, WriteFileResult>({
+      access, directory, write: true,
+      execute: (root, input, signal) => writeFileToWorkspace(root, input.path, input.content, signal),
+    }),
   });
 }

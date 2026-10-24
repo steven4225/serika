@@ -34,7 +34,7 @@ async function fixture() {
   await writeFile(join(source, 'private.env'), 'fake credential archive only');
   await symlink(join(root, 'never-read'), join(source, 'external-link'));
   const entries = await manifest(source);
-  const specification = { version: 1, importedAt: stamp, manifest: entries, manifestSha256: sha(encoded(entries)), authorizedDirectory: null,
+  const specification = { version: 1, importedAt: stamp, manifest: entries, manifestSha256: sha(encoded(entries)), authorizedDirectories: [{ path: null, access: "readwrite" }],
     userEntryIds: document.entries.map(entry => entry.id), userDocumentIds: ['doc'] };
   return { root, source, home, specification };
 }
@@ -73,7 +73,7 @@ test('source drift and undeclared scope fail without creating a target', async (
     await assert.rejects(readFile(join(f.home, 'imports/receipt.json')), { code: 'ENOENT' });
     await assert.rejects(importHome({ ...f, home: resolve(process.env.HOME, '.serika') }), /Daily data/);
     const config = convertImportConfig({ version: 1, workspace: '/old', telegramAutonomy: { workspaceRoot: '/old' }, modules: { memory: { writePolicy: 'automatic', autoConsolidate: true } } }, { authorizedDirectory: '/explicit' });
-    assert.equal(config.config.authorizedDirectory, '/explicit'); assert.equal(config.config.telegramAutonomy, undefined);
+    assert.equal(config.config.authorizedDirectories[0].path, '/explicit'); assert.equal(config.config.telegramAutonomy, undefined);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 

@@ -15,7 +15,7 @@ async function fixture() {
   await mkdir(workspace); await mkdir(directory);
   await writeFile(join(directory, "SKILL.md"), "Summarize the supplied text. No external facts.");
   await writeFile(join(directory, "skill.json"), JSON.stringify({ version: 1, id: "brief", kind: "text", description: "Brief", tools: [] }));
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: {}, automation: { skills: [{ id: "brief", directory }], hooks: [] } }));
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: {}, automation: { skills: [{ id: "brief", directory }], hooks: [] } }));
   return { root, workspace, directory, configPath };
 }
 
@@ -94,7 +94,7 @@ it("shared memory packages are not exposed to scheduled invocation", async () =>
 it("worker resolves relative workspace from config directory without opening unrelated module executables", async () => {
   const f = await fixture();
   try {
-    await writeFile(f.configPath, JSON.stringify({ version: 1, authorizedDirectory: "workspace", modules: {
+    await writeFile(f.configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: "workspace", access: "readwrite" }], modules: {
       computer: { enabled: true, executable: "/not-installed/cua-driver", allowedBundleIds: ["com.apple.TextEdit"] },
     }, automation: { skills: [{ id: "brief", directory: f.directory }], hooks: [] } }));
     const automation = await loadScheduledSkillAutomation({ configPath: f.configPath, directory: f.workspace });

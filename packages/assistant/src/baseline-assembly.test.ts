@@ -27,6 +27,7 @@ import { MEMORY_READ_INSTRUCTIONS } from "./memory-instructions.js";
 process.env.TZ = "UTC";
 
 import { MEMORY_PRIMARY_WRITE_INSTRUCTIONS } from "./memory-write.js";
+import { DIRECTORY_FILE_INSTRUCTIONS } from "./directory-file-tool.js";
 import { SEATBELT_INSTRUCTIONS } from "./modules/seatbelt-policy.js";
 
 const FULL = {
@@ -70,7 +71,7 @@ async function capture(modules: Record<string, unknown>, { desktopAutonomy = fal
   const workspace = join(root, "workspace");
   await mkdir(workspace);
   const configPath = join(root, "config.json");
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules, ...(desktopAutonomy ? { desktopAutonomy: { authorizedDirectory: workspace } } : {}) }));
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules, ...(desktopAutonomy ? { desktopAutonomy: { authorizedDirectory: workspace } } : {}) }));
   let request: Parameters<MockLanguageModelV3["doStream"]>[0] | undefined;
   const model = new MockLanguageModelV3({ doStream: async options => {
     request ??= options;
@@ -163,6 +164,16 @@ function assertStep3Assembly(actual: string, baseline: string, autonomous = fals
   for (const name of before.keys()) if (name.startsWith("memory_")) { assert.ok(!after.has(name)); before.delete(name); }
   if (!autonomous && hadMemory) { assert.ok(after.get("memory_write")?.includes("replace")); after.delete("memory_write"); } else assert.ok(!after.has("memory_write"));
   if (autonomous) before.set("shell_exec", before.get("shell_exec")!.replace("Run one non-interactive local shell command from a workspace-relative directory. The command may inspect or modify the machine; it is bounded by a timeout and output limit.", SEATBELT_INSTRUCTIONS));
+  for (const name of ["read_file", "list_directory", "search_files", "write_file", "edit_file", "shell_exec"]) {
+    if (!before.has(name)) continue;
+    const value = before.get(name)!; const split = value.indexOf("\n\n{");
+    let description = value.slice(0, split); const schema = JSON.parse(value.slice(split + 2));
+    schema.properties.directory = { type: "string", ...(name === "shell_exec" ? { minLength: 1 } : {}) };
+    if (name !== "shell_exec") description = description.replace(" The path must be relative to the workspace.", "")
+      .replace("; the path must be relative to the workspace.", ".")
+      .replace("The path must be relative to the workspace and defaults to the workspace root;", "The path defaults to the selected root;") + DIRECTORY_FILE_INSTRUCTIONS;
+    before.set(name, description + "\n\n" + JSON.stringify(schema, null, 2));
+  }
   assert.deepEqual(after, before);
   const system = (text: string) => text.split("## message 0 system\n\n")[1]!.split(/\n\n(?:## message|# \/modules)/)[0]!;
   let oldSystem = system(baseline).replace(/In automatic memory mode,[\s\S]*?Active injected Memory overrides conflicting older transcript\/compaction, while the latest user request remains authoritative\./, "");
@@ -170,6 +181,8 @@ function assertStep3Assembly(actual: string, baseline: string, autonomous = fals
     .replace(/When shell_exec is available,[\s\S]*?Do not use shell_exec when it is not enabled\. /, SEATBELT_INSTRUCTIONS + " ")
     .replace("Local shell_exec is not pre-authorized: each command is still shown to the user for confirmation, so run only the commands the task needs.", "Desktop and bound Telegram autonomous shell_exec use the same module Seatbelt policy without per-command confirmation. Explicitly selected host Shell still requires confirmation for every command. Run only commands the task needs.")
     .replace("Other tools retain their own permissions. Local Shell has the process's host permissions; the workspace is not an OS sandbox.", "Other tools retain their own permissions. Host Shell has the process's host permissions; its workspace is not an OS sandbox. Network commands require an explicitly selected host Run and per-command confirmation.");
+  oldSystem = oldSystem.replace("with a workspace-relative path to find and read files", "with an authorized absolute path or an explicit project/directory-relative path to find and read files")
+    .replace("All file paths are relative to the configured workspace, not the application's source repository or previous test fixtures.", "Relative file paths use the explicit project or selected directory. Without an explicit base and with several authorized directories, ask the user to choose a directory.");
   const newSystem = system(actual).replace(autonomous ? MEMORY_READ_INSTRUCTIONS : MEMORY_READ_INSTRUCTIONS + MEMORY_PRIMARY_WRITE_INSTRUCTIONS, "");
   assert.equal(newSystem, oldSystem);
   const section = (text: string, title: string) => text.split(`# ${title}\n\n`)[1]!.split(/\n\n# /)[0]!;

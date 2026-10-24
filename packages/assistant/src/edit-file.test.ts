@@ -1,3 +1,4 @@
+import { createTestDirectoryAccess } from "./testing.js";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
@@ -131,7 +132,7 @@ describe("createEditFileTool", () => {
   it("exposes the frozen input and output contract", async () => {
     const directory = await workspace();
     await writeFile(join(directory, "text.txt"), "hello", "utf8");
-    const editFile = createEditFileTool(directory);
+    const editFile = createEditFileTool(createTestDirectoryAccess(directory));
     assert.ok(editFile.execute);
     assert.deepEqual(
       await editFile.execute(

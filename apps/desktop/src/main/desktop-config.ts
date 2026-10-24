@@ -41,7 +41,7 @@ export function withDesktopTimeouts(
     config: {
       ...config,
       version: 1,
-      ...(workspace !== undefined && typeof config.authorizedDirectory !== "string" ? { authorizedDirectory: workspace } : {}),
+      ...(workspace !== undefined && config.authorizedDirectories === undefined ? { authorizedDirectories: [{ path: workspace, access: "readwrite" }] } : {}),
       run,
       modules,
     },
@@ -65,7 +65,8 @@ export function defaultDesktopConfig(workspace?: string): Record<string, unknown
   }
   return {
     version: 1,
-    ...(workspace === undefined ? {} : { authorizedDirectory: workspace }),
+    projectDirectory: workspace ?? null,
+    ...(workspace === undefined ? {} : { authorizedDirectories: [{ path: workspace, access: "readwrite" }] }),
     modules,
     run: { totalTimeoutMs: DESKTOP_DEFAULT_TOTAL_TIMEOUT_MS },
     contextCompaction: defaultContextBudget(),

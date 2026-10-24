@@ -9,7 +9,7 @@ export function HerdrTargetSetting({ info, busy }: { info: AppInfo; busy: boolea
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   if (typeof window === "undefined" || !window.runloom.listHerdrSessions || !window.runloom.listHerdrPanes || !window.runloom.setHerdrTarget) return null;
-  const locked = busy || loading || !!info.runtimeRecovery || !info.authorizedDirectory;
+  const locked = busy || loading || !!info.runtimeRecovery || !info.projectDirectory;
   const perform = async (action: () => Promise<void>) => {
     setLoading(true); setError(null);
     try { await action(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }

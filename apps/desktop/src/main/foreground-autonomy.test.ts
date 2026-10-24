@@ -33,7 +33,7 @@ async function until(check: () => boolean, message = "state timeout") {
 async function fixture() {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-autonomy-")));
   const workspace = join(root, "workspace"), configPath = join(root, "config.json"); await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { shell: { enabled: true, timeoutMs: 2000 }, "read-file": { enabled: true } }, run: { maxSteps: 2, totalTimeoutMs: 10_000 }, automation: { hooks: [] } }));
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { shell: { enabled: true, timeoutMs: 2000 }, "read-file": { enabled: true } }, run: { maxSteps: 2, totalTimeoutMs: 10_000 }, automation: { hooks: [] } }));
   return { root, workspace, configPath };
 }
 

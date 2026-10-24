@@ -1,9 +1,11 @@
 import { constants } from "node:fs";
 import { lstat, open, realpath, rename, unlink } from "node:fs/promises";
-import { dirname, basename, join } from "node:path";
+import { dirname, basename, join, isAbsolute } from "node:path";
 import { randomUUID } from "node:crypto";
 import { computerConfigSchema, acquireFlock } from "@serika/assistant";
 import { BUILTIN_MODULE_IDS, resolveTuiModuleConfig, type BuiltinModuleId } from "@serika/assistant";
+
+import type { DirectoryAuthorization, DirectorySettingsInput } from "../shared/ui-contract.js";
 
 export interface ModuleSettingInput { id: BuiltinModuleId; enabled: boolean; expectedEnabled: boolean }
 export interface AutonomySettingInput { enabled: boolean; expectedEnabled: boolean }
@@ -108,12 +110,26 @@ export async function changeModuleSetting(configPath: string, input: ModuleSetti
   return result.rollback ?? (async () => {});
 }
 
+export async function changeDirectorySettings(configPath: string, input: DirectorySettingsInput, options: { cwd: string; dataDirectory?: string }): Promise<() => Promise<void>> {
+  const validDirectories = (value: unknown): value is DirectoryAuthorization[] => Array.isArray(value) && value.every(item => item && typeof item === "object" && !Array.isArray(item) && Object.keys(item).every(key => ["path", "access"].includes(key)) && typeof item.path === "string" && isAbsolute(item.path) && (item.access === "read" || item.access === "readwrite"));
+  if (!input || typeof input !== "object" || Object.keys(input).some(key => !["directories", "expectedDirectories"].includes(key)) || !validDirectories(input.directories) || !validDirectories(input.expectedDirectories)) throw new Error("目录授权参数无效，请使用绝对路径并选择读或读写");
+  const result = await updateDesktopConfig(configPath, options.cwd, async (text, path) => {
+    const current = await resolveTuiModuleConfig({ configPath: path, ...(options.dataDirectory ? { dataDirectory: options.dataDirectory } : {}) }, { cwd: options.cwd });
+    if (JSON.stringify(current.authorizedDirectories) !== JSON.stringify(input.expectedDirectories)) throw new Error("目录授权已变化，请重新加载后再操作");
+    const config = JSON.parse(text!);
+    config.authorizedDirectories = input.directories;
+    config.projectDirectory = current.projectDirectory;
+    return JSON.stringify(config, null, 2) + "\n";
+  }, options.dataDirectory ? { dataDirectory: options.dataDirectory } : {});
+  return result.rollback ?? (async () => {});
+}
+
 /** Directory binding is captured from the host, never a renderer path. */
 export async function changeAutonomySetting(configPath: string, input: AutonomySettingInput, cwd: string, directory: string | null): Promise<() => Promise<void>> {
   if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some(key => !["enabled", "expectedEnabled"].includes(key)) || typeof input.enabled !== "boolean" || typeof input.expectedEnabled !== "boolean") throw new Error("自主执行开关参数无效");
   return changeConfig(configPath, cwd, async (before, path) => {
     const current = await resolveTuiModuleConfig({ configPath: path }, { cwd });
-    if (!directory || current.authorizedDirectory !== directory) throw new Error("工作区已变化，请重新连接后核对授权");
+    if (!directory || current.projectDirectory !== directory) throw new Error("工作区已变化，请重新连接后核对授权");
     const enabled = !!current.desktopAutonomy && !current.shellSandbox;
     if (enabled !== input.expectedEnabled) throw new Error("自主执行配置已变化，请刷新后再操作");
     if (input.enabled && current.shellSandbox) throw new Error("本机自主执行需要本机 Shell 模式；不会替换 Docker 配置");
@@ -134,7 +150,7 @@ export async function changeTelegramAutonomySetting({ configPath, input, cwd, bi
       input.expectedOwner.userId !== binding.userId || input.expectedOwner.chatId !== binding.chatId || input.expectedOwner.threadId !== binding.threadId) throw new Error("Telegram 绑定已变化或授权参数无效，请刷新后核对");
   return changeConfig(configPath, cwd, async (before, path) => {
     const current = await resolveTuiModuleConfig({ configPath: path }, { cwd });
-    if (current.authorizedDirectory !== binding.directory) throw new Error("工作区已变化，请重新连接后核对授权");
+    if (current.projectDirectory !== binding.directory) throw new Error("工作区已变化，请重新连接后核对授权");
     const saved = current.telegramAutonomy;
     const enabled = !state.paused && !!saved && !current.shellSandbox && Object.keys(binding).every(key => saved[key as keyof typeof saved] === binding[key as keyof typeof binding]);
     if (enabled !== input.expectedEnabled || state.enabled !== input.expectedEnabled) throw new Error("Telegram 自主执行配置已变化，请刷新后再操作");

@@ -33,7 +33,7 @@ async function assembledTree(modules: Record<string, unknown>, explicitDirectory
   const workspace = join(root, "workspace");
   await mkdir(workspace);
   const configPath = join(root, "config.json");
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules }));
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules }));
   const app = await createRuntimeApp({
     ...(explicitDirectory ? { directory: join(root, "transcripts") } : {}),
     assistant: { dataDirectory: join(root, "data"), threadId: "baseline", configPath },

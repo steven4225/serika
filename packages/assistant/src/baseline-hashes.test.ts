@@ -19,7 +19,7 @@ import type { WorkTask, WorkTaskStore } from "./work-task-store.js";
 import type { ExecutionRecordStore, ExecutionRunRecord } from "./execution-record-store.js";
 import { taskResultLink, taskResultWorkspaceKey } from "./task-result-link.js";
 import { createTaskWorkerService } from "./task-worker-service.js";
-import { createExecutionRecordStore, createWorkTaskStore, createWriteFileTool } from "./testing.js";
+import { createExecutionRecordStore, createWorkTaskStore, createWriteFileTool, createTestDirectoryAccess } from "./testing.js";
 
 /**
  * v2 pilot step 1 baseline (docs/architecture-v2.md §4.4, docs/v2-pilot/hashes.md):
@@ -80,7 +80,7 @@ async function samples(): Promise<Record<string, string>> {
     workerEntryPath: "/opt/worker.js", workingDirectory: "/opt", launchAgentsDirectory: "/tmp/LaunchAgents", uid: 501,
     platform: "darwin", runner: async () => ({ exitCode: 0, stdout: "", stderr: "" }) } as Parameters<typeof createTaskWorkerService>[0]).plistPath);
   out["write_file receipt sha256"] = await withRoot(async root => {
-    const write = createWriteFileTool(root);
+    const write = createWriteFileTool(createTestDirectoryAccess(root));
     const result = await write.execute!({ path: "a.md", content: "你好\n" }, { toolCallId: "c1", messages: [], context: {} }) as { sha256?: string };
     return String(result.sha256);
   });

@@ -1,3 +1,4 @@
+import { createTestDirectoryAccess } from "./testing.js";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -147,7 +148,7 @@ describe("createListDirectoryTool", () => {
   it("exposes the optional path input and structured output contract", async () => {
     const directory = await workspace();
     await writeFile(join(directory, "file.txt"), "hello");
-    const listDirectory = createListDirectoryTool(directory);
+    const listDirectory = createListDirectoryTool(createTestDirectoryAccess(directory));
 
     assert.deepEqual(
       await listDirectory.execute!({}, {

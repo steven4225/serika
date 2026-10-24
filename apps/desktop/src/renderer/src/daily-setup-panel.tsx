@@ -24,7 +24,7 @@ export function MemorySetup({ info, busy }: { info: AppInfo; busy: boolean }) {
       <p className="hint">可选择本条消息“不参与记忆”；不会搬动旧对话或修改其他模块；启用后重新加载当前会话。</p>
       <div className="memory-actions"><button disabled={busy || working} onClick={() => void confirm()}>{working ? "正在应用…" : "确认启用"}</button><button className="ghost" disabled={working} onClick={() => { setPreview(false); setError(""); }}>暂不修改</button></div>
     </div>}
-    {!info.workspaceRoot ? <p className="hint">请先在当前配置中设置 authorizedDirectory，再重启。不会自动换到另一个工作区。</p> : null}
+    {!info.workspaceRoot ? <p className="hint">请先在当前配置中设置 projectDirectory，再重启。不会自动换到另一个工作区。</p> : null}
     {!info.configPath ? <p className="hint">当前没有可修改的配置文件。</p> : null}
     {error ? <p className="error" role="alert">{error}。请核对当前配置后重试。</p> : null}
   </div>;

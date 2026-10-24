@@ -1,6 +1,8 @@
 import { lstat, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
+import type { DirectoryAccess } from "./directory-access.js";
 import { tool, type Tool } from "ai";
+import { DIRECTORY_FILE_INSTRUCTIONS, directoryFileExecution, directoryFileOutputSchema, type DirectoryFileFailure } from "./directory-file-tool.js";
 import { z } from "zod";
 import {
   rejectSymlinkComponents,
@@ -172,16 +174,15 @@ const listDirectoryOutputSchema = z.discriminatedUnion("ok", [
   }),
 ]);
 
-export function createListDirectoryTool(
-  workspace: string,
-): Tool<{ path?: string | undefined }, ListDirectoryResult> {
-  const workspaceRoot = resolve(workspace);
+export function createListDirectoryTool(access: DirectoryAccess, directory?: string): Tool<{ path?: string | undefined } & { directory?: string | undefined }, ListDirectoryResult | DirectoryFileFailure> {
+  const inputSchema = z.object({ path: z.string().optional(), directory: z.string().optional() });
   return tool({
-    description:
-      "List one directory below the configured workspace. The path must be relative to the workspace and defaults to the workspace root; results are capped at 200 entries and may be truncated.",
-    inputSchema: z.object({ path: z.string().optional() }),
-    outputSchema: listDirectoryOutputSchema,
-    execute: async ({ path }, { abortSignal }) =>
-      listDirectoryFromWorkspace(workspaceRoot, path ?? ".", abortSignal),
+    description: "List one directory below the configured workspace. The path defaults to the selected root; results are capped at 200 entries and may be truncated." + DIRECTORY_FILE_INSTRUCTIONS,
+    inputSchema,
+    outputSchema: directoryFileOutputSchema(listDirectoryOutputSchema),
+    execute: directoryFileExecution<z.infer<typeof inputSchema>, ListDirectoryResult>({
+      access, directory, write: false,
+      execute: (root, input, signal) => listDirectoryFromWorkspace(root, input.path, signal),
+    }),
   });
 }

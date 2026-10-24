@@ -24,7 +24,7 @@ for (const detachAt of ["executing", "awaiting-approval"] as const) {
     const root = await mkdtemp(`${process.platform === "darwin" ? "/private/tmp" : "/tmp"}/serika-inflight-`);
     const workspace = join(root, "workspace"), applicationHome = join(root, "profile"), configPath = join(root, "config.json");
     await mkdir(workspace);
-    await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace,
+    await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
       modules: { shell: { enabled: true, timeoutMs: 2_000 }, memory: { enabled: false } }, run: { totalTimeoutMs: 5_000 } }));
     const paths = createResidentPaths(applicationHome, join(root, "socket", "host.sock"));
     const scope = { applicationHome, configPath };

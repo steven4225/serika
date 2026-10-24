@@ -1,3 +1,4 @@
+import { DirectoryAccess } from "./directory-access.js";
 import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
 import { Writable } from "node:stream";
@@ -223,7 +224,7 @@ async function buildTable(): Promise<Record<string, string>> {
       directory: WORKSPACE, fileAuthorizations: [],
       shell: { enabled: shell, sandbox: undefined }, web: { enabled: web, searchEnabled: web },
       toolPermissions: createModuleHost([
-        ...(files ? [createReadFileModule(WORKSPACE)] : []),
+        ...(files ? [createReadFileModule(new DirectoryAccess({ load: async () => [{ path: WORKSPACE, access: "readwrite" }], protectedPaths: [] }))] : []),
         ...(web ? [createWebModule({ searchEnabled: true, feedEnabled: true })] : []),
       ], { notify() {} }).toolPermissions,
       report: report ? { configPath: null, directory: WORKSPACE } : undefined, autoApprove: [],

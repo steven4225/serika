@@ -101,7 +101,7 @@ test("a storage home does not grant workspace file access or load old workspace 
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-home-authority-")));
   try {
     const home = await resolveCliHome({ home: join(root, "home") }, { cwd: root, env: {}, initialize: true });
-    await writeFile(home.configPath!, JSON.stringify({ version: 1, authorizedDirectory: root, modules: { memory: { enabled: true }, "read-file": { enabled: true } }, fileAuthorizations: [] }));
+    await writeFile(home.configPath!, JSON.stringify({ version: 1, authorizedDirectories: [{ path: root, access: "readwrite" }], modules: { memory: { enabled: true }, "read-file": { enabled: true } }, fileAuthorizations: [] }));
     const snapshot = await checkTuiStartup(["--home", join(root, "home")], { cwd: root, env: {} });
     assert.equal(readinessExitCode(snapshot), 0);
     await mkdir(join(root, ".runloom"));

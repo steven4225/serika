@@ -32,7 +32,7 @@ test("two assistants assembled in one process keep their data apart", async () =
       const workspace = join(root, "workspace");
       await mkdir(workspace);
       const configPath = join(root, "config.json");
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { memory: { enabled: true } } }));
+      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: true } } }));
       apps.push(await createRuntimeApp({
         directory: join(root, "transcripts"),
         assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "same-thread", configPath },

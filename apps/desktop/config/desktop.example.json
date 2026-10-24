@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "authorizedDirectory": "/absolute/path/to/workspace",
+  "authorizedDirectories": [{ "path": "/absolute/path/to/workspace", "access": "readwrite" }],
   "modules": {
     "pomodoro": { "enabled": true },
     "read-file": { "enabled": true },

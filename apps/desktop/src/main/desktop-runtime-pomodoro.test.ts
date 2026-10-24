@@ -12,7 +12,7 @@ test("host timer survives capability reassembly and Thread switching; only expli
   const root = await mkdtemp(join(tmpdir(), "serika-desktop-timer-lifetime-"));
   const workspace = join(root, "workspace"), configPath = join(root, "config.json");
   await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { pomodoro: { enabled: true }, web: { enabled: false } } }));
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { pomodoro: { enabled: true }, web: { enabled: false } } }));
   let time = 0, timerId = 0, modelCalls = 0;
   const timers = new Map<number, { at: number; callback: () => void }>();
   const notifications: string[] = [];

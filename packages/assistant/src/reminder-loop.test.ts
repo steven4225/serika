@@ -116,7 +116,7 @@ describe("natural-language reminder path", () => {
     const configPath = join(root, "config.json");
     await writeFile(configPath, JSON.stringify({
       version: 1,
-      authorizedDirectory: workspace,
+      authorizedDirectories: [{ path: workspace, access: "readwrite" }],
       modules: { task: { enabled: true } },
     }));
     let calls = 0;

@@ -2,12 +2,12 @@ import type { AppInfo, MainToRenderer, UiSnapshot } from "../shared/ui-contract.
 import type { DesktopRuntime } from "./desktop-runtime.js";
 import type { RuntimeBridge } from "./runtime-bridge.js";
 
-export const RESIDENT_VERSION = 2;
+export const RESIDENT_VERSION = 3;
 export const MAX_RESIDENT_FRAME_BYTES = 16 * 1024 * 1024;
 export const MAX_RESIDENT_PENDING = 32;
 
 // Deliberately excludes shutdown, threadActivity, and arbitrary property access.
-export const RESIDENT_HOST_METHODS = ["pomodoro", "exportBackup", "listThreads", "createThread", "selectThread", "enableMemory", "setModuleEnabled", "setAutonomyEnabled", "getComputerConnection", "findComputerDrivers", "checkComputerConnection", "saveComputerConnection", "listHerdrSessions", "listHerdrPanes", "setHerdrTarget", "getLifecycleStatus", "retryConnection", "telegramStatus", "setTelegramEnabled", "setTelegramAutonomyEnabled", "beginTelegramPairing", "confirmTelegramPairing", "reviewTelegramInput", "setTelegramTaskRoute", "retryTelegramDelivery", "resolveTelegramDelivery"] as const satisfies readonly (keyof DesktopRuntime)[];
+export const RESIDENT_HOST_METHODS = ["pomodoro", "exportBackup", "listThreads", "createThread", "selectThread", "enableMemory", "setModuleEnabled", "setAuthorizedDirectories", "setAutonomyEnabled", "getComputerConnection", "findComputerDrivers", "checkComputerConnection", "saveComputerConnection", "listHerdrSessions", "listHerdrPanes", "setHerdrTarget", "getLifecycleStatus", "retryConnection", "telegramStatus", "setTelegramEnabled", "setTelegramAutonomyEnabled", "beginTelegramPairing", "confirmTelegramPairing", "reviewTelegramInput", "setTelegramTaskRoute", "retryTelegramDelivery", "resolveTelegramDelivery"] as const satisfies readonly (keyof DesktopRuntime)[];
 export const RESIDENT_BRIDGE_METHODS = [
   "history", "historyPage", "home", "run", "steer", "cancel", "confirm", "command", "listRuns", "getRun",
   "getContextDiagnostics", "getAutomationDiagnostics", "getAutomationOverview", "scheduleSkill", "changeAutomationSchedule",

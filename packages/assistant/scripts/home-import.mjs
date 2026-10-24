@@ -34,7 +34,7 @@ export function convertImportConfig(original, { authorizedDirectory = null } = {
   const remove = (object, key, field) => { if (object && key in object) { delete object[key]; changes.push({ field, action: 'archived-only' }); } };
   remove(config, 'workspace', 'workspace -> authorizedDirectory');
   remove(config, 'authorizedDirectory', 'previous authorizedDirectory');
-  if (authorizedDirectory !== null) config.authorizedDirectory = authorizedDirectory;
+  if (authorizedDirectory !== null) config.authorizedDirectories = [{ path: authorizedDirectory, access: "readwrite" }];
   for (const field of ['desktopAutonomy', 'telegramAutonomy', 'fileAuthorizations', 'automation', 'herdrBinding']) remove(config, field, field);
   const memory = config.modules?.memory;
   for (const field of ['writePolicy', 'queryRewrite', 'semantic', 'contextView']) remove(memory, field, 'modules.memory.' + field);
@@ -105,7 +105,7 @@ async function buildTarget(source, home, spec, inspection) {
     assert.ok(inspection.files.some(item => item.path === path && item.type === 'directory'), 'Registered Thread directory missing');
     if (!inspection.files.some(item => item.path === path + '/' + sha(thread.threadId) + '.jsonl')) registeredWithoutTranscript.push(thread.threadId);
   }
-  const mappedProfile = { ...profile, configPath: join(home, 'config.json'), workspaceRoot: converted.config.authorizedDirectory ?? null,
+  const mappedProfile = { ...profile, configPath: join(home, 'config.json'), workspaceRoot: converted.config.authorizedDirectories?.[0]?.path ?? null,
     threads: profile.threads.map(thread => ({ ...thread, transcriptDirectory: mapTranscript(thread.transcriptDirectory) })) };
   add('desktop/desktop-identity.json', encoded({ ...identity, profiles: [mappedProfile] }), 'identity.json', 'preserve-thread-ids-remap-paths');
   if (inspection.files.some(item => item.path === 'conversation-drafts.json')) {
@@ -222,7 +222,7 @@ export async function importHome({ source, home, specification, execute = false,
   const rehearsalPlan = await buildTarget(backup, home, spec, backupInspection);
   for (const [path, bytes] of rehearsalPlan.files) await write(join(rehearsal, path), bytes);
   const parsed = await resolveTuiModuleConfig({ configPath: join(rehearsal, 'config.json'), dataDirectory: join(rehearsal, 'data') }, { cwd: rehearsal });
-  assert.equal(parsed.authorizedDirectory, spec.authorizedDirectory ?? null);
+  assert.equal(parsed.authorizedDirectories?.[0]?.path ?? null, spec.authorizedDirectory ?? null);
   await rm(rehearsal, { recursive: true }); await cp(backup, rehearsal, { recursive: true, preserveTimestamps: true, verbatimSymlinks: true });
   assert.deepEqual(await manifest(rehearsal), before, 'Rollback file list/SHA/modes differ');
   assert.equal((await lstat(rehearsal)).mode & 0o7777, rootMode, 'Rollback root mode differs');

@@ -13,7 +13,7 @@ import type { MainToRenderer } from "../shared/ui-contract.js";
 it("formal Memory bridge edits actual current versions, validates IPC, preserves scope and requires reread after a conflict", async () => {
   const root = await mkdtemp(join(tmpdir(), "runloom-formal-bridge-"));
   await mkdir(join(root, "workspace"));
-  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, authorizedDirectory: "./workspace", modules: { memory: { enabled: true } } }));
+  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: { memory: { enabled: true } } }));
   const messages: MainToRenderer[] = [];
   const output = new TeeOutput(message => messages.push(message));
   const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(dirname(join(root, "config.json")), "workspace/.runloom"), threadId: "bridge-a", configPath: join(root, "config.json") }, modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });

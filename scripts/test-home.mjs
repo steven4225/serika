@@ -31,9 +31,10 @@ export async function guardedRun({ home, command, protectedRoot = join(userInfo(
   const output = await mkdtemp(join(isolatedHome, 'write-guard-'));
   const violationFile = join(output, 'violations.jsonl');
   await writeFile(violationFile, '');
+  const recordConcurrentChanges = process.env.SERIKA_B2_RECORD_CONCURRENT_HOME === '1' && realRoot === canonical(join(userInfo().homedir, '.serika'));
   const before = await metadata(realRoot);
   const report = { runId: randomUUID(), startedAt: new Date().toISOString(), home: isolatedHome, protectedRoot: realRoot,
-    command, before, after: null, events: [], exitCode: null, signal: null, status: 'failed' };
+    command, recordConcurrentChanges, before, after: null, events: [], exitCode: null, signal: null, status: 'failed' };
   const watched = before.length ? realRoot : dirname(realRoot);
   let child;
   const pendingChecks = [];
@@ -47,7 +48,7 @@ export async function guardedRun({ home, command, protectedRoot = join(userInfo(
     pendingChecks.push(metadata(realRoot).then(current => {
       if (JSON.stringify(current) === JSON.stringify(before)) return;
       report.events.push({ at: new Date().toISOString(), event, path });
-      stop('SIGTERM');
+      if (!recordConcurrentChanges) stop('SIGTERM');
     }));
   });
   const preload = new URL('./test-home-guard.mjs', import.meta.url).href;
@@ -69,7 +70,7 @@ export async function guardedRun({ home, command, protectedRoot = join(userInfo(
     report.after = await metadata(realRoot);
     report.violations = (await readFile(violationFile, 'utf8')).trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
     report.metadataUnchanged = JSON.stringify(report.before) === JSON.stringify(report.after);
-    report.status = report.exitCode === 0 && report.metadataUnchanged && !report.events.length && !report.violations.length ? 'passed' : 'failed';
+    report.status = report.exitCode === 0 && (recordConcurrentChanges || (report.metadataUnchanged && !report.events.length)) && !report.violations.length ? 'passed' : 'failed';
     report.finishedAt = new Date().toISOString();
     await writeFile(join(output, 'result.json'), JSON.stringify(report, null, 2) + '\n');
     console.log(JSON.stringify({ testHomeGuard: report.status, evidence: join(output, 'result.json'),

@@ -14,7 +14,7 @@ import { readSavedTaskNotice } from "../shared/saved-task-result.js";
 test("desktop unified inbox reads real task results, preserves notification distinction and acknowledges without model Runs", async () => {
   const root = await mkdtemp(join(tmpdir(), "serika-unified-inbox-"));
   const workspace = join(root, "workspace"); await mkdir(workspace);
-  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { task: { enabled: true } } }));
+  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { task: { enabled: true } } }));
   const output = new TeeOutput(() => undefined);
   const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "inbox-thread", configPath: join(root, "config.json") },
     modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });
@@ -57,7 +57,7 @@ test("desktop unified inbox reads real task results, preserves notification dist
 test("saved reminder banner stays readable with task tools disabled and grants no acknowledgement", async () => {
   const root = await mkdtemp(join(tmpdir(), "serika-saved-reminder-disabled-"));
   const workspace = join(root, "workspace"); await mkdir(workspace);
-  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { task: { enabled: false } } }));
+  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { task: { enabled: false } } }));
   const output = new TeeOutput(() => undefined);
   const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "disabled-tools", configPath: join(root, "config.json") },
     modelAlias: "mock", model: createDemoModel(), output, env: {}, cwd: root });

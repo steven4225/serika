@@ -79,7 +79,7 @@ function appWith(overrides: Partial<RuntimeApp> = {}): RuntimeApp {
     threadId: "controller-thread",
     directory: "/private/tmp/controller-transcripts",
     workspaceRoot: undefined,
-    authorizedDirectory: undefined,
+    projectDirectory: undefined,
     moduleConfig: undefined,
     toolConfirmation: undefined,
     commands: undefined,
@@ -119,7 +119,7 @@ describe("AssistantController", () => {
   it("persists WorkTask memory exclusion across restart without excluding later ordinary chat", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-task-memory-exclusion-"));
     const config = join(root, "config.json");
-    await writeFile(config, JSON.stringify({ version: 1, authorizedDirectory: root,
+    await writeFile(config, JSON.stringify({ version: 1, authorizedDirectories: [{ path: root, access: "readwrite" }],
       modules: { memory: { enabled: true, autoConsolidate: true } } }));
     const open = async () => {
       const instance = createAssistantController(await createRuntimeApp({

@@ -81,7 +81,7 @@ else if(name==="get_window_state")console.log(JSON.stringify({pid:123,window_id:
 else process.exit(4);`);
     await chmod(computerDriver, 0o700);
   }
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectory: workspace, modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: shellEnabled }, ...(herdrFixture ? { terminal: { enabled: true, target: { authorizedDirectory: workspace, session: "offline", paneId: "p1", terminalId: "t1" } } } : {}), task: { enabled: true }, ...(computerFixture ? { computer: { enabled: true, executable: computerDriver, allowedBundleIds: ["com.example.Offline"] } } : {}) } }));
+  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: shellEnabled }, ...(herdrFixture ? { terminal: { enabled: true, target: { authorizedDirectory: workspace, session: "offline", paneId: "p1", terminalId: "t1" } } } : {}), task: { enabled: true }, ...(computerFixture ? { computer: { enabled: true, executable: computerDriver, allowedBundleIds: ["com.example.Offline"] } } : {}) } }));
   let calls = 0;
   let time = Date.now(), activations = 0;
   const host = await DesktopRuntime.create({ applicationHome, cwd: root, env: { RUNLOOM_CONFIG: configPath, ...(herdrFixture ? { PATH: bin, HOME: applicationHome } : {}), ...(computerFixture ? { HOME: applicationHome } : {}) }, modelAlias: "mock",

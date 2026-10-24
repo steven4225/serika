@@ -24,7 +24,7 @@ it("an instance without an authorized directory cannot register file tools or en
   const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { configPath, dataDirectory: join(root, "data") },
     modelAlias: "scripted", model, output: new PassThrough(), cwd: root, env: {}, desktopAutonomyHost: { home: join(root, "H") } });
   try {
-    assert.equal(app.authorizedDirectory, undefined); assert.equal(app.desktopAutonomyEnabled, false);
+    assert.equal(app.projectDirectory, undefined); assert.equal(app.desktopAutonomyEnabled, false);
     assert.equal(app.commands?.has("authorize"), false);
     const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId,
       messages: [{ id: "u", role: "user", parts: [{ type: "text", text: "write" }] }] });

@@ -3,7 +3,9 @@ import { constants } from "node:fs";
 import { lstat, open, readdir } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
 import { TextDecoder } from "node:util";
+import type { DirectoryAccess } from "./directory-access.js";
 import { tool, type Tool } from "ai";
+import { DIRECTORY_FILE_INSTRUCTIONS, directoryFileExecution, directoryFileOutputSchema, type DirectoryFileFailure } from "./directory-file-tool.js";
 import { z } from "zod";
 import { READ_FILE_MAX_BYTES } from "./read-file.js";
 import {
@@ -262,7 +264,7 @@ export async function searchFilesInWorkspace(
       try {
         stats = await lstat(entryPath);
         throwIfAborted(abortSignal);
-        if (stats.isSymbolicLink() || !stats.isFile()) {
+        if (stats.isSymbolicLink() || !stats.isFile() || stats.nlink > 1) {
           continue;
         }
         if (stats.size > READ_FILE_MAX_BYTES) {
@@ -357,16 +359,15 @@ const searchFilesOutputSchema = z.discriminatedUnion("ok", [
   }),
 ]);
 
-export function createSearchFilesTool(
-  workspace: string,
-): Tool<SearchFilesInput, SearchFilesResult> {
-  const workspaceRoot = resolve(workspace);
+export function createSearchFilesTool(access: DirectoryAccess, directory?: string): Tool<SearchFilesInput & { directory?: string | undefined }, SearchFilesResult | DirectoryFileFailure> {
+  const inputSchema = z.object({ query: z.string(), path: z.string().optional(), directory: z.string().optional() });
   return tool({
-    description:
-      "Search literal, case-sensitive text in UTF-8 files below the configured workspace. Hidden paths, node_modules, and symbolic links are excluded; results may be truncated by search limits.",
-    inputSchema: z.object({ query: z.string(), path: z.string().optional() }),
-    outputSchema: searchFilesOutputSchema,
-    execute: async ({ query, path }, { abortSignal }) =>
-      searchFilesInWorkspace(workspaceRoot, query, path, abortSignal),
+    description: "Search literal, case-sensitive text in UTF-8 files below the configured workspace. Hidden paths, node_modules, and symbolic links are excluded; results may be truncated by search limits." + DIRECTORY_FILE_INSTRUCTIONS,
+    inputSchema,
+    outputSchema: directoryFileOutputSchema(searchFilesOutputSchema),
+    execute: directoryFileExecution<z.infer<typeof inputSchema>, SearchFilesResult>({
+      access, directory, write: false,
+      execute: (root, input, signal) => searchFilesInWorkspace(root, input.query, input.path, signal),
+    }),
   });
 }

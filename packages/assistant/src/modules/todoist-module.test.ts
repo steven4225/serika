@@ -1,3 +1,4 @@
+import { DirectoryAccess } from "../directory-access.js";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ToolExecutionOptions } from "ai";
@@ -153,7 +154,7 @@ describe("createTodoistModule", () => {
     assert.match(host.instructions("todoist"), /^ When Todoist is available/);
     assert.doesNotMatch(host.instructions("todoist"), /Todoist-to-Markdown|explicit workspace-relative \.md path/);
     host.dispose();
-    const withFiles = createModuleHost([createTodoistModule({ apiToken: "t", timeZone: "Asia/Shanghai" }), createReadFileModule("/tmp")], { notify() {} });
+    const withFiles = createModuleHost([createTodoistModule({ apiToken: "t", timeZone: "Asia/Shanghai" }), createReadFileModule(new DirectoryAccess({ load: async () => [{ path: "/tmp", access: "readwrite" }], protectedPaths: [] }))], { notify() {} });
     assert.ok(withFiles.instructions("todoist").endsWith(` ${todoistPlanSaveInstructions}`));
     withFiles.dispose();
   });

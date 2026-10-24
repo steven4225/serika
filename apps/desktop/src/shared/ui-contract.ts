@@ -84,6 +84,9 @@ export interface ComputerConnectionView { enabled: boolean; executable: string; 
 export interface ComputerConnectionInput { enabled: boolean; executable: string; allowedBundleIds: string[]; expectedRevision: string }
 export type ComputerConnectionCheck = { executable: string; permissions: "not_checked" } & ({ ok: true; apps: string[] } | { ok: false; error: { code: string; message: string } });
 
+export type DirectoryAuthorization = Awaited<ReturnType<typeof import("@serika/assistant").resolveTuiModuleConfig>>["authorizedDirectories"][number];
+export interface DirectorySettingsInput { directories: readonly DirectoryAuthorization[]; expectedDirectories: readonly DirectoryAuthorization[] }
+
 export interface AppInfo {
   terminalTarget?: HerdrTarget;
   memoryLibrary?: true;
@@ -111,7 +114,8 @@ export interface AppInfo {
   /** The transcript directory was created for this process only. */
   temporaryDirectory: boolean;
   workspaceRoot: string | null;
-  authorizedDirectory: string | null;
+  projectDirectory: string | null;
+  authorizedDirectories: readonly DirectoryAuthorization[];
   tuiMode: boolean;
   /** Registered idle commands, without the leading slash. */
   commands: string[];
@@ -146,7 +150,7 @@ export interface UiSnapshot {
 
 export type MainToRenderer =
   | { type: "task-result-available" }
-  | { type: "identity-changed"; info: AppInfo; reason?: "modules" | "context"; configurationError?: string }
+  | { type: "identity-changed"; info: AppInfo; reason?: "modules" | "context" | "directories"; configurationError?: string }
   | { type: "state"; state: UiState }
   | { type: "output"; text: string }
   /** Structured Home; `null` clears the panel while a fresh snapshot is read. */
@@ -230,6 +234,7 @@ export interface RendererApi {
   createThread(options?: { preserveDraft: boolean; taskDraft?: string; chatDraft?: string }): Promise<void>;
   selectThread(threadId: string): Promise<void>;
   enableMemory(): Promise<void>;
+  setAuthorizedDirectories?(input: DirectorySettingsInput): Promise<void>;
   setModuleEnabled?(input: { id: string; enabled: boolean; expectedEnabled: boolean }): Promise<void>;
   getRssSubscriptions(): Promise<RssResult<RssView>>;
   updateRssSubscriptions(input: RssAction): Promise<RssResult<RssView>>;

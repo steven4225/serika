@@ -29,7 +29,7 @@ test("desktop chat preempts real background consolidation without approving tool
   const workspace = join(root, "workspace");
   await mkdir(workspace);
   await writeFile(join(root, "config.json"), JSON.stringify({
-    version: 1, authorizedDirectory: workspace,
+    version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
     modules: { memory: { enabled: true, autoConsolidate: true } },
     contextCompaction: { enabled: false, contextWindowTokens: 32768, maxOutputTokens: 4096, safetyMarginTokens: 1024, summaryMaxOutputTokens: 1024, keepRecentTokens: 8192 },
     run: { totalTimeoutMs: 15_000 },

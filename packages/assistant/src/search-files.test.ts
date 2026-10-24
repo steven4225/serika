@@ -1,3 +1,4 @@
+import { createTestDirectoryAccess } from "./testing.js";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -169,7 +170,7 @@ describe("createSearchFilesTool", () => {
   it("exposes the frozen input and output contract", async () => {
     const directory = await workspace();
     await writeFile(join(directory, "file.txt"), "needle");
-    const searchFiles = createSearchFilesTool(directory);
+    const searchFiles = createSearchFilesTool(createTestDirectoryAccess(directory));
 
     assert.deepEqual(await searchFiles.execute!({ query: "needle" }, {
       toolCallId: "call-search-files",

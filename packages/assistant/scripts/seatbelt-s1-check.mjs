@@ -107,13 +107,15 @@ if (args.includes('--child')) {
   const target = spawn(process.execPath, ['-e', 'process.on("SIGUSR2",()=>{});setInterval(()=>{},1000)', '--', '--home', home],
     { env: { ...env, PROBE_CREDENTIAL_CANARY: randomUUID() }, stdio: 'ignore' });
   const targetExit = new Promise(done => target.once('exit', done));
-  const scope = { home, configPath: join(directory, 'trusted[1].json'), protectedPaths: [home, plan.sensitive, join(directory, 'H'), join(directory, 'Library'), join(directory,'trusted-parent/nested')] };
+  const { DirectoryAccess } = await import('../dist/directory-access.js');
+  const directories = [{ path: directory, access: "readwrite" }];
+  const scope = { directories: new DirectoryAccess({ load: async () => directories, protectedPaths: [] }), home, configPath: join(directory, 'trusted[1].json'), protectedPaths: [home, plan.sensitive, join(directory, 'H'), join(directory, 'Library'), join(directory,'trusted-parent/nested')] };
   const execution = {timeoutMs: 30_000, maxOutputBytes: 65536, killGraceMs: 250};
   const { SeatbeltShellRunner } = await import('../dist/modules/seatbelt-shell-runner.js');
   const runner = new SeatbeltShellRunner(scope);
   const {seatbeltPolicy} = await import('../dist/modules/seatbelt-policy.js');
   report.expandedSensitiveRoots = [...scope.protectedPaths, ...['.serika','.ssh','.aws','.gnupg','Library'].map(name=>join(userInfo().homedir,name))];
-  const referencePolicy = seatbeltPolicy({runtime,directory,temp:join(root,'policy-reference-T'),userHome:userInfo().homedir,protectedPaths:scope.protectedPaths,configPath:scope.configPath});
+  const referencePolicy = seatbeltPolicy({runtime,directories,temp:join(root,'policy-reference-T'),userHome:userInfo().homedir,protectedPaths:scope.protectedPaths,configPath:scope.configPath});
   for(const path of report.expandedSensitiveRoots) assert.ok(referencePolicy.includes('(subpath ' + JSON.stringify(path) + ')'));
   await writeFile(join(output,'policy-reference.sb'),referencePolicy);
   report.policyReference = {file:'policy-reference.sb',sha256:sha(referencePolicy),temporaryDirectoryIsReferenceOnly:true};
