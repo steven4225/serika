@@ -12,9 +12,13 @@ const fixtureRoots = new Set();
 fs.writeFile = async (path, content, ...args) => {
   if (typeof path === 'string' && [...fixtureRoots].some(root => path.startsWith(root + '/')) && path.endsWith('.json') && typeof content === 'string') {
     const config = JSON.parse(content);
-    if (config.version === 1 && typeof config.authorizedDirectory === 'string') {
-      config.authorizedDirectories = [{ path: config.authorizedDirectory, access: 'readwrite' }];
-      delete config.authorizedDirectory;
+    if (config.version === 1 && ('modules' in config || 'authorizedDirectory' in config)) {
+      config.version = 2;
+      if (typeof config.authorizedDirectory === 'string') {
+        config.projectDirectory = config.authorizedDirectory;
+        config.authorizedDirectories = [{ path: config.authorizedDirectory, access: 'readwrite' }];
+        delete config.authorizedDirectory;
+      }
       content = JSON.stringify(config);
     }
   }

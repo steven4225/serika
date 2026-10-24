@@ -259,7 +259,7 @@ async function scenario(root: string, fault: Scenario, mode: ModelMode) {
   await mkdir(join(root, "workspace/notes"), { recursive: true });
   await mkdir(join(root, "workspace/protected"));
   await writeFile(join(root, "workspace", SENTINEL), "DO_NOT_MODIFY\n");
-  await save(root, "config.json", { version: 1, authorizedDirectories: [{ path: join(root, "workspace"), access: "readwrite" }], modules: { "read-file": { enabled: true } } });
+  await save(root, "config.json", { version: 2, authorizedDirectories: [{ path: join(root, "workspace"), access: "readwrite" }], modules: { "read-file": { enabled: true } } });
   async function launch(recovering: boolean) {
     const proc = spawn(process.execPath, [fileURLToPath(import.meta.url), "--child", root, fault, mode, recovering ? "recover" : "crash"],
       { env: process.env, stdio: ["ignore", "pipe", "pipe", "ipc"] });

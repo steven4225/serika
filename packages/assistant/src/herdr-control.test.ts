@@ -26,7 +26,7 @@ else if(args[3]==='send-keys')console.log(JSON.stringify({result:{type:'ok'}}));
 else console.log(JSON.stringify({result:{type:args[3]==='prompt'?'agent_prompted':'agent_info',agent}}));`);
   await chmod(join(bin, "herdr"), 0o700);
   const configPath = join(root, "config.json");
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: directory, access: "readwrite" }],
+  await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: directory, access: "readwrite" }],
     desktopAutonomy: { authorizedDirectory: directory },
     telegramAutonomy: { authorizedDirectory: directory, botId: 1, userId: 2, chatId: 3, threadId: "thread" },
     modules: { terminal: { enabled: true, target } } }));

@@ -70,7 +70,7 @@ it(`task lifecycle acceptance (${model}): command → worker → inbox → ack �
     }
 
     try {
-      await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, modules: { task: { enabled: true } } }));
+      await writeFile(join(root, "config.json"), JSON.stringify({ version: 2, modules: { task: { enabled: true } } }));
       const prompt = "Reply with only these two words: acceptance passed";
       const createdText = await command(`create ${new Date(Date.now() + 500).toISOString()} ${prompt}`);
       assert.match(createdText, /^Task created: /);

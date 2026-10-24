@@ -163,7 +163,7 @@ describe("persisted desktop Steer session", () => {
 it("uses real same-Run steering receipts after full DesktopRuntime and draft-store reconstruction", async () => fixture(async root => {
   const workspace = join(root, "workspace"), applicationHome = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { "read-file": { enabled: true }, memory: { enabled: false } }, run: { totalTimeoutMs: 15_000 } }));
+  await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { "read-file": { enabled: true }, memory: { enabled: false } }, run: { totalTimeoutMs: 15_000 } }));
   let calls = 0;
   const model = new MockLanguageModelV3({ doStream: async () => {
     calls++;

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "@serika/assistant/testing";
 import { defaultContextBudget } from "@serika/assistant";
+import { safeStartupError } from "./desktop-env.js";
 import { changeModuleSetting } from "./module-settings.js";
 import {
   DESKTOP_DEFAULT_SHELL_TIMEOUT_MS,
@@ -16,12 +17,26 @@ import {
 } from "./desktop-config.js";
 
 describe("desktop TUI config", () => {
+  it("surfaces the v1 upgrade instruction without rewriting the configuration", async () => {
+    const root = await mkdtemp(join(tmpdir(), "serika-desktop-v1-"));
+    const configPath = join(root, "config.json");
+    const original = JSON.stringify({ version: 1, authorizedDirectory: root, modules: {} });
+    await writeFile(configPath, original);
+    try {
+      await assert.rejects(resolveDesktopConfig({ env: {}, applicationHome: root }), error => {
+        assert.ok(error instanceof Error);
+        assert.equal(safeStartupError(error, {}), "Runtime 无法启动：配置为 v1，请运行 node packages/assistant/scripts/config-upgrade.mjs --config <配置文件> --upgrade 升级");
+        return true;
+      });
+      assert.equal(await readFile(configPath, "utf8"), original);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
   it("explicitly enables automatic source-checked memory without replacing existing module settings", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-enable-memory-"));
     try {
       const workspace = join(root, "workspace"); await mkdir(workspace);
       const configPath = join(root, "config.json");
-      const config = { version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: {
+      const config = { version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: {
         memory: { enabled: false, autoConsolidate: false },
         shell: { enabled: false, timeoutMs: 45_000 }, pomodoro: { enabled: false },
       }, run: { maxSteps: 6 } };
@@ -32,10 +47,10 @@ describe("desktop TUI config", () => {
         memory: { enabled: true, autoConsolidate: true },
       } });
       // Missing modules is a valid legacy config, not a reason to report an empty/disabled module forever.
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }] }));
+      await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }] }));
       await enableDesktopMemory(configPath);
       assert.equal(JSON.parse(await readFile(configPath, "utf8")).modules.memory.enabled, true);
-      const invalid = JSON.stringify({ version: 1 });
+      const invalid = JSON.stringify({ version: 2 });
       await writeFile(configPath, invalid);
       await assert.rejects(enableDesktopMemory(configPath), /projectDirectory/i);
       assert.equal(await readFile(configPath, "utf8"), invalid);
@@ -69,7 +84,7 @@ describe("desktop TUI config", () => {
 
   it("fills missing timeouts without changing explicit values", () => {
     const { config, patched } = withDesktopTimeouts({
-      version: 1,
+      version: 2,
       modules: { shell: { enabled: true, timeoutMs: 45_000 } },
       run: { maxSteps: 8 },
     });
@@ -84,7 +99,7 @@ describe("desktop TUI config", () => {
     try {
       const workspace = join(root, "workspace"); await mkdir(workspace);
       const configPath = join(root, "config.json");
-      const config = { version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: true, autoConsolidate: true }, shell: { enabled: false } } };
+      const config = { version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: true, autoConsolidate: true }, shell: { enabled: false } } };
       await writeFile(configPath, JSON.stringify(config));
       await resolveDesktopConfig({ env: {}, applicationHome: root, cwd: root });
       assert.deepEqual(JSON.parse(await readFile(configPath, "utf8")).modules.memory, config.modules.memory);
@@ -113,7 +128,7 @@ describe("desktop TUI config", () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-disabled-"));
     try {
       const configPath = join(root, "config.json");
-      await writeFile(configPath, JSON.stringify({ version: 1, modules: {}, contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: false } }));
+      await writeFile(configPath, JSON.stringify({ version: 2, modules: {}, contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: false } }));
       await resolveDesktopConfig({ env: {}, applicationHome: root });
       const config = JSON.parse(await readFile(configPath, "utf8"));
       assert.equal(config.contextCompaction.enabled, false);
@@ -129,7 +144,7 @@ describe("desktop TUI config", () => {
         { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, summaryMaxOutputTokens: 4096 },
         ({ ...defaultContextBudget(), inputBudgetTokens: 400_000, keepRecentTokens: 64_000, summaryMaxOutputTokens: 8_000 }),
       ]) {
-        await writeFile(configPath, JSON.stringify({ version: 1, modules: {}, contextCompaction }));
+        await writeFile(configPath, JSON.stringify({ version: 2, modules: {}, contextCompaction }));
         await resolveDesktopConfig({ env: {}, applicationHome: root });
         const config = JSON.parse(await readFile(configPath, "utf8"));
         assert.deepEqual(config.contextCompaction, contextCompaction);
@@ -162,7 +177,7 @@ describe("desktop TUI config", () => {
     try {
       const workspace = join(root, "workspace"); await mkdir(workspace);
       const configPath = join(root, "config.json");
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: false }, pomodoro: { enabled: true }, shell: { enabled: false } } }));
+      await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: false }, pomodoro: { enabled: true }, shell: { enabled: false } } }));
       await Promise.all([
         resolveDesktopConfig({ env: {}, applicationHome: root, cwd: root }),
         enableDesktopMemory(configPath, root),

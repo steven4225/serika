@@ -58,7 +58,7 @@ export async function prepareRecoveryProfile(options: { root: string; applicatio
     if ((existing.projectDirectory ?? existing.authorizedDirectories?.[0]?.path) !== workspaceRoot) throw new Error("已有恢复配置归属不匹配");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    await writePrivate(configPath, { version: 1, projectDirectory: workspaceRoot, authorizedDirectories: [{ path: workspaceRoot, access: "readwrite" }], modules: { "read-file": { enabled: true }, memory: { enabled: true, autoConsolidate: false },
+    await writePrivate(configPath, { version: 2, projectDirectory: workspaceRoot, authorizedDirectories: [{ path: workspaceRoot, access: "readwrite" }], modules: { "read-file": { enabled: true }, memory: { enabled: true, autoConsolidate: false },
       shell: { enabled: false }, task: { enabled: true }, checkpoint: { enabled: true }, pomodoro: { enabled: true } } });
   }
   const scope = { applicationHome: options.root, cwd: options.cwd, configPath, workspaceRoot };

@@ -90,7 +90,7 @@ async function fixture(hooks: HookRule[] | null = [], withExternalSkill = false,
     await writeFile(join(directory, "SKILL.md"), kind === "text" ? TEXT_INSTRUCTIONS : MEMORY_INSTRUCTIONS);
   }
   const configPath = join(root, "config.json");
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: {
+  await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: {
     memory: { enabled: true, autoConsolidate: true }, checkpoint: { enabled: true },
   }, ...(compact ? { contextCompaction: { enabled: true, contextWindowTokens: 30000, maxOutputTokens: 1024,
     safetyMarginTokens: 512, keepRecentTokens: 256, summaryMaxOutputTokens: 1024 } } : {}),

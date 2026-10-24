@@ -1,6 +1,7 @@
 {
-  "version": 1,
-  "authorizedDirectory": "../var/personal-workspace",
+  "version": 2,
+  "projectDirectory": "../var/personal-workspace",
+  "authorizedDirectories": [{ "path": "../var/personal-workspace", "access": "readwrite" }],
   "modules": {
     "read-file": { "enabled": true },
     "memory": { "enabled": true, "autoConsolidate": false },
@@ -10,7 +11,7 @@
   "fileAuthorizations": [],
   "contextCompaction": {
     "enabled": true,
-    "contextWindowTokens": 32768,
+    "modelContextWindowTokens": 32768,
     "maxOutputTokens": 4096,
     "safetyMarginTokens": 1024,
     "keepRecentTokens": 8192,

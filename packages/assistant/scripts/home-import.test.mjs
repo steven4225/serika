@@ -73,7 +73,7 @@ test('source drift and undeclared scope fail without creating a target', async (
     await assert.rejects(readFile(join(f.home, 'imports/receipt.json')), { code: 'ENOENT' });
     await assert.rejects(importHome({ ...f, home: resolve(process.env.HOME, '.serika') }), /Daily data/);
     const config = convertImportConfig({ version: 1, workspace: '/old', telegramAutonomy: { workspaceRoot: '/old' }, modules: { memory: { writePolicy: 'automatic', autoConsolidate: true } } }, { authorizedDirectory: '/explicit' });
-    assert.equal(config.config.authorizedDirectories[0].path, '/explicit'); assert.equal(config.config.telegramAutonomy, undefined);
+    assert.equal(config.config.version, 2); assert.equal(config.config.authorizedDirectories[0].path, '/explicit'); assert.equal(config.config.telegramAutonomy, undefined);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 

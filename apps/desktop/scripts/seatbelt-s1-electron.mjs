@@ -37,7 +37,7 @@ for (const [name,host] of [['UDP4','127.0.0.1'],['UDP6','::1']]) {
 }
 await writeFile(planPath,json(plan));
 const userhome=join(root,'userhome'); await mkdir(userhome);
-await writeFile(join(home,'config.json'),json({version:1,authorizedDirectory:directory,desktopAutonomy:{authorizedDirectory:directory},modules:{shell:{enabled:true},'read-file':{enabled:true},memory:{enabled:false}},automation:{hooks:[]}}),{mode:0o600});
+await writeFile(join(home,'config.json'),json({version:2,authorizedDirectory:directory,desktopAutonomy:{authorizedDirectory:directory},modules:{shell:{enabled:true},'read-file':{enabled:true},memory:{enabled:false}},automation:{hooks:[]}}),{mode:0o600});
 await writeFile(join(home,'test.env'),'RUNLOOM_MODEL=mock\n',{mode:0o600});
 const env=Object.fromEntries(['PATH','USER','LOGNAME','LANG','LC_ALL','TMPDIR'].flatMap(name=>process.env[name]?[[name,process.env[name]]]:[]));
 Object.assign(env,{HOME:userhome,XDG_CONFIG_HOME:join(userhome,'.config'),XDG_CACHE_HOME:join(userhome,'.cache'),RUNLOOM_MODEL:'mock',RUNLOOM_DESKTOP_TEST:'1',

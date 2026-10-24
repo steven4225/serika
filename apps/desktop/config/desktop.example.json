@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "authorizedDirectories": [{ "path": "/absolute/path/to/workspace", "access": "readwrite" }],
   "modules": {
     "pomodoro": { "enabled": true },

@@ -55,11 +55,11 @@ test("trusted pricing config validates exact models, rejects duplicate rates and
   const f = await fixture();
   try {
     const path = join(f.directory, "config.json");
-    await writeFile(path, JSON.stringify({ version: 1, modules: {}, modelPricing: [price] }));
+    await writeFile(path, JSON.stringify({ version: 2, modules: {}, modelPricing: [price] }));
     assert.deepEqual((await readTuiModuleConfig(path)).modelPricing, [price]);
-    await writeFile(path, JSON.stringify({ version: 1, modules: {}, modelPricing: [price, price] }));
+    await writeFile(path, JSON.stringify({ version: 2, modules: {}, modelPricing: [price, price] }));
     await assert.rejects(readTuiModuleConfig(path), /schema/);
-    await writeFile(path, JSON.stringify({ version: 1, modules: {} }));
+    await writeFile(path, JSON.stringify({ version: 2, modules: {} }));
     assert.equal((await readTuiModuleConfig(path)).modelPricing, undefined);
   } finally { await f.cleanup(); }
 });
@@ -212,7 +212,7 @@ test("Demo: real Controller records chat/consolidation, compactor usage and summ
   const f = await fixture();
   const workspace = join(f.directory, "workspace"), directory = join(f.directory, "transcripts"), config = join(f.directory, "config.json");
   await mkdir(workspace);
-  await writeFile(config, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: true, autoConsolidate: true } },
+  await writeFile(config, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: true, autoConsolidate: true } },
     contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled: true, keepRecentTokens: 20 }, modelPricing: [price] }));
   let userId = "";
   const model = new MockLanguageModelV3({ doGenerate: async () => response('{"queries":["咖啡"]}'), doStream: async options => {

@@ -17,7 +17,7 @@ test("production five-layer runtime persists references, reopens the same prefix
   const root = await mkdtemp(join(tmpdir(), "serika-five-layer-"));
   const workspace = join(root, "workspace"), configPath = join(root, "config.json"), directory = join(root, "transcripts");
   await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: true, autoConsolidate: true } },
+  await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: true, autoConsolidate: true } },
     automation: { dreaming: { enabled: true } }, desktopAutonomy: { authorizedDirectory: workspace } }));
   const store = createMemoryStore(join(workspace, ".runloom/memory.json")), documentId = randomUUID();
   assert.ok((await store.changeLibrary!({ operation: "save-document", id: documentId, title: "reference document", text: "DOCUMENT_BODY_ONLY_ON_READ", folderId: null, expectedRevision: 0, entries: [] })).ok);

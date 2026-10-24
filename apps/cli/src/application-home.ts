@@ -25,7 +25,7 @@ export async function resolveCliHome(args: TuiArgs, options: {
     catch (error) { if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error; }
     if (file) {
       try {
-        await file.writeFile(JSON.stringify({ version: 1, modules: {
+        await file.writeFile(JSON.stringify({ version: 2, modules: {
           pomodoro: { enabled: true }, memory: { enabled: true, autoConsolidate: false }, task: { enabled: true },
         } }, null, 2) + "\n");
         await file.sync();

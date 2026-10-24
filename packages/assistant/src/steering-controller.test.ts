@@ -28,7 +28,7 @@ async function fixture(model: MockLanguageModelV3, autoConsolidate = false) {
   const root = await mkdtemp(join(tmpdir(), "serika-steering-"));
   const workspace = join(root, "workspace"); await mkdir(join(workspace, "notes"), { recursive: true });
   const config = join(root, "config.json");
-  await writeFile(config, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { "read-file": { enabled: true }, memory: { enabled: true, autoConsolidate } }, automation: { hooks: [] } }));
+  await writeFile(config, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { "read-file": { enabled: true }, memory: { enabled: true, autoConsolidate } }, automation: { hooks: [] } }));
   const directory = join(root, "transcripts");
   const open = async () => {
     const output = new PassThrough(); output.resume();

@@ -20,7 +20,7 @@ appendFileSync(${JSON.stringify(log)},JSON.stringify({argv:process.argv.slice(2)
 console.log(JSON.stringify({apps:[{pid:1,bundle_id:'com.apple.TextEdit',running:true},{pid:2,bundle_id:'com.other.App',running:false}]}));
 `);
   await chmod(executable, 0o700);
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: directory, access: "readwrite" }], modules: { computer: { enabled: false } }, automation: { hooks: [] } }));
+  await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: directory, access: "readwrite" }], modules: { computer: { enabled: false } }, automation: { hooks: [] } }));
   const env = { HOME: home, PATH: bin, TEST_API_KEY: "fixture-secret", CUA_DRIVER_AUTO_APPROVE: "1" };
   const options = { configPath, cwd: root, env, directory, dataDirectory: join(home, "data") };
   return { root, directory, home, bin, log, configPath, executable, env, options, connection: new ComputerConnection(options), cleanup: () => rm(root, { force: true, recursive: true }) };

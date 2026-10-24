@@ -33,7 +33,7 @@ describe("normal desktop memory and history entry", () => {
   it("blocks new execution after a post-rename config acknowledgement fault until an explicit reread", async t => {
     const root = await mkdtemp(join(tmpdir(), "serika-config-uncertain-"));
     const workspace = join(root, "workspace"), configPath = join(root, "config.json"); await mkdir(workspace);
-    await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { shell: { enabled: true }, memory: { enabled: false } } }));
+    await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { shell: { enabled: true }, memory: { enabled: false } } }));
     let calls = 0;
     const host = await DesktopRuntime.create({ applicationHome: join(root, "profile"), cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock",
       model: new MockLanguageModelV3({ doStream: async () => { calls++; return response(); } }), send: () => {} });
@@ -59,7 +59,7 @@ describe("normal desktop memory and history entry", () => {
     const root = await mkdtemp(join(tmpdir(), "serika-runtime-workspace-race-"));
     const workspace = join(root, "original"), other = join(root, "other"), configPath = join(root, "config.json");
     await mkdir(workspace); await mkdir(other);
-    const config = { version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: false }, shell: { enabled: false } } };
+    const config = { version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: false }, shell: { enabled: false } } };
     await writeFile(configPath, JSON.stringify(config));
     let calls = 0, switched = false;
     const env: NodeJS.ProcessEnv = { RUNLOOM_CONFIG: configPath };
@@ -243,7 +243,7 @@ describe("normal desktop memory and history entry", () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-desktop-enable-test-"));
     const workspace = join(root, "workspace"); await mkdir(workspace);
     const configPath = join(root, "custom.json");
-    await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: false }, shell: { enabled: false } } }));
+    await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: false }, shell: { enabled: false } } }));
     const host = await DesktopRuntime.create({ applicationHome: join(root, "profile"), cwd: root,
       env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", model: new MockLanguageModelV3({ doStream: async () => response() }), send: () => {} });
     try {
@@ -302,7 +302,7 @@ describe("normal desktop memory and history entry", () => {
     const workspace = join(root, "workspace");
     await mkdir(profile); await mkdir(workspace);
     const configPath = join(profile, "config.json");
-    const legacy = { version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: true, autoConsolidate: true }, shell: { enabled: false, timeoutMs: 45000 } }, run: { totalTimeoutMs: 600000 } };
+    const legacy = { version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: true, autoConsolidate: true }, shell: { enabled: false, timeoutMs: 45000 } }, run: { totalTimeoutMs: 600000 } };
     await writeFile(configPath, JSON.stringify(legacy));
     const options = { applicationHome: profile, cwd: root, env: {}, modelAlias: "mock",
       model: new MockLanguageModelV3({ doStream: async () => response() }), send: () => {} };

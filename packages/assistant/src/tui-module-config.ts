@@ -172,9 +172,9 @@ const fileAuthorizationSchema = z
   })
   .strict();
 
-const tuiModuleConfigV1Schema = z
+const tuiModuleConfigSchema = z
   .object({
-    version: z.literal(1),
+    version: z.literal(2),
     projectDirectory: nonEmptyString.nullable().optional(),
     authorizedDirectories: z.array(z.object({ path: nonEmptyString, access: z.enum(["read", "readwrite"]) }).strict()).optional(),
     modules: z
@@ -213,8 +213,8 @@ const tuiModuleConfigV1Schema = z
   })
   .strict();
 
-export interface TuiModuleConfigV1 {
-  version: 1;
+export interface TuiModuleConfig {
+  version: 2;
   projectDirectory?: string | null | undefined;
   authorizedDirectories?: DirectoryAuthorization[] | undefined;
   modules: {
@@ -429,8 +429,12 @@ async function normalizeShellSandbox(
   };
 }
 
+export class ConfigUpgradeRequiredError extends Error {
+  constructor() { super("配置为 v1，请运行 node packages/assistant/scripts/config-upgrade.mjs --config <配置文件> --upgrade 升级"); }
+}
+
 /** Pure schema read for other trusted hosts; does not resolve unrelated module paths. */
-export async function readTuiModuleConfig(configPath: string): Promise<TuiModuleConfigV1> {
+export async function readTuiModuleConfig(configPath: string): Promise<TuiModuleConfig> {
   let source: string;
   try {
     source = await readFile(configPath, "utf8");
@@ -445,7 +449,12 @@ export async function readTuiModuleConfig(configPath: string): Promise<TuiModule
     throw new Error("Invalid TUI config JSON");
   }
 
+  return parseTuiModuleConfig(value);
+}
+
+export function parseTuiModuleConfig(value: unknown): TuiModuleConfig {
   if (typeof value === "object" && value !== null) {
+    if ("version" in value && value.version === 1) throw new ConfigUpgradeRequiredError();
     const autonomyHasOldField = ["desktopAutonomy" in value ? value.desktopAutonomy : undefined, "telegramAutonomy" in value ? value.telegramAutonomy : undefined].some(grant =>
       typeof grant === "object" && grant !== null && "workspaceRoot" in grant);
     const modules = "modules" in value ? value.modules : undefined;
@@ -455,7 +464,7 @@ export async function readTuiModuleConfig(configPath: string): Promise<TuiModule
     }
   }
 
-  const parsed = tuiModuleConfigV1Schema.safeParse(value);
+  const parsed = tuiModuleConfigSchema.safeParse(value);
   if (!parsed.success) {
     throw new Error("Invalid TUI config schema");
   }

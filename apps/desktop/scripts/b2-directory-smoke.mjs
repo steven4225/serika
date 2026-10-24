@@ -16,7 +16,7 @@ const root = await realpath(await mkdtemp(join(tmpdir(), 'serika-b2-electron-dir
 const home = join(root, 'home'), appHome = join(home, '.serika'), configPath = join(root, 'config.json');
 const first = join(root, 'first'), second = join(root, 'second');
 await Promise.all([home, first, second, evidence].map(path => mkdir(path, { recursive: true })));
-await writeFile(configPath, JSON.stringify({ version: 1, projectDirectory: null, authorizedDirectories: [], modules: { 'read-file': { enabled: true }, memory: { enabled: false }, shell: { enabled: false } } }), { mode: 0o600 });
+await writeFile(configPath, JSON.stringify({ version: 2, projectDirectory: null, authorizedDirectories: [], modules: { 'read-file': { enabled: true }, memory: { enabled: false }, shell: { enabled: false } } }), { mode: 0o600 });
 const envFile = join(root, 'test.env'); await writeFile(envFile, 'RUNLOOM_MODEL=mock\n', { mode: 0o600 });
 const env = Object.fromEntries(['PATH','USER','LOGNAME','TMPDIR','DISPLAY','XAUTHORITY','LANG','LC_ALL','SystemRoot'].flatMap(key => process.env[key] ? [[key, process.env[key]]] : []));
 Object.assign(env, { HOME: home, XDG_CONFIG_HOME: join(home, '.config'), XDG_CACHE_HOME: join(home, '.cache'), RUNLOOM_CONFIG: configPath, RUNLOOM_ENV_FILE: envFile, RUNLOOM_USER_DATA: join(root, 'profile'), RUNLOOM_MODEL: 'mock', RUNLOOM_DESKTOP_TEST: '1', SERIKA_TEST_HOME: root, RUNLOOM_TRANSCRIPTS: join(root, 'transcripts'), RUNLOOM_THREAD: 'b2-electron-directory-probe' });

@@ -12,7 +12,7 @@ import type { MainToRenderer } from "../shared/ui-contract.js";
 it("sends a cleared then a structured Home, and records the same snapshot's CLI text as output", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-home-")));
   const workspace = join(root, "workspace"), configPath = join(root, "config.json"); await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { checkpoint: { enabled: true }, task: { enabled: true } } }));
+  await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { checkpoint: { enabled: true }, task: { enabled: true } } }));
   const events: MainToRenderer[] = [];
   const model = new MockLanguageModelV3({ doStream: async () => { throw new Error("Home must not call a model"); } });
   const host = await DesktopRuntime.create({ applicationHome: join(root, "profile"), cwd: root, env: { RUNLOOM_CONFIG: configPath }, modelAlias: "mock", model, send: message => events.push(message) });

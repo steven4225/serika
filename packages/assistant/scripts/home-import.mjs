@@ -31,6 +31,7 @@ function guardPath(path) {
 
 export function convertImportConfig(original, { authorizedDirectory = null } = {}) {
   const config = structuredClone(original), changes = [];
+  config.version = 2;
   const remove = (object, key, field) => { if (object && key in object) { delete object[key]; changes.push({ field, action: 'archived-only' }); } };
   remove(config, 'workspace', 'workspace -> authorizedDirectory');
   remove(config, 'authorizedDirectory', 'previous authorizedDirectory');

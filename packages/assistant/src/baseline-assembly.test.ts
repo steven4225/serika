@@ -71,7 +71,7 @@ async function capture(modules: Record<string, unknown>, { desktopAutonomy = fal
   const workspace = join(root, "workspace");
   await mkdir(workspace);
   const configPath = join(root, "config.json");
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules, ...(desktopAutonomy ? { desktopAutonomy: { authorizedDirectory: workspace } } : {}) }));
+  await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules, ...(desktopAutonomy ? { desktopAutonomy: { authorizedDirectory: workspace } } : {}) }));
   let request: Parameters<MockLanguageModelV3["doStream"]>[0] | undefined;
   const model = new MockLanguageModelV3({ doStream: async options => {
     request ??= options;

@@ -24,7 +24,7 @@ async function fixture() {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-runtime-ownership-")));
   const workspace = join(root, "workspace"), configPath = join(root, "config.json");
   await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { pomodoro: { enabled: true } } }));
+  await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { pomodoro: { enabled: true } } }));
   const paths = resolveResidentPaths(join(root, "profile"));
   let observed: ResidentServiceState = { ok: true, registered: false, running: false, compatible: true, label: paths.label };
   let enableCalls = 0, disableCalls = 0, modelCalls = 0;

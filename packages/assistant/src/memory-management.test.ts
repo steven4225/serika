@@ -18,7 +18,7 @@ async function setup() {
   const root = await mkdtemp(join(tmpdir(), "runloom-formal-memory-"));
   await mkdir(join(root, "workspace"));
   const config = join(root, "config.json");
-  await writeFile(config, JSON.stringify({ version: 1, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: { memory: { enabled: true } } }));
+  await writeFile(config, JSON.stringify({ version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: { memory: { enabled: true } } }));
   let rewrites = 0; let primary = 0;
   const prompts: string[] = [];
   const model = new MockLanguageModelV3({

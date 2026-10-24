@@ -68,7 +68,7 @@ it("physical compact preserves memory cursor, exact quotes and valid summary; re
     assert.equal(await reopened.getRun("old-write"), undefined);
 
     const config = join(root, "config.json");
-    await writeFile(config, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { "read-file": { enabled: true } } }));
+    await writeFile(config, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { "read-file": { enabled: true } } }));
     await writeFile(join(workspace, "current.md"), "current disk truth");
     let calls = 0;
     const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },

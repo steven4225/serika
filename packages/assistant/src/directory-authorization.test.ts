@@ -10,7 +10,7 @@ import { createRuntimeApp } from "./app.js";
 
 it("an instance without an authorized directory cannot register file tools or enable a foreign grant", async () => {
   const root = await mkdtemp(join(tmpdir(), "serika-no-directory-")), configPath = join(root, "config.json");
-  await writeFile(configPath, JSON.stringify({ version: 1, modules: { memory: { enabled: true } }, desktopAutonomy: { authorizedDirectory: root } }));
+  await writeFile(configPath, JSON.stringify({ version: 2, modules: { memory: { enabled: true } }, desktopAutonomy: { authorizedDirectory: root } }));
   const model = new MockLanguageModelV3({ doStream: async options => {
     assert.ok(options.tools?.every(tool => !["read_file", "write_file", "shell_exec"].includes(tool.name)));
     return { stream: simulateReadableStream({ chunks: [

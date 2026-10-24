@@ -1,6 +1,5 @@
+import { configuredProtectedPaths, isProtectedPath } from "./protected-paths.js";
 import { realpathSync } from "node:fs";
-import { homedir } from "node:os";
-import { fileURLToPath } from "node:url";
 import type { AssistantAssembly } from "./assembly.js";
 import { resolveTuiModuleConfig, type ResolvedTuiModuleConfig } from "./tui-module-config.js";
 import { lstat, realpath } from "node:fs/promises";
@@ -48,9 +47,11 @@ export class DirectoryAccess {
   readonly options: {
     load: () => Promise<readonly DirectoryAuthorization[]>;
     protectedPaths: readonly string[];
+    credentialPaths?: readonly string[];
   };
   constructor(options: DirectoryAccess["options"]) {
-    this.options = { ...options, protectedPaths: options.protectedPaths.map(path => { try { return realpathSync(path); } catch { return resolve(path); } }) };
+    const canonical = (path: string) => { try { return realpathSync(path); } catch { return resolve(path); } };
+    this.options = { ...options, protectedPaths: options.protectedPaths.map(canonical), credentialPaths: (options.credentialPaths ?? []).map(canonical) };
   }
 
   async declarations(): Promise<readonly DirectoryAuthorization[]> {
@@ -90,13 +91,10 @@ export class DirectoryAccess {
     const target = inspected.path;
     const selected = declarations.filter(item => within(item.path, target)).sort((a, b) => b.path.length - a.path.length)[0];
     if (selected === undefined) return deny("PATH_OUTSIDE_WORKSPACE", "Path is outside authorized directories");
-    if (request.write) {
-      if (selected.access === "read") return deny("READ_ONLY_DIRECTORY", "The deepest matching directory is read-only");
-      const control = /(^|\/)Serika[.]command$/.test(target) || /(^|\/)\.git(?:$|\/(?:config$|hooks(?:\/|$)))/.test(target) || /(^|\/)([.]env($|[.])|[.](ssh|aws|gnupg)(\/|$)|[.](netrc|npmrc|pypirc|git-credentials)($|\/)|[.]docker\/config[.]json($|\/))/.test(target);
-      if (control || this.options.protectedPaths.some(path => within(resolve(path), target) || within(target, resolve(path)))) {
-        return deny("PROTECTED_PATH", "Trusted control files and their parent paths cannot be modified");
-      }
+    if (isProtectedPath({ path: target, write: request.write, controlPaths: this.options.protectedPaths, credentialPaths: this.options.credentialPaths ?? [] })) {
+      return deny("PROTECTED_PATH", "Protected credentials cannot be accessed and trusted controls cannot be modified");
     }
+    if (request.write && selected.access === "read") return deny("READ_ONLY_DIRECTORY", "The deepest matching directory is read-only");
     return { ok: true, root: selected.path, target, relativePath: relative(selected.path, target), access: selected.access };
   }
 
@@ -114,15 +112,6 @@ export function configuredDirectoryAccess(options: {
     load: async () => config?.configPath
       ? (await resolveTuiModuleConfig(assembly!, { cwd, todoistTimeZone: options.todoistTimeZone })).authorizedDirectories
       : config?.authorizedDirectories ?? [],
-    protectedPaths: [
-      ...(config?.configPath ? [config.configPath, `${config.configPath}.lock`] : []),
-      ...(options.home ? ["config.json", "config.json.lock", "env"].map(path => resolve(cwd, options.home!, path)) : []),
-      ...["RUNLOOM_ENV_FILE", "RUNLOOM_HOST_ENV_FILE", "RUNLOOM_WORKER_ENV_FILE", "RUNLOOM_NOTIFICATION_HELPER"].flatMap(key => options.env?.[key] ? [resolve(cwd, options.env[key]!)] : []),
-      ...(assembly?.dataDirectory ? [resolve(cwd, assembly.dataDirectory), resolve(cwd, assembly.dataDirectory, "../env")] : []),
-      resolve(homedir(), ".config/serika"), resolve(homedir(), "Applications/Serika-releases"), resolve(homedir(), "Applications/Serika.command"),
-      fileURLToPath(new URL("../../..", import.meta.url)),
-      ...(config?.computer?.executable ? [config.computer.executable] : []),
-      ...(config?.automation?.skills?.map(skill => resolve(cwd, skill.directory)) ?? []),
-    ],
+    ...configuredProtectedPaths(options),
   });
 }

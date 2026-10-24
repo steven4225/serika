@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { defaultContextBudget } from "@serika/assistant";
+import { ConfigUpgradeRequiredError, defaultContextBudget } from "@serika/assistant";
 import { updateDesktopConfig } from "./module-settings.js";
 
 /** Desktop defaults sit above the 30s Shell / 120s Run floors so a >30s task can finish. */
@@ -25,6 +25,7 @@ export function withDesktopTimeouts(
   config: Record<string, unknown>,
   workspace?: string,
 ): { config: Record<string, unknown>; patched: boolean } {
+  if (config.version === 1) throw new ConfigUpgradeRequiredError();
   let patched = false;
   const run = isRecord(config.run) ? { ...config.run } : {};
   if (typeof run.totalTimeoutMs !== "number") {
@@ -40,7 +41,6 @@ export function withDesktopTimeouts(
   return {
     config: {
       ...config,
-      version: 1,
       ...(workspace !== undefined && config.authorizedDirectories === undefined ? { authorizedDirectories: [{ path: workspace, access: "readwrite" }] } : {}),
       run,
       modules,
@@ -64,7 +64,7 @@ export function defaultDesktopConfig(workspace?: string): Record<string, unknown
     modules.checkpoint = { enabled: true };
   }
   return {
-    version: 1,
+    version: 2,
     projectDirectory: workspace ?? null,
     ...(workspace === undefined ? {} : { authorizedDirectories: [{ path: workspace, access: "readwrite" }] }),
     modules,
@@ -107,6 +107,7 @@ export async function resolveDesktopConfig(options: {
       return patched ? `${JSON.stringify(next.config, null, 2)}\n` : undefined;
     }, { allowCreate: true, dataDirectory: join(options.applicationHome, "data") });
   } catch (error) {
+    if (error instanceof ConfigUpgradeRequiredError) throw error;
     throw new Error(`Cannot read or update desktop config ${configPath}; refusing to replace it`, { cause: error });
   }
   return { configPath, generated, patched };

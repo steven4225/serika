@@ -40,7 +40,7 @@ async function prepareRoot(): Promise<{ root: string; workspace: string; transcr
   await mkdir(transcripts);
   const configPath = join(root, "runloom.json");
   await writeFile(configPath, JSON.stringify({
-    version: 1,
+    version: 2,
     authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
     modules: {
       "read-file": { enabled: true },

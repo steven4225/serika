@@ -13,7 +13,7 @@ test("unified controller inbox reads actual deterministic reminders and explicit
   const root = await mkdtemp(join(tmpdir(), "serika-task-inbox-"));
   const workspace = join(root, "workspace"); await mkdir(workspace);
   const config = join(root, "config.json");
-  await writeFile(config, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { task: { enabled: true } } }));
+  await writeFile(config, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { task: { enabled: true } } }));
   const output = new PassThrough(); output.resume();
   const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(workspace, ".runloom"), threadId: "inbox", configPath: config },
     model: createDemoModel(), modelAlias: "mock/default", output, env: {}, cwd: root });

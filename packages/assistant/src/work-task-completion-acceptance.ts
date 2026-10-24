@@ -70,7 +70,7 @@ export async function runCompletionAcceptance(label: "baseline" | "improved") {
     for (const path of readable) {
       try { originals.set(path, await readFile(join(workspace, path), "utf8")); } catch { /* New outputs do not exist yet. */ }
     }
-    const config = { version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { "read-file": { enabled: true }, shell: { enabled: caseId === "WT01", timeoutMs: 60000 } },
+    const config = { version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { "read-file": { enabled: true }, shell: { enabled: caseId === "WT01", timeoutMs: 60000 } },
       run: { maxSteps: 12, totalTimeoutMs: 600000 }, contextCompaction: CONTINUITY_BUDGET };
     await writeFile(join(directory, "config.json"), JSON.stringify(config));
     const output = new PassThrough(); output.resume();

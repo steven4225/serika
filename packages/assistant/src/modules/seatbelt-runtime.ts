@@ -1,3 +1,4 @@
+import { isProtectedPath } from "../protected-paths.js";
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
 import { access, mkdtemp, realpath, rm } from "node:fs/promises";
@@ -42,12 +43,12 @@ export async function resolveSeatbeltRuntime(options: {
   home: string; protectedPaths: readonly string[]; configPath?: string; searchPath?: string;
   probe?: typeof probe;
 }): Promise<SeatbeltRuntime> {
-  const forbidden = [...options.protectedPaths, options.home, ...[".serika", ".ssh", ".aws", ".gnupg", "Library"].map(name => join(userInfo().homedir, name))];
+  const forbidden = [...options.protectedPaths, options.home, ...[".serika", "Library"].map(name => join(userInfo().homedir, name))];
   const check = (path: string, directory = false) => {
     if (!isAbsolute(path) || normalize(path) !== path || path.includes("\0") ||
       forbidden.some(root => within(root, path) || directory && within(path, root)) ||
       options.configPath && (path.startsWith(options.configPath) || directory && within(path, options.configPath)) ||
-      /(^|\/)([.]env($|[.])|[.](ssh|aws|gnupg)(\/|$)|[.](netrc|npmrc|pypirc|git-credentials)($|\/)|[.]docker\/config[.]json($|\/))/.test(path))
+      isProtectedPath({ path, write: true, controlPaths: options.protectedPaths, credentialPaths: [] }))
       throw new Error("Protected Seatbelt runtime path");
   };
   const canonical = async (path: string) => { check(path); const result = await realpath(path); check(result); return result; };

@@ -30,7 +30,7 @@ async function fixture() {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-recipe-acceptance-")));
   const workspace = join(root, "workspace"); await mkdir(workspace);
   const config = join(root, "config.json");
-  await writeFile(config, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { shell: { enabled: true } } }));
+  await writeFile(config, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { shell: { enabled: true } } }));
   return { root, workspace, config };
 }
 const definition = { id: "project-summary", description: "生成指定项目改动摘要并检查产物", cwd: ".",

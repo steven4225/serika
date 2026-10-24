@@ -20,7 +20,7 @@ else if(args.join(' ')==='--session test-session pane list') console.log(JSON.st
 else { console.error('unexpected argv');process.exit(3); }
 `;
   await writeFile(join(bin, "herdr"), script); await chmod(join(bin, "herdr"), 0o700);
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: directory, access: "readwrite" }], modules: { terminal: { enabled: true } }, automation: { hooks: [] } }));
+  await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: directory, access: "readwrite" }], modules: { terminal: { enabled: true } }, automation: { hooks: [] } }));
   const env = { HOME: home, PATH: bin, SERIKA_HOME: home, RUNLOOM_HOME: home, HERDR_SESSION: "foreign", TEST_API_KEY: "fixture-secret" };
   const service = new HerdrTargets({ env, cwd: root, authorizedDirectory: directory });
   const selected = { session: "test-session", paneId: "pane-1", terminalId: "terminal-1" };
@@ -52,10 +52,10 @@ it("rejects replaced panes, stale directory, disabled capability, unsafe executa
     await assert.rejects(f.service.bind(f.configPath, { target: f.selected, expected: null }), /已关闭或替换/);
     await assert.rejects(f.service.panes("x; rm -rf /"), /会话名称无效/);
     await assert.rejects(f.service.bind(f.configPath, { target: null, expected: null, authorizedDirectory: f.directory } as never), /绑定参数无效/);
-    await writeFile(f.configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: f.directory, access: "readwrite" }], modules: { terminal: { enabled: false } } }));
+    await writeFile(f.configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: f.directory, access: "readwrite" }], modules: { terminal: { enabled: false } } }));
     await assert.rejects(f.service.bind(f.configPath, { target: null, expected: null }), /先开启本地终端/);
     const other = join(f.root, "other"); await mkdir(other);
-    await writeFile(f.configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: other, access: "readwrite" }], modules: { terminal: { enabled: true } } }));
+    await writeFile(f.configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: other, access: "readwrite" }], modules: { terminal: { enabled: true } } }));
     await assert.rejects(f.service.bind(f.configPath, { target: null, expected: null }), /授权目录已变化/);
     await writeFile(join(f.directory, "herdr"), "#!/bin/sh\nexit 99\n"); await chmod(join(f.directory, "herdr"), 0o700);
     const unsafe = new HerdrTargets({ env: { HOME: f.home, PATH: f.directory }, cwd: f.root, authorizedDirectory: f.directory });

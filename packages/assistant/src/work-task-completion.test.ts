@@ -21,7 +21,7 @@ import type { BeforeRunFinishInput } from "@serika/core";
 it("corrects missing multiple tests in the same Run using one confirmed batch and persists both checks", { timeout: 20_000 }, async () => {
   const root = await mkdtemp(join(tmpdir(), "runloom-finish-batch-"));
   const workspace = join(root, "workspace"); await mkdir(workspace);
-  await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { shell: { enabled: true } }, run: { maxSteps: 5 } }));
+  await writeFile(join(root, "config.json"), JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { shell: { enabled: true } }, run: { maxSteps: 5 } }));
   const acceptance = ["node -e 'if(2+2!==4)process.exit(1)'", "node -e 'if(3*3!==9)process.exit(1)'"].map((command, index) => ({
     id: `test-${index}`, description: "check", required: true, method: "automatic" as const,
     verification: { kind: "shell_exit_zero" as const, command, cwd: "." },
@@ -170,7 +170,7 @@ for (const scenario of ["correct", "readback", "deny", "exhaust", "manual", "cha
     const root = await mkdtemp(join(tmpdir(), "runloom-finish-check-"));
     const workspace = join(root, "workspace");
     await mkdir(workspace);
-    await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
+    await writeFile(join(root, "config.json"), JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
       modules: { "read-file": { enabled: true } }, run: { maxSteps: 5 } }));
     let calls = 0;
     const model = new MockLanguageModelV3({ doStream: async () => {

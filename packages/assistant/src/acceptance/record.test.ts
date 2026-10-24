@@ -74,8 +74,8 @@ it("redacts configured secrets before computing an acceptance config digest", as
   const root = await mkdtemp(join(tmpdir(), "runloom-acceptance-config-"));
   try {
     const paths = [join(root, "a.json"), join(root, "b.json")];
-    await writeFile(paths[0]!, JSON.stringify({ version: 1, modules: {}, API_KEY: "first-secret" }));
-    await writeFile(paths[1]!, JSON.stringify({ version: 1, modules: {}, API_KEY: "second-secret" }));
+    await writeFile(paths[0]!, JSON.stringify({ version: 2, modules: {}, API_KEY: "first-secret" }));
+    await writeFile(paths[1]!, JSON.stringify({ version: 2, modules: {}, API_KEY: "second-secret" }));
     const attempts = [];
     for (const [index, path] of paths.entries()) {
       attempts.push(await startAcceptanceAttempt({

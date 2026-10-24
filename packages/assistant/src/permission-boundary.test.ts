@@ -33,7 +33,7 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
   try {
     for (const mode of ["plain", "desktop", "telegram-desktop-only", "telegram", "foreign-grant", "other-thread", "tui"] as const) {
       const configPath = join(root, `${mode}.json`), threadId = mode === "other-thread" ? "other" : "thread";
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
+      await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
         desktopAutonomy: { authorizedDirectory: mode === "foreign-grant" ? join(root, "foreign") : workspace },
         ...(mode === "telegram" || mode === "other-thread" ? { telegramAutonomy: { authorizedDirectory: workspace, botId: 1, userId: 2, chatId: 3, threadId: "thread" } } : {}),
         modules: { memory: { enabled: true }, task: { enabled: true }, "read-file": { enabled: true }, shell: { enabled: true } } }));
@@ -85,7 +85,7 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
     }
     for (const source of ["desktop", "telegram"] as const) {
       const configPath = join(root, `terminal-${source}.json`);
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
+      await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
         desktopAutonomy: { authorizedDirectory: workspace },
         telegramAutonomy: { authorizedDirectory: workspace, botId: 1, userId: 2, chatId: 3, threadId: "thread" },
         modules: { terminal: { enabled: true } } }));
@@ -135,7 +135,7 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
     ] as const;
     for (const source of ["desktop", "telegram"] as const) {
       const configPath = join(root, `round3-${source}.json`);
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
+      await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
         desktopAutonomy: { authorizedDirectory: workspace },
         telegramAutonomy: { authorizedDirectory: workspace, botId: 1, userId: 2, chatId: 3, threadId: "thread" },
         modules: { terminal: { enabled: true }, computer: { enabled: true, executable: process.execPath, allowedBundleIds: ["com.example.Offline"] } } }));
@@ -181,7 +181,7 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
     }
     for (const inside of [false, true]) for (const policy of ["implicit", "files", "autonomy", "docker"] as const) {
       const directory = inside ? workspace : root, configPath = join(directory, `policy-${policy}.json`);
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: inside ? "." : "./directory", access: "readwrite" }],
+      await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: inside ? "." : "./directory", access: "readwrite" }],
         ...(policy === "autonomy" ? { desktopAutonomy: { authorizedDirectory: workspace } } : {}),
         ...(policy === "files" ? { fileAuthorizations: [{ tools: ["read_file"], allowedPaths: ["."] }] } : {}),
         modules: { memory: { enabled: true, autoConsolidate: true },

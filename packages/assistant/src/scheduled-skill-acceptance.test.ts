@@ -51,7 +51,7 @@ async function fixture(model: MockLanguageModelV3) {
     kind: "text", tools: [], limits: { maxSteps: 1 } }));
   await writeFile(join(directory, "SKILL.md"), INSTRUCTIONS);
   const configPath = join(root, "config.json");
-  await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: {
+  await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: {
     task: { enabled: true }, memory: { enabled: true, autoConsolidate: true }, checkpoint: { enabled: true },
   }, automation: { skills: [{ id: "brief", directory }], hooks: [] } }));
   const output = new PassThrough(); output.resume();

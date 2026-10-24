@@ -17,7 +17,7 @@ for(const path of [home,directory,outside,output]) await mkdir(path,{mode:0o700}
 const sha=data=>createHash('sha256').update(data).digest('hex'),git=(...args)=>spawnSync('git',args,{cwd:repo,encoding:'utf8'}).stdout.trim();
 const report={runId:randomUUID(),sourceCommit:git('rev-parse','HEAD'),sourceWorktreeDirty:!!git('status','--porcelain'),scriptSha256:sha(await readFile(fileURLToPath(import.meta.url))),
  verification:'real-Mac-Controller-with-validated-test-Telegram-binding-no-transport',realModelCalls:0,telegramOutbound:0,status:'failed',approvals:[],events:[]};
-const configPath=join(home,'config.json');await writeFile(configPath,JSON.stringify({version:1,authorizedDirectory:directory,desktopAutonomy:{authorizedDirectory:directory},
+const configPath=join(home,'config.json');await writeFile(configPath,JSON.stringify({version:2,authorizedDirectory:directory,desktopAutonomy:{authorizedDirectory:directory},
  telegramAutonomy:{authorizedDirectory:directory,botId:1,userId:2,chatId:3,threadId:'s1-telegram'},modules:{shell:{enabled:true}}}),{mode:0o600});
 let step=0;
 const model=new MockLanguageModelV3({doStream:async({prompt})=>{report.hostConfirmationInstructions=JSON.stringify(prompt).includes('The command and workspace-relative cwd will be shown for y/n confirmation.');

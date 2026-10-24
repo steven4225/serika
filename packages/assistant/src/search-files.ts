@@ -1,3 +1,4 @@
+import { isProtectedPath, type ProtectedPaths } from "./protected-paths.js";
 import type { Dirent } from "node:fs";
 import { constants } from "node:fs";
 import { lstat, open, readdir } from "node:fs/promises";
@@ -196,6 +197,7 @@ export async function searchFilesInWorkspace(
   query: string,
   requestedPath?: string,
   abortSignal: AbortSignal = neverAborted,
+  protectedPaths?: ProtectedPaths,
 ): Promise<SearchFilesResult> {
   throwIfAborted(abortSignal);
   const invalidQuery = validateQuery(query);
@@ -251,6 +253,7 @@ export async function searchFilesInWorkspace(
       if (isExcludedName(entry.name) || entry.isSymbolicLink()) continue;
 
       const entryPath = resolve(directory, entry.name);
+      if (protectedPaths && isProtectedPath({ ...protectedPaths, path: entryPath, write: false })) continue;
       if (entry.isDirectory()) {
         await visit(entryPath);
         if (truncated) return;
@@ -367,7 +370,7 @@ export function createSearchFilesTool(access: DirectoryAccess, directory?: strin
     outputSchema: directoryFileOutputSchema(searchFilesOutputSchema),
     execute: directoryFileExecution<z.infer<typeof inputSchema>, SearchFilesResult>({
       access, directory, write: false,
-      execute: (root, input, signal) => searchFilesInWorkspace(root, input.query, input.path, signal),
+      execute: (root, input, signal) => searchFilesInWorkspace(root, input.query, input.path, signal, { controlPaths: access.options.protectedPaths, credentialPaths: access.options.credentialPaths ?? [] }),
     }),
   });
 }

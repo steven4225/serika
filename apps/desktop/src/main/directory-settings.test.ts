@@ -10,7 +10,7 @@ it("saves directory permissions with CAS, keeps the project base, and persists r
   try {
     const first = join(root, "first"), second = join(root, "second"); await mkdir(first); await mkdir(second);
     const path = join(root, "config.json"), original = [{ path: first, access: "readwrite" as const }];
-    const before = JSON.stringify({ version: 1, projectDirectory: first, authorizedDirectories: original, modules: {} }); await writeFile(path, before);
+    const before = JSON.stringify({ version: 2, projectDirectory: first, authorizedDirectories: original, modules: {} }); await writeFile(path, before);
     const directories = [...original, { path: second, access: "read" as const }];
     const undo = await changeDirectorySettings(path, { directories, expectedDirectories: original }, { cwd: root });
     const changed = JSON.parse(await readFile(path, "utf8"));

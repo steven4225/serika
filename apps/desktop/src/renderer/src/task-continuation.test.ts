@@ -76,7 +76,7 @@ it("renders actual Controller/bridge preparation for the latest task Run, but no
   try {
     await mkdir(join(root, "workspace"));
     await mkdir(join(root, "transcripts"));
-    await writeFile(join(root, "config.json"), JSON.stringify({ version: 1, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: {} }));
+    await writeFile(join(root, "config.json"), JSON.stringify({ version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: {} }));
     const open = async () => {
       const model = new MockLanguageModelV3({ doStream: async () => ({ stream: simulateReadableStream({ chunks: [
         { type: "stream-start", warnings: [] }, { type: "text-start", id: "answer" },

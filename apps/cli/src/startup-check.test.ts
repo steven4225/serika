@@ -20,7 +20,7 @@ async function automationFixture() {
   await writeFile(join(workspace, "sentinel.txt"), "existing workspace data");
   const hash = createBuiltinSkill({ ...manifest, instructions }).hash;
   const registration = { id: manifest.id, directory, expectedHash: hash };
-  const writeConfig = async (automation: unknown) => writeFile(config, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
+  const writeConfig = async (automation: unknown) => writeFile(config, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
     modules: { memory: { enabled: true, autoConsolidate: true }, checkpoint: { enabled: true }, task: { enabled: true } },
     automation }));
   return { cwd, workspace, directory, config, registration, writeConfig,
@@ -92,7 +92,7 @@ describe("static TUI startup check", () => {
     const executable = join(cwd, "driver");
     await writeFile(executable, "not even an executable; must never be launched by --check");
     const config = join(cwd, "config.json");
-    await writeFile(config, JSON.stringify({ version: 1, modules: { computer: { enabled: true, executable, allowedBundleIds: ["com.apple.TextEdit"] } } }));
+    await writeFile(config, JSON.stringify({ version: 2, modules: { computer: { enabled: true, executable, allowedBundleIds: ["com.apple.TextEdit"] } } }));
     const snapshot = await checkTuiStartup(["--home", join(cwd, "home"), "--config", config], { cwd, env: {} });
     assert.equal(readinessExitCode(snapshot), 0);
     assert.match(snapshot.checks.find((c) => c.id === "computer")!.message, /does not launch/);
@@ -142,7 +142,7 @@ describe("static TUI startup check", () => {
     await mkdir(join(cwd, "workspace"));
     const config = join(cwd, "config.json");
     await writeFile(config, JSON.stringify({
-      version: 1,
+      version: 2,
       authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
       modules: { memory: { enabled: true }, checkpoint: { enabled: true }, task: { enabled: true } },
     }));

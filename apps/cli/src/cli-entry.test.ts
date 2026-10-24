@@ -37,7 +37,7 @@ describe("TUI module configuration entry", () => {
   it("shows persistent rules through /permissions without starting a Run", async () => {
     const { root, configDirectory } = await createConfigWorkspace();
     const configPath = await writeConfig(configDirectory, {
-      version: 1,
+      version: 2,
       authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
       modules: { "read-file": { enabled: true } },
       fileAuthorizations: [
@@ -81,7 +81,7 @@ describe("TUI module configuration entry", () => {
   it("exposes /authorize-web only when the web module is enabled", async () => {
     const { root, configDirectory } = await createConfigWorkspace();
     const configPath = await writeConfig(configDirectory, {
-      version: 1,
+      version: 2,
       modules: { web: { enabled: true } },
     }, "web.json");
     const child = spawn(
@@ -115,7 +115,7 @@ describe("TUI module configuration entry", () => {
   it("registers keyless Exa search when web search is enabled", async () => {
     const { root, configDirectory } = await createConfigWorkspace();
     const configPath = await writeConfig(configDirectory, {
-      version: 1,
+      version: 2,
       modules: { web: { enabled: true, search: { enabled: true } } },
     }, "web-search.json");
     const { BRAVE_SEARCH_API_KEY: _searchKey, EXA_API_KEY: _exaKey, ...baseEnv } = process.env;
@@ -149,7 +149,7 @@ describe("TUI module configuration entry", () => {
   it("always exposes /modules when every configurable module is disabled", async () => {
     const { root, configDirectory } = await createConfigWorkspace();
     const configPath = await writeConfig(configDirectory, {
-      version: 1,
+      version: 2,
       modules: {},
     });
     const { TODOIST_API_TOKEN: _token, ...baseEnv } = process.env;

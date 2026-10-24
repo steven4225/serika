@@ -10,7 +10,7 @@ export interface AssistantAssembly {
   threadId?: string;
   /** Host-owned storage directory, independent of file authority. */
   dataDirectory?: string;
-  /** Strict `version: 1` module config file. Cannot be combined with the shorthand below. */
+  /** Strict `version: 2` module config file. Cannot be combined with the shorthand below. */
   configPath?: string;
   /** Shorthand without a config file: read_file, memory and tasks in this workspace. */
   workspace?: string;

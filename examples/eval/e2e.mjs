@@ -31,7 +31,7 @@ const compactionHistory = (spec, generation = 0) => isCompactionFidelity(spec)
 
 export function fixtureConfig(spec, workspace) {
   const memory = spec.category === 'memory';
-  return { version: 1, authorizedDirectory: workspace,
+  return { version: 2, projectDirectory: workspace, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
     modules: { 'read-file': { enabled: true }, memory: { enabled: memory, autoConsolidate: memory },
       task: { enabled: spec.category === 'reminders' } },
     ...(spec.modelContextWindows ? { modelContextWindows: spec.modelContextWindows } : {}),

@@ -56,7 +56,7 @@ process.stdin.on('end', () => {
 `);
       await chmod(executable, 0o700);
       const configPath = join(root, "config.json");
-      await writeFile(configPath, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: {
+      await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: {
         computer: { enabled: true, executable, allowedBundleIds: [target.bundleId] },
       } }));
       let modelCalls = 0;

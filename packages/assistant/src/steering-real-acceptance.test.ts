@@ -23,7 +23,7 @@ test("real configured model accepts Steer at file confirmation and preserves the
   await mkdir(join(workspace, "notes"), { recursive: true });
   await writeFile(join(workspace, path), original);
   const config = join(root, "config.json");
-  await writeFile(config, JSON.stringify({ version: 1, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
+  await writeFile(config, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
     run: { maxSteps: 8, totalTimeoutMs: 90_000 },
     modules: { "read-file": { enabled: true } }, automation: { hooks: [] },
   }));

@@ -15,7 +15,7 @@ async function diagnostics(env: NodeJS.ProcessEnv, window = 1_000_000, windows: 
   run?: { text: string; status: "completed" | "failed" }) {
   const root = await mkdtemp(join(tmpdir(), "serika-model-budget-"));
   const configPath = join(root, "config.json");
-  await writeFile(configPath, JSON.stringify({ version: 1, modules: {}, modelContextWindows: windows,
+  await writeFile(configPath, JSON.stringify({ version: 2, modules: {}, modelContextWindows: windows,
     contextCompaction: { ...defaultContextBudget(), contextWindowTokens: window } }));
   let calls = 0;
   const model = new MockLanguageModelV3({ provider: "openai-compatible.chat", modelId: modelId ?? "fixture-model", doStream: async () => {
