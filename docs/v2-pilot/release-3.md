@@ -18,7 +18,7 @@
 | release-3 固定构建、当前日用副本假模型演练 | 待实施 |
 | 真实数据修复、用户验收、服务恢复 | 明确留到后续逐段确认，本轮不执行 |
 
-失败记录位于 `H/data/memory-extraction-failures.jsonl`，追加阶段、宿主错误码、安全消息、Thread/project 和时间。外部 provider 异常不保存原文，避免提示词/响应泄漏；日志读写失败明确可见。记忆列表折叠区显示原因，工程 ID 放诊断详情。已有 smoke 假模型新增合法 no_memory 响应和明确的非法 JSON 负例，演练经过真实抽取和存储。
+失败记录位于 `H/data/memory-extraction-failures.jsonl`，追加阶段、宿主错误码、安全消息、Thread/project 和时间。外部 provider 异常不保存原文，避免提示词/响应泄漏；日志读写失败明确可见。点击提示中的“查看记忆”后，记忆页直接显示失败记录折叠区；设置中的管理记录也可查看原因，工程 ID 放诊断详情。已有 smoke 假模型新增合法 no_memory 响应和明确的非法 JSON 负例，演练经过真实抽取和存储。
 
 离线工具 `daily-project-repair.mjs` 固定校验获批的 memory SHA `0f4aa629…` 和 projects 原始字节。只保留 personal 项目；删除唯一发布目录 progress；14 条 null progress 映射 personal。其他记忆字段及 transcript 原样，包含“你好”的旧 memoryProjectId。该消息确实发生在错误发布项目，更正只记录在此，不能改写历史归属。
 
@@ -42,6 +42,9 @@ apply 在 home 外完整备份、核对清单，写 prepared 回执后依次替�
 - `pnpm --filter @serika/desktop exec tsx --test src/main/project-selection.test.ts`：0，2/2。
 
 ## 与计划不符的地方及理由
+
+- 首次全套 runtime 1193 pass / 1 fail / 7 skip，唯一失败是路径基线未包含获批新日志；`__baseline__/paths.txt` 只新增 `memoryFailures = H/data/memory-extraction-failures.jsonl`，不改旧路径或行为断言。
+- 旧冻结 Electron 脚本硬断言 memory v6，沿用 c1+c2 已批准的独立 v7 `electron-scope-smoke.mjs` 协议，原冻结脚本不改；不运行 `pnpm verify:cm6`。
 
 - 不提交单独的红测试到 main：按用户“一项单独提交”的要求，在同一提交包含回归和修复，失败日志保存在私密发布记录。
 - 未调用真实模型、启用 TG 或服务；真实 Electron 验证和完整测试在本轮结束前追加记录。假模型验证不等于日用验收。

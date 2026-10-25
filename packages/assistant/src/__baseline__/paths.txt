@@ -1,5 +1,6 @@
 # path constants
 memory = H/data/memory.json
+memoryFailures = H/data/memory-extraction-failures.jsonl
 checkpoint = H/data/checkpoint.json
 tasks = H/data/tasks.json
 workTasks = H/data/work-tasks.json

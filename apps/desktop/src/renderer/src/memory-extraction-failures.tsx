@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import type { MemoryMaintenance } from "@serika/assistant";
 const stages = { prepare: "准备", extract: "抽取", validate: "校验", save: "保存" };
 
@@ -16,4 +16,17 @@ export function MemoryExtractionFailures({ maintenance }: { maintenance: MemoryM
         <p>Thread：<code>{failure.threadId}</code></p><p>项目：<code>{failure.projectId ?? "无项目"}</code></p></details>
     </section>)}
   </details>;
+}
+
+export function MemoryExtractionFailureHistory({ enabled, refreshToken, busy }: { enabled: boolean; refreshToken: number; busy: boolean }) {
+  const [maintenance, setMaintenance] = useState<MemoryMaintenance | null>(null);
+  useEffect(() => {
+    let current = true;
+    if (!enabled) { setMaintenance(null); return; }
+    void window.runloom.getMemoryMaintenance().then(result => {
+      if (current) setMaintenance(result.ok ? result.value : null);
+    }).catch(() => { if (current) setMaintenance(null); });
+    return () => { current = false; };
+  }, [enabled, refreshToken, busy]);
+  return <MemoryExtractionFailures maintenance={maintenance} />;
 }
