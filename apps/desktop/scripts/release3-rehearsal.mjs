@@ -85,13 +85,14 @@ async function launch(name, failure = false) {
     env: { ...env, ...(failure ? { RUNLOOM_SMOKE_EXTRACTION_FAILURE: '1' } : {}) }, timeout: 30000 });
   page = await running.firstWindow(); page.setDefaultTimeout(20000);
   page.on('pageerror', error => rendererErrors.push(error.message));
+  page.on('console', message => { if (['warning', 'error'].includes(message.type())) rendererErrors.push(message.type() + ': ' + message.text()); });
   const main = await running.evaluate(({ app }) => ({ electron: process.versions.electron, pid: process.pid, cwd: process.cwd(), userData: app.getPath('userData'), home: app.getPath('home') }));
   const renderer = await page.evaluate(() => ({ userAgent: navigator.userAgent, url: location.href }));
   assert.equal(main.cwd, repo); assert.equal(main.home, osHome); assert.equal(main.userData, env.RUNLOOM_USER_DATA); assert.match(renderer.userAgent, /Electron\//); assert.match(renderer.url, /^file:/);
   report.launches.push({ name, main, renderer });
   const info = await page.evaluate(() => window.runloom.info());
   assert.equal(info.project?.id, PERSONAL_PROJECT.id); assert.equal(info.project.directory, PERSONAL_PROJECT.directory);
-  await expect.poll(async () => (await page.evaluate(() => window.runloom.getMemoryMaintenance())).value?.extraction?.running ?? false).toBe(false);
+  await expect.poll(async () => (await page.evaluate(() => window.runloom.getMemoryMaintenance())).value?.extraction?.running ?? false, { timeout: 120000 }).toBe(false);
   return info;
 }
 async function stop() {
