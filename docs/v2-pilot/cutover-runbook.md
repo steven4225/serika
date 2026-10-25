@@ -302,7 +302,7 @@ cat "$UPGRADE_RECORD/memory-rollback.json" "$UPGRADE_RECORD/config-rollback.json
 
 ## 8. release-2 项目选择修复与 release-3
 
-`v2-release-2`（983e8d394ad2e7367532e550b2df9681b39ca70d）记为“项目选择缺陷，未完成验收”；原标签不移动。release-1、release-2、全部备份和 `Serika-support/917ee15…` 保留。release-3 使用 §1.1 的独立 clone、固定 Node、私密 env 路径和 `Serika.command`；正常桌面启动不注册或启用 resident/worker，两个服务继续 disabled。
+`v2-release-2`（983e8d394ad2e7367532e550b2df9681b39ca70d）记为“项目选择缺陷，未完成验收”；原标签不移动。release-1、release-2、全部备份和 `Serika-support/917ee15…` 保留。release-3 使用 §1.1 的独立 clone、固定 Node、私密 env 路径和 `Serika.command`；正常桌面启动不注册或启用 resident/worker，验收通过及明确恢复前两个服务保持 disabled。
 
 当前离线定点工具为 `packages/assistant/scripts/daily-project-repair.mjs`，只接受 memory SHA `0f4aa629f06fc2327912dbef47bcdbced1514cac1028660c4fd6796f322fb9bc` 与已批准的 projects 原始字节；任何漂移都停。它不改升级工具、正式记忆正文、文档库或 transcript。“你好”原消息的发布目录 memoryProjectId 保留，纠错说明见 release-3 记录。
 
@@ -314,7 +314,7 @@ cat "$UPGRADE_RECORD/memory-rollback.json" "$UPGRADE_RECORD/config-rollback.json
 2. 新做完整 `cp -a` 备份，核对文件集合和 SHA；执行下面 dry-run，原样给出 diff 后停。
 3. 用户批准后 apply，回报 prepared/applied 回执路径与 SHA 后停，不启动桌面。
 4. 用户双击 release-3 的 `Serika.command`，核对正常打开、personal 或无项目、personal 读写授权、3 偏好、personal 不见 Serika 文档、用户自己发送“你好”有回复。
-5. 全部通过后才按保存的原有效启用状态恢复两个服务。将 plist 的入口与 WorkingDirectory 指向新发布目录，核对 Node/env/home 和通知 helper，再执行 enable/bootstrap 并核对 job/ps/readiness。不得启用 TG；若原宿主参数会恢复 TG，先停下解决这项约束，不自动启动。
+5. 全部通过后才按保存的原有效启用状态恢复两个服务。将 plist 的入口与 WorkingDirectory 指向新发布目录，核对 Node/env/home 和通知 helper，再执行 enable/bootstrap 并核对 job/ps/readiness。若宿主会恢复 TG，须先取得明确授权。本次用户已在 release-3 验收后明确允许按保存状态启动 TG，只查询连接状态，不发测试消息。
 
 ```sh
 NODE='/opt/homebrew/Cellar/node/26.4.0/bin/node'
@@ -329,3 +329,5 @@ RELEASE3='/Users/a1-6/Applications/Serika-releases/<release-3完整SHA>'
 工具在 H 外另做完整备份。两个目标不能一起原子 rename，因此 prepared 回执先落盘；中途失败不得重跑 apply，需核对各目标是否为原始/修复后 SHA，再由用户决定显式逆序 rollback。原始回执或备份 SHA 不符、目标出现第三种 SHA 均拒绝。
 
 worker 通知 helper 仍依赖 `Serika-support/917ee15…`，旧发布和 support 不可删除。Node 路径带 Cellar 版本，`brew upgrade node` 后必须重建固定入口和 plist。正常桌面启动不清除 launchd 的 disabled override；用户核对通过前不安装、enable 或 bootstrap 服务。
+
+release-3 已完成验收与服务恢复，固定入口为 `~/Applications/Serika.command`，指向 be13d5d 完整发布目录的 Serika.command。以后发版按 [release-3 发布记录](release-3.md#以后发版时更新固定入口) 的步骤，在新版本验收和服务恢复完成后原子更新链接，旧发布目录不动。
