@@ -1,0 +1,293 @@
+{
+  "runId": "b2b1206d-e551-4a32-afdc-36371db57ce0",
+  "verification": "real-electron-original-preload-ipc-fake-model-v7",
+  "platform": "darwin",
+  "sourceCommit": "c1c8b6fbd1cad6038e0be2e80d269a07c9fa6bdb",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "e0c6a6736c1a52cdf0a0fb7c3fae15903c800b604ef1c152f542d6259ef6461a",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "launches": [
+    {
+      "name": "initial",
+      "main": {
+        "electron": "44.4.5",
+        "pid": 2551,
+        "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/profile",
+        "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Code/agents/serika-v2/apps/desktop/out/renderer/index.html"
+      },
+      "hostReadinessMilliseconds": 1623.74
+    },
+    {
+      "name": "restarted",
+      "main": {
+        "electron": "44.4.5",
+        "pid": 13465,
+        "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/profile",
+        "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Code/agents/serika-v2/apps/desktop/out/renderer/index.html"
+      },
+      "hostReadinessMilliseconds": 1684.167499999996
+    },
+    {
+      "name": "moved-project-missing",
+      "main": {
+        "electron": "44.4.5",
+        "pid": 15018,
+        "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/profile",
+        "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Code/agents/serika-v2/apps/desktop/out/renderer/index.html"
+      }
+    },
+    {
+      "name": "rebound-project",
+      "main": {
+        "electron": "44.4.5",
+        "pid": 15082,
+        "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/profile",
+        "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Code/agents/serika-v2/apps/desktop/out/renderer/index.html"
+      },
+      "hostReadinessMilliseconds": 1002.7006669999973
+    },
+    {
+      "name": "rollback-original-project",
+      "main": {
+        "electron": "44.4.5",
+        "pid": 16981,
+        "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/profile",
+        "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Code/agents/serika-v2/apps/desktop/out/renderer/index.html"
+      },
+      "hostReadinessMilliseconds": 1232.7305000000051
+    }
+  ],
+  "checks": [
+    {
+      "name": "ui-project-selection",
+      "result": "passed",
+      "authorizedDirectories": [
+        {
+          "path": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/personal",
+          "access": "readwrite"
+        }
+      ],
+      "project": "serika-v2",
+      "screenshot": {
+        "file": "ui-project-selection.png",
+        "sha256": "6b5a8f77e32b4e5e809570802e336239537a58633d94ab4afe6dbc8a70228235"
+      }
+    },
+    {
+      "name": "remember-and-retract",
+      "result": "passed",
+      "screenshot": {
+        "file": "remember-and-retract.png",
+        "sha256": "6bb0cfe33d698b5c3f7d0faafa0ff312bd5e493989f045492cc9538d838537df"
+      }
+    },
+    {
+      "name": "serika-project-visible",
+      "result": "passed",
+      "projectMemoryVisible": true,
+      "userPreferences": 3,
+      "visibleProjectDocuments": 3,
+      "memoryReadInvocations": 5,
+      "unchangedAuthorizations": true,
+      "screenshot": {
+        "file": "serika-project-visible.png",
+        "sha256": "393b7abe7cf4ec7cfecef9cac46d8ba0e9af4639e7f039f39420304946a52004"
+      }
+    },
+    {
+      "name": "personal-project-isolated",
+      "result": "passed",
+      "projectMemoryVisible": false,
+      "userPreferences": 3,
+      "visibleProjectDocuments": 0,
+      "memoryReadInvocations": 5,
+      "unchangedAuthorizations": true,
+      "screenshot": {
+        "file": "personal-project-isolated.png",
+        "sha256": "0974468eff84f9b5862673f711043f0d45f3fc3d0643c70e2648cf696973b568"
+      }
+    },
+    {
+      "name": "no-project-isolated",
+      "result": "passed",
+      "projectMemoryVisible": false,
+      "userPreferences": 3,
+      "visibleProjectDocuments": 0,
+      "memoryReadInvocations": 5,
+      "unchangedAuthorizations": true,
+      "screenshot": {
+        "file": "no-project-isolated.png",
+        "sha256": "86ed1d61d53ed22772dfd88dfc0b5889ea678afcaa1c3b2c7e4d2bf7e7a2fe7f"
+      }
+    },
+    {
+      "name": "return-to-serika-visible",
+      "result": "passed",
+      "projectMemoryVisible": true,
+      "userPreferences": 3,
+      "visibleProjectDocuments": 3,
+      "memoryReadInvocations": 5,
+      "unchangedAuthorizations": true,
+      "screenshot": {
+        "file": "return-to-serika-visible.png",
+        "sha256": "caf6c27eae3addb0882c6a759fa5892aabf276f56466132f8941e4d021b74d45"
+      }
+    },
+    {
+      "name": "restart-project-and-memory",
+      "result": "passed",
+      "projectMemoryVisible": true,
+      "userPreferences": 3,
+      "visibleProjectDocuments": 3,
+      "memoryReadInvocations": 5,
+      "unchangedAuthorizations": true,
+      "screenshot": {
+        "file": "restart-project-and-memory.png",
+        "sha256": "d89100a9805997fc1b49197beea04d4c37fbf322b75810138ef41cfd26eda7c6"
+      }
+    },
+    {
+      "name": "moved-project-diagnostic",
+      "result": "passed",
+      "expectedErrors": [
+        "Error: Error invoking remote method 'runloom:info': Error: Runtime 无法启动：项目 serika-v2 在 /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/serika-v2 找不到了；如已移动，运行 '/opt/homebrew/Cellar/node/26.4.0/bin/node' '/Users/a1-6/Code/agents/serika-v2/packages/assistant/scripts/project-rebind.mjs' '--data' '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/home/.serika/data' '--from' '7a84408f9d03d5bc38e10a01913904c64637c3beb3bf38f1cae12ebf008b513d' '--to' '/新项目的绝对路径' '--dry-run' 重绑。将 --to 改为实际新路径，预览后将 --dry-run 改为 --upgrade 执行；先停止全部 Serika 写入者。"
+      ],
+      "screenshot": {
+        "file": "moved-project-diagnostic.png",
+        "sha256": "b68bad1ffedaf5efbaf2affc25e05e9fd55eed4ddc9b0cd24f136c0892f06ff4"
+      }
+    },
+    {
+      "name": "rebound-project-visible",
+      "result": "passed",
+      "projectMemoryVisible": true,
+      "userPreferences": 3,
+      "visibleProjectDocuments": 3,
+      "memoryReadInvocations": 5,
+      "unchangedAuthorizations": true,
+      "screenshot": {
+        "file": "rebound-project-visible.png",
+        "sha256": "4b0555a4196e9f0cf2e639f9467a00c833b73645e6a43229e71ebf93a1de0ecb"
+      }
+    },
+    {
+      "name": "rollback-original-project-visible",
+      "result": "passed",
+      "projectMemoryVisible": true,
+      "userPreferences": 3,
+      "visibleProjectDocuments": 3,
+      "memoryReadInvocations": 5,
+      "unchangedAuthorizations": true,
+      "screenshot": {
+        "file": "rollback-original-project-visible.png",
+        "sha256": "47663c6da2ecc9e2fc6e92f14bcc2b33b2395c8abe63e4a3f300ea8c309da62f"
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "ui-project-selection.png",
+      "sha256": "6b5a8f77e32b4e5e809570802e336239537a58633d94ab4afe6dbc8a70228235"
+    },
+    {
+      "file": "remember-and-retract.png",
+      "sha256": "6bb0cfe33d698b5c3f7d0faafa0ff312bd5e493989f045492cc9538d838537df"
+    },
+    {
+      "file": "serika-project-visible.png",
+      "sha256": "393b7abe7cf4ec7cfecef9cac46d8ba0e9af4639e7f039f39420304946a52004"
+    },
+    {
+      "file": "personal-project-isolated.png",
+      "sha256": "0974468eff84f9b5862673f711043f0d45f3fc3d0643c70e2648cf696973b568"
+    },
+    {
+      "file": "no-project-isolated.png",
+      "sha256": "86ed1d61d53ed22772dfd88dfc0b5889ea678afcaa1c3b2c7e4d2bf7e7a2fe7f"
+    },
+    {
+      "file": "return-to-serika-visible.png",
+      "sha256": "caf6c27eae3addb0882c6a759fa5892aabf276f56466132f8941e4d021b74d45"
+    },
+    {
+      "file": "restart-project-and-memory.png",
+      "sha256": "d89100a9805997fc1b49197beea04d4c37fbf322b75810138ef41cfd26eda7c6"
+    },
+    {
+      "file": "moved-project-diagnostic.png",
+      "sha256": "b68bad1ffedaf5efbaf2affc25e05e9fd55eed4ddc9b0cd24f136c0892f06ff4"
+    },
+    {
+      "file": "rebound-project-visible.png",
+      "sha256": "4b0555a4196e9f0cf2e639f9467a00c833b73645e6a43229e71ebf93a1de0ecb"
+    },
+    {
+      "file": "rollback-original-project-visible.png",
+      "sha256": "47663c6da2ecc9e2fc6e92f14bcc2b33b2395c8abe63e4a3f300ea8c309da62f"
+    }
+  ],
+  "status": "passed",
+  "artifactHashes": {
+    "out/main/index.js": "f335fb84fb1d73cda12f4109dbf3f5013573990fc2057d8020f1c530271aed40",
+    "out/preload/index.cjs": "b7414942c8798ff88d355633af7bd00fb1b89b29f77bb1b46ba555416a4968e6",
+    "out/renderer/index.html": "57ff917b714fe7315894e3a67e62a231969078a2a86d98e207a95aa3c757f9ab"
+  },
+  "restart": {
+    "beforePid": 2551,
+    "afterPid": 13465,
+    "beforeMemorySha256": "803174e2e5dd4f3f9d179ed23e34e74cc8b0090e0b01b51377a20ab6bc1877c7",
+    "afterMemorySha256": "803174e2e5dd4f3f9d179ed23e34e74cc8b0090e0b01b51377a20ab6bc1877c7",
+    "projectRestored": true,
+    "unchangedAuthorizations": true
+  },
+  "projectRebind": {
+    "diagnostic": "Error: Error invoking remote method 'runloom:info': Error: Runtime 无法启动：项目 serika-v2 在 /private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/serika-v2 找不到了；如已移动，运行 '/opt/homebrew/Cellar/node/26.4.0/bin/node' '/Users/a1-6/Code/agents/serika-v2/packages/assistant/scripts/project-rebind.mjs' '--data' '/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/home/.serika/data' '--from' '7a84408f9d03d5bc38e10a01913904c64637c3beb3bf38f1cae12ebf008b513d' '--to' '/新项目的绝对路径' '--dry-run' 重绑。将 --to 改为实际新路径，预览后将 --dry-run 改为 --upgrade 执行；先停止全部 Serika 写入者。",
+    "affected": {
+      "entries": 4,
+      "documents": 3,
+      "progress": 0,
+      "receipts": 0,
+      "suppressed": 0,
+      "registrations": 1,
+      "selected": 1
+    },
+    "files": [
+      {
+        "path": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/home/.serika/data/memory.json",
+        "originalSha256": "803174e2e5dd4f3f9d179ed23e34e74cc8b0090e0b01b51377a20ab6bc1877c7",
+        "restoredSha256": "803174e2e5dd4f3f9d179ed23e34e74cc8b0090e0b01b51377a20ab6bc1877c7",
+        "identical": true
+      },
+      {
+        "path": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-scope-electron-w9Rg53/home/.serika/data/projects.json",
+        "originalSha256": "1fea1db117f1991481865fd4dae68f4b0c7d67a1a5aadc41e503697502b29ee3",
+        "restoredSha256": "1fea1db117f1991481865fd4dae68f4b0c7d67a1a5aadc41e503697502b29ee3",
+        "identical": true
+      }
+    ],
+    "identical": true
+  },
+  "temporaryDirectoryRemoved": true,
+  "rendererErrors": []
+}
