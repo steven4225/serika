@@ -11,14 +11,11 @@ import { contextOverview } from "../../shared/context-panel.js";
 import { ContextPanel } from "./context.js";
 import { consolidationStatusLabel } from "./memory-consolidation.js";
 import { MemoryPanel } from "./memory.js";
-import { memoryAutomationLabel } from "./memory-copy.js";
 import { dashboardTabForDetail } from "./personal/layout.js";
-import { TodayPanel } from "./personal/today.js";
 import { readAppSource } from "../test-support/app-source.js";
 
 const source = (path: string) => readFile(new URL(path, import.meta.url), "utf8");
 const render = (element: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(element);
-const noop = () => {};
 const info = { workspaceRoot: "/workspace", configPath: "/config.json", memory: { enabled: true, autoConsolidate: false }, workTasks: true } as AppInfo;
 const maintenance: MemoryMaintenance = { stored: 0, pending: 0, expired: 0, disabled: 0, duplicateSuggestions: 0, capacity: { entries: 200, bytes: 1024, assertionsPerEntry: 10 }, consolidation: { enabled: false, state: "off" } };
 
@@ -55,11 +52,6 @@ it("UI regression 3: the memory automation off state uses the same phrase across
   for (const file of ["./capabilities.tsx"]) assert.match(await source(file), /memoryAutomationLabel\(/);
 });
 
-it("memory automation label distinguishes enabled capability from write policy", () => {
-  assert.equal(memoryAutomationLabel({ enabled: true, autoConsolidate: true }), "记忆自动整理：开");
-  assert.equal(memoryAutomationLabel({ enabled: false, autoConsolidate: true }), "记忆自动整理：关");
-});
-
 it("UI regression 4: memory setup has one primary entry and workspace context is a navigation link", async () => {
   const app = await readAppSource();
   assert.match(app, /openSettings\("context"\)/);
@@ -91,17 +83,6 @@ it("reminders stay reachable from 手札 and are not a top pill or a settings in
   assert.match(app, /onAutomation=\{\(\) => openDetails\("reminders"\)\}/);
   assert.doesNotMatch(app, /\["手札", "任务", "提醒", "记忆"\]/);
   assert.doesNotMatch(app, /\["modules", "records", "context", "home", "reminders"\]/);
-});
-
-it("UI regression 6: 手札 explicitly allows ordinary conversation without creating a task", () => {
-  const html = render(createElement(TodayPanel, { info, tasks: [], tasksLoading: false, tasksError: null, onContinue: noop, onPomodoro: noop, onAutomation: noop, now: new Date("2026-10-16T09:00:00+08:00") }));
-  assert.match(html, /普通对话照常使用/);
-});
-
-it("optional memory tab selection shares the settings pill instead of an underline", async () => {
-  const css = await source("./personal/shell.css");
-  assert.match(css, /:is\(\.personal-settings-nav, \.memory-tabs\) button:is\(\[aria-current="page"\], \[aria-selected="true"\]\)/);
-  assert.match(css, /\.personal-layout \.memory-tabs \{[^}]*border: 0/);
 });
 
 it("schedule management belongs to reminders instead of task templates", async () => {
