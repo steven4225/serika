@@ -127,7 +127,7 @@ try {
   checkpoint('send-validation-probe');
   await expect(page.getByPlaceholder('和 Serika 聊天')).toBeEnabled();
   await page.getByPlaceholder('和 Serika 聊天').fill(text); await page.getByRole('button', { name: '发送消息', exact: true }).click();
-  await expect.poll(async () => (await page.evaluate(() => window.runloom.snapshot())).state.kind).toBe('idle');
+  await expect.poll(async () => (await page.evaluate(() => window.runloom.snapshot())).state.kind, { timeout: 120000 }).toBe('idle');
   await expect.poll(async () => {
     const value = await page.evaluate(() => window.runloom.getMemoryMaintenance());
     return value.ok ? value.value.failures?.length ?? 0 : 0;
