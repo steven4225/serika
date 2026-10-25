@@ -44,7 +44,7 @@ async function fixture(doStream: () => Promise<ReturnType<typeof response>> = as
   const root = await mkdtemp(`${process.platform === "darwin" ? "/private/tmp" : "/tmp"}/serika-transport-`);
   const workspace = join(root, "workspace"), applicationHome = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
-  await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: memoryEnabled } } }));
+  await writeFile(configPath, JSON.stringify({ version: 2, projectDirectory: workspace, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { memory: { enabled: memoryEnabled } } }));
   const paths = createResidentPaths(applicationHome, join(root, "socket", "host.sock"));
   const scope = { applicationHome, configPath };
   let creates = 0;

@@ -8,7 +8,7 @@ import { _electron as electron, expect } from 'playwright/test';
 import { repairDailyProject, EXPECTED_MEMORY_SHA, PERSONAL_PROJECT } from '../../../packages/assistant/scripts/daily-project-repair.mjs';
 import { readThreadTranscript } from '../../../packages/core/dist/transcript-codec.js';
 
-const repo = fileURLToPath(new URL('../../..', import.meta.url));
+const repo = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const options = Object.fromEntries(Array.from({ length: (process.argv.length - 2) / 2 }, (_, i) => [process.argv[2 + i * 2], process.argv[3 + i * 2]]));
 assert.ok(options['--source-home'] && options['--output'], 'Pass --source-home and a new private --output directory');
 const source = await realpath(options['--source-home']), output = resolve(options['--output']);
@@ -77,8 +77,10 @@ const env = Object.fromEntries(['PATH', 'LANG', 'TMPDIR', 'NODE_OPTIONS', 'SERIK
 Object.assign(env, { HOME: osHome, XDG_CONFIG_HOME: join(osHome, '.config'), XDG_CACHE_HOME: join(osHome, '.cache'),
   RUNLOOM_USER_DATA: join(output, 'electron-profile'), RUNLOOM_CONFIG: join(home, 'config.json'), RUNLOOM_MODEL: 'mock', RUNLOOM_DESKTOP_TEST: '1' });
 let running, page;
+const checkpoint = phase => { report.phase = phase; console.log(JSON.stringify({ phase })); };
 const rendererErrors = [];
 async function launch(name, failure = false) {
+  checkpoint(name);
   running = await electron.launch({ args: [join(repo, 'apps/desktop/out/main/index.js'), '--home', home], cwd: repo,
     env: { ...env, ...(failure ? { RUNLOOM_SMOKE_EXTRACTION_FAILURE: '1' } : {}) }, timeout: 30000 });
   page = await running.firstWindow(); page.setDefaultTimeout(20000);
@@ -89,13 +91,14 @@ async function launch(name, failure = false) {
   report.launches.push({ name, main, renderer });
   const info = await page.evaluate(() => window.runloom.info());
   assert.equal(info.project?.id, PERSONAL_PROJECT.id); assert.equal(info.project.directory, PERSONAL_PROJECT.directory);
-  await expect(page.getByPlaceholder('和 Serika 聊天')).toBeEnabled();
   await expect.poll(async () => (await page.evaluate(() => window.runloom.getMemoryMaintenance())).value?.extraction?.running ?? false).toBe(false);
   return info;
 }
 async function stop() {
   if (!running) return;
-  const child = running.process(); await running.close(); assert.notEqual(child.exitCode, null);
+  const child = running.process();
+  const exited = new Promise((done, reject) => { const timeout = setTimeout(() => reject(new Error('Test Electron did not quit normally')), 15000); child.once('exit', () => { clearTimeout(timeout); done(); }); });
+  await running.evaluate(({ app }) => { app.quit(); }); await exited; assert.notEqual(child.exitCode, null);
   assert.throws(() => process.kill(child.pid, 0), { code: 'ESRCH' }); running = undefined;
 }
 async function screenshot(name, locator = page) {
@@ -121,6 +124,8 @@ try {
   await stop(); await launch('new-thread-expected-validation-failure', true);
   const config = await json(join(home, 'config.json'));
   const text = 'RELEASE3_FAILURE_PROBE_' + report.runId + 'x'.repeat(2 * (config.contextCompaction?.summaryInputChunkTokens ?? 32000));
+  checkpoint('send-validation-probe');
+  await expect(page.getByPlaceholder('和 Serika 聊天')).toBeEnabled();
   await page.getByPlaceholder('和 Serika 聊天').fill(text); await page.getByRole('button', { name: '发送消息', exact: true }).click();
   await expect.poll(async () => (await page.evaluate(() => window.runloom.snapshot())).state.kind).toBe('idle');
   await expect.poll(async () => {
@@ -143,7 +148,7 @@ try {
   await expect(page.locator('.memory-extraction-failures:visible')).toHaveCount(1);
   report.retainedAfterRestart = true; report.rendererErrors = rendererErrors; assert.deepEqual(rendererErrors, []);
   report.status = 'passed';
-} catch (error) { report.failure = { name: error.name, message: error.message }; process.exitCode = 1; }
+} catch (error) { report.failure = { name: error.name, message: error.message }; console.error(JSON.stringify(report.failure)); await writeFile(join(output, 'result.json'), encode(report)); process.exitCode = 1; }
 finally {
   await stop(); assert.deepEqual(await manifest(source), before); report.originalHomeUnchanged = true;
   report.finishedAt = new Date().toISOString(); await writeFile(join(output, 'result.json'), encode(report));
