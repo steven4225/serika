@@ -4,7 +4,7 @@
 
 - [module-host.ts](../packages/assistant/src/module-host.ts)：模块生命周期与注册上下文
 - [tui-module-config.ts](../packages/assistant/src/tui-module-config.ts)：TUI 配置解析
-- [index.ts](../packages/assistant/src/index.ts)：TUI 应用层装配、确认链与 `/modules`
+- [app.ts](../packages/assistant/src/app.ts)：应用层装配、确认链与 `/modules`
 - [task-worker-entry.ts](../packages/assistant/src/task-worker-entry.ts)：后台 worker 的显式工具清单
 - [read-file-module.ts](../packages/assistant/src/modules/read-file-module.ts) 和 [todoist-module.ts](../packages/assistant/src/modules/todoist-module.ts)：现有接入实例
 
