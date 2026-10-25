@@ -5,7 +5,7 @@
 - 固定源码/标签目标：`be13d5d55fae6a03e677cc23bb9a1b97d1a5ecae`，附注标签 `v2-release-3`。发布目录 `/Users/a1-6/Applications/Serika-releases/be13d5d55fae6a03e677cc23bb9a1b97d1a5ecae/`；入口 `Serika.command`，env 仍为 `~/.config/serika/v2-daily.env`，Node 为 `/opt/homebrew/Cellar/node/26.4.0/bin/node`。
 - 分项提交：项目 `dc7fa1a`；失败记录 `a21def7`、记忆页入口 `cae0458`；修复工具 `f076122`。其余提交为演练、测试前提和文档。
 - 私密发布记录 `/Users/a1-6/Serika-release-records/release3-20261025T033214Z` 包含构建日志、发布核对、完整演练回执和服务恢复预案。演练回执 `release-rehearsal-2/result.json`；其中 `repair.receiptPath/receiptSha256` 为副本修复回执，不能用于真实 H 回滚。
-- 原完整备份 `/Users/a1-6/Serika-release2-backup-20261025030415`、阶段 3 回执目录 `/Users/a1-6/Serika-v2-release-2-upgrade-20261025030415` 保留。真实 release-3 修复备份/回执与用户核对结果尚无，本轮报告后停止，后续依次确认退出 → 完整备份/dry-run 并停 → apply 并停 → 用户启动验收。
+- 原完整备份 `/Users/a1-6/Serika-release2-backup-20261025030415`、阶段 3 回执目录 `/Users/a1-6/Serika-v2-release-2-upgrade-20261025030415` 保留。真实 release-3 修复已按分段批准完成：新完整备份 `/Users/a1-6/Serika-release3-backup-20261025T043841Z`，158 文件/232 清单项，与源清单 SHA 均为 `5e7949b83fd8bb02bd50112007d02367f846e1c702338e0903b5311044f51e25`；dry-run 17 项，用户独立批准 apply，退出 0。
 - 两个服务仍 disabled/unloaded。桌面启动查询状态，未注册时建立进程内宿主，不自动 enable/bootstrap。新 plist 仅准备在私密记录 `service-restore-v3/`，尚未安装。验收通过后先再次核对无写入者和 TG 边界，再替换 plist、显式 enable、bootstrap，最后核对新发布路径、PID 和 readiness。若 resident 会自动恢复 TG，必须报告并停，不能违反“不启用 TG”。
 - worker 通知 helper 仍依赖 `Serika-support/917ee15…`；旧发布目录及 Serika-support 不可删除。Node 路径带 Cellar 版本，brew upgrade node 后需要重建入口与 plist。
 
@@ -22,9 +22,23 @@
 | CLI 在其他目录运行不改变桌面选择 | 已做，`application-home.test.ts` 启动实际 CLI 子进程；保留 registry 原始字节 |
 | 目录移动保护 | 已做，`project.test.ts`、`project-rebind.test.mjs`；原选择保留，离线重绑/rollback 仍可用 |
 | 整理失败落盘和界面原因 | 已做，`memory-extraction-log.test.ts`、`memory-extraction-failures.test.ts`；当前 Thread/project 日志重启可读，损坏存储不拦诊断 |
-| 定点离线修复工具及回滚 | 已做，`daily-project-repair.test.mjs` 默认 2/2、当前 home 副本集成 3/3；未应用真实数据 |
+| 定点离线修复工具及回滚 | 已做，`daily-project-repair.test.mjs` 默认 2/2、当前 home 副本集成 3/3；真实 apply 已按批准完成 |
 | release-3 固定构建、当前日用副本假模型演练 | 已做，实际发布目录 cwd；真实 Electron + 假模型，4 次启动，老 Thread 整理 0 + 0 次 |
-| 真实数据修复、用户验收、服务恢复 | 明确留到后续逐段确认，本轮不执行 |
+| 真实数据修复 | 已做，apply 0；仅两个获批文件变化，其他文件及 memory 非 progress 字段原样 |
+| 用户验收 | 用户报告“全部正常”；只读核对发现实际运行 release-2，release-3 运行验收尚未确认 |
+| 服务恢复 | 未做，两个服务 disabled/unloaded；现有 TG enabled，恢复 resident 会自动启动 TG，触发停止条件 |
+
+
+2026-10-25 13:35 +08:00 验收后只读检查：用户报告“全部正常”，但 ps 中 launcher PID 38553、Electron 主进程 PID 38556 均来自 `983e8d394ad2e7367532e550b2df9681b39ca70d`。release-3 的 Serika.command 与 launcher 路径核对正确。现有 `H/resident/telegram.json` 的 enabled=true、owner 存在；`resident-entry.ts` 调用 gateway.initialize，`telegram-gateway.ts:266` 在 enabled 时 start，因此不能在“不启用 TG”约束下直接恢复宿主。未安装 plist、enable/bootstrap、退出应用或修改数据。只读记录 `/Users/a1-6/Serika-release3-acceptance-check-20261025T053540Z/result.json`。两个服务继续 disabled/unloaded；等待用户决定后续操作。
+
+真实 apply 回执根目录 `/Users/a1-6/Serika-release3-repair-7d36ec7e-00cb-44ab-8e57-33630f485a68`，内含另一次完整 `home-backup`：
+
+| 回执 | SHA-256 |
+|---|---|
+| `repair.receipt.json` | `61ad0ced6d2baf6f85dfa57cc3bd25d15143528e090f366da087e3e3714f706b` |
+| `repair.applied.json` | `3ed992ca583f46d0c088e7bce40b6f932d87871262d60e8b1870f17947d1eac6` |
+
+写入后核对 `/Users/a1-6/Serika-release3-apply-20261025T045339Z/verification.json`：memory SHA `725377eac80727251a0dad186134348b4f71c127305b8c223de598d17d55cb8c`，projects SHA `4e1cfa387939d0ac4a6639bb59124b270dd1612a06bfffab9155977687f871ed`；仅这两文件变化，14 progress 归属 personal，项目列表和 selected 均为 personal。此为 apply 完成时的快照，不代表用户之后启动的当前文件 SHA。
 
 失败记录位于 `H/data/memory-extraction-failures.jsonl`，追加阶段、宿主错误码、安全消息、Thread/project 和时间。外部 provider 异常不保存原文，避免提示词/响应泄漏；日志读写失败明确可见。点击提示中的“查看记忆”后，记忆页直接显示失败记录折叠区；设置中的管理记录也可查看原因，工程 ID 放诊断详情。已有 smoke 假模型新增合法 no_memory 响应和明确的非法 JSON 负例，演练经过真实抽取和存储。
 
