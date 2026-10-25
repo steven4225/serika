@@ -27,7 +27,7 @@ export async function identifyProject(directory: string | null): Promise<Project
   return { id: createHash("sha256").update(root).digest("hex"), directory: root, name: basename(root), kind };
 }
 
-export async function selectProject(options: { dataDirectory: string; directory?: string | null; cwd: string }): Promise<Project | null> {
+export async function selectProject(options: { dataDirectory: string; directory?: string | null; defaultDirectory?: string | null }): Promise<Project | null> {
   const file = join(options.dataDirectory, "projects.json");
   const read = async () => {
     try { return projectRegistrySchema.parse(JSON.parse(await readFile(file, "utf8"))); }
@@ -46,8 +46,8 @@ export async function selectProject(options: { dataDirectory: string; directory?
       throw new Error(`项目 ${selected.name} 在 ${selected.directory} 找不到了；如已移动，运行 ${command} 重绑。将 --to 改为实际新路径，预览后将 --dry-run 改为 --upgrade 执行；先停止全部 Serika 写入者。`);
     }
     if (options.directory === undefined) return current;
-  } else if (options.directory === undefined && saved) return null;
-  const project = await identifyProject(options.directory === undefined ? options.cwd : options.directory);
+  } else if (options.directory === undefined && saved?.selected === null) return null;
+  const project = await identifyProject(options.directory === undefined ? options.defaultDirectory ?? null : options.directory);
   await mkdir(options.dataDirectory, { recursive: true });
   const lock = await acquireFlock(`${file}.lock`);
   const temporary = `${file}.${randomUUID()}.tmp`;

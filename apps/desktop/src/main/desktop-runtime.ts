@@ -158,7 +158,7 @@ export class DesktopRuntime {
     const app = await createRuntimeApp({
       directory: identity.transcriptDirectory, assistant: { threadId: identity.threadId, configPath: identity.configPath, dataDirectory: join(this.#options.applicationHome, "data") },
       modelAlias: this.#options.modelAlias, model: this.#options.model, output, env: this.#options.env, cwd: this.#options.cwd,
-      project: await selectProject({ dataDirectory: join(this.#options.applicationHome, "data"), cwd: this.#options.cwd }),
+      project: await selectProject({ dataDirectory: join(this.#options.applicationHome, "data"), defaultDirectory: config.configuredProjectDirectory }),
       pomodoroService: this.#pomodoroService,
       allowDirectoryTaskReads: true,
       desktopAutonomyHost: { home: this.#options.applicationHome },
@@ -315,11 +315,11 @@ export class DesktopRuntime {
     const previous = this.info().project?.directory ?? null;
     let changed = false;
     return this.#replace(async () => {
-      await selectProject({ dataDirectory: join(this.#options.applicationHome, "data"), directory, cwd: this.#options.cwd });
+      await selectProject({ dataDirectory: join(this.#options.applicationHome, "data"), directory });
       changed = true;
       return this.#identity;
     }, false, { reason: "context", rollback: async () => {
-      if (changed) await selectProject({ dataDirectory: join(this.#options.applicationHome, "data"), directory: previous, cwd: this.#options.cwd });
+      if (changed) await selectProject({ dataDirectory: join(this.#options.applicationHome, "data"), directory: previous });
     } });
   }
   setAuthorizedDirectories(input: DirectorySettingsInput) {

@@ -8,7 +8,7 @@ import { PassThrough } from "node:stream";
 import { test } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import { assistantDataPaths, createAssistantController, createRuntimeApp, createTaskStore, readinessExitCode } from "@serika/assistant";
+import { assistantDataPaths, createAssistantController, createRuntimeApp, createTaskStore, identifyProject, selectProject, readinessExitCode } from "@serika/assistant";
 import { resolveCliHome } from "./application-home.js";
 import { parseTuiArgs } from "./cli-options.js";
 import { checkTuiStartup } from "./startup-check.js";
@@ -128,5 +128,14 @@ test("CLI entry creates only its selected home and --check stays read-only", asy
     assert.deepEqual(await readdir(root), ["chosen"]);
     assert.equal(JSON.parse(await readFile(join(home, "config.json"), "utf8")).authorizedDirectory, undefined);
     assert.ok((await readdir(home)).includes("transcripts"));
+    const personal = join(root, "personal"), other = join(root, "other");
+    await mkdir(personal); await mkdir(other);
+    const dataDirectory = join(home, "data");
+    await selectProject({ dataDirectory, directory: personal });
+    const registryPath = join(dataDirectory, "projects.json"), before = await readFile(registryPath, "utf8");
+    const cli = spawnSync(process.execPath, [index, "--tui", "--home", home, "--thread", "other"], { cwd: other, env, input: "/exit\n", encoding: "utf8" });
+    assert.equal(cli.status, 0, cli.stderr);
+    assert.equal(await readFile(registryPath, "utf8"), before);
+    assert.deepEqual(await selectProject({ dataDirectory }), await identifyProject(personal));
   } finally { await rm(root, { recursive: true, force: true }); }
 });

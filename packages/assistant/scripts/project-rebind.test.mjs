@@ -15,7 +15,7 @@ const sha = bytes => createHash('sha256').update(bytes).digest('hex'), encoded =
 async function fixture(t) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'serika-project-rebind-'))); t.after(() => rm(root, { recursive: true, force: true }));
   const dataDirectory = join(root, 'home/data'), oldPath = join(root, 'old-project'), newPath = join(root, 'moved-project'); await mkdir(oldPath);
-  const old = await selectProject({ dataDirectory, cwd: root, directory: oldPath }), scope = { kind: 'project', projectId: old.id }, stamp = '2026-10-25T00:00:00Z';
+  const old = await selectProject({ dataDirectory, directory: oldPath }), scope = { kind: 'project', projectId: old.id }, stamp = '2026-10-25T00:00:00Z';
   const entry = (id, category, entryScope = scope) => ({ id, category, scope: entryScope, revision: 2, text: `FIXTURE_${id}`, uncertain: false, pinned: false, state: 'active', createdAt: stamp, updatedAt: stamp, sources: [{ kind: 'conversation', threadId: 'thread', messageId: `user-${id}`, quote: `FIXTURE_${id}`, sentAt: stamp }], replaces: [], supersededBy: null, withdrawal: null });
   const document = { version: 7, lastWrittenAt: stamp, entries: [entry('note', 'note'), entry('body', 'document'), entry('pref', 'preference', { kind: 'user' })], excludedSources: [{ threadId: 'thread', messageId: 'excluded' }],
     library: { revision: 3, folders: [], documents: [{ id: 'document', title: 'PROJECT_DOCUMENT', folderId: null, entryIds: ['body'], scope }] },
@@ -29,25 +29,28 @@ async function fixture(t) {
 }
 test('moved project reports an absolute CLI command, rebinds all v7 associations and rolls back both exact SHAs', async t => {
   const f = await fixture(t), beforeFiles = await readdir(f.dataDirectory);
-  await assert.rejects(selectProject({ dataDirectory: f.dataDirectory, cwd: f.root }), /项目 old-project 在 .*old-project 找不到了；如已移动，运行 '\/.*' '\/.*project-rebind.mjs'/);
+  let cliError;
+  await assert.rejects(selectProject({ dataDirectory: f.dataDirectory }), /项目 old-project 在 .*old-project 找不到了；如已移动，运行 '\/.*' '\/.*project-rebind.mjs'/);
   const cliPath = fileURLToPath(new URL('../../../apps/cli/dist/index.js', import.meta.url));
   const env = Object.fromEntries(['PATH', 'LANG', 'NODE_OPTIONS', 'SERIKA_TEST_HOME', 'SERIKA_TEST_VIOLATIONS', 'SERIKA_TEST_PROTECTED_ROOT'].flatMap(key => process.env[key] ? [[key, process.env[key]]] : []));
   Object.assign(env, { HOME: f.root, RUNLOOM_MODEL: 'mock' });
-  let cliError;
-  await assert.rejects(exec(process.execPath, [cliPath, '--tui', '--home', join(f.root, 'home')], { cwd: f.newPath, env }), error => { cliError = error.stderr; assert.match(error.stderr, /项目 old-project 在 .*找不到了/); assert.match(error.stderr, /project-rebind.mjs.*--from.*--to/); return true; });
+  try { await selectProject({ dataDirectory: f.dataDirectory }); } catch (error) { cliError = String(error); }
+  const cli = exec(process.execPath, [cliPath, '--tui', '--home', join(f.root, 'home')], { cwd: f.newPath, env });
+  cli.child.stdin.end('/exit\n');
+  await cli;
   const dry = JSON.parse((await f.cli('--from', f.oldPath, '--to', f.newPath, '--dry-run')).stdout);
   assert.deepEqual(dry.affected, { entries: 2, documents: 1, progress: 1, receipts: 1, suppressed: 1, registrations: 1, selected: 1 });
   assert.deepEqual(await readdir(f.dataDirectory), beforeFiles); assert.doesNotMatch(JSON.stringify(dry), /FIXTURE_note/);
   for (const [i, path] of [f.memoryPath, f.registryPath].entries()) assert.deepEqual(await readFile(path), f.originals[i]);
   const receipt = JSON.parse((await f.cli('--from', f.old.id, '--to', f.newPath, '--upgrade')).stdout), target = await identifyProject(f.newPath);
-  const selected = await selectProject({ dataDirectory: f.dataDirectory, cwd: f.root }); assert.equal(selected.id, target.id);
+  const selected = await selectProject({ dataDirectory: f.dataDirectory }); assert.equal(selected.id, target.id);
   const cold = new V7MemoryStore(f.memoryPath, target.id), list = await cold.readV7(); assert.ok(list.ok); assert.equal(list.value.entries.length, 3); assert.equal(list.value.library.documents.length, 1); assert.equal(list.value.progress.length, 1); assert.equal(list.value.importReceipts.length, 1); assert.equal(list.value.suppressed.length, 1);
   assert.equal((await new V7MemoryStore(f.memoryPath, f.old.id).readV7()).value.entries.length, 1);
   assert.equal(list.value.importReceipts[0].requestHash, f.document.importReceipts[0].requestHash); assert.equal(list.value.progress[0].prefixHash, f.document.progress[0].prefixHash);
   for (const [i, entry] of list.value.entries.entries()) assert.deepEqual({ ...entry, scope: f.document.entries[i].scope }, f.document.entries[i]);
   const rollback = JSON.parse((await f.cli('--rollback', receipt.receiptPath)).stdout); assert.equal(rollback.identical, true);
   for (const [i, path] of [f.memoryPath, f.registryPath].entries()) { assert.deepEqual(await readFile(path), f.originals[i]); assert.equal((await stat(path)).mode & 0o777, 0o640); }
-  await assert.rejects(selectProject({ dataDirectory: f.dataDirectory, cwd: f.root }), /找不到了/);
+  await assert.rejects(selectProject({ dataDirectory: f.dataDirectory }), /找不到了/);
   if (process.env.SERIKA_PROJECT_REBIND_EVIDENCE) {
     const sourceCommit = (await exec('git', ['rev-parse', 'HEAD'])).stdout.trim(), sourceWorktreeDirty = !!(await exec('git', ['status', '--porcelain'])).stdout.trim();
     const evidence = { runId: randomUUID(), sourceCommit, sourceWorktreeDirty, scriptSha256: sha(await readFile(fileURLToPath(import.meta.url))), verification: 'synthetic-data-real-cli-offline-rebind-v7-store-rollback', realModelCalls: 0, status: 'passed', diagnostic: cliError.match(/Error: (项目[^\n]+)/)[1], affected: dry.affected, visibleAfterRebind: { entries: 3, projectEntries: 2, documents: 1, progress: 1, receipts: 1, suppressed: 1 }, originalHistoricalHashesPreserved: true, files: rollback.files, modesIdentical: true };

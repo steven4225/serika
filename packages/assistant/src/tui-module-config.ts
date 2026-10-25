@@ -81,6 +81,7 @@ export interface ResolvedTuiModuleConfig {
   configPath: string | null;
   workspaceRoot: string | null;
   projectDirectory: string | null;
+  configuredProjectDirectory: string | null;
   authorizedDirectories: readonly DirectoryAuthorization[];
   enabled: Record<BuiltinModuleId, boolean>;
   webSearchEnabled: boolean;
@@ -595,6 +596,7 @@ async function resolveConfiguredMode(
     configPath: absoluteConfigPath,
     workspaceRoot: projectDirectory,
     projectDirectory,
+    configuredProjectDirectory: config.projectDirectory == null ? null : projectDirectory,
     authorizedDirectories,
     enabled,
     webSearchEnabled,
@@ -648,6 +650,7 @@ async function resolveLegacyMode(
     configPath: null,
     workspaceRoot,
     projectDirectory: workspaceRoot,
+    configuredProjectDirectory: null,
     authorizedDirectories: workspaceRoot === null ? [] : [{ path: workspaceRoot, access: "readwrite" }],
     enabled,
     webSearchEnabled: false,

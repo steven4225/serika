@@ -1,5 +1,4 @@
-import { resolve } from "node:path";
-import { selectProject, configureCliModel, createDemoModel, createRuntimeApp, readinessExitCode, type RuntimeApp } from "@serika/assistant";
+import { identifyProject, configureCliModel, createDemoModel, createRuntimeApp, readinessExitCode, type RuntimeApp } from "@serika/assistant";
 import { checkTuiStartup } from "./startup-check.js";
 import { runTui } from "./tui.js";
 import { resolveCliHome } from "./application-home.js";
@@ -25,7 +24,7 @@ const app = await createRuntimeApp({
   output: process.stdout,
   env: process.env,
   cwd: process.cwd(),
-  project: tuiArgs?.dataDirectory ? await selectProject({ dataDirectory: resolve(process.cwd(), tuiArgs.dataDirectory), directory: process.cwd(), cwd: process.cwd() }) : null,
+  project: tuiArgs?.dataDirectory ? await identifyProject(process.cwd()) : null,
 });
 
 async function runMessage(app: RuntimeApp, id: string, text: string) {

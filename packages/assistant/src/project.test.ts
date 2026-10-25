@@ -35,26 +35,26 @@ it("restores selection without authorizations and reports a moved or changed sel
     await mkdir(first); await mkdir(second);
     const config = join(root, "config.json"), before = '{"authorizedDirectories":[]}';
     await writeFile(config, before);
-    const chosen = await selectProject({ dataDirectory, directory: first, cwd: second });
-    assert.deepEqual(await selectProject({ dataDirectory, cwd: second }), chosen);
+    const chosen = await selectProject({ dataDirectory, directory: first });
+    assert.deepEqual(await selectProject({ dataDirectory }), chosen);
     const registry = JSON.parse(await readFile(join(dataDirectory, "projects.json"), "utf8"));
     assert.deepEqual(Object.keys(registry).sort(), ["projects", "selected", "version"]);
     assert.deepEqual(Object.keys(registry.projects[0]).sort(), ["directory", "id", "kind", "name"]);
     await rename(first, join(root, "moved"));
     const beforeMoveRegistry = await readFile(join(dataDirectory, "projects.json"), "utf8");
     for (const directory of [undefined, second, null]) {
-      await assert.rejects(selectProject({ dataDirectory, cwd: second, ...(directory !== undefined ? { directory } : {}) }), /项目 first 在 .*first 找不到了；如已移动，运行 .*project-rebind.mjs/);
+      await assert.rejects(selectProject({ dataDirectory, ...(directory !== undefined ? { directory } : {}) }), /项目 first 在 .*first 找不到了；如已移动，运行 .*project-rebind.mjs/);
     }
     assert.equal(await readFile(join(dataDirectory, "projects.json"), "utf8"), beforeMoveRegistry);
     await rename(join(root, "moved"), first);
-    const rebound = await selectProject({ dataDirectory, directory: second, cwd: second });
+    const rebound = await selectProject({ dataDirectory, directory: second });
     assert.notEqual(rebound?.id, chosen?.id);
-    await selectProject({ dataDirectory, directory: null, cwd: second });
-    assert.equal(await selectProject({ dataDirectory, cwd: second }), null);
+    await selectProject({ dataDirectory, directory: null });
+    assert.equal(await selectProject({ dataDirectory }), null);
     assert.equal(await readFile(config, "utf8"), before);
-    await selectProject({ dataDirectory, directory: first, cwd: second });
+    await selectProject({ dataDirectory, directory: first });
     await mkdir(join(root, ".git"));
-    await assert.rejects(selectProject({ dataDirectory, cwd: second }), /找不到了/);
+    await assert.rejects(selectProject({ dataDirectory }), /找不到了/);
 
     const context = createTaskTimeSource(rebound).collect({ messages: [], signal: new AbortController().signal, primary: true, now: new Date(), timeZone: "Asia/Shanghai", user: undefined, query: "" });
     assert.match(JSON.stringify(await context), /Host-selected project/);
