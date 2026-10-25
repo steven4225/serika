@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { FormalMemory, MemoryAction, MemoryPage } from "@serika/assistant";
 import type { MemoryMaintenance } from "@serika/assistant";
+import { MemoryExtractionFailures } from "./memory-extraction-failures.js";
 import { CurrentMemoryDetails } from "./memory-temporal.js";
 import { memoryDisabledEmptyCopy, savedMemoryEmptyCopy } from "./memory-copy.js";
 import { FailureAlert } from "./failure-notice.js";
@@ -27,6 +28,10 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken }: { enab
 
   const load = useCallback(async () => {
     const request = ++sequence.current;
+    try {
+      const result = await window.runloom.getMemoryMaintenance();
+      if (request === sequence.current) setMaintenance(result.ok ? result.value : null);
+    } catch { if (request === sequence.current) setMaintenance(null); }
     const entries: MemoryPage["entries"] = [];
     let start = 0;
     let truncated = false;
@@ -45,10 +50,6 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken }: { enab
       setPage({ entries, nextOffset: truncated ? start : null });
       setListError(null);
     } catch { if (request === sequence.current) { setPage(null); setListError("记忆读取失败，请重新加载"); } }
-    try {
-      const result = await window.runloom.getMemoryMaintenance();
-      if (request === sequence.current) setMaintenance(result.ok ? result.value : null);
-    } catch { if (request === sequence.current) setMaintenance(null); }
   }, []);
   const open = useCallback(async (id: string) => {
     const request = ++detailSequence.current;
@@ -115,11 +116,12 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken }: { enab
     </>}
   </div></section>;
   return <section className="formal-memories">
+    <MemoryExtractionFailures maintenance={maintenance} />
     {listError ? <><FailureAlert text={listError} /><button className="ghost" onClick={() => void load()}>重新读取</button></> : null}
     {notice ? <p className="hint" role="status">{notice}</p> : null}
     {page === null && !listError ? <p className="hint">读取中…</p> : null}
     {page !== null && entries.length === 0 ? <p className="hint">{savedMemoryEmptyCopy()}</p> : null}
-    {maintenance && maintenance.stored >= maintenance.capacity.entries * 0.9 ? <p role="status">记忆空间即将用满（{maintenance.stored}/{maintenance.capacity.entries}）。可以删除不再需要的记忆。</p> : null}
+    {maintenance && maintenance.stored !== null && maintenance.stored >= maintenance.capacity.entries * 0.9 ? <p role="status">记忆空间即将用满（{maintenance.stored}/{maintenance.capacity.entries}）。可以删除不再需要的记忆。</p> : null}
     <div className="memory-list">
       {entries.map(entry => <button type="button" className="ghost memory-row" key={entry.id} onClick={() => void open(entry.id)}>
         <span className="memory-row-text">{entry.preview.trim() ? memoryItemTitle(entry.preview) : "记忆"}</span>

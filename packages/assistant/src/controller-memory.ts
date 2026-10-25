@@ -1,3 +1,4 @@
+import { readMemoryExtractionFailures } from "./memory-extraction-log.js";
 import { v7Conflicts } from "./memory-v7-store.js";
 import type { ControllerKernel } from "./controller-kernel.js";
 import type { MemoryLibraryAction, MemoryLibraryDocument, MemoryLibraryView } from "./memory-library.js";
@@ -112,22 +113,27 @@ export function createMemoryControls(k: ControllerKernel): AssistantMemoryContro
       const store = app.memoryStore;
       if (!store || k.isClosed()) return memoryControlFailure("MEMORY_DISABLED", "Memory is unavailable");
       const listed = await store.list();
-      if (!listed.ok) return listed;
+      const storageError = listed.ok ? undefined : listed.error;
       const enabled = app.memoryExtraction !== undefined;
       let backlogCount: number | undefined, backlogError: string | undefined;
       if (enabled) {
         try { backlogCount = await app.memoryExtraction!.backlog(); }
         catch (error) { backlogError = String(error); }
       }
-      const material = await store.readV7?.();
+      const material = listed.ok ? await store.readV7?.() : undefined;
       const conflicts = material?.ok ? v7Conflicts(material.value.entries) : [];
       const extraction = app.memoryExtraction?.diagnostics();
-      const error = extraction?.error ?? backlogError;
+      let failures: NonNullable<MemoryMaintenance["failures"]> = [], failureLogError = extraction?.logError;
+      if (app.dataPaths) {
+        try { failures = await readMemoryExtractionFailures(app.dataPaths.memoryFailures, { threadId: app.threadId, projectId: app.project?.id ?? null }); }
+        catch { failureLogError = "MEMORY_FAILURE_LOG_READ_FAILED: 无法读取记忆整理失败记录"; }
+      }
+      const error = extraction?.error ?? backlogError ?? (storageError ? `${storageError.code}: ${storageError.message}` : undefined);
       const consolidation: MemoryMaintenance["consolidation"] = {
         enabled, state: extraction?.running ? "running" : error ? "failed" : !enabled ? "off" : (backlogCount ?? 0) > 0 ? "backlog" : "idle",
         ...(error === undefined ? {} : { error }), ...(backlogCount === undefined ? {} : { backlogCount }),
       };
-      return { ok: true, value: { stored: listed.entries.length, disabled: listed.entries.filter(entry => !entry.enabled).length, capacity: { ...memoryCapacity }, consolidation, conflicts, ...(extraction ? { extraction } : {}) } };
+      return { ok: true, value: { stored: listed.ok ? listed.entries.length : null, disabled: listed.ok ? listed.entries.filter(entry => !entry.enabled).length : null, ...(storageError ? { storageError } : {}), capacity: { ...memoryCapacity }, consolidation, conflicts, failures, ...(failureLogError ? { failureLogError } : {}), ...(extraction ? { extraction } : {}) } };
     },
   };
 }

@@ -6,7 +6,8 @@ import { hashCanonicalJson } from "@serika/core";
 import { availableInputTokens, defaultContextBudget, type ContextBudgetConfig } from "./context-budget.js";
 import { findCommittedUserMessage, withoutConsolidationTurns } from "./consolidation.js";
 import { bindMemoryWrite, memoryText, memoryWriteSchema, MEMORY_WRITE_RULES, MemoryWriteValidationError, type MemoryWriteValidationFailure } from "./memory-write.js";
-import type { ScopedMemoryStore } from "./memory-types.js";
+import { MemoryStoreError, type ScopedMemoryStore } from "./memory-types.js";
+import { appendMemoryExtractionFailure, memoryExtractionFailure, MemoryExtractionError, type MemoryExtractionStage } from "./memory-extraction-log.js";
 import type { V7Change, V7Document } from "./memory-v7-store.js";
 
 const responseSchema = z.object({ proposals: z.array(memoryWriteSchema.safeExtend({ sourceMessageId: z.string().min(1) })),
@@ -30,12 +31,12 @@ export function extractionMessages(messages: readonly UIMessage[]) {
     attachments: message.parts.filter(part => part.type === "file").map(part => ({ mediaType: part.mediaType, name: part.filename ?? "attachment" })),
   }));
 }
-export interface ExtractionDiagnostics { running: boolean; calls: number; completed: number; failed: number; cancelled: number; durationMs: number; pendingSegments: number; error?: string;
+export interface ExtractionDiagnostics { running: boolean; calls: number; completed: number; failed: number; cancelled: number; durationMs: number; pendingSegments: number; error?: string; logError?: string;
   validationFailure?: MemoryWriteValidationFailure & { proposalIndex: number } }
 
 /** One preemptible, tool-free call per block; the Controller owns foreground admission. */
 export function createMemoryExtraction(options: { store: ScopedMemoryStore; threadId: string; getMessages(): Promise<UIMessage[]>;
-  projectId?: string | null; workspaceRoot?: string; model: LanguageModel; budget: ContextBudgetConfig; updated(): void; now?: () => number }) {
+  projectId?: string | null; workspaceRoot?: string; failureLog?: string; model: LanguageModel; budget: ContextBudgetConfig; updated(): void; now?: () => number }) {
   const inProject = (messages: readonly UIMessage[]) => {
     let visible = true;
     return messages.filter(message => {
@@ -46,15 +47,22 @@ export function createMemoryExtraction(options: { store: ScopedMemoryStore; thre
   const now = options.now ?? Date.now, threshold = extractionThreshold(options.budget);
   const diagnostics: ExtractionDiagnostics = { running: false, calls: 0, completed: 0, failed: 0, cancelled: 0, durationMs: 0, pendingSegments: 0 };
   const listeners = new Set<() => void>();
+  const recordFailure = async (stage: MemoryExtractionStage, error: unknown) => {
+    if (!options.failureLog) return;
+    try {
+      await appendMemoryExtractionFailure(options.failureLog, memoryExtractionFailure({ stage, error, threadId: options.threadId,
+        projectId: options.projectId ?? null, at: new Date(now()) }));
+    } catch { diagnostics.logError = "MEMORY_FAILURE_LOG_WRITE_FAILED: 无法写入记忆整理失败记录"; }
+  };
   let timer: ReturnType<typeof setTimeout> | undefined, task: Promise<void> | undefined, abort: AbortController | undefined;
   let urgentThrough: string | undefined, mergeFingerprint: string | undefined;
   let generation = 0, closed = false, uncertain = false, lastActivity = now();
   const load = async () => {
-    const read = await options.store.readV7!(); if (!read.ok) throw new Error(`${read.error.code}: ${read.error.message}`);
+    const read = await options.store.readV7!(); if (!read.ok) throw new MemoryExtractionError(read.error.code, read.error.message);
     const messages = await options.getMessages(), document = read.value;
     const saved = document.progress.find(item => item.threadId === options.threadId) ?? null;
     const index = saved?.throughMessageId ? messages.findIndex(message => message.id === saved.throughMessageId) : -1;
-    if (saved?.throughMessageId && (index < 0 || prefixHash(messages, saved.throughMessageId) !== saved.prefixHash)) throw new Error("MEMORY_CURSOR_MISMATCH");
+    if (saved?.throughMessageId && (index < 0 || prefixHash(messages, saved.throughMessageId) !== saved.prefixHash)) throw new MemoryExtractionError("MEMORY_CURSOR_MISMATCH", "记忆整理进度与当前原文不一致");
     const backlog = messages.slice(index + 1), material = extractionMessages(backlog);
     return { document, saved, messages, backlog, material, tokens: Math.ceil(JSON.stringify(material).length / 2) };
   };
@@ -63,7 +71,7 @@ export function createMemoryExtraction(options: { store: ScopedMemoryStore; thre
     const { saved, document, messages } = initial;
     let backlog = initial.backlog;
     const pending = saved?.pending ?? [];
-    for (const item of pending) if (prefixHash(messages, item.messageId) !== item.prefixHash) throw new Error("MEMORY_CURSOR_MISMATCH");
+    for (const item of pending) if (prefixHash(messages, item.messageId) !== item.prefixHash) throw new MemoryExtractionError("MEMORY_CURSOR_MISMATCH", "记忆整理进度与当前原文不一致");
     const replay = pending.find(item => item.offset !== undefined) ?? (idle ? pending[0] : undefined);
     if (replay) { const index = messages.findIndex(message => message.id === replay.messageId); backlog = messages.slice(index, index + 1); }
     diagnostics.pendingSegments = pending.length + ((saved?.retry?.failures ?? 0) >= 2 ? 1 : 0);
@@ -72,22 +80,24 @@ export function createMemoryExtraction(options: { store: ScopedMemoryStore; thre
       if (mergeFingerprint === fingerprint) return;
       mergeFingerprint = fingerprint;
       const signal = new AbortController(); abort = signal;
+      let mergeStage: MemoryExtractionStage = "prepare";
       try {
-        const merged = await mergeMemory({ store: options.store, document, model: options.model, budget: options.budget, signal: signal.signal });
+        const merged = await mergeMemory({ store: options.store, document, model: options.model, budget: options.budget, signal: signal.signal, stage: stage => { mergeStage = stage; } });
         delete diagnostics.error;
         if (merged) { try { options.updated(); for (const listener of listeners) listener(); } catch {} }
       }
       catch (error) {
         if (!signal.signal.aborted) {
-          diagnostics.error = error instanceof Error ? error.message : "记忆合并失败";
+          diagnostics.error = error instanceof MemoryStoreError ? `${error.code}: ${error.message}` : error instanceof Error ? error.message : "记忆合并失败";
           uncertain = diagnostics.error.includes("MEMORY_COMMIT_UNCERTAIN");
+          await recordFailure(mergeStage, error);
         }
       } finally { if (signal.signal.aborted) mergeFingerprint = undefined; if (abort === signal) abort = undefined; }
       return;
     }
     if (saved?.retry && (saved.retry.failures >= 3 || saved.retry.failures >= 2 && !idle)) return;
     if (!idle && !urgentThrough && !replay && initial.tokens < threshold) return;
-    if (saved?.retry && prefixHash(messages, saved.retry.throughMessageId) !== saved.retry.prefixHash) throw new Error("MEMORY_CURSOR_MISMATCH");
+    if (saved?.retry && prefixHash(messages, saved.retry.throughMessageId) !== saved.retry.prefixHash) throw new MemoryExtractionError("MEMORY_CURSOR_MISMATCH", "记忆整理进度与当前原文不一致");
     const selected: UIMessage[] = [];
     for (const message of backlog) {
       if (Math.ceil(JSON.stringify(extractionMessages([...selected, message])).length / 2) > threshold) break;
@@ -104,7 +114,7 @@ export function createMemoryExtraction(options: { store: ScopedMemoryStore; thre
         const mid = Math.floor((low + high) / 2), part = { ...oversized, parts: [{ type: "text" as const, text: characters.slice(offset, offset + mid).join("") }] };
         if (Math.ceil(JSON.stringify(extractionMessages([part])).length / 2) <= threshold) { count = mid; low = mid + 1; } else high = mid - 1;
       }
-      if (!count) throw new Error("抽取元数据超过块窗口，原文保留");
+      if (!count) throw new MemoryExtractionError("MEMORY_EXTRACTION_METADATA_TOO_LARGE", "抽取元数据超过块窗口，原文保留");
       selected.splice(0, selected.length, { ...oversized, parts: [{ type: "text", text: characters.slice(offset, offset + count).join("") }] });
       fragment = { messageId: oversized.id, end: offset + count, complete: offset + count === characters.length };
     }
@@ -118,7 +128,7 @@ export function createMemoryExtraction(options: { store: ScopedMemoryStore; thre
     const progress = (failures: number): V7Document["progress"][number] => ({ projectId, threadId: options.threadId,
       throughMessageId: saved?.throughMessageId ?? null, prefixHash: saved?.prefixHash ?? null,
       pending, retry: { throughMessageId: last, prefixHash: selectedHash, failures } });
-    let proposalIndex = 0;
+    let proposalIndex = 0, stage: MemoryExtractionStage = "prepare";
     delete diagnostics.validationFailure;
     try {
       const facts = document.entries.filter(entry => entry.state === "active" && entry.category !== "document" );
@@ -127,25 +137,27 @@ export function createMemoryExtraction(options: { store: ScopedMemoryStore; thre
         "\nCurrent preferences and project notes: " + JSON.stringify(facts.map(({ id, revision, text, uncertain, category, identity, scope, sources }) => ({ id, revision, text, uncertain, category, identity, scope, sourceMessageIds: sources.flatMap(source => source.kind === "conversation" ? [source.messageId] : []) }))) +
         "\nExact response JSON Schema (no extra fields; all required fields must be present): " + responseFormat +
         "\nOriginal message order: " + JSON.stringify(messages.map(message => message.id)) + ". Older replay sources must never replace or withdraw newer-source memories. Mark older same-attribute values as superseded by the newer memory. Only chronologically ambiguous values remain diagnostic conflicts.\nReturn ONLY {proposals,outcomes}; each proposal has sourceMessageId and memory_write fields. Return one outcome for EACH ordinary eligible user source in order: extracted, no_memory or deferred. extracted requires ALL durable information accounted for; partial coverage is deferred. No tools, retries or prose. Already attached exact sources need no duplicate proposal. Eligible user IDs: " + JSON.stringify(users.map(user => user.id));
-      if (Math.ceil(prompt.length / 2) + options.budget.summaryMaxOutputTokens > availableInputTokens(options.budget)) throw new Error("抽取请求超过有效输入窗口，未调用模型");
+      if (Math.ceil(prompt.length / 2) + options.budget.summaryMaxOutputTokens > availableInputTokens(options.budget)) throw new MemoryExtractionError("MEMORY_EXTRACTION_INPUT_TOO_LARGE", "抽取请求超过有效输入窗口，未调用模型");
       signal.signal.throwIfAborted(); dispatched = projectMessages.length > 0; if (dispatched) diagnostics.calls++;
+      stage = "extract";
       const response = projectMessages.length ? await generateText({ model: options.model, prompt, maxRetries: 0,
         maxOutputTokens: options.budget.summaryMaxOutputTokens, abortSignal: AbortSignal.any([signal.signal, AbortSignal.timeout(30_000)]),
         providerOptions: { openaiCompatible: { thinking: { type: "disabled" }, reasoningEffort: "off" } } }) : { text: JSON.stringify({ proposals: [], outcomes: [] }) };
       signal.signal.throwIfAborted();
+      stage = "validate";
       const encoded = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(response.text)?.[1] ?? response.text;
       let decoded: unknown;
-      try { decoded = JSON.parse(encoded); } catch { throw new Error("抽取输出不是完整 JSON，未保存"); }
+      try { decoded = JSON.parse(encoded); } catch { throw new MemoryExtractionError("MEMORY_EXTRACTION_JSON_INVALID", "抽取输出不是完整 JSON，未保存"); }
       const parsed = responseSchema.safeParse(decoded);
-      if (!parsed.success) throw new Error("抽取输出格式无效，未保存：" + parsed.error.issues.map(issue => `${issue.path.join(".")}:${issue.code}`).join(","));
-      if (JSON.stringify(parsed.data.outcomes.map(outcome => outcome.messageId)) !== JSON.stringify(users.map(user => user.id))) throw new Error("抽取覆盖顺序无效");
+      if (!parsed.success) throw new MemoryExtractionError("MEMORY_EXTRACTION_SCHEMA_INVALID", "抽取输出格式无效，未保存");
+      if (JSON.stringify(parsed.data.outcomes.map(outcome => outcome.messageId)) !== JSON.stringify(users.map(user => user.id))) throw new MemoryExtractionError("MEMORY_EXTRACTION_COVERAGE_INVALID", "抽取覆盖顺序无效");
       const changes: V7Change[] = parsed.data.proposals.map((proposal, index) => {
         proposalIndex = index;
-        const user = users.find(user => user.id === proposal.sourceMessageId); if (!user || !memoryText(user).includes(proposal.sourceQuote)) throw new Error("抽取来源越界");
+        const user = users.find(user => user.id === proposal.sourceMessageId); if (!user || !memoryText(user).includes(proposal.sourceQuote)) throw new MemoryExtractionError("MEMORY_SOURCE_INVALID", "抽取来源越界");
         const { sourceMessageId: _id, ...write } = proposal;
         return bindMemoryWrite(write, { messages, user, threadId: options.threadId });
       }).filter(change => !("text" in change && document.entries.some(entry => JSON.stringify(entry.scope) === JSON.stringify(change.scope) && entry.text === change.text && entry.sources.some(source => source.kind === "conversation" && change.source.kind === "conversation" && source.messageId === change.source.messageId && source.quote === change.source.quote))));
-      for (const outcome of parsed.data.outcomes) if (outcome.status === "extracted" && !parsed.data.proposals.some(proposal => proposal.sourceMessageId === outcome.messageId)) throw new Error("extracted 缺少来源提议");
+      for (const outcome of parsed.data.outcomes) if (outcome.status === "extracted" && !parsed.data.proposals.some(proposal => proposal.sourceMessageId === outcome.messageId)) throw new MemoryExtractionError("MEMORY_EXTRACTION_COVERAGE_INVALID", "extracted 缺少来源提议");
       const firstDeferred = parsed.data.outcomes.findIndex(outcome => outcome.status === "deferred");
       const boundary = firstDeferred < 0 ? last : selected[selected.findIndex(message => message.id === users[firstDeferred]!.id) - 1]?.id ?? saved?.throughMessageId ?? null;
       let next: V7Document["progress"][number] = { projectId, pending, threadId: options.threadId, throughMessageId: boundary,
@@ -158,21 +170,23 @@ export function createMemoryExtraction(options: { store: ScopedMemoryStore; thre
         ...((saved?.throughMessageId === null || messages.findIndex(message => message.id === saved?.throughMessageId) < messages.findIndex(message => message.id === replay.messageId)) && firstDeferred < 0
           ? { throughMessageId: last, prefixHash: selectedHash } : {}) };
       if (urgentThrough && next.throughMessageId && messages.findIndex(message => message.id === next.throughMessageId) >= messages.findIndex(message => message.id === urgentThrough)) urgentThrough = undefined;
-      const fresh = await options.getMessages(); if (prefixHash(fresh, last) !== selectedHash) throw new Error("抽取原文已变化");
+      const fresh = await options.getMessages(); if (prefixHash(fresh, last) !== selectedHash) throw new MemoryExtractionError("MEMORY_SOURCE_CHANGED", "抽取原文已变化");
+      stage = "save";
       const committed = await options.store.writeV7!(changes, signal.signal, { expectedProgress: saved, progress: next, automatic: true, reextract: !!replay, sourceOrder: messages.map(message => message.id) });
       if (!committed.ok) {
         if (committed.error.code === "MEMORY_COMMIT_UNCERTAIN") uncertain = true;
-        throw new Error(`${committed.error.code}: ${committed.error.message}`);
+        throw new MemoryExtractionError(committed.error.code, committed.error.message);
       }
       diagnostics.completed++; diagnostics.pendingSegments = next.pending.length + ((next.retry?.failures ?? 0) >= 2 ? 1 : 0); delete diagnostics.error;
       return next.retry === null && (fragment?.complete === false || next.throughMessageId !== (saved?.throughMessageId ?? null));
     } catch (error) {
       if (signal.signal.aborted) { if (dispatched) diagnostics.cancelled++; return; }
-      diagnostics.failed++; diagnostics.error = error instanceof Error ? error.message : "抽取失败";
+      diagnostics.failed++; diagnostics.error = error instanceof MemoryStoreError ? `${error.code}: ${error.message}` : error instanceof Error ? error.message : "抽取失败";
+      await recordFailure(stage, error);
       if (error instanceof MemoryWriteValidationError) diagnostics.validationFailure = { ...error.validationFailure, proposalIndex };
       if (!uncertain && !diagnostics.error.includes("MEMORY_LIMIT_EXCEEDED") && !diagnostics.error.includes("MEMORY_CURSOR_MISMATCH")) {
         const failure = await options.store.writeV7!([], signal.signal, { expectedProgress: saved, progress: progress(Math.min(3, (saved?.retry?.failures ?? 0) + 1)) });
-        if (!failure.ok) { diagnostics.error = `${failure.error.code}: ${failure.error.message}`; uncertain = failure.error.code === "MEMORY_COMMIT_UNCERTAIN"; }
+        if (!failure.ok) { diagnostics.error = `${failure.error.code}: ${failure.error.message}`; uncertain = failure.error.code === "MEMORY_COMMIT_UNCERTAIN"; await recordFailure("save", new MemoryExtractionError(failure.error.code, failure.error.message)); }
         else diagnostics.pendingSegments = pending.length + ((saved?.retry?.failures ?? 0) + 1 >= 2 ? 1 : 0);
       }
     } finally { diagnostics.durationMs += now() - started; if (abort === signal) abort = undefined;
@@ -183,7 +197,7 @@ export function createMemoryExtraction(options: { store: ScopedMemoryStore; thre
     if (closed || uncertain || task) return;
     const epoch = generation; diagnostics.running = true;
     let drain = false;
-    task = extract(idle, epoch).then(advanced => { drain = advanced === true; }).catch(error => { diagnostics.error = error instanceof Error ? error.message : "抽取准备失败"; }).finally(() => {
+    task = extract(idle, epoch).then(advanced => { drain = advanced === true; }).catch(async error => { diagnostics.error = error instanceof MemoryStoreError ? `${error.code}: ${error.message}` : error instanceof Error ? error.message : "抽取准备失败"; await recordFailure("prepare", error); }).finally(() => {
       task = undefined; diagnostics.running = false;
       if (!closed && generation === epoch) { clearTimeout(timer); if (drain) queueMicrotask(() => consider(false)); else { timer = setTimeout(() => consider(true), IDLE_MS); timer.unref(); } }
     });

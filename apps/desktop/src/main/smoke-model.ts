@@ -3,7 +3,15 @@ import { MockLanguageModelV3 } from "ai/test";
 
 /** Offline provider for the opt-in Electron smoke; tool execution stays in the real host. */
 export function createDesktopSmokeModel() {
-  return new MockLanguageModelV3({ doStream: async ({ prompt }) => {
+  return new MockLanguageModelV3({ doGenerate: async ({ prompt }) => {
+    const text = prompt.flatMap(message => message.role === "system" ? [message.content] : message.content.flatMap(part => part.type === "text" ? [part.text] : [])).join("\n");
+    const eligible = /Eligible user IDs: (\[[^\n]*\])/.exec(text)?.[1];
+    const ids: string[] = eligible ? JSON.parse(eligible) : [];
+    const response = process.env.RUNLOOM_SMOKE_EXTRACTION_FAILURE === "1" ? "SMOKE_INVALID_EXTRACTION_JSON"
+      : eligible ? JSON.stringify({ proposals: [], outcomes: ids.map(messageId => ({ messageId, status: "no_memory" })) }) : JSON.stringify({ merge: null });
+    return { content: [{ type: "text", text: response }], finishReason: { unified: "stop", raw: undefined }, warnings: [],
+      usage: { inputTokens: { total: 10, noCache: 10, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 5, text: 5, reasoning: undefined } } };
+  }, doStream: async ({ prompt }) => {
     let lastUser = prompt.length - 1;
     while (lastUser >= 0 && prompt[lastUser]?.role !== "user") lastUser--;
     const user = prompt[lastUser];

@@ -4,11 +4,12 @@ import { availableInputTokens, type ContextBudgetConfig } from "./context-budget
 import { memorySnapshot } from "./memory-snapshot.js";
 import { v7Projection, type V7Document } from "./memory-v7-store.js";
 import type { ScopedMemoryStore } from "./memory-types.js";
+import { MemoryExtractionError, type MemoryExtractionStage } from "./memory-extraction-log.js";
 
 const responseSchema = z.object({ merge: z.object({ members: z.array(z.object({ id: z.string().min(1), revision: z.number().int().positive() }).strict()).min(2), text: z.string().min(1) }).strict().nullable() }).strict();
 const responseFormat = JSON.stringify(z.toJSONSchema(responseSchema));
 
-export async function mergeMemory(options: { store: ScopedMemoryStore; document: V7Document; model: LanguageModel; budget: ContextBudgetConfig; signal: AbortSignal }): Promise<boolean> {
+export async function mergeMemory(options: { store: ScopedMemoryStore; document: V7Document; model: LanguageModel; budget: ContextBudgetConfig; signal: AbortSignal; stage?(value: MemoryExtractionStage): void }): Promise<boolean> {
   const { store, document, model, budget, signal } = options;
   const owned = new Set(document.library.documents.flatMap(document => document.entryIds));
   const facts = document.entries.filter(entry => entry.state === "active" && entry.category !== "document" && !owned.has(entry.id));
@@ -26,13 +27,21 @@ export async function mergeMemory(options: { store: ScopedMemoryStore; document:
     "\nExact response JSON Schema: " + responseFormat;
   if (Math.ceil(prompt.length / 2) + budget.summaryMaxOutputTokens > availableInputTokens(budget)) return false;
   signal.throwIfAborted();
+  options.stage?.("extract");
   const response = await generateText({ model, prompt, maxRetries: 0, maxOutputTokens: budget.summaryMaxOutputTokens,
     abortSignal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
     providerOptions: { openaiCompatible: { thinking: { type: "disabled" }, reasoningEffort: "off" } } });
   signal.throwIfAborted();
-  const parsed = responseSchema.parse(JSON.parse(/```(?:json)?\s*([\s\S]*?)\s*```/i.exec(response.text)?.[1] ?? response.text));
+  options.stage?.("validate");
+  let decoded: unknown;
+  try { decoded = JSON.parse(/```(?:json)?\s*([\s\S]*?)\s*```/i.exec(response.text)?.[1] ?? response.text); }
+  catch { throw new MemoryExtractionError("MEMORY_EXTRACTION_JSON_INVALID", "合并输出不是完整 JSON，未保存"); }
+  const checked = responseSchema.safeParse(decoded);
+  if (!checked.success) throw new MemoryExtractionError("MEMORY_EXTRACTION_SCHEMA_INVALID", "合并输出格式无效，未保存");
+  const parsed = checked.data;
   if (!parsed.merge) return false;
+  options.stage?.("save");
   const committed = await store.mergeV7!(parsed.merge, signal);
-  if (!committed.ok) throw new Error(`${committed.error.code}: ${committed.error.message}`);
+  if (!committed.ok) throw new MemoryExtractionError(committed.error.code, committed.error.message);
   return true;
 }

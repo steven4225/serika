@@ -742,7 +742,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       ...(moduleConfig?.modelPricing ? { prices: moduleConfig.modelPricing } : {}),
     });
     const memoryExtraction = memoryStore && moduleConfig?.autoConsolidate ? createMemoryExtraction({
-      store: memoryStore, threadId, projectId: project?.id ?? null, ...(workspaceRoot ? { workspaceRoot } : {}), getMessages: () => transcript.read(), model: observedModel("memory_consolidation"),
+      store: memoryStore, failureLog: dataPaths!.memoryFailures, threadId, projectId: project?.id ?? null, ...(workspaceRoot ? { workspaceRoot } : {}), getMessages: () => transcript.read(), model: observedModel("memory_consolidation"),
       budget: moduleConfig.contextCompaction, updated: () => { redrawAfterModuleNotification?.(); },
     }) : undefined;
     const models = new InMemoryModelRegistry({ [modelAlias]: observedModel() });

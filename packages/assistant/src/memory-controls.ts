@@ -10,8 +10,11 @@ const actionSchema = z.discriminatedUnion("operation", [
 ]);
 export type MemoryAction = z.infer<typeof actionSchema>;
 export interface MemoryMaintenance {
+  failures?: import("./memory-extraction-log.js").MemoryExtractionFailure[];
+  failureLogError?: string;
   conflicts?: string[][]; extraction?: import("./memory-extraction.js").ExtractionDiagnostics;
-  stored: number; capacity: { entries: number; bytes: number }; disabled: number;
+  storageError?: { code: string; message: string };
+  stored: number | null; capacity: { entries: number; bytes: number }; disabled: number | null;
   consolidation: { enabled: boolean; state: "off" | "backlog" | "running" | "failed" | "idle"; error?: string; backlogCount?: number };
 }
 export const memoryCapacity: MemoryMaintenance["capacity"] = { entries: MEMORY_MAX_ENTRIES, bytes: MEMORY_FILE_MAX_BYTES };
