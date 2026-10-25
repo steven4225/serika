@@ -1,0 +1,109 @@
+{
+  "runId": "ad9b77fb-d32f-407e-a993-fd23d623ba08",
+  "verification": "current-home-copy-real-electron-fake-model",
+  "platform": "darwin",
+  "sourceCommit": "be13d5d55fae6a03e677cc23bb9a1b97d1a5ecae",
+  "sourceWorktreeDirty": false,
+  "generatedFiles": [
+    "?? Serika.command",
+    "?? launch-serika.mjs"
+  ],
+  "scriptSha256": "526edb41259d6875baec7d324207f488de7a08c0ca5b881a7c1f02c819052e94",
+  "release": "/Users/a1-6/Applications/Serika-releases/be13d5d55fae6a03e677cc23bb9a1b97d1a5ecae",
+  "realModelCalls": 0,
+  "launches": [
+    {
+      "name": "repaired-old-thread",
+      "main": {
+        "electron": "44.4.5",
+        "pid": 27151,
+        "cwd": "/Users/a1-6/Applications/Serika-releases/be13d5d55fae6a03e677cc23bb9a1b97d1a5ecae",
+        "userData": "/Users/a1-6/Serika-release-records/release3-20261025T033214Z/release-rehearsal-2/electron-profile",
+        "home": "/Users/a1-6/Serika-release-records/release3-20261025T033214Z/release-rehearsal-2/os-home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Applications/Serika-releases/be13d5d55fae6a03e677cc23bb9a1b97d1a5ecae/apps/desktop/out/renderer/index.html"
+      }
+    },
+    {
+      "name": "repaired-old-thread-restart",
+      "main": {
+        "electron": "44.4.5",
+        "pid": 27198,
+        "cwd": "/Users/a1-6/Applications/Serika-releases/be13d5d55fae6a03e677cc23bb9a1b97d1a5ecae",
+        "userData": "/Users/a1-6/Serika-release-records/release3-20261025T033214Z/release-rehearsal-2/electron-profile",
+        "home": "/Users/a1-6/Serika-release-records/release3-20261025T033214Z/release-rehearsal-2/os-home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Applications/Serika-releases/be13d5d55fae6a03e677cc23bb9a1b97d1a5ecae/apps/desktop/out/renderer/index.html"
+      }
+    },
+    {
+      "name": "new-thread-expected-validation-failure",
+      "main": {
+        "electron": "44.4.5",
+        "pid": 27271,
+        "cwd": "/Users/a1-6/Applications/Serika-releases/be13d5d55fae6a03e677cc23bb9a1b97d1a5ecae",
+        "userData": "/Users/a1-6/Serika-release-records/release3-20261025T033214Z/release-rehearsal-2/electron-profile",
+        "home": "/Users/a1-6/Serika-release-records/release3-20261025T033214Z/release-rehearsal-2/os-home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Applications/Serika-releases/be13d5d55fae6a03e677cc23bb9a1b97d1a5ecae/apps/desktop/out/renderer/index.html"
+      }
+    },
+    {
+      "name": "failure-log-survives-restart",
+      "main": {
+        "electron": "44.4.5",
+        "pid": 27332,
+        "cwd": "/Users/a1-6/Applications/Serika-releases/be13d5d55fae6a03e677cc23bb9a1b97d1a5ecae",
+        "userData": "/Users/a1-6/Serika-release-records/release3-20261025T033214Z/release-rehearsal-2/electron-profile",
+        "home": "/Users/a1-6/Serika-release-records/release3-20261025T033214Z/release-rehearsal-2/os-home"
+      },
+      "renderer": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "url": "file:///Users/a1-6/Applications/Serika-releases/be13d5d55fae6a03e677cc23bb9a1b97d1a5ecae/apps/desktop/out/renderer/index.html"
+      }
+    }
+  ],
+  "artifactHashes": {
+    "out/main/index.js": "b7ff3acad4d044a9d6b498693af6e3aafd30bf7709acd428aa5114c990be100e",
+    "out/preload/index.cjs": "b7414942c8798ff88d355633af7bd00fb1b89b29f77bb1b46ba555416a4968e6",
+    "out/renderer/index.html": "f1f4b0f978f20dee1b3b4a2cfb35c9de1d43166dc4255e56481f726f5a06962f"
+  },
+  "oldThread": {
+    "messages": 1292,
+    "originalCursorIndex": 1289,
+    "startupConsolidationCalls": 0,
+    "afterCursorIndex": 1289,
+    "notRestartedFromBeginning": true,
+    "restartConsolidationCalls": 0
+  },
+  "expectedFailure": {
+    "version": 1,
+    "stage": "validate",
+    "code": "MEMORY_EXTRACTION_JSON_INVALID",
+    "message": "抽取输出不是完整 JSON，未保存",
+    "projectId": "2edc36f50ce8b4bd28ea7ec30b5eb9223d3fd70eb65c6d0a6786babf043c89eb",
+    "at": "2026-10-25T03:58:23.217Z"
+  },
+  "retainedAfterRestart": true,
+  "rendererErrors": [],
+  "status": "passed",
+  "originalHomeUnchanged": true,
+  "finishedAt": "2026-10-25T03:58:30.138Z",
+  "privateResultSha256": "cd1bbb174ad1ef9f8f9163c9c7e2aac77f9f32e391418b068e07f61d3ac7444d",
+  "screenshots": [
+    {
+      "file": "failure-collapsed.png",
+      "sha256": "6338687eaf3e131e4b3a7efa40ed29aa7f826f042ca0cfa07d9a0f01281917c2"
+    },
+    {
+      "file": "failure-expanded.png",
+      "sha256": "4e7dd864878b15181d09173035cdcf155fc88e046fd11765ed6b5403a253346a"
+    }
+  ]
+}
