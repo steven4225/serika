@@ -1,7 +1,7 @@
 # Serika 架构 v2：现状、边界与重构路线
 
 > 状态：进行中（分支 `main`，2026-10-24 由 `experiment/architecture-v2` 改名）。本文取代 `docs/architecture-v0.md`。
-> 规则：在 main 上直接提交，不开 PR；legacy-main 是只读存档，不修改、不合并、不移植；不强推，回退用 git revert。
+> 规则：默认新建分支并开 PR 到 main，由用户点击合并；不直接推送 main；legacy-main 是只读存档，不修改、不合并、不移植；不强推，回退用 git revert。
 
 ## 1. 现状（以代码为准）
 
@@ -71,6 +71,8 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
 | 5 | SQLite（`node:sqlite`）：先迁记忆，拆表；表结构按 4.5 的两级设计（`project_id` 可空）；备份改为导出/导入 JSON；保留旧 `memory.json` | `memory-store.ts` 行数；并发写冲突 |
 | 6 | 任务重做：`work_task_create` 工具、自动推导校验、宿主执行校验、4 个状态、与定时任务合并 | 状态数 7 → 4 |
 | 7 | 沉淀管线：自动整理 + dreaming 合并为一条空闲反思管线，使用隐式信号；增加精确率/撤销率评测 | 撤销率 |
+
+第 6／7 步的实施前提与已落地／未做边界见 [上下文与记忆计划 §4.1](context-memory-refactor-plan.md)。第 6 步不依赖 SQLite；第 7 步沿用已生效的后台无工具、统一排队、来源、撤回与评测约束。
 
 候选补充（参考 OpenClaw / Hermes，待确认后并入对应步骤）：
 
@@ -157,7 +159,7 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
 
 - 先服务本机个人助手（开发、研究、日常），入口为桌面、CLI、Telegram。
 - 群聊 bot 另开一条线（§4.2），本轮只保留多实例装配、模块可选、数据目录独立这些边界。
-- 在 main 上直接提交，不开 PR；legacy-main 是只读存档，不修改、不合并、不移植；不强推，回退用 git revert。不依赖 CI；每个提交在本地跑 `pnpm typecheck`、`pnpm test:runtime`、桌面端测试（`pnpm --filter @serika/desktop test`），结果写在提交说明里。提交前缀 `refactor(v2-pilot-stepN):`，一步一组提交。
+- 默认新建分支并开 PR 到 main，由用户点击合并；不直接推送 main；legacy-main 是只读存档，不修改、不合并、不移植；不强推，回退用 git revert。不依赖 CI；每个提交在本地跑 `pnpm typecheck`、`pnpm test:runtime`、桌面端测试（`pnpm --filter @serika/desktop test`），结果写在提交说明里。提交前缀 `refactor(v2-pilot-stepN):`，一步一组提交。
 - 2026-10-24：旧 `main` 改名为 `legacy-main`，末次提交以附注标签 `legacy-main-final` 保存；`experiment/architecture-v2` 改名为 `main`。
 
 ### 改名后保留的冻结脚本
