@@ -299,3 +299,33 @@ cat "$UPGRADE_RECORD/memory-rollback.json" "$UPGRADE_RECORD/config-rollback.json
 ```
 
 两个文件的 `originalSha256` 与 `restoredSha256` 相同，且 `identical: true` 才算回滚成功。两次文件替换中断时，回滚允许各文件处于原 SHA 或重绑后 SHA，并核对后恢复。文件漂移、权限变化或备份损坏时拒绝覆盖；结果未确认时保留现场和回执，不自动重绑重试。回滚会恢复旧项目注册，旧路径仍失联时继续显示提示，需要恢复原目录或重新明确重绑。
+
+## 8. release-2 项目选择修复与 release-3
+
+`v2-release-2`（983e8d394ad2e7367532e550b2df9681b39ca70d）记为“项目选择缺陷，未完成验收”；原标签不移动。release-1、release-2、全部备份和 `Serika-support/917ee15…` 保留。release-3 使用 §1.1 的独立 clone、固定 Node、私密 env 路径和 `Serika.command`；正常桌面启动不注册或启用 resident/worker，两个服务继续 disabled。
+
+当前离线定点工具为 `packages/assistant/scripts/daily-project-repair.mjs`，只接受 memory SHA `0f4aa629f06fc2327912dbef47bcdbced1514cac1028660c4fd6796f322fb9bc` 与已批准的 projects 原始字节；任何漂移都停。它不改升级工具、正式记忆正文、文档库或 transcript。“你好”原消息的发布目录 memoryProjectId 保留，纠错说明见 release-3 记录。
+
+发布前仅在当前 H 的完整副本运行 `apps/desktop/scripts/release3-rehearsal.mjs --source-home <H> --output <新私密临时目录>`。脚本先修复副本，再以发布目录为 cwd 启动真实 Electron 和假模型，核对 personal、老 Thread 游标及整理调用数、失败日志和重启读取。复制数据只重定位配置/桌面身份中的 home 路径，transcript 字节及其 prefix hash 原样保留。输出含日用副本，禁止提交到 Git。
+
+真实数据严格分段，每段结束等用户确认：
+
+1. 用户确认 Serika 已退出；只读确认无桌面/CLI/host/worker/lockf，两个 job disabled、未加载。有残留或状态异常就列出并停，不自行 kill。
+2. 新做完整 `cp -a` 备份，核对文件集合和 SHA；执行下面 dry-run，原样给出 diff 后停。
+3. 用户批准后 apply，回报 prepared/applied 回执路径与 SHA 后停，不启动桌面。
+4. 用户双击 release-3 的 `Serika.command`，核对正常打开、personal 或无项目、personal 读写授权、3 偏好、personal 不见 Serika 文档、用户自己发送“你好”有回复。
+5. 全部通过后才按保存的原有效启用状态恢复两个服务。将 plist 的入口与 WorkingDirectory 指向新发布目录，核对 Node/env/home 和通知 helper，再执行 enable/bootstrap 并核对 job/ps/readiness。不得启用 TG；若原宿主参数会恢复 TG，先停下解决这项约束，不自动启动。
+
+```sh
+NODE='/opt/homebrew/Cellar/node/26.4.0/bin/node'
+RELEASE3='/Users/a1-6/Applications/Serika-releases/<release-3完整SHA>'
+"$NODE" "$RELEASE3/packages/assistant/scripts/daily-project-repair.mjs" --home "$HOME/.serika" --dry-run
+# 独立确认后才执行：
+"$NODE" "$RELEASE3/packages/assistant/scripts/daily-project-repair.mjs" --home "$HOME/.serika" --apply
+# 仅用户决定回滚时，使用 apply 输出的 prepared 回执及其 SHA：
+"$NODE" "$RELEASE3/packages/assistant/scripts/daily-project-repair.mjs" --home "$HOME/.serika" --rollback '<repair.receipt.json>' --receipt-sha '<receiptSha256>'
+```
+
+工具在 H 外另做完整备份。两个目标不能一起原子 rename，因此 prepared 回执先落盘；中途失败不得重跑 apply，需核对各目标是否为原始/修复后 SHA，再由用户决定显式逆序 rollback。原始回执或备份 SHA 不符、目标出现第三种 SHA 均拒绝。
+
+worker 通知 helper 仍依赖 `Serika-support/917ee15…`，旧发布和 support 不可删除。Node 路径带 Cellar 版本，`brew upgrade node` 后必须重建固定入口和 plist。正常桌面启动不清除 launchd 的 disabled override；用户核对通过前不安装、enable 或 bootstrap 服务。
