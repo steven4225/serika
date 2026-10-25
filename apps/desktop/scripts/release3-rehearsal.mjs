@@ -12,7 +12,7 @@ const repo = fileURLToPath(new URL('../../..', import.meta.url));
 const options = Object.fromEntries(Array.from({ length: (process.argv.length - 2) / 2 }, (_, i) => [process.argv[2 + i * 2], process.argv[3 + i * 2]]));
 assert.ok(options['--source-home'] && options['--output'], 'Pass --source-home and a new private --output directory');
 const source = await realpath(options['--source-home']), output = resolve(options['--output']);
-assert.ok(output !== source && !output.startsWith(source + '/'));
+assert.ok(output !== source && !output.startsWith(source + '/') && !output.startsWith(repo + '/'));
 await mkdir(output, { mode: 0o700 });
 const home = join(output, 'H'), osHome = join(output, 'os-home');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -33,9 +33,11 @@ assert.equal(hash(await readFile(join(source, 'data/memory.json'))), EXPECTED_ME
 execFileSync('/bin/cp', ['-a', source, home]);
 assert.deepEqual(await manifest(home), before);
 await mkdir(osHome);
+const generated = new Set(['?? Serika.command', '?? launch-serika.mjs']);
+const status = execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }).trim().split('\n').filter(Boolean);
 const report = { runId: randomUUID(), verification: 'current-home-copy-real-electron-fake-model', platform: process.platform,
   sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim(),
-  sourceWorktreeDirty: !!execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }).trim(),
+  sourceWorktreeDirty: status.some(line => !generated.has(line)), generatedFiles: status.filter(line => generated.has(line)),
   scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))), release: repo, source, home, realModelCalls: 0, launches: [], screenshots: [], status: 'failed' };
 assert.equal(report.sourceWorktreeDirty, false);
 report.artifactHashes = Object.fromEntries(await Promise.all(['out/main/index.js', 'out/preload/index.cjs', 'out/renderer/index.html'].map(async name => [name, hash(await readFile(join(repo, 'apps/desktop', name)))])));
