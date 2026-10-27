@@ -101,7 +101,7 @@ try {
   const receipt = page.locator('.memory-fact-receipt').filter({ hasText: '已保存' });
   await expect(receipt).toHaveCount(1);
   await expect(receipt.getByRole('button', { name: '撤销', exact: true })).toBeEnabled();
-  await check('remember-success-receipt', page, { source: 'v6-record', undoAvailable: true });
+  await check('remember-success-receipt', page, { source: 'v7-record', undoAvailable: true });
   const hostMemory = await page.evaluate(() => window.runloom.listMemories({}));
   const hostSnapshot = await page.evaluate(() => window.runloom.snapshot());
   const hostLibrary = await page.evaluate(() => window.runloom.getMemoryLibrary());
@@ -110,7 +110,7 @@ try {
   await page.getByRole('button', { name: /未归档/ }).click();
   await expect(page.locator('.memory-document-tile').filter({ hasText: text })).toHaveCount(1);
   let saved = JSON.parse(await readFile(memoryFile(primary), 'utf8'));
-  assert.equal(saved.version, 6);
+  assert.equal(saved.version, 7);
   assert.ok(saved.entries.some(entry => entry.text === text && entry.state === 'active'));
   await check('remember-on-memory-page', page);
   await stop();
