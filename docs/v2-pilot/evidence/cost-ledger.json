@@ -68,8 +68,18 @@
       "evidence": "cm-step6/spot-conversation/initial/result.json",
       "evidenceSha256": "5ede9ece8e5cdaa843bb63aa562236e8d99748baf0f439b5977d6273b1afff92",
       "reconciliation": "All 12 per-request records are returned with usage. Original result footer retained stale reservation during asynchronous finalization; original archive is unchanged."
+    },
+    {
+      "step": "issue191-hotfix",
+      "runId": "d0f95741-7a11-4f17-97a2-0d069741c8c1",
+      "realModelRequests": 2,
+      "amount": 0.00030212,
+      "amountBasis": "Conservative public peak-price estimate from recorded usage; not invoice verified",
+      "authorizedBatchCapUsd": 0.2,
+      "evidence": "issue191/live.json",
+      "evidenceSha256": "de0455bd363b84c51cb26fc6e5d5e7f51e3102441361fb1b52ed3bb8c7e55d45"
     }
   ],
-  "total": 2.0503229599999995,
-  "knownTotal": 2.0489981599999996
+  "total": 2.0506250799999997,
+  "knownTotal": 2.0493002799999998
 }

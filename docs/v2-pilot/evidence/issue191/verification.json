@@ -1,0 +1,133 @@
+{
+  "derivedAt": "2026-10-27T11:50:00.885645+00:00",
+  "derivation": "Existing test logs and guard receipts only; no tests rerun",
+  "sourceCommit": "9aca51772d5a22ba22fdc69cc522341874f52d6f",
+  "fullTest": {
+    "command": "SERIKA_B2_RECORD_CONCURRENT_HOME=1 SERIKA_TEST_HOME=<new temporary HOME> pnpm test",
+    "exitCode": 0,
+    "suites": {
+      "runtime": {
+        "tests": 1201,
+        "pass": 1194,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 7,
+        "duration_ms": 116110.35225
+      },
+      "desktop": {
+        "tests": 656,
+        "pass": 656,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 189213.9515
+      },
+      "scripts": {
+        "tests": 12,
+        "pass": 12,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 2162.628208
+      }
+    },
+    "passed": 1862,
+    "skipped": 7,
+    "guards": [
+      {
+        "runId": "3302eb61-e91d-46ae-954d-eb57a51225bc",
+        "startedAt": "2026-10-27T11:32:41.813Z",
+        "finishedAt": "2026-10-27T11:34:38.315Z",
+        "command": [
+          "/bin/sh",
+          "-c",
+          "pnpm build:runtime && node --test --test-concurrency=4 packages/core/dist/*.test.js packages/ai-sdk-adapter/dist/*.test.js packages/assistant/dist/*.test.js packages/assistant/dist/acceptance/*.test.js packages/assistant/dist/modules/*.test.js apps/cli/dist/*.test.js packages/assistant/scripts/cm-step7-migrate.test.mjs packages/assistant/scripts/home-import.test.mjs packages/assistant/scripts/config-upgrade.test.mjs packages/assistant/scripts/memory-upgrade.test.mjs packages/assistant/scripts/project-rebind.test.mjs packages/assistant/scripts/daily-project-repair.test.mjs scripts/test-home.test.mjs"
+        ],
+        "exitCode": 0,
+        "status": "passed",
+        "recordConcurrentChanges": true,
+        "violations": 0,
+        "metadataUnchanged": false,
+        "backgroundChangeEvents": 76,
+        "rawEvidenceSha256": "a1bb1b7503e52b65cb85b78f7938c094e8b7883e666e899b63e08d197f8a5768"
+      },
+      {
+        "runId": "0b615b88-9683-4b26-a0aa-a024d564a7ee",
+        "startedAt": "2026-10-27T11:34:39.116Z",
+        "finishedAt": "2026-10-27T11:37:51.170Z",
+        "command": [
+          "/bin/sh",
+          "-c",
+          "tsx --test --test-concurrency=4 src/shared/*.test.ts src/main/*.test.ts src/renderer/src/*.test.ts src/renderer/src/personal/*.test.ts && node --test scripts/*.test.mjs"
+        ],
+        "exitCode": 0,
+        "status": "passed",
+        "recordConcurrentChanges": true,
+        "violations": 0,
+        "metadataUnchanged": false,
+        "backgroundChangeEvents": 123,
+        "rawEvidenceSha256": "4ccc98ef9a8e90a475dbfe8575f94129502d4acffde08d68262351a96a1e583b"
+      },
+      {
+        "runId": "8a05f34e-2305-47e3-af5c-01edda9d1ce2",
+        "startedAt": "2026-10-27T11:32:41.576Z",
+        "finishedAt": "2026-10-27T11:37:51.189Z",
+        "command": [
+          "/bin/sh",
+          "-c",
+          "pnpm test:runtime && pnpm desktop:test"
+        ],
+        "exitCode": 0,
+        "status": "passed",
+        "recordConcurrentChanges": true,
+        "violations": 0,
+        "metadataUnchanged": false,
+        "backgroundChangeEvents": 199,
+        "rawEvidenceSha256": "cd71dda2b967db76306f6bbee664ba192db7841aed5e3104dd6fd31cea15fd38"
+      }
+    ],
+    "selfTestReceipts": "Expected failing guard self-tests are excluded from outer guards; their temporary raw files were removed by those tests"
+  },
+  "smoke": {
+    "command": "SERIKA_B2_RECORD_CONCURRENT_HOME=1 SERIKA_TEST_HOME=<new temporary HOME> pnpm --filter @serika/desktop smoke",
+    "guard": {
+      "runId": "7a27f360-0c41-493e-a1aa-3f95cc225a4a",
+      "startedAt": "2026-10-27T11:42:03.858Z",
+      "finishedAt": "2026-10-27T11:42:14.464Z",
+      "command": [
+        "/bin/sh",
+        "-c",
+        "pnpm --workspace-root build:runtime && pnpm build && node scripts/electron-smoke-fixture.mjs"
+      ],
+      "exitCode": 1,
+      "status": "failed",
+      "recordConcurrentChanges": true,
+      "violations": 0,
+      "metadataUnchanged": false,
+      "backgroundChangeEvents": 6,
+      "rawEvidenceSha256": "fc15bca4ffb0cfc8596a4f1e406fc29903a4b88f373bccb4e6c4ec3d1b1c31fa"
+    },
+    "result": "electron-smoke/result.json",
+    "blockedAt": "apps/desktop/scripts/electron-smoke.mjs:113",
+    "observed": "saved.version = 7; assertion expects 6",
+    "baselineIndependentReproduction": false
+  },
+  "logSha256": {
+    "test.log": "b430c7679567e2cd3f8e63cfac7f11f25398fce9f7542284ab29e1d24d89d221",
+    "smoke.log": "87c4607e8195b3776cc0378a848369a3b769b1e7da76cef58ca4d4c23b9bc503",
+    "smoke-retry.log": "eb5b193eeae33ce42c983062f9579c7f076d0c4162860fffcd31e1885d64ffa5"
+  },
+  "evidenceSha256": {
+    "cli-contract.json": "2dafc42b1fbc00efb11eb7760b8c9db30ebf819f551248c5e9f22e45f30e1380",
+    "electron-smoke/chat-reply.png": "6344a6992c4d5d15769494f02968b119d9d26afcb37c3cc37c3b525896651497",
+    "electron-smoke/failure.png": "f72706b7a9cff835ed8fa7091051156fed1fbe7fd6bd787340247d94e2668344",
+    "electron-smoke/home-fixture.json": "d5b464098913cb1547eeb2497912717802f16a881cfd6398671c38d0c8595f84",
+    "electron-smoke/remember-success-receipt.png": "836c1b7c44d4b5a2d0678ddce75563e0630c617da602a8e70f2b9bf840e0db25",
+    "electron-smoke/result.json": "d757d1a8dbd87e699b2068297ed0ee9ad635da2033f5690b448843e4f7b078dc",
+    "electron-smoke/startup.png": "1610ab8d4f138ab90f131783c6986b2ccb7c4759aa8ee58639d40070d6fc577f",
+    "electron-smoke-initial-failure/home-fixture.json": "7416f885e877b1199365e9b34b6e0c3002539ce3ac09b7555a0572942e1cb659",
+    "electron-smoke-initial-failure/result.json": "376df9031ff594d96195512ddb7abf3be29164d4abde463d10f919580cbc0b84",
+    "live.json": "de0455bd363b84c51cb26fc6e5d5e7f51e3102441361fb1b52ed3bb8c7e55d45",
+    "targeted-guards.json": "1b6e3f2dffc9f8df831ac2fa6a319609963e1b1574d28678709872ef74ddf18d"
+  }
+}
