@@ -19,6 +19,7 @@ import {readFileSync,appendFileSync,writeFileSync} from 'node:fs';
 const argv=process.argv.slice(2), mode=JSON.parse(readFileSync(${JSON.stringify(stateFile)},'utf8'));
 if (Object.keys(process.env).some(k=>k.startsWith('HERDR_') || k==='API_KEY')) { console.error('unexpected environment'); process.exit(1); }
 appendFileSync(${JSON.stringify(log)},JSON.stringify(argv)+'\\n');
+if(argv[3]==='prompt' && (argv[0]!=='--session'||argv[1]!=='offline'||argv[2]!=='agent'||argv[4]!=='w1:p1'||argv.length!==6)) { console.error('unknown option: '+argv[6]); process.exit(2); }
 const identity={pane_id:'w1:p1',terminal_id:mode==='replaced'?'replacement':'terminal-1'};
 const agent={...identity,agent:mode==='wrong-kind'?'codex':'pi',agent_status:mode==='busy'?'working':'idle',state_change_seq:3};
 if(argv[0]==='session') console.log(JSON.stringify({sessions:[{name:'offline',running:true}]}));
@@ -43,15 +44,16 @@ it("Herdr fixed actions verify the selected Pi identity, strip credentials and u
     const panes = await f.client.panes("offline");
     assert.equal(panes[0]?.paneId, "w1:p1");
     assert.ok(!JSON.stringify(panes).includes(f.secret));
+    const text = "--help; $(touch cannot-run)\n中文 \"双引号\" '单引号'";
     for (const action of [{ action: "get" }, { action: "read" }, { action: "wait" },
-      { action: "prompt", text: "--help; $(touch cannot-run)" }, { action: "input", key: "enter" }, { action: "stop" }] as const) {
+      { action: "prompt", text }, { action: "input", key: "enter" }, { action: "stop" }] as const) {
       const result = await f.client.execute(f.target, action);
       assert.equal(result.ok, true);
       assert.ok(!JSON.stringify(result).includes(f.secret));
     }
     const calls = await f.calls();
     assert.ok(calls.slice(2).every(argv => argv[0] === "--session" && argv[1] === "offline" && argv[4] === "w1:p1"));
-    assert.deepEqual(calls.filter(argv => argv[3] === "prompt"), [["--session", "offline", "agent", "prompt", "w1:p1", "--", "--help; $(touch cannot-run)"]]);
+    assert.deepEqual(calls.filter(argv => argv[3] === "prompt"), [["--session", "offline", "agent", "prompt", "w1:p1", text]]);
     assert.deepEqual(calls.filter(argv => argv[3] === "send-keys").map(argv => argv[5]), ["enter", "ctrl+c"]);
     assert.equal(calls.filter(argv => argv[2] === "pane" && argv[3] === "get").length, 7);
     await assert.rejects(f.client.panes("--current"), /会话名称无效/);

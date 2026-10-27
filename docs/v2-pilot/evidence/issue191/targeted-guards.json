@@ -1,0 +1,56 @@
+[
+  {
+    "runId": "35647730-ea9c-4a42-85e3-018f176f377b",
+    "startedAt": "2026-10-27T11:18:54.881Z",
+    "finishedAt": "2026-10-27T11:18:55.966Z",
+    "command": [
+      "node",
+      "--test",
+      "--test-name-pattern=Herdr fixed actions",
+      "packages/assistant/dist/herdr.test.js"
+    ],
+    "exitCode": 1,
+    "status": "failed",
+    "recordConcurrentChanges": false,
+    "violations": 0,
+    "backgroundChangeEvents": 0,
+    "metadataUnchanged": true,
+    "rawEvidenceSha256": "b63ba960a8064cb77a5f656a9ccdb8a5f41b8adf2916bf8ec698b8e9212d155a"
+  },
+  {
+    "runId": "0c8fc52c-0b70-4196-b051-88666d1845e7",
+    "startedAt": "2026-10-27T11:19:40.789Z",
+    "finishedAt": "2026-10-27T11:19:41.379Z",
+    "command": [
+      "node",
+      "--test",
+      "packages/assistant/dist/herdr.test.js",
+      "packages/assistant/dist/herdr-control.test.js"
+    ],
+    "exitCode": 1,
+    "status": "failed",
+    "recordConcurrentChanges": false,
+    "violations": 0,
+    "backgroundChangeEvents": 3,
+    "metadataUnchanged": false,
+    "rawEvidenceSha256": "df9954ec609be78140a61d86ee60dd5fed5b490909f95c534acdf780efc257b8"
+  },
+  {
+    "runId": "29ac5b7b-e48f-4383-b928-6c724e018c3a",
+    "startedAt": "2026-10-27T11:20:21.370Z",
+    "finishedAt": "2026-10-27T11:20:30.070Z",
+    "command": [
+      "node",
+      "--test",
+      "packages/assistant/dist/herdr.test.js",
+      "packages/assistant/dist/herdr-control.test.js"
+    ],
+    "exitCode": 0,
+    "status": "passed",
+    "recordConcurrentChanges": true,
+    "violations": 0,
+    "backgroundChangeEvents": 3,
+    "metadataUnchanged": false,
+    "rawEvidenceSha256": "3e2aa791c72631ea6554be69a23919a1a9a654dc4e2c455ff3fb3dc1dd62b50d"
+  }
+]

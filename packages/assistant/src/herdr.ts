@@ -135,7 +135,7 @@ export class HerdrClient {
         if (result.terminal_id !== target.terminalId || result.pane_id !== target.paneId || result.agent !== "pi") return failure("HERDR_TARGET_CHANGED", "Herdr 终端已关闭或替换，请重新选择目标");
         return { ok: true as const, value: snapshot(result) };
       }
-      const args = action.action === "prompt" ? ["agent", "prompt", target.paneId, "--", action.text]
+      const args = action.action === "prompt" ? ["agent", "prompt", target.paneId, action.text]
         : ["agent", "send-keys", target.paneId, action.action === "stop" ? "ctrl+c" : action.key];
       const response: unknown = JSON.parse(await this.#run(binary, [...prefix, ...args], signal, () => { dispatched = true; }));
       if (action.action === "prompt") {

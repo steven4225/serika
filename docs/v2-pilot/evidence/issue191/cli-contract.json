@@ -1,0 +1,227 @@
+{
+  "probeId": "542a8f4caa094f67892ceccf45e1c68e",
+  "timestamp": "2026-10-27T11:17:27.805715+00:00",
+  "binary": "/opt/homebrew/bin/herdr",
+  "version": {
+    "argv": [
+      "--version"
+    ],
+    "exitCode": 0,
+    "stdout": "herdr 0.8.2\n",
+    "stderr": ""
+  },
+  "session": "s191-542a8f4c",
+  "isolatedHome": "/tmp/s191-n9fjow1z/H",
+  "control": {
+    "argv": [
+      "--session",
+      "s191-542a8f4c",
+      "pane",
+      "get",
+      "w999999:p999999"
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": "{\"id\":\"cli:pane:get\",\"error\":{\"code\":\"server_not_running\",\"message\":\"no herdr server is running at /tmp/s191-n9fjow1z/H/.config/herdr/sessions/s191-542a8f4c/herdr.sock; run `herdr session attach s191-542a8f4c` to start or attach it\"}}\n"
+  },
+  "results": [
+    {
+      "case": "plain",
+      "form": "old",
+      "text": "SERIKA_CONTRACT_542a8f4caa094f67892ceccf45e1c68e",
+      "argv": [
+        "--session",
+        "s191-542a8f4c",
+        "agent",
+        "prompt",
+        "w999999:p999999",
+        "--",
+        "SERIKA_CONTRACT_542a8f4caa094f67892ceccf45e1c68e"
+      ],
+      "exitCode": 2,
+      "stdout": "",
+      "stderr": "unknown option: SERIKA_CONTRACT_542a8f4caa094f67892ceccf45e1c68e\n"
+    },
+    {
+      "case": "plain",
+      "form": "positional",
+      "text": "SERIKA_CONTRACT_542a8f4caa094f67892ceccf45e1c68e",
+      "argv": [
+        "--session",
+        "s191-542a8f4c",
+        "agent",
+        "prompt",
+        "w999999:p999999",
+        "SERIKA_CONTRACT_542a8f4caa094f67892ceccf45e1c68e"
+      ],
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "{\"id\":\"cli:agent:prompt\",\"error\":{\"code\":\"server_not_running\",\"message\":\"no herdr server is running at /tmp/s191-n9fjow1z/H/.config/herdr/sessions/s191-542a8f4c/herdr.sock; run `herdr session attach s191-542a8f4c` to start or attach it\"}}\n"
+    },
+    {
+      "case": "unicode_quotes",
+      "form": "old",
+      "text": "中文第一行\n第二行 \"双引号\" '单引号'",
+      "argv": [
+        "--session",
+        "s191-542a8f4c",
+        "agent",
+        "prompt",
+        "w999999:p999999",
+        "--",
+        "中文第一行\n第二行 \"双引号\" '单引号'"
+      ],
+      "exitCode": 2,
+      "stdout": "",
+      "stderr": "unknown option: 中文第一行\n第二行 \"双引号\" '单引号'\n"
+    },
+    {
+      "case": "unicode_quotes",
+      "form": "positional",
+      "text": "中文第一行\n第二行 \"双引号\" '单引号'",
+      "argv": [
+        "--session",
+        "s191-542a8f4c",
+        "agent",
+        "prompt",
+        "w999999:p999999",
+        "中文第一行\n第二行 \"双引号\" '单引号'"
+      ],
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "{\"id\":\"cli:agent:prompt\",\"error\":{\"code\":\"server_not_running\",\"message\":\"no herdr server is running at /tmp/s191-n9fjow1z/H/.config/herdr/sessions/s191-542a8f4c/herdr.sock; run `herdr session attach s191-542a8f4c` to start or attach it\"}}\n"
+    },
+    {
+      "case": "leading_dash",
+      "form": "old",
+      "text": "-SERIKA_542a8f4caa094f67892ceccf45e1c68e",
+      "argv": [
+        "--session",
+        "s191-542a8f4c",
+        "agent",
+        "prompt",
+        "w999999:p999999",
+        "--",
+        "-SERIKA_542a8f4caa094f67892ceccf45e1c68e"
+      ],
+      "exitCode": 2,
+      "stdout": "",
+      "stderr": "unknown option: -SERIKA_542a8f4caa094f67892ceccf45e1c68e\n"
+    },
+    {
+      "case": "leading_dash",
+      "form": "positional",
+      "text": "-SERIKA_542a8f4caa094f67892ceccf45e1c68e",
+      "argv": [
+        "--session",
+        "s191-542a8f4c",
+        "agent",
+        "prompt",
+        "w999999:p999999",
+        "-SERIKA_542a8f4caa094f67892ceccf45e1c68e"
+      ],
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "{\"id\":\"cli:agent:prompt\",\"error\":{\"code\":\"server_not_running\",\"message\":\"no herdr server is running at /tmp/s191-n9fjow1z/H/.config/herdr/sessions/s191-542a8f4c/herdr.sock; run `herdr session attach s191-542a8f4c` to start or attach it\"}}\n"
+    },
+    {
+      "case": "help_literal",
+      "form": "old",
+      "text": "--help",
+      "argv": [
+        "--session",
+        "s191-542a8f4c",
+        "agent",
+        "prompt",
+        "w999999:p999999",
+        "--",
+        "--help"
+      ],
+      "exitCode": 2,
+      "stdout": "",
+      "stderr": "unknown option: --help\n"
+    },
+    {
+      "case": "help_literal",
+      "form": "positional",
+      "text": "--help",
+      "argv": [
+        "--session",
+        "s191-542a8f4c",
+        "agent",
+        "prompt",
+        "w999999:p999999",
+        "--help"
+      ],
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "{\"id\":\"cli:agent:prompt\",\"error\":{\"code\":\"server_not_running\",\"message\":\"no herdr server is running at /tmp/s191-n9fjow1z/H/.config/herdr/sessions/s191-542a8f4c/herdr.sock; run `herdr session attach s191-542a8f4c` to start or attach it\"}}\n"
+    },
+    {
+      "case": "options_literal",
+      "form": "old",
+      "text": "--wait --timeout 1",
+      "argv": [
+        "--session",
+        "s191-542a8f4c",
+        "agent",
+        "prompt",
+        "w999999:p999999",
+        "--",
+        "--wait --timeout 1"
+      ],
+      "exitCode": 2,
+      "stdout": "",
+      "stderr": "unknown option: --wait --timeout 1\n"
+    },
+    {
+      "case": "options_literal",
+      "form": "positional",
+      "text": "--wait --timeout 1",
+      "argv": [
+        "--session",
+        "s191-542a8f4c",
+        "agent",
+        "prompt",
+        "w999999:p999999",
+        "--wait --timeout 1"
+      ],
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "{\"id\":\"cli:agent:prompt\",\"error\":{\"code\":\"server_not_running\",\"message\":\"no herdr server is running at /tmp/s191-n9fjow1z/H/.config/herdr/sessions/s191-542a8f4c/herdr.sock; run `herdr session attach s191-542a8f4c` to start or attach it\"}}\n"
+    },
+    {
+      "case": "shell_literal",
+      "form": "old",
+      "text": "$(touch never-execute); `literal`",
+      "argv": [
+        "--session",
+        "s191-542a8f4c",
+        "agent",
+        "prompt",
+        "w999999:p999999",
+        "--",
+        "$(touch never-execute); `literal`"
+      ],
+      "exitCode": 2,
+      "stdout": "",
+      "stderr": "unknown option: $(touch never-execute); `literal`\n"
+    },
+    {
+      "case": "shell_literal",
+      "form": "positional",
+      "text": "$(touch never-execute); `literal`",
+      "argv": [
+        "--session",
+        "s191-542a8f4c",
+        "agent",
+        "prompt",
+        "w999999:p999999",
+        "$(touch never-execute); `literal`"
+      ],
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "{\"id\":\"cli:agent:prompt\",\"error\":{\"code\":\"server_not_running\",\"message\":\"no herdr server is running at /tmp/s191-n9fjow1z/H/.config/herdr/sessions/s191-542a8f4c/herdr.sock; run `herdr session attach s191-542a8f4c` to start or attach it\"}}\n"
+    }
+  ]
+}

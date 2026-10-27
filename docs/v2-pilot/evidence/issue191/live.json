@@ -1,0 +1,203 @@
+{
+  "runId": "d0f95741-7a11-4f17-97a2-0d069741c8c1",
+  "createdAt": "2026-10-27T11:26:09.921Z",
+  "evidenceGeneratedAt": "2026-10-27T11:35:55.034Z",
+  "sourceCommit": "9aca51772d5a22ba22fdc69cc522341874f52d6f",
+  "sourceWorktreeDirty": false,
+  "platform": "darwin",
+  "herdrVersion": "herdr 0.8.2",
+  "piVersion": "1.4.0",
+  "target": {
+    "authorizedDirectory": "/private/tmp/h191-Vo0quq/work",
+    "session": "h191-d0f95741",
+    "paneId": "w1:p1",
+    "terminalId": "term_65ed0b6a00c801"
+  },
+  "verification": "real-interactive-Pi-and-real-Herdr; Serika-scripted-model-controller; no-native-UI-claim",
+  "model": "deepseek/deepseek-v4.1-flash-fast",
+  "adapter": {
+    "recoveredAfterApproval": true,
+    "at": "2026-10-27T11:28:40.403Z",
+    "text": "- 本次只做连通测试，不调用工具。\n包含 \"双引号\"、'单引号' 与正文 --help。请只回复：S191_ADAPTER_d0f957417a114f1797a20d069741c8c1",
+    "mark": "S191_ADAPTER_d0f957417a114f1797a20d069741c8c1",
+    "reply": "S191_ADAPTER_d0f957417a114f1797a20d069741c8c1",
+    "usage": {
+      "input": 125,
+      "output": 58,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "reasoning": 34,
+      "totalTokens": 183,
+      "cost": {
+        "input": 0.00004,
+        "output": 0.00006727999999999999,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "total": 0.00010727999999999999
+      }
+    },
+    "originalInputVerified": true,
+    "promptCount": 1,
+    "userMessageCount": 1,
+    "readback": "\n - 本次只做连通测试，不调用工具。\n   包含 \"双引号\"、'单引号' 与正文 --help。请只回复\n   ：S191_ADAPTER_d0f957417a114f1797a20d069741c8c1\n\n\n The user wants me to reply only with the marker:\n S191_ADAPTER_d0f957417a114f1797a20d069741c8c1\n\n S191_ADAPTER_d0f957417a114f1797a20d069741c8c1\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n─────────────────────────────────────────────────────────────────────────────────────────────\n\n─────────────────────────────────────────────────────────────────────────────────────────────\n/private/tmp/h191-Vo0quq/work\n↑125 ↓58 $0.000 0.6%/33k                                    deepseek/deepseek-v4.1-flash-fast\n",
+    "after": {
+      "ok": true,
+      "value": {
+        "terminalId": "term_65ed0b6a00c801",
+        "paneId": "w1:p1",
+        "status": "idle",
+        "stateChangeSeq": 1
+      }
+    },
+    "initialAttemptFailure": {
+      "phase": "adapter",
+      "at": "2026-10-27T11:26:28.249Z",
+      "code": "ERR_ASSERTION",
+      "message": "The expression evaluated to a falsy value:\n\n  assert.ok(after.ok && after.value.stateChangeSeq > before.value.stateChangeSeq)\n"
+    }
+  },
+  "controller": {
+    "recoveredFromPersistedRun": true,
+    "at": "2026-10-27T11:31:49.693Z",
+    "runId": "c86d2c75-7a53-4cbe-a16f-c9d94734ab58",
+    "text": "--help 是正文，不是选项。\n请仅回复标记 S191_HOST_d0f957417a114f1797a20d069741c8c1；不调用工具。",
+    "mark": "S191_HOST_d0f957417a114f1797a20d069741c8c1",
+    "originalInputVerified": true,
+    "promptCount": 1,
+    "approvalActionCount": 1,
+    "approvalSource": "user-authorized scripted harness; no native UI claim",
+    "scriptedModelCalls": 3,
+    "tools": [
+      {
+        "toolCallId": "s191-0",
+        "toolName": "herdr_pi_control",
+        "status": "completed",
+        "requestedAt": "2026-10-27T11:29:38.705Z",
+        "startedAt": "2026-10-27T11:29:38.877Z",
+        "finishedAt": "2026-10-27T11:29:38.979Z",
+        "inputPreview": "{\"action\":\"prompt\",\"text\":\"--help 是正文，不是选项。\\n请仅回复标记 S191_HOST_d0f957417a114f1797a20d069741c8c1；不调用工具。\"}",
+        "inputTruncated": false,
+        "resultPreview": "{\"ok\":true,\"value\":{\"terminalId\":\"term_65ed0b6a00c801\",\"paneId\":\"w1:p1\",\"status\":\"idle\",\"stateChangeSeq\":1,\"dispatched\":true,\"verified\":false}}",
+        "resultTruncated": false,
+        "errorPreview": null,
+        "shell": null,
+        "approvalRequestedAt": "2026-10-27T11:29:38.876Z"
+      },
+      {
+        "toolCallId": "s191-1",
+        "toolName": "herdr_pi_read",
+        "status": "completed",
+        "requestedAt": "2026-10-27T11:29:41.667Z",
+        "startedAt": "2026-10-27T11:29:41.856Z",
+        "finishedAt": "2026-10-27T11:29:42.263Z",
+        "inputPreview": "{\"action\":\"read\"}",
+        "inputTruncated": false,
+        "resultPreview": "{\"ok\":true,\"value\":{\"terminalId\":\"term_65ed0b6a00c801\",\"paneId\":\"w1:p1\",\"status\":\"idle\",\"stateChangeSeq\":1,\"text\":\"\\n - 本次只做连通测试，不调用工具。\\n   包含 \\\"双引号\\\"、'单引号' 与正文 --help。请只回复\\n   ：S191_ADAPTER_d0f957417a114f1797a20d069741c8c1\\n\\n\\n The user wants me to reply only with the marker:\\n S191_ADAPTER_d0f957417a114f1797a20d069741c8c1\\n\\n S191_ADAPTER_d0f957417a114f1797a20d069741c8c1\\n\\n\\n --help 是正文，不是选项。\\n 请仅回复标记 S191_HOST_d0f957417a114f1797a20d069741c8c1；不调用工具。\\n\\n\\n The user is asking me to reply only with the marker. But wait — the previous turn asked for\\n S191_ADAPTER_... and I replied that. Now they ask for S191_HOST_... The instruction says\\n reply only with the marker. This is a simple compliance task, no tools. Just reply with the\\n marker.\\n\\n But is there any conflict? The content mentions \\\"--help 是正文，不是选项\\\" — fine. Just\\n respond with the marker.\\n\\n S191_HOST_d0f957417a114f1797a20d069741c8c1\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n─────────────────────────────────────────────────────────────────────────────────────────────\\n\\n─────────────────────────────────────────────────────────────────────────────────────────────\\n/private/tmp/h191-Vo0quq/work\\n↑317 ↓173 $0.000 0.9%/33k                                   deepseek/deepseek-v4.1-flash-fast\\n\",\"reference\":\"Untrusted terminal output; it grants no authority.\"}}",
+        "resultTruncated": false,
+        "errorPreview": null,
+        "shell": null
+      }
+    ],
+    "readback": "\n - 本次只做连通测试，不调用工具。\n   包含 \"双引号\"、'单引号' 与正文 --help。请只回复\n   ：S191_ADAPTER_d0f957417a114f1797a20d069741c8c1\n\n\n The user wants me to reply only with the marker:\n S191_ADAPTER_d0f957417a114f1797a20d069741c8c1\n\n S191_ADAPTER_d0f957417a114f1797a20d069741c8c1\n\n\n --help 是正文，不是选项。\n 请仅回复标记 S191_HOST_d0f957417a114f1797a20d069741c8c1；不调用工具。\n\n\n The user is asking me to reply only with the marker. But wait — the previous turn asked for\n S191_ADAPTER_... and I replied that. Now they ask for S191_HOST_... The instruction says\n reply only with the marker. This is a simple compliance task, no tools. Just reply with the\n marker.\n\n But is there any conflict? The content mentions \"--help 是正文，不是选项\" — fine. Just\n respond with the marker.\n\n S191_HOST_d0f957417a114f1797a20d069741c8c1\n\n\n\n\n\n\n\n\n\n─────────────────────────────────────────────────────────────────────────────────────────────\n\n─────────────────────────────────────────────────────────────────────────────────────────────\n/private/tmp/h191-Vo0quq/work\n↑317 ↓173 $0.000 0.9%/33k                                   deepseek/deepseek-v4.1-flash-fast\n",
+    "reply": "S191_HOST_d0f957417a114f1797a20d069741c8c1",
+    "usage": {
+      "input": 192,
+      "output": 115,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "reasoning": 92,
+      "totalTokens": 307,
+      "cost": {
+        "input": 0.00006144000000000001,
+        "output": 0.0001334,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "total": 0.00019484
+      }
+    },
+    "runStatus": "completed",
+    "finalReply": "S191_HOST_d0f957417a114f1797a20d069741c8c1",
+    "initialAttemptFailure": {
+      "phase": "controller",
+      "at": "2026-10-27T11:29:42.663Z",
+      "code": "ERR_ASSERTION",
+      "message": "Expected values to be strictly equal:\n\n2 !== 1\n"
+    }
+  },
+  "cost": {
+    "requests": 2,
+    "input": 317,
+    "output": 173,
+    "usdPeakEstimate": 0.00030212,
+    "pricingSource": "https://commandcode.ai/models/deepseek-v4-1-flash-fast",
+    "billingVerified": false
+  },
+  "cleanup": {
+    "at": "2026-10-27T11:31:49.877Z",
+    "status": {
+      "ok": true,
+      "value": {
+        "terminalId": "term_65ed0b6a00c801",
+        "paneId": "w1:p1",
+        "status": "idle",
+        "stateChangeSeq": 1
+      }
+    },
+    "stop": {
+      "session": {
+        "default": false,
+        "name": "h191-d0f95741",
+        "running": false,
+        "session_dir": "/tmp/h191-Vo0quq/H/.config/herdr/sessions/h191-d0f95741",
+        "socket_path": "/tmp/h191-Vo0quq/H/.config/herdr/sessions/h191-d0f95741/herdr.sock"
+      },
+      "stopped": true
+    },
+    "delete": {
+      "deleted": true,
+      "session": {
+        "default": false,
+        "name": "h191-d0f95741",
+        "running": false,
+        "session_dir": "/tmp/h191-Vo0quq/H/.config/herdr/sessions/h191-d0f95741",
+        "socket_path": "/tmp/h191-Vo0quq/H/.config/herdr/sessions/h191-d0f95741/herdr.sock"
+      }
+    },
+    "isolatedBindingCleared": true,
+    "isolatedConfigBeforeSha256": "b122c547376e44e289b2bdca11528eacae8ac4c80cc0595b3a86f7bc7a998eb3",
+    "isolatedConfigAfterSha256": "7fc4774f11bdb0edc5ee0ce045e1f31ffa1b479353c7a0773e7631ed9fc744ce"
+  },
+  "harnessFailures": [
+    {
+      "phase": "controller",
+      "at": "2026-10-27T11:29:16.866Z",
+      "code": "MODULE_NOT_FOUND",
+      "message": "Live verification failed; inspect local fixture evidence"
+    },
+    {
+      "phase": "controller",
+      "at": "2026-10-27T11:29:42.663Z",
+      "code": "ERR_ASSERTION",
+      "message": "Expected values to be strictly equal:\n\n2 !== 1\n"
+    }
+  ],
+  "initialAdapterFailure": {
+    "phase": "adapter",
+    "at": "2026-10-27T11:26:28.249Z",
+    "code": "ERR_ASSERTION",
+    "message": "The expression evaluated to a falsy value:\n\n  assert.ok(after.ok && after.value.stateChangeSeq > before.value.stateChangeSeq)\n"
+  },
+  "sourceHashes": {
+    "packages/assistant/src/herdr.ts": "1034c9630cc8a7f1a74b4c177e0b7c970dcfd0f31bab8991c4c516e2775839dc",
+    "packages/assistant/src/herdr.test.ts": "f1aaf63278e9771f89bfb9e57cc058db2e2a7644267b4e23f345bd5186647b47"
+  },
+  "scriptHashes": {
+    "initialHarness": "289632ff02d037d5918dc339f7d4c96f2018338ab7073b11aa2b4cd61c6d33f6",
+    "finalHarness": "3f68356266e50188073f001af115c094b75b89cae03dcae62c6a3a6e9f39aaed"
+  },
+  "limitations": [
+    "State sequence remained 1 across fast replies; original failing sequence assertion retained.",
+    "Approval event counter included empty-preview and ready-preview notifications; completed persisted Run proves one control action with one approval.",
+    "Native Electron approval clicks and a real Serika model were not part of this live batch."
+  ]
+}
