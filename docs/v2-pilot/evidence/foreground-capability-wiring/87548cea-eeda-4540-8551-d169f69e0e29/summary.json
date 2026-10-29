@@ -1,0 +1,119 @@
+{
+  "runId": "87548cea-eeda-4540-8551-d169f69e0e29",
+  "status": "passed",
+  "command": [
+    "SERIKA_B2_RECORD_CONCURRENT_HOME=1",
+    "node",
+    "scripts/test-home.mjs",
+    "--home",
+    "/private/tmp/serika-wiring-compaction-probe/home",
+    "--",
+    "node",
+    "/private/tmp/serika-wiring-compaction-probe/probe.mjs",
+    "/private/tmp/serika-wiring-compaction-probe/evidence"
+  ],
+  "exitCode": 0,
+  "guard": {
+    "status": "passed",
+    "violations": 0,
+    "changes": 3,
+    "metadataUnchanged": false,
+    "recordConcurrentChanges": true
+  },
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "scriptSha256": "db849c77eb283bdb8046252a78d8ce155782524c201c7de2e06688b320aa2a2e",
+  "stdoutSha256": "fbc195c592b6c9d808c9bf647f8a1d76f0886f73aaf16fcfc4ee853b54471346",
+  "resultSha256": "35be6083ac0ee6c2ee46b32215fad328bda9781249b9a3e99653fe37286b4ff7",
+  "cases": [
+    {
+      "windowTokens": 32768,
+      "status": "passed",
+      "primaryRunId": "7ec9f85f-57da-4c20-990d-21157ebe837c",
+      "nextRunId": "4186f693-7ece-4d89-81a7-0b84eab21518",
+      "primaryModelSteps": 4,
+      "summaryCalls": 2,
+      "compactionRecords": 2,
+      "afterMask": {
+        "requestVisible": true,
+        "shellMarkerVisible": true,
+        "checklistVisible": true,
+        "masked": true
+      },
+      "primaryTools": [
+        {
+          "id": "shell-check",
+          "name": "shell_exec",
+          "status": "completed"
+        },
+        {
+          "id": "bulk-read",
+          "name": "read_file",
+          "status": "completed"
+        },
+        {
+          "id": "artifact-read",
+          "name": "read_file",
+          "status": "completed"
+        }
+      ],
+      "approvals": [
+        {
+          "phase": "primary",
+          "tool": "shell_exec",
+          "remember": false
+        },
+        {
+          "phase": "next",
+          "tool": "read_file",
+          "remember": false
+        }
+      ],
+      "artifactSha256": "5d37dbcb3fd6f2f2e89fdf8f50ccef93c2cc92deda8547952b7f178abf7d2b9c"
+    },
+    {
+      "windowTokens": 1000000,
+      "status": "passed",
+      "primaryRunId": "d46dcd5e-5a9e-422d-bac6-9c70f2c67de7",
+      "nextRunId": "aeea49ea-ddb2-419b-84fe-6496c030a0bf",
+      "primaryModelSteps": 4,
+      "summaryCalls": 1,
+      "compactionRecords": 1,
+      "afterMask": {
+        "requestVisible": true,
+        "shellMarkerVisible": true,
+        "masked": false
+      },
+      "primaryTools": [
+        {
+          "id": "shell-check",
+          "name": "shell_exec",
+          "status": "completed"
+        },
+        {
+          "id": "bulk-read",
+          "name": "read_file",
+          "status": "completed"
+        },
+        {
+          "id": "artifact-read",
+          "name": "read_file",
+          "status": "completed"
+        }
+      ],
+      "approvals": [
+        {
+          "phase": "primary",
+          "tool": "shell_exec",
+          "remember": false
+        },
+        {
+          "phase": "next",
+          "tool": "read_file",
+          "remember": false
+        }
+      ],
+      "artifactSha256": "d66397ba44d2e5c1c4fc58d19177920d501cc0d94d839f4336e596ca862afc96"
+    }
+  ]
+}

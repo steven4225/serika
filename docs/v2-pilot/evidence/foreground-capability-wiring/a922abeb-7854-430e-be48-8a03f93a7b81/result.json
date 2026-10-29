@@ -1,0 +1,13 @@
+{
+  "runId": "a922abeb-7854-430e-be48-8a03f93a7b81",
+  "startedAt": "2026-10-29T17:45:37.928Z",
+  "command": [
+    "pnpm",
+    "test"
+  ],
+  "root": "/private/tmp/serika-full-njMOtK",
+  "modelCredentialsPassed": false,
+  "exitCode": 0,
+  "signal": null,
+  "finishedAt": "2026-10-29T17:50:54.603Z"
+}

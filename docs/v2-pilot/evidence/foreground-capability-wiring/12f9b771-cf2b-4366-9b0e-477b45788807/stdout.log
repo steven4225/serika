@@ -1,0 +1,47 @@
+$ node ../../scripts/test-home.mjs --home "$SERIKA_TEST_HOME" -- /bin/sh -c 'pnpm --workspace-root build:runtime && pnpm build && node scripts/electron-smoke-fixture.mjs'
+$ tsc -b && node packages/assistant/scripts/write-node-runtime.mjs
+$ node scripts/build-notification-helper.mjs && electron-vite build
+Serika 原生通知组件已构建（未请求权限／未发送通知）。
+vite v7.3.6 building ssr environment for production...
+(node:43841) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+transforming...
+../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/util.js (400:0): A comment
+
+"// Wrapped in a `@__PURE__` IIFE: esbuild never tree-shakes a top-level initializer that contains a member access on `Number`, so the bare object literal survived into every bundle."
+
+in "../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/util.js" contains an annotation that Rollup cannot interpret due to the position of the comment. The comment will be removed to avoid issues.
+../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/regexes.js (74:0): A comment
+
+"/** Anchors a pattern source. The interpolation lives here rather than at the call site because
+ * esbuild will not drop a `@__PURE__` call whose own argument interpolates a variable, but it
+ * will drop `anchor(dateSource)`. Keeping it inline pinned `date` into every bundle. */"
+
+in "../../node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/regexes.js" contains an annotation that Rollup cannot interpret due to the position of the comment. The comment will be removed to avoid issues.
+✓ 177 modules transformed.
+rendering chunks...
+out/main/build-identity.json                  0.42 kB
+out/main/chunks/serika-dock-Eyg1wnV1.png  1,260.32 kB
+out/main/resident-entry.js                   77.07 kB
+out/main/rss-worker-service-xzp_xFn6.js     146.09 kB
+out/main/index.js                           347.66 kB
+✓ built in 505ms
+vite v7.3.6 building ssr environment for production...
+transforming...
+✓ 3 modules transformed.
+rendering chunks...
+out/preload/index.cjs  5.12 kB
+✓ built in 7ms
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 2131 modules transformed.
+rendering chunks...
+../../out/renderer/index.html                           0.65 kB
+../../out/renderer/assets/Figtree-nnuniQY3.ttf         62.71 kB
+../../out/renderer/assets/GeistMono-Cfl0yKzG.ttf      171.95 kB
+../../out/renderer/assets/serika-icon-C0BlpfkD.png  2,050.07 kB
+../../out/renderer/assets/index-1WDKlggq.css          155.90 kB
+../../out/renderer/assets/index-CANjPROX.js         1,775.44 kB
+✓ built in 1.28s
+{"status":"passed","checks":[{"name":"startup","result":"passed"},{"name":"chat-reply","result":"passed"},{"name":"remember-success-receipt","result":"passed"},{"name":"remember-on-memory-page","result":"passed"},{"name":"restart-persistence","result":"passed"},{"name":"undo-disappears","result":"passed"},{"name":"daily-path-refuses-writes","result":"passed"},{"name":"daily-config-retired-fields","result":"passed"}]}
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-smoke-hP67Uh/home/write-guard-OGOkFJ/result.json","violations":0,"changes":9,"metadataUnchanged":false}

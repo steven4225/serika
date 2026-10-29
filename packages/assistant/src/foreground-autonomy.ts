@@ -5,6 +5,14 @@ export const AUTONOMOUS_MAX_STEPS = 128;
 export const AUTONOMOUS_TOTAL_TIMEOUT_MS = 30 * 60_000;
 export const AUTONOMOUS_SHELL_TIMEOUT_MS = 10 * 60_000;
 
+export const FOREGROUND_INSTRUCTIONS =
+  "Carry the current foreground task through its remaining authorized steps and verification in this AgentLoop. " +
+  "Use the original request and accepted same-Run corrections. After approval of the current call, continue the task without asking whether to continue. " +
+  "Reuse observed discovery and completed results while the target, environment and authorization remain applicable; recheck when they change. " +
+  "Keep failed and unknown outcomes distinct. A pending or missing approval stays at the existing confirmation card. " +
+  "Unknown effects require human reconciliation; do not automatically read back, replay or start another Run to continue them. " +
+  "This task guidance grants no file, Shell, terminal or Pi permission and extends no execution budget.";
+
 /** Budget the host-captured request separately from the compactable transcript. */
 export function createForegroundTaskReference(request: UIMessage, messages: readonly UIMessage[]): UIMessage {
   const start = messages.findIndex(message => message.id === request.id);

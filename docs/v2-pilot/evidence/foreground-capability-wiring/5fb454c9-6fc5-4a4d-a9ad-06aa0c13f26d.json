@@ -1,0 +1,377 @@
+{
+  "runId": "5fb454c9-6fc5-4a4d-a9ad-06aa0c13f26d",
+  "generatedAt": "2026-10-29T15:52:02.569Z",
+  "verification": "real-electron-real-model-original-preload-ipc",
+  "platform": "darwin",
+  "sourceCommit": "c88682c85fd3632095e1de96b03b4871e96af692",
+  "sourceWorktreeDirty": true,
+  "sourceDiffSha256": "2a0d623738969dc9b0920ad0fc3f461ccf265c79ec7eefa521db167f4afee84e",
+  "scriptSha256": "b4064808a375f5b133e076a7c1771c546b4e829e3e39d607ee891e39ca562d43",
+  "rawReportSha256": "553b31c3025223bca66856ceb1bafcfb08a03155298e50402e5d5e60ed6f8426",
+  "cancellationEvidenceSha256": "6ffc73147a2a0a5dae7c0bf3c0c133558ce539dd1c790697d2b392e6368829a1",
+  "harnessStatus": "stopped",
+  "harnessFailure": {
+    "name": "Error",
+    "message": "approval timeout"
+  },
+  "primaryRunId": "a67ea507-01fa-4a1c-96fd-ec6fb0b36e7e",
+  "primaryRunStatus": "cancelled",
+  "tools": [
+    {
+      "id": "call_00_Ero97X23TjzmOIdzWZ8x4284",
+      "name": "list_directory",
+      "input": "{\"path\":\".\"}",
+      "status": "completed",
+      "approvalRequestedAt": "2026-10-29T15:47:54.101Z",
+      "startedAt": "2026-10-29T15:48:05.042Z",
+      "shell": null,
+      "resultPreview": "{\"ok\":true,\"path\":\".\",\"entries\":[{\"name\":\"check.mjs\",\"type\":\"file\"},{\"name\":\"sum.mjs\",\"type\":\"file\"}],\"truncated\":false}"
+    },
+    {
+      "id": "call_00_AuySMlpxZTBBryE9jNed5602",
+      "name": "read_file",
+      "input": "{\"path\":\"sum.mjs\"}",
+      "status": "completed",
+      "approvalRequestedAt": "2026-10-29T15:48:09.931Z",
+      "startedAt": "2026-10-29T15:48:12.756Z",
+      "shell": null,
+      "resultPreview": "{\"ok\":true,\"path\":\"sum.mjs\",\"content\":\"export const sum = (a,b) => a-b;\\n\",\"bytes\":33}"
+    },
+    {
+      "id": "call_01_Gba8bdR4Oame5PLKLlHv5195",
+      "name": "read_file",
+      "input": "{\"path\":\"check.mjs\"}",
+      "status": "completed",
+      "startedAt": "2026-10-29T15:48:12.895Z",
+      "shell": null,
+      "resultPreview": "{\"ok\":true,\"path\":\"check.mjs\",\"content\":\"import assert from 'node:assert/strict';import {sum} from './sum.mjs';assert.equal(sum(7,8),15);console.log('CHECK_PASS');\\n\",\"bytes\":123}"
+    },
+    {
+      "id": "call_00_yYXV6D9vjALXY9FaGheK7561",
+      "name": "edit_file",
+      "input": "{\"path\":\"sum.mjs\",\"oldText\":\"export const sum = (a,b) => a-b;\",\"newText\":\"export const sum = (a,b) => a+b;\"}",
+      "status": "completed",
+      "approvalRequestedAt": "2026-10-29T15:48:18.401Z",
+      "startedAt": "2026-10-29T15:48:20.117Z",
+      "shell": null,
+      "resultPreview": "{\"ok\":true,\"path\":\"sum.mjs\",\"bytes\":33,\"sha256\":\"9ca51e3bc49104fd44a86a24f8ab32af145155689ec13a4c3cb0c5e9b09ee1c3\"}"
+    },
+    {
+      "id": "call_00_SPml9ouQx6nHCd43Ly4E7291",
+      "name": "shell_exec",
+      "input": "{\"command\":\"node check.mjs\",\"cwd\":\".\"}",
+      "status": "not_started",
+      "approvalRequestedAt": "2026-10-29T15:48:22.172Z",
+      "startedAt": null,
+      "shell": null,
+      "resultPreview": null
+    }
+  ],
+  "approvalEvents": [
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T15:47:54.101Z",
+      "approval": {
+        "approvalId": "291b70ea-4e87-49a0-a268-f3f17eab88d6",
+        "toolCallId": "call_00_Ero97X23TjzmOIdzWZ8x4284",
+        "toolName": "list_directory",
+        "input": {
+          "path": "."
+        },
+        "preview": "",
+        "remember": {
+          "label": "本次对话内不再询问 list_directory"
+        }
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T15:47:54.107Z",
+      "approval": {
+        "approvalId": "291b70ea-4e87-49a0-a268-f3f17eab88d6",
+        "toolCallId": "call_00_Ero97X23TjzmOIdzWZ8x4284",
+        "toolName": "list_directory",
+        "input": {
+          "path": "."
+        },
+        "preview": "\nTool: list_directory\nInput: {\"path\":\".\"}\nAllow this call? [y/n] ",
+        "remember": {
+          "label": "本次对话内不再询问 list_directory"
+        }
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "script-decision",
+      "id": "291b70ea-4e87-49a0-a268-f3f17eab88d6",
+      "decision": "allow",
+      "at": "2026-10-29T15:48:04.997Z"
+    },
+    {
+      "stage": "file-task",
+      "kind": "click",
+      "at": "2026-10-29T15:48:05.041Z",
+      "id": "291b70ea-4e87-49a0-a268-f3f17eab88d6",
+      "button": "允许本次调用",
+      "trusted": true
+    },
+    {
+      "stage": "file-task",
+      "kind": "cleared",
+      "at": "2026-10-29T15:48:05.043Z",
+      "id": "291b70ea-4e87-49a0-a268-f3f17eab88d6"
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T15:48:09.931Z",
+      "approval": {
+        "approvalId": "d931456d-ab1a-40fe-afa8-31354e1761e5",
+        "toolCallId": "call_00_AuySMlpxZTBBryE9jNed5602",
+        "toolName": "read_file",
+        "input": {
+          "path": "sum.mjs"
+        },
+        "preview": "",
+        "remember": {
+          "label": "本次对话内不再询问 read_file"
+        }
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T15:48:09.934Z",
+      "approval": {
+        "approvalId": "d931456d-ab1a-40fe-afa8-31354e1761e5",
+        "toolCallId": "call_00_AuySMlpxZTBBryE9jNed5602",
+        "toolName": "read_file",
+        "input": {
+          "path": "sum.mjs"
+        },
+        "preview": "\nTool: read_file\nPath: \"sum.mjs\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ",
+        "remember": {
+          "label": "本次对话内不再询问 read_file"
+        }
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "cleared",
+      "at": "2026-10-29T15:48:12.759Z",
+      "id": "d931456d-ab1a-40fe-afa8-31354e1761e5"
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T15:48:18.401Z",
+      "approval": {
+        "approvalId": "d202e4ed-5b83-4a84-b26c-f2d4307054ce",
+        "toolCallId": "call_00_yYXV6D9vjALXY9FaGheK7561",
+        "toolName": "edit_file",
+        "input": {
+          "path": "sum.mjs",
+          "oldText": "export const sum = (a,b) => a-b;",
+          "newText": "export const sum = (a,b) => a+b;"
+        },
+        "preview": "",
+        "remember": {
+          "label": "本次对话内允许 edit_file 改动 工作区根目录 下的文件（不含子目录）"
+        }
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T15:48:18.405Z",
+      "approval": {
+        "approvalId": "d202e4ed-5b83-4a84-b26c-f2d4307054ce",
+        "toolCallId": "call_00_yYXV6D9vjALXY9FaGheK7561",
+        "toolName": "edit_file",
+        "input": {
+          "path": "sum.mjs",
+          "oldText": "export const sum = (a,b) => a-b;",
+          "newText": "export const sum = (a,b) => a+b;"
+        },
+        "preview": "\nTool: edit_file\nPath: \"sum.mjs\"\nOld text: \"export const sum = (a,b) => a-b;\"\nNew text: \"export const sum = (a,b) => a+b;\"\nAllow this call? [y/n] ",
+        "remember": {
+          "label": "本次对话内允许 edit_file 改动 工作区根目录 下的文件（不含子目录）"
+        }
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "cleared",
+      "at": "2026-10-29T15:48:20.119Z",
+      "id": "d202e4ed-5b83-4a84-b26c-f2d4307054ce"
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T15:48:22.172Z",
+      "approval": {
+        "approvalId": "41fda47b-fbd9-4cc2-9672-0507735e2538",
+        "toolCallId": "call_00_SPml9ouQx6nHCd43Ly4E7291",
+        "toolName": "shell_exec",
+        "input": {
+          "command": "node check.mjs",
+          "cwd": "."
+        },
+        "preview": ""
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T15:48:22.175Z",
+      "approval": {
+        "approvalId": "41fda47b-fbd9-4cc2-9672-0507735e2538",
+        "toolCallId": "call_00_SPml9ouQx6nHCd43Ly4E7291",
+        "toolName": "shell_exec",
+        "input": {
+          "command": "node check.mjs",
+          "cwd": "."
+        },
+        "preview": "\nTool: shell_exec\nCommand: \"node check.mjs\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] "
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "cleared",
+      "at": "2026-10-29T15:49:39.167Z",
+      "id": "41fda47b-fbd9-4cc2-9672-0507735e2538"
+    }
+  ],
+  "missingClickedApprovalIds": [
+    "d931456d-ab1a-40fe-afa8-31354e1761e5",
+    "d202e4ed-5b83-4a84-b26c-f2d4307054ce"
+  ],
+  "cancelledApprovalId": "41fda47b-fbd9-4cc2-9672-0507735e2538",
+  "approvalAttribution": "Unresolved: read/edit cards cleared without an observed DOM button click. Not evidence of a permission bypass. Cancelled pending Shell before dispatch.",
+  "capabilityBlocks": [
+    {
+      "request": 1,
+      "bytes": 1721,
+      "sha256": "5371a7e3addaf7659038e25610ff8eb49507611e6affec11c036e5bb5370724e"
+    },
+    {
+      "request": 2,
+      "bytes": 1721,
+      "sha256": "5371a7e3addaf7659038e25610ff8eb49507611e6affec11c036e5bb5370724e"
+    },
+    {
+      "request": 3,
+      "bytes": 1721,
+      "sha256": "5371a7e3addaf7659038e25610ff8eb49507611e6affec11c036e5bb5370724e"
+    },
+    {
+      "request": 4,
+      "bytes": 1721,
+      "sha256": "5371a7e3addaf7659038e25610ff8eb49507611e6affec11c036e5bb5370724e"
+    }
+  ],
+  "capabilityBlockBytesStable": true,
+  "realModelRequests": 4,
+  "calls": [
+    {
+      "purpose": "primary",
+      "status": "returned",
+      "usage": {
+        "input": 5401,
+        "output": 36,
+        "cached": 1152
+      },
+      "costUsd": 0.001436
+    },
+    {
+      "purpose": "primary",
+      "status": "returned",
+      "usage": {
+        "input": 5488,
+        "output": 69,
+        "cached": 5248
+      },
+      "costUsd": 0.00031427999999999995
+    },
+    {
+      "purpose": "primary",
+      "status": "returned",
+      "usage": {
+        "input": 5663,
+        "output": 93,
+        "cached": 5504
+      },
+      "costUsd": 0.00032387999999999997
+    },
+    {
+      "purpose": "primary",
+      "status": "returned",
+      "usage": {
+        "input": 5827,
+        "output": 56,
+        "cached": 5632
+      },
+      "costUsd": 0.00029632
+    }
+  ],
+  "knownEstimatedUsd": 0.00237048,
+  "allUsageReturned": true,
+  "unresolvedReservedUsd": 0,
+  "cumulativeBatch": {
+    "calls": 9,
+    "knownEstimatedUsd": 0.007114560000000001,
+    "budgetUsd": 0.5,
+    "maxRequests": 30
+  },
+  "temporaryRealCredentialCopyRemoved": true,
+  "electronStopped": true,
+  "foregroundFixture": {
+    "sourceSha256": "bebbb9b7ef1672950b2e896347f0cb580aa54ffef337cfbd82b2d92c82d86b94",
+    "guard": {
+      "runId": "c4889b42-1296-45e2-ab56-8cc23bf02934",
+      "status": "passed",
+      "exitCode": 0,
+      "command": [
+        "node",
+        "--test",
+        "--test-timeout=20000",
+        "packages/assistant/dist/foreground-wiring.test.js"
+      ],
+      "violations": 0,
+      "metadataUnchanged": false,
+      "recordConcurrentChanges": true
+    },
+    "stdoutArchive": null
+  },
+  "relatedUnitTests": {
+    "tests": 28,
+    "pass": 28,
+    "fail": 0,
+    "cancelled": 0,
+    "stdoutSha256": "194fa674bb59d30fbb01afe1727744996620a6b6a8ed51916e7fb0bef03eb2c7",
+    "guard": {
+      "runId": "a4397fac-5f80-48c0-acf1-d7212ca413e8",
+      "status": "passed",
+      "exitCode": 0,
+      "command": [
+        "node",
+        "--test",
+        "--test-concurrency=4",
+        "packages/assistant/dist/capability-status.test.js",
+        "packages/assistant/dist/context-assembler.test.js",
+        "packages/assistant/dist/context-compaction-runtime.test.js",
+        "packages/assistant/dist/steering-controller.test.js",
+        "packages/assistant/dist/permission-boundary.test.js",
+        "packages/assistant/dist/permission-decisions.test.js",
+        "packages/assistant/dist/permission-extension.test.js",
+        "packages/assistant/dist/tool-confirmation-remember.test.js"
+      ],
+      "violations": 0,
+      "metadataUnchanged": false,
+      "recordConcurrentChanges": true
+    }
+  },
+  "remainingCases": "Herdr/Pi and real-model compaction continuation not started after verification stopped"
+}

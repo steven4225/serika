@@ -78,8 +78,66 @@
       "authorizedBatchCapUsd": 0.2,
       "evidence": "issue191/live.json",
       "evidenceSha256": "de0455bd363b84c51cb26fc6e5d5e7f51e3102441361fb1b52ed3bb8c7e55d45"
+    },
+    {
+      "step": "foreground-capability-wiring",
+      "runId": "9bcb62ff-e50c-438d-bee2-e28e146f116e",
+      "realModelRequests": 5,
+      "amount": 0.0047440799999999995,
+      "amountBasis": "Conservative public peak-price estimate from returned usage; not invoice verified",
+      "authorizedBatchCapUsd": 0.5,
+      "unresolvedCalls": 0,
+      "unresolvedReservedUsd": 0,
+      "evidence": "foreground-capability-wiring/9bcb62ff-e50c-438d-bee2-e28e146f116e.json",
+      "evidenceSha256": "f2136af2188746e2ecc2d16c7c7731341a4df6875a164d0c54303c8b8989cded"
+    },
+    {
+      "step": "foreground-capability-wiring",
+      "runId": "5fb454c9-6fc5-4a4d-a9ad-06aa0c13f26d",
+      "realModelRequests": 4,
+      "amount": 0.00237048,
+      "amountBasis": "Conservative public peak-price estimate from returned usage; not invoice verified",
+      "authorizedBatchCapUsd": 0.5,
+      "unresolvedCalls": 0,
+      "unresolvedReservedUsd": 0,
+      "evidence": "foreground-capability-wiring/5fb454c9-6fc5-4a4d-a9ad-06aa0c13f26d.json",
+      "evidenceSha256": "0ffd3cd735c228060d48b0acf3008ab80870c89f9128e362bed6a0e55de97cf5"
+    },
+    {
+      "step": "foreground-capability-wiring",
+      "runId": "039faf40-ea72-42d6-969a-ca3ba31f4ff5",
+      "realModelRequests": 2,
+      "amount": 0.0014356800000000002,
+      "amountBasis": "Conservative public peak-price estimate for returned usage; unresolved request remains reserved, not counted as zero",
+      "authorizedBatchCapUsd": 0.5,
+      "unresolvedCalls": 1,
+      "unresolvedReservedUsd": 0.0123824,
+      "evidence": "foreground-capability-wiring/039faf40-ea72-42d6-969a-ca3ba31f4ff5.json",
+      "evidenceSha256": "811bb0c7595b802431a7b21842b9a2dd2b2c999584c04639edf0f2ea15d986d8"
+    },
+    {
+      "step": "foreground-capability-wiring",
+      "runId": "9e1163d6-4f79-40e4-ab95-8ba57131e4da",
+      "realModelRequests": 6,
+      "amount": 0.00358132,
+      "amountBasis": "Conservative recorded-usage estimate; latest user instruction permits proceeding without resolving historical usage",
+      "unresolvedCalls": 0,
+      "unresolvedReservedUsd": 0,
+      "evidence": "foreground-capability-wiring/9e1163d6-4f79-40e4-ab95-8ba57131e4da.json",
+      "evidenceSha256": "a8cdfb6776227ec72913bce5cf64861e3816200405c74f73d9afdf1c29a33c75"
+    },
+    {
+      "step": "foreground-capability-wiring",
+      "runId": "b6656086-4a3c-4e69-9d4a-899ef0d860c5",
+      "realModelRequests": 13,
+      "amount": 0.0065241599999999985,
+      "amountBasis": "Recorded-usage estimate; latest user instruction permits daily-env model connection and does not gate acceptance on missing usage",
+      "unresolvedCalls": 0,
+      "unresolvedReservedUsd": 0,
+      "evidence": "foreground-capability-wiring/b6656086-4a3c-4e69-9d4a-899ef0d860c5.json",
+      "evidenceSha256": "6b29dca0618027f1b3054c15081a91e42485b8c99b4a92d7fa844d8f05accc26"
     }
   ],
-  "total": 2.0506250799999997,
-  "knownTotal": 2.0493002799999998
+  "total": 2.0816631999999995,
+  "knownTotal": 2.0679559999999997
 }

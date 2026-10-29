@@ -1,0 +1,738 @@
+{
+  "runId": "9e1163d6-4f79-40e4-ab95-8ba57131e4da",
+  "generatedAt": "2026-10-29T16:30:26.257Z",
+  "verification": "real-electron-real-model-original-preload-ipc",
+  "sourceCommit": "c88682c85fd3632095e1de96b03b4871e96af692",
+  "sourceWorktreeDirty": true,
+  "scriptSha256": "826db8efc245f83b2e3aac91ca0211a2f2a24163523d81da588fff313052b2d4",
+  "rawReportSha256": "bd466578ef191387bbf6d379a4d9b107183d26c2d3fdcde21012fc3a1b798652",
+  "credentialSource": "daily-env-model-fields-in-process-only",
+  "credentialFileCreated": false,
+  "usageMissingBlocksAcceptance": false,
+  "overallStatus": "stopped",
+  "failure": {
+    "name": "AssertionError",
+    "message": "new isolated server did not become ready; preserve target for inspection"
+  },
+  "case": {
+    "stage": "file-task",
+    "runId": "60fa38c9-e839-4c9a-820b-9857ccf8c5f6",
+    "status": "completed",
+    "answer": "已修好并验证。\n\n**改动**：`sum.mjs` 中 `sum` 由 `a-b` 改为 `a+b`（文件现为 `export const sum = (a,b) => a+b;`，33 字节）。\n\n**运行 `node check.mjs`**：\n- 第一次运行（`... | tail -n 3; echo exit=${PIPESTATUS[0]}`）：shell 工具 exitCode=0，末尾输出 `checked sum(1999,8)=2007`、`CHECK_PASS_END`。\n- 第二次不经管道直接运行：工具 exitCode=0，输出重定向到 `/tmp/sum_check_out.txt`。\n\n**回读核对产物**：\n- 脚本没有生成任何文件，因此\"产物\"即代码本身与运行输出。\n- `sum.mjs` 回读内容确为 `a+b`。\n- 输出文件共 2002 行，首行为 `CHECK_PASS`，其后为 `checked sum(0,8)=8` 起的逐条断言，末行 `CHECK_PASS_END`，符合脚本预期（2000 条 + 首尾两行）。\n\n**未验证项**：未做额外边界/类型测试（如负数、浮点、非数字参数），脚本自身也未覆盖这些；`extra` 的 `/tmp` 输出文件不属于工作区，可自行删除。",
+    "tools": [
+      {
+        "id": "call_00_SgBDvfxyB5CLpkz6RbYh4881",
+        "name": "list_directory",
+        "input": "{\"path\":\"<isolated>/sum-project/workspace\"}",
+        "status": "completed",
+        "shell": null,
+        "approvalRequestedAt": "2026-10-29T16:26:26.026Z",
+        "resultPreview": "{\"ok\":true,\"path\":\".\",\"entries\":[{\"name\":\"check.mjs\",\"type\":\"file\"},{\"name\":\"sum.mjs\",\"type\":\"file\"}],\"truncated\":false}"
+      },
+      {
+        "id": "call_01_NNkDK2ITT9LBtx11q0JP9910",
+        "name": "read_file",
+        "input": "{\"path\":\"<isolated>/sum-project/workspace/sum.mjs\"}",
+        "status": "completed",
+        "shell": null,
+        "approvalRequestedAt": "2026-10-29T16:26:37.441Z",
+        "resultPreview": "{\"ok\":true,\"path\":\"sum.mjs\",\"content\":\"export const sum = (a,b) => a-b;\\n\",\"bytes\":33}"
+      },
+      {
+        "id": "call_02_ooWsfWDuL8Hi0al96k9C7169",
+        "name": "read_file",
+        "input": "{\"path\":\"<isolated>/sum-project/workspace/check.mjs\"}",
+        "status": "completed",
+        "shell": null,
+        "resultPreview": "{\"ok\":true,\"path\":\"check.mjs\",\"content\":\"import assert from 'node:assert/strict';import {sum} from './sum.mjs';assert.equal(sum(7,8),15);console.log('CHECK_PASS');for(let i=0;i<2000;i++){assert.equal(sum(i,8),i+8);console.log('checked sum('+i+',8)='+(i+8));}console.log('CHECK_PASS_END');\\n\",\"bytes\":248}"
+      },
+      {
+        "id": "call_00_4sb9Jzd7NySoLbUDSucd3257",
+        "name": "edit_file",
+        "input": "{\"path\":\"<isolated>/sum-project/workspace/sum.mjs\",\"oldText\":\"export const sum = (a,b) => a-b;\",\"newText\":\"export const sum = (a,b) => a+b;\"}",
+        "status": "completed",
+        "shell": null,
+        "approvalRequestedAt": "2026-10-29T16:26:45.304Z",
+        "resultPreview": "{\"ok\":true,\"path\":\"sum.mjs\",\"bytes\":33,\"sha256\":\"9ca51e3bc49104fd44a86a24f8ab32af145155689ec13a4c3cb0c5e9b09ee1c3\"}"
+      },
+      {
+        "id": "call_00_2OLcJZrWh4C9Cjs6NDO46265",
+        "name": "shell_exec",
+        "input": "{\"command\":\"node check.mjs | tail -n 3; echo \\\"exit=${PIPESTATUS[0]}\\\"\",\"cwd\":\".\"}",
+        "status": "completed",
+        "shell": {
+          "exitCode": 0,
+          "timedOut": false,
+          "cancelled": false
+        },
+        "approvalRequestedAt": "2026-10-29T16:27:11.657Z",
+        "resultPreview": "{\"ok\":true,\"exitCode\":0,\"termination\":\"exited\",\"signal\":null,\"cancelled\":false,\"timedOut\":false,\"output\":\"checked sum(1998,8)=2006\\nchecked sum(1999,8)=2007\\nCHECK_PASS_END\\nexit=0\\n\",\"truncated\":false}"
+      },
+      {
+        "id": "call_00_IbxMokHQAhxbKOq7oST54378",
+        "name": "shell_exec",
+        "input": "{\"command\":\"node check.mjs > /tmp/sum_check_out.txt 2>&1\",\"cwd\":\".\"}",
+        "status": "completed",
+        "shell": {
+          "exitCode": 0,
+          "timedOut": false,
+          "cancelled": false
+        },
+        "approvalRequestedAt": "2026-10-29T16:27:59.088Z",
+        "resultPreview": "{\"ok\":true,\"exitCode\":0,\"termination\":\"exited\",\"signal\":null,\"cancelled\":false,\"timedOut\":false,\"output\":\"\",\"truncated\":false}"
+      },
+      {
+        "id": "call_00_fW3bR4IutHAoz8MX0oAP4406",
+        "name": "shell_exec",
+        "input": "{\"command\":\"head -n 2 /tmp/sum_check_out.txt; wc -l < /tmp/sum_check_out.txt\",\"cwd\":\".\"}",
+        "status": "completed",
+        "shell": {
+          "exitCode": 0,
+          "timedOut": false,
+          "cancelled": false
+        },
+        "approvalRequestedAt": "2026-10-29T16:28:04.718Z",
+        "resultPreview": "{\"ok\":true,\"exitCode\":0,\"termination\":\"exited\",\"signal\":null,\"cancelled\":false,\"timedOut\":false,\"output\":\"CHECK_PASS\\nchecked sum(0,8)=8\\n    2002\\n\",\"truncated\":false}"
+      },
+      {
+        "id": "call_01_zZNoGBJNmY4hiiatNVcZ8696",
+        "name": "read_file",
+        "input": "{\"path\":\"<isolated>/sum-project/workspace/sum.mjs\"}",
+        "status": "completed",
+        "shell": null,
+        "resultPreview": "{\"ok\":true,\"path\":\"sum.mjs\",\"content\":\"export const sum = (a,b) => a+b;\\n\",\"bytes\":33}"
+      }
+    ],
+    "independent": {
+      "artifact": "export const sum = (a,b) => a+b;\n",
+      "artifactSha256": "9ca51e3bc49104fd44a86a24f8ab32af145155689ec13a4c3cb0c5e9b09ee1c3",
+      "outputSha256": "f57dfd41284e3f1a9ebbdf47be099971a540012451b25f0b1118b9d007a4c4e3",
+      "outputBytes": 47830,
+      "lineCount": 2002,
+      "firstLine": "CHECK_PASS",
+      "lastLine": "CHECK_PASS_END"
+    },
+    "capabilityBlock": {
+      "bytes": 1715,
+      "sha256": "4a279456365b4e41b7c6d533d353a3f1186ca9f448ddb18acd8069cbda58ca46",
+      "samples": 6,
+      "stable": true
+    },
+    "maskedRequests": [],
+    "successfulCheckInvocations": 2
+  },
+  "confirmCalls": [
+    {
+      "at": "2026-10-29T16:26:21.925Z",
+      "input": {
+        "approvalId": "unmatched-probe",
+        "decision": "allow"
+      },
+      "stack": [
+        {
+          "function": "",
+          "url": "",
+          "line": 9776
+        },
+        {
+          "function": "",
+          "url": "",
+          "line": 1
+        },
+        {
+          "function": "emit",
+          "url": "",
+          "line": 514
+        }
+      ]
+    },
+    {
+      "at": "2026-10-29T16:26:37.305Z",
+      "input": {
+        "approvalId": "51c9f75f-00c6-4f34-ad28-c96de3a97f47",
+        "decision": "allow"
+      },
+      "stack": [
+        {
+          "function": "",
+          "url": "",
+          "line": 9776
+        },
+        {
+          "function": "",
+          "url": "",
+          "line": 1
+        },
+        {
+          "function": "emit",
+          "url": "",
+          "line": 514
+        }
+      ]
+    },
+    {
+      "at": "2026-10-29T16:26:41.786Z",
+      "input": {
+        "approvalId": "37f1c32f-39ed-474a-bda0-6aae51025f75",
+        "decision": "allow",
+        "remember": true
+      },
+      "stack": [
+        {
+          "function": "",
+          "url": "",
+          "line": 9776
+        },
+        {
+          "function": "",
+          "url": "",
+          "line": 1
+        },
+        {
+          "function": "emit",
+          "url": "",
+          "line": 514
+        }
+      ]
+    },
+    {
+      "at": "2026-10-29T16:27:06.570Z",
+      "input": {
+        "approvalId": "80d69573-bd3b-4468-8fcb-4d447959de25",
+        "decision": "allow"
+      },
+      "stack": [
+        {
+          "function": "",
+          "url": "",
+          "line": 9776
+        },
+        {
+          "function": "",
+          "url": "",
+          "line": 1
+        },
+        {
+          "function": "emit",
+          "url": "",
+          "line": 514
+        }
+      ]
+    },
+    {
+      "at": "2026-10-29T16:27:55.789Z",
+      "input": {
+        "approvalId": "8f566417-6458-4148-b9d9-c663373d8db6",
+        "decision": "allow"
+      },
+      "stack": [
+        {
+          "function": "",
+          "url": "",
+          "line": 9776
+        },
+        {
+          "function": "",
+          "url": "",
+          "line": 1
+        },
+        {
+          "function": "emit",
+          "url": "",
+          "line": 514
+        }
+      ]
+    },
+    {
+      "at": "2026-10-29T16:28:02.298Z",
+      "input": {
+        "approvalId": "5299f1f9-67ec-40c0-a836-52e236177689",
+        "decision": "allow"
+      },
+      "stack": [
+        {
+          "function": "",
+          "url": "",
+          "line": 9776
+        },
+        {
+          "function": "",
+          "url": "",
+          "line": 1
+        },
+        {
+          "function": "emit",
+          "url": "",
+          "line": 514
+        }
+      ]
+    },
+    {
+      "at": "2026-10-29T16:28:42.322Z",
+      "input": {
+        "approvalId": "3d59b695-d32c-4daa-aad9-307420d02d13",
+        "decision": "allow"
+      },
+      "stack": [
+        {
+          "function": "",
+          "url": "",
+          "line": 9776
+        },
+        {
+          "function": "",
+          "url": "",
+          "line": 1
+        },
+        {
+          "function": "emit",
+          "url": "",
+          "line": 514
+        }
+      ]
+    }
+  ],
+  "approvalEvents": [
+    {
+      "kind": "probe-rejected",
+      "id": "unmatched-probe"
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T16:26:26.027Z",
+      "approval": {
+        "approvalId": "51c9f75f-00c6-4f34-ad28-c96de3a97f47",
+        "toolCallId": "call_00_SgBDvfxyB5CLpkz6RbYh4881",
+        "toolName": "list_directory",
+        "input": {
+          "path": "<isolated>/sum-project/workspace"
+        },
+        "preview": "",
+        "remember": {
+          "label": "本次对话内不再询问 list_directory"
+        }
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T16:26:26.039Z",
+      "approval": {
+        "approvalId": "51c9f75f-00c6-4f34-ad28-c96de3a97f47",
+        "toolCallId": "call_00_SgBDvfxyB5CLpkz6RbYh4881",
+        "toolName": "list_directory",
+        "input": {
+          "path": "<isolated>/sum-project/workspace"
+        },
+        "preview": "\nTool: list_directory\nInput: {\"path\":\"<isolated>/sum-project/workspace\"}\nAllow this call? [y/n] ",
+        "remember": {
+          "label": "本次对话内不再询问 list_directory"
+        }
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "script-decision",
+      "id": "51c9f75f-00c6-4f34-ad28-c96de3a97f47",
+      "decision": "allow",
+      "at": "2026-10-29T16:26:37.273Z"
+    },
+    {
+      "stage": "file-task",
+      "kind": "click",
+      "at": "2026-10-29T16:26:37.303Z",
+      "id": "51c9f75f-00c6-4f34-ad28-c96de3a97f47",
+      "button": "允许本次调用",
+      "trusted": true
+    },
+    {
+      "stage": "file-task",
+      "kind": "cleared",
+      "at": "2026-10-29T16:26:37.306Z",
+      "id": "51c9f75f-00c6-4f34-ad28-c96de3a97f47"
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T16:26:37.443Z",
+      "approval": {
+        "approvalId": "37f1c32f-39ed-474a-bda0-6aae51025f75",
+        "toolCallId": "call_01_NNkDK2ITT9LBtx11q0JP9910",
+        "toolName": "read_file",
+        "input": {
+          "path": "<isolated>/sum-project/workspace/sum.mjs"
+        },
+        "preview": "",
+        "remember": {
+          "label": "本次对话内不再询问 read_file"
+        }
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T16:26:37.445Z",
+      "approval": {
+        "approvalId": "37f1c32f-39ed-474a-bda0-6aae51025f75",
+        "toolCallId": "call_01_NNkDK2ITT9LBtx11q0JP9910",
+        "toolName": "read_file",
+        "input": {
+          "path": "<isolated>/sum-project/workspace/sum.mjs"
+        },
+        "preview": "\nTool: read_file\nPath: \"<isolated>/sum-project/workspace/sum.mjs\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ",
+        "remember": {
+          "label": "本次对话内不再询问 read_file"
+        }
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "click",
+      "at": "2026-10-29T16:26:41.785Z",
+      "id": "37f1c32f-39ed-474a-bda0-6aae51025f75",
+      "button": "允许并在本次对话内记住",
+      "trusted": true
+    },
+    {
+      "stage": "file-task",
+      "kind": "cleared",
+      "at": "2026-10-29T16:26:41.788Z",
+      "id": "37f1c32f-39ed-474a-bda0-6aae51025f75"
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T16:26:45.304Z",
+      "approval": {
+        "approvalId": "80d69573-bd3b-4468-8fcb-4d447959de25",
+        "toolCallId": "call_00_4sb9Jzd7NySoLbUDSucd3257",
+        "toolName": "edit_file",
+        "input": {
+          "path": "<isolated>/sum-project/workspace/sum.mjs",
+          "oldText": "export const sum = (a,b) => a-b;",
+          "newText": "export const sum = (a,b) => a+b;"
+        },
+        "preview": "",
+        "remember": {
+          "label": "本次对话内允许 edit_file 改动 <isolated>/sum-project/workspace/ 下的文件（不含子目录）"
+        }
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T16:26:45.308Z",
+      "approval": {
+        "approvalId": "80d69573-bd3b-4468-8fcb-4d447959de25",
+        "toolCallId": "call_00_4sb9Jzd7NySoLbUDSucd3257",
+        "toolName": "edit_file",
+        "input": {
+          "path": "<isolated>/sum-project/workspace/sum.mjs",
+          "oldText": "export const sum = (a,b) => a-b;",
+          "newText": "export const sum = (a,b) => a+b;"
+        },
+        "preview": "\nTool: edit_file\nPath: \"<isolated>/sum-project/workspace/sum.mjs\"\nOld text: \"export const sum = (a,b) => a-b;\"\nNew text: \"export const sum = (a,b) => a+b;\"\nAllow this call? [y/n] ",
+        "remember": {
+          "label": "本次对话内允许 edit_file 改动 <isolated>/sum-project/workspace/ 下的文件（不含子目录）"
+        }
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "script-decision",
+      "id": "80d69573-bd3b-4468-8fcb-4d447959de25",
+      "decision": "allow",
+      "at": "2026-10-29T16:27:06.542Z"
+    },
+    {
+      "stage": "file-task",
+      "kind": "click",
+      "at": "2026-10-29T16:27:06.569Z",
+      "id": "80d69573-bd3b-4468-8fcb-4d447959de25",
+      "button": "允许本次调用",
+      "trusted": true
+    },
+    {
+      "stage": "file-task",
+      "kind": "cleared",
+      "at": "2026-10-29T16:27:06.571Z",
+      "id": "80d69573-bd3b-4468-8fcb-4d447959de25"
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T16:27:11.657Z",
+      "approval": {
+        "approvalId": "8f566417-6458-4148-b9d9-c663373d8db6",
+        "toolCallId": "call_00_2OLcJZrWh4C9Cjs6NDO46265",
+        "toolName": "shell_exec",
+        "input": {
+          "command": "node check.mjs | tail -n 3; echo \"exit=${PIPESTATUS[0]}\"",
+          "cwd": "."
+        },
+        "preview": ""
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T16:27:11.660Z",
+      "approval": {
+        "approvalId": "8f566417-6458-4148-b9d9-c663373d8db6",
+        "toolCallId": "call_00_2OLcJZrWh4C9Cjs6NDO46265",
+        "toolName": "shell_exec",
+        "input": {
+          "command": "node check.mjs | tail -n 3; echo \"exit=${PIPESTATUS[0]}\"",
+          "cwd": "."
+        },
+        "preview": "\nTool: shell_exec\nCommand: \"node check.mjs | tail -n 3; echo \\\"exit=${PIPESTATUS[0]}\\\"\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] "
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "script-decision",
+      "id": "8f566417-6458-4148-b9d9-c663373d8db6",
+      "decision": "allow",
+      "at": "2026-10-29T16:27:55.755Z"
+    },
+    {
+      "stage": "file-task",
+      "kind": "click",
+      "at": "2026-10-29T16:27:55.788Z",
+      "id": "8f566417-6458-4148-b9d9-c663373d8db6",
+      "button": "允许本次调用",
+      "trusted": true
+    },
+    {
+      "stage": "file-task",
+      "kind": "cleared",
+      "at": "2026-10-29T16:27:55.790Z",
+      "id": "8f566417-6458-4148-b9d9-c663373d8db6"
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T16:27:59.089Z",
+      "approval": {
+        "approvalId": "5299f1f9-67ec-40c0-a836-52e236177689",
+        "toolCallId": "call_00_IbxMokHQAhxbKOq7oST54378",
+        "toolName": "shell_exec",
+        "input": {
+          "command": "node check.mjs > /tmp/sum_check_out.txt 2>&1",
+          "cwd": "."
+        },
+        "preview": ""
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T16:27:59.091Z",
+      "approval": {
+        "approvalId": "5299f1f9-67ec-40c0-a836-52e236177689",
+        "toolCallId": "call_00_IbxMokHQAhxbKOq7oST54378",
+        "toolName": "shell_exec",
+        "input": {
+          "command": "node check.mjs > /tmp/sum_check_out.txt 2>&1",
+          "cwd": "."
+        },
+        "preview": "\nTool: shell_exec\nCommand: \"node check.mjs > /tmp/sum_check_out.txt 2>&1\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] "
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "click",
+      "at": "2026-10-29T16:28:02.296Z",
+      "id": "5299f1f9-67ec-40c0-a836-52e236177689",
+      "button": "允许本次调用",
+      "trusted": true
+    },
+    {
+      "stage": "file-task",
+      "kind": "cleared",
+      "at": "2026-10-29T16:28:02.301Z",
+      "id": "5299f1f9-67ec-40c0-a836-52e236177689"
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T16:28:04.718Z",
+      "approval": {
+        "approvalId": "3d59b695-d32c-4daa-aad9-307420d02d13",
+        "toolCallId": "call_00_fW3bR4IutHAoz8MX0oAP4406",
+        "toolName": "shell_exec",
+        "input": {
+          "command": "head -n 2 /tmp/sum_check_out.txt; wc -l < /tmp/sum_check_out.txt",
+          "cwd": "."
+        },
+        "preview": ""
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "shown",
+      "at": "2026-10-29T16:28:04.720Z",
+      "approval": {
+        "approvalId": "3d59b695-d32c-4daa-aad9-307420d02d13",
+        "toolCallId": "call_00_fW3bR4IutHAoz8MX0oAP4406",
+        "toolName": "shell_exec",
+        "input": {
+          "command": "head -n 2 /tmp/sum_check_out.txt; wc -l < /tmp/sum_check_out.txt",
+          "cwd": "."
+        },
+        "preview": "\nTool: shell_exec\nCommand: \"head -n 2 /tmp/sum_check_out.txt; wc -l < /tmp/sum_check_out.txt\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] "
+      }
+    },
+    {
+      "stage": "file-task",
+      "kind": "script-decision",
+      "id": "3d59b695-d32c-4daa-aad9-307420d02d13",
+      "decision": "allow",
+      "at": "2026-10-29T16:28:42.299Z"
+    },
+    {
+      "stage": "file-task",
+      "kind": "click",
+      "at": "2026-10-29T16:28:42.320Z",
+      "id": "3d59b695-d32c-4daa-aad9-307420d02d13",
+      "button": "允许本次调用",
+      "trusted": true
+    },
+    {
+      "stage": "file-task",
+      "kind": "cleared",
+      "at": "2026-10-29T16:28:42.323Z",
+      "id": "3d59b695-d32c-4daa-aad9-307420d02d13"
+    }
+  ],
+  "errors": [],
+  "herdrPreflight": {
+    "stateId": "8c17bd05-8b58-4416-a97f-a7b962b74760",
+    "phase": "server-spawned",
+    "operations": [],
+    "serverExited": true,
+    "log": "Error: Custom { kind: InvalidInput, error: \"local socket name length exceeds capacity of sun_path of sockaddr_un\" }",
+    "piStarted": false
+  },
+  "calls": [
+    {
+      "id": "f9a77559-9363-49e9-9016-76742a43b42d",
+      "stage": "file-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:26:22.352Z",
+      "status": "returned",
+      "reservedUsd": 0.012250559999999999,
+      "requestSha256": "11fc726d3ded3170ea52c18abe62956ff80ab40fe4511fe46481cbd44dcd6723",
+      "requestBytes": 23435,
+      "httpStatus": 200,
+      "usage": {
+        "input": 5397,
+        "output": 155,
+        "cached": 1152
+      },
+      "costUsd": 0.00157276,
+      "finishedAt": "2026-10-29T16:26:25.724Z",
+      "responseSha256": "88124db32afbc6266199ca5293683df789b73f93f0da3f9b974a9ebdeb32284f"
+    },
+    {
+      "id": "8c42d423-c851-4033-aeea-63ae6bc2b518",
+      "stage": "file-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:26:42.261Z",
+      "status": "returned",
+      "reservedUsd": 0.01270272,
+      "requestSha256": "c20d423f4eeda09f24dfb1100bccbd3d2074e777b6b432fdbc37c54e8865ca18",
+      "requestBytes": 24848,
+      "httpStatus": 200,
+      "usage": {
+        "input": 5756,
+        "output": 113,
+        "cached": 5504
+      },
+      "costUsd": 0.00037684,
+      "finishedAt": "2026-10-29T16:26:45.062Z",
+      "responseSha256": "5f8fa8bc7b77a7397e74eda6629ddee82f6bd0c82e1521f9097757be3cb68740"
+    },
+    {
+      "id": "f02ea46e-a59a-4c2e-afef-ff8f1a6eb67f",
+      "stage": "file-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:27:06.875Z",
+      "status": "returned",
+      "reservedUsd": 0.01287648,
+      "requestSha256": "6a5028674994ffda08c4c5e366a69aa75b4b5ff8da3e84d9b34b0c671682adae",
+      "requestBytes": 25391,
+      "httpStatus": 200,
+      "usage": {
+        "input": 5940,
+        "output": 75,
+        "cached": 5760
+      },
+      "costUsd": 0.00031739999999999996,
+      "finishedAt": "2026-10-29T16:27:11.456Z",
+      "responseSha256": "3b37a99df1b1acb69c53caa95fcc29973f4fb98d0e7aa787159b237224e00ab4"
+    },
+    {
+      "id": "dbafb720-79c9-4888-aaec-538d2ea517ff",
+      "stage": "file-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:27:56.127Z",
+      "status": "returned",
+      "reservedUsd": 0.01305504,
+      "requestSha256": "39f480090f72289e350dd2d85ddebfd5664dbb5ae533529080e9403ca5818fd4",
+      "requestBytes": 25949,
+      "httpStatus": 200,
+      "usage": {
+        "input": 6100,
+        "output": 68,
+        "cached": 5888
+      },
+      "costUsd": 0.00032336,
+      "finishedAt": "2026-10-29T16:27:58.842Z",
+      "responseSha256": "d7e58941a08b3ab6127ea8f6d9b6a61c28bc17349717b82311354a9e281ba726"
+    },
+    {
+      "id": "5feba083-7946-4428-b968-31875bc48de6",
+      "stage": "file-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:28:02.651Z",
+      "status": "returned",
+      "reservedUsd": 0.013202240000000002,
+      "requestSha256": "08aa7dbad0c6303de2441b2a6dadaed1748685b41e2156f5542d0a3b0e51f111",
+      "requestBytes": 26409,
+      "httpStatus": 200,
+      "usage": {
+        "input": 6220,
+        "output": 127,
+        "cached": 6016
+      },
+      "costUsd": 0.00039307999999999997,
+      "finishedAt": "2026-10-29T16:28:04.452Z",
+      "responseSha256": "944c4b5b005e781064e25668cc37080cd5d50d0b58b74b865b3e30dbdd3ff4d5"
+    },
+    {
+      "id": "e96c02ad-595f-4817-bb08-be5c3071e24f",
+      "stage": "file-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:28:42.866Z",
+      "status": "returned",
+      "reservedUsd": 0.01348736,
+      "requestSha256": "f5f020e764e6782cfc37a37d5454520d9b14018a5c746c63b8462ea602e02f5f",
+      "requestBytes": 27300,
+      "httpStatus": 200,
+      "usage": {
+        "input": 6454,
+        "output": 303,
+        "cached": 6272
+      },
+      "costUsd": 0.00059788,
+      "finishedAt": "2026-10-29T16:28:45.984Z",
+      "responseSha256": "e72c83b784a3b6084eafe2c88b00bffadc67d6f908f1e5929078cbd168553e7c"
+    }
+  ],
+  "realModelRequests": 6,
+  "knownEstimatedUsd": 0.00358132,
+  "unresolvedCalls": 0,
+  "unresolvedReservedUsd": 0
+}

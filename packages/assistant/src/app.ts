@@ -5,7 +5,7 @@ import { createTranscriptAccess } from "./transcript-access.js";
 import { historyTools } from "./history-tools.js";
 import { createCompactionChecklist, type CompactionChecklistSources } from "./compaction-records.js";
 import { createThreadBackground, type ThreadBackground } from "./thread-background.js";
-import { AUTONOMOUS_MAX_STEPS, AUTONOMOUS_TOTAL_TIMEOUT_MS, AUTONOMOUS_SHELL_TIMEOUT_MS, AUTONOMOUS_INSTRUCTIONS } from "./foreground-autonomy.js";
+import { AUTONOMOUS_MAX_STEPS, AUTONOMOUS_TOTAL_TIMEOUT_MS, AUTONOMOUS_SHELL_TIMEOUT_MS, AUTONOMOUS_INSTRUCTIONS, FOREGROUND_INSTRUCTIONS } from "./foreground-autonomy.js";
 import { assertExperimentalDataPaths } from "./experimental-data.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp } from "node:fs/promises";
@@ -79,7 +79,7 @@ import { beginRoundOutputTiming } from "./round-output-timing.js";
 import type { ModelPurpose } from "./model-usage.js";
 import { createWebModule } from "./modules/web-module.js";
 import { createComputerModule } from "./modules/computer-module.js";
-import { capabilityStatus, formatCapabilityStatus, type CapabilityStatus } from "./capability-status.js";
+import { capabilityStatus, formatCapabilityStatus, formatCapabilitySummary, type CapabilityStatus } from "./capability-status.js";
 import { RecipeStore } from "./recipe-store.js";
 import { createRecipeModule } from "./modules/recipe-module.js";
 import { createTaskStore } from "./task-store.js";
@@ -683,9 +683,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       }
       return createResumeContextMessage(active.observation);
     };
-    const primaryInstructions = () => autonomousRun()
+    let toolConfirmation: ToolConfirmation | undefined;
+    const primaryInstructions = () => (autonomousRun()
       ? instructionsFor({ autonomous: true, entry: currentRun.foreground?.entry }) + "\n" + AUTONOMOUS_INSTRUCTIONS
-      : baseInstructions;
+      : baseInstructions) + (currentRun.foreground ? "\n" + FOREGROUND_INSTRUCTIONS : "") +
+      (tuiMode ? "\n\n" + formatCapabilitySummary(getCapabilities()) : "");
     const checklistSources = async (): Promise<CompactionChecklistSources> => ({ workTask: currentRun.workTask, permissions: toolConfirmation?.snapshot(),
       runs: await transcript.filterRuns(await executionRecords.listRuns(threadId, EXECUTION_RECORD_MAX_RUNS)) });
     const memoryReaders = [...(memoryStore || dreaming ? memoryReadTools({ store: memoryStore, dreaming, threadId }) : []), ...historyTools(transcript, moduleConfig?.contextCompaction ?? DEFAULT_CONTEXT_BUDGET_CONFIG,
@@ -697,6 +699,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         !autonomousRun() || moduleHost?.toolModules.get(name) !== "memory"),
       toolModules: moduleHost?.toolModules ?? new Map(),
       autonomy: currentRun.foreground?.entry ? currentRun.foreground.autonomous : desktopAutonomyEnabled,
+      seatbelt: seatbeltRun(), permissions: toolConfirmation?.snapshot(),
       ...(currentRun.foreground?.entry ? { entry: currentRun.foreground.entry } : {}),
       moduleEntries: new Map([["todoist", todoist.capability]]),
     });
@@ -759,7 +762,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       createMemoryReferenceSource({ store: memoryStore, threadId, projectId: project?.id ?? null }),
       createTaskTimeSource(project),
       createWorkTaskSource(() => currentRun.workTaskMessage),
-      createForegroundTaskSource(() => autonomousRun() ? currentRun.foreground?.request : undefined),
+      createForegroundTaskSource(() => currentRun.foreground?.request),
     ], project?.id ?? null);
     const referencePrefix = async (messages: readonly UIMessage[], signal: AbortSignal) => (await buildReferencePrefix(messages, signal)).prefix;
     let lastUncompactedPreparation: ContextDiagnostics["lastPreparation"] = null;
@@ -899,7 +902,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           ...(moduleHost ? { toolPermissions: moduleHost.toolPermissions } : {}),
         })
       : undefined;
-    const toolConfirmation = permission?.confirmation;
+    toolConfirmation = permission?.confirmation;
     const extensions = composeExtensions([
       { name: "no-progress-guard", afterToolCall: createNoProgressGuard(name => tools.metadata(name)) },
       ...(permission ? [permission] : []),
@@ -909,10 +912,10 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     const runtime = new DefaultAgentRuntime({
       catalog: { get: agentId => {
         const definition = catalog.get(agentId);
-        return definition && agentId === PRIMARY_AGENT_ID && autonomousRun() ? { ...definition,
-          instructions: primaryInstructions(),
-          tools: autonomousToolNames,
-          limits: { ...definition.limits, maxSteps: AUTONOMOUS_MAX_STEPS, totalTimeoutMs: AUTONOMOUS_TOTAL_TIMEOUT_MS },
+        return definition && agentId === PRIMARY_AGENT_ID ? { ...definition,
+          get instructions() { return primaryInstructions(); },
+          ...(autonomousRun() ? { tools: autonomousToolNames,
+            limits: { ...definition.limits, maxSteps: AUTONOMOUS_MAX_STEPS, totalTimeoutMs: AUTONOMOUS_TOTAL_TIMEOUT_MS } } : {}),
         } : definition;
       } },
       store: { ...executionRecordAdapter.store, save: (thread, messages) => executionRecordAdapter.store.save(thread, buildReferencePrefix.annotate(messages)) },
@@ -1024,7 +1027,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       telegramAutonomyEnabled,
       beginForegroundExecution: (entry, request) => {
         const autonomous = entry === "desktop" ? desktopAutonomyEnabled : entry === "telegram" && moduleConfig?.telegramAutonomy?.threadId === threadId && telegramAutonomyEnabled();
-        currentRun.foreground = { entry, autonomous, ...(autonomous && request ? { request: structuredClone(request) } : {}) };
+        currentRun.foreground = { entry, autonomous, ...(request ? { request: structuredClone(request) } : {}) };
         return autonomous;
       },
       endForegroundExecution: async () => { await seatbeltRunner?.settle(); currentRun.foreground = undefined; },

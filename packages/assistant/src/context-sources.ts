@@ -63,7 +63,7 @@ export function createWorkTaskSource(active: () => UIMessage | undefined): Refer
   return { name: "work-task", slots: ["work-task"], collect: () => ({ messages: { "work-task": active() } }) };
 }
 
-/** The original autonomous foreground request plus accepted Steer corrections. */
+/** The current foreground request plus accepted Steer corrections. */
 export function createForegroundTaskSource(request: () => UIMessage | undefined): ReferenceSource {
   return {
     name: "foreground-task",

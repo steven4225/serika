@@ -1,0 +1,796 @@
+{
+  "runId": "b6656086-4a3c-4e69-9d4a-899ef0d860c5",
+  "generatedAt": "2026-10-29T16:35:36.261Z",
+  "verification": "real-electron-real-model-original-preload-ipc",
+  "sourceCommit": "c88682c85fd3632095e1de96b03b4871e96af692",
+  "sourceWorktreeDirty": true,
+  "scriptSha256": "367960d943db903ae1a1e374b3a4398962caa7442afe2d079e85b2617dca0355",
+  "setupScriptSha256": "5fbf2ef10d3a82758ef9c4f4e0edcc437ce318b69be9052d2f5e08d21b9b9bec",
+  "rawReportSha256": "09810fb471a3be1b6be2302091112bc9e537512b0e92fa3b6259703e389cdbce",
+  "status": "pi-completed",
+  "credentialSource": "daily-env-model-fields-in-process-only",
+  "credentialFileCreated": false,
+  "usageMissingBlocksAcceptance": false,
+  "launches": [
+    {
+      "name": "pi-project",
+      "main": {
+        "pid": 72108,
+        "electron": "44.4.5",
+        "home": "<isolated>/herdr-fixture/H",
+        "userData": "<isolated>/pi-project/profile"
+      },
+      "renderer": {
+        "url": "file:///Users/a1-6/Code/agents/serika-foreground-capability-wiring/apps/desktop/out/renderer/index.html",
+        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36"
+      },
+      "info": {
+        "build": {
+          "loaded": {
+            "schemaVersion": 1,
+            "version": "0.1.0",
+            "builtAt": "2026-10-29T15:34:37.054Z",
+            "frontendSource": {
+              "revision": "c88682c85fd3632095e1de96b03b4871e96af692",
+              "dirty": true
+            },
+            "backendSource": {
+              "revision": "c88682c85fd3632095e1de96b03b4871e96af692",
+              "dirty": true
+            },
+            "backendDistFingerprint": "3ce9bc09a370040c452d7b32056895b552edce6d539ec81334f460f6daa270d3",
+            "id": "cc8bc34f54b95294"
+          },
+          "backendDistAtStartup": "3ce9bc09a370040c452d7b32056895b552edce6d539ec81334f460f6daa270d3",
+          "backendMatchesBuild": true,
+          "diskBuild": "same",
+          "diskBuildId": "cc8bc34f54b95294",
+          "host": "desktop"
+        },
+        "capabilities": {
+          "modules": [
+            {
+              "id": "pomodoro",
+              "enabled": false,
+              "registeredTools": [],
+              "state": "disabled"
+            },
+            {
+              "id": "read-file",
+              "enabled": true,
+              "registeredTools": [
+                "read_file",
+                "list_directory",
+                "search_files",
+                "write_file",
+                "edit_file"
+              ],
+              "state": "registered"
+            },
+            {
+              "id": "memory",
+              "enabled": false,
+              "registeredTools": [],
+              "state": "disabled"
+            },
+            {
+              "id": "checkpoint",
+              "enabled": false,
+              "registeredTools": [],
+              "state": "disabled"
+            },
+            {
+              "id": "task",
+              "enabled": false,
+              "registeredTools": [],
+              "state": "disabled"
+            },
+            {
+              "id": "todoist",
+              "enabled": false,
+              "registeredTools": [],
+              "state": "disabled"
+            },
+            {
+              "id": "shell",
+              "enabled": true,
+              "registeredTools": [
+                "shell_exec"
+              ],
+              "state": "registered"
+            },
+            {
+              "id": "web",
+              "enabled": false,
+              "registeredTools": [],
+              "state": "disabled"
+            },
+            {
+              "id": "computer",
+              "enabled": false,
+              "registeredTools": [],
+              "state": "disabled"
+            },
+            {
+              "id": "terminal",
+              "enabled": true,
+              "registeredTools": [
+                "terminal_exec",
+                "herdr_pi_read",
+                "herdr_pi_control"
+              ],
+              "state": "registered"
+            }
+          ],
+          "tools": [
+            "read_file",
+            "list_directory",
+            "search_files",
+            "write_file",
+            "edit_file",
+            "shell_exec",
+            "terminal_exec",
+            "herdr_pi_read",
+            "herdr_pi_control",
+            "recipe_list",
+            "recipe_save",
+            "recipe_manage",
+            "recipe_run",
+            "memory_read",
+            "history_search",
+            "history_read",
+            "capability_status"
+          ],
+          "execution": {
+            "directories": [
+              {
+                "path": "<isolated>/herdr-fixture/workspace",
+                "access": "readwrite"
+              }
+            ],
+            "files": "scoped_grants_or_confirmation",
+            "fileGrants": [],
+            "shell": {
+              "configured": true,
+              "registered": true,
+              "mode": "host",
+              "authorization": "per_call_confirmation",
+              "health": "not_checked"
+            },
+            "terminal": {
+              "configured": true,
+              "registered": true,
+              "authorization": "per_call_confirmation",
+              "health": "not_checked"
+            },
+            "pi": {
+              "registered": true,
+              "target": {
+                "authorizedDirectory": "<isolated>/herdr-fixture/workspace",
+                "session": "w-536e4a44",
+                "paneId": "w1:p1",
+                "terminalId": "term_65efd33459d1d1"
+              },
+              "authorization": "selected_target_reads_auto; control_per_call_confirmation",
+              "health": "not_checked"
+            }
+          },
+          "shell": {
+            "mode": "host",
+            "authority": "current_run_only; no permissions inherited from recipes",
+            "warning": "工作目录不是操作系统隔离；主机命令仍需明确批准。"
+          },
+          "computer": {
+            "configured": false,
+            "allowedBundleIds": [],
+            "service": "not_checked",
+            "permissions": "not_checked",
+            "next": "配置与工具注册不证明服务或系统权限就绪。computer_check 检查连接、computer_observe 观察明确授权的应用均免逐条确认；未授权应用直接拒绝，computer_action 每次确认且不可记住。不会启动驱动或授予系统权限。"
+          },
+          "mcp": {
+            "state": "unsupported_dynamic_registration",
+            "note": "当前宿主只注册内置集成；其他应用安装的 MCP/CUA 不会自动继承。新增集成须由宿主明确配置，不会自行修改安全配置。"
+          }
+        },
+        "modules": [
+          {
+            "id": "pomodoro",
+            "enabled": false
+          },
+          {
+            "id": "read-file",
+            "enabled": true
+          },
+          {
+            "id": "memory",
+            "enabled": false
+          },
+          {
+            "id": "checkpoint",
+            "enabled": false
+          },
+          {
+            "id": "task",
+            "enabled": false
+          },
+          {
+            "id": "todoist",
+            "enabled": false
+          },
+          {
+            "id": "shell",
+            "enabled": true
+          },
+          {
+            "id": "web",
+            "enabled": false
+          },
+          {
+            "id": "computer",
+            "enabled": false
+          },
+          {
+            "id": "terminal",
+            "enabled": true
+          }
+        ],
+        "autonomy": {
+          "enabled": false,
+          "directory": "<isolated>/herdr-fixture/workspace"
+        },
+        "terminalTarget": {
+          "authorizedDirectory": "<isolated>/herdr-fixture/workspace",
+          "session": "w-536e4a44",
+          "paneId": "w1:p1",
+          "terminalId": "term_65efd33459d1d1"
+        },
+        "configPath": "<isolated>/pi-project/config.json",
+        "moduleOptions": {
+          "webSearch": false,
+          "webFeed": false,
+          "autoConsolidate": false
+        },
+        "modelAlias": "command-code/default",
+        "modelId": "deepseek/deepseek-v4.1-flash-fast",
+        "computer": {
+          "enabled": false,
+          "allowedBundleIds": []
+        },
+        "identitySource": "explicit",
+        "entryMode": "test",
+        "threadId": "pi-project",
+        "temporaryThread": false,
+        "directory": "<isolated>/pi-project/transcripts",
+        "temporaryDirectory": false,
+        "workspaceRoot": "<isolated>/herdr-fixture/workspace",
+        "projectDirectory": "<isolated>/herdr-fixture/workspace",
+        "project": {
+          "id": "5599f492d9a76484f16ac921bae809e6911fea7c0949e3f3a82bae02287ceb26",
+          "directory": "<isolated>/herdr-fixture/workspace",
+          "name": "workspace",
+          "kind": "folder"
+        },
+        "authorizedDirectories": [
+          {
+            "path": "<isolated>/herdr-fixture/workspace",
+            "access": "readwrite"
+          }
+        ],
+        "tuiMode": true,
+        "commands": [
+          "authorize",
+          "authorize-shell",
+          "capabilities",
+          "history",
+          "home",
+          "hooks",
+          "modules",
+          "permissions",
+          "recipes",
+          "skill",
+          "skills",
+          "workspace"
+        ],
+        "hasResume": false,
+        "totalTimeoutMs": 300000,
+        "shellTimeoutMs": 30000,
+        "memory": {
+          "enabled": false,
+          "autoConsolidate": false
+        },
+        "workTasks": true,
+        "attachments": true,
+        "pomodoroControls": true,
+        "memoryLibrary": true
+      }
+    }
+  ],
+  "originalHandlerUnchanged": true,
+  "case": {
+    "text": "请让绑定的 Pi 在当前目录创建 answer.json，内容为 {\"sum\":15}。完成后你自己回读文件，并运行 node verify.mjs 检查结果，最后交付。",
+    "status": "completed",
+    "runId": "e38ec10b-c773-45fd-b141-381559267907",
+    "answer": "已交付。\n\n**过程**\n1. 确认绑定的 Pi（term_65efd33459d1d1，w1:p1）处于 idle，工作目录仅有 `verify.mjs`。\n2. 向其发送一次性提示，要求创建 `answer.json`，内容严格为 `{\"sum\":15}`。Pi 回复“完成”，但其自述不构成证据。\n3. 我自己回读 `answer.json`：内容为 `{\"sum\":15}`（10 字节），无额外字段。\n4. 运行 `node verify.mjs`：exitCode 0，输出 `PI_ARTIFACT_PASS`。\n\n**验证限制**：`verify.mjs` 只做 `deepEqual(x,{sum:15})` 断言，证明文件内容正确；它不校验 JSON 之外的格式/换行约束（本任务无此要求）。",
+    "tools": [
+      {
+        "id": "call_00_7fXlRRBaThU2ZzatFCdc1801",
+        "name": "list_directory",
+        "input": "{\"path\":\"<isolated>/herdr-fixture/workspace\"}",
+        "status": "completed",
+        "shell": null,
+        "resultPreview": "{\"ok\":true,\"path\":\".\",\"entries\":[{\"name\":\"verify.mjs\",\"type\":\"file\"}],\"truncated\":false}",
+        "approvalRequestedAt": "2026-10-29T16:30:55.582Z"
+      },
+      {
+        "id": "call_01_AApSHkMmufwi1fmmhRry1212",
+        "name": "herdr_pi_read",
+        "input": "{\"action\":\"get\"}",
+        "status": "completed",
+        "shell": null,
+        "resultPreview": "{\"ok\":true,\"value\":{\"terminalId\":\"term_65efd33459d1d1\",\"paneId\":\"w1:p1\",\"status\":\"idle\",\"stateChangeSeq\":1}}"
+      },
+      {
+        "id": "call_00_s44eMOxvisv70DyDcCXA7639",
+        "name": "read_file",
+        "input": "{\"path\":\"<isolated>/herdr-fixture/workspace/verify.mjs\"}",
+        "status": "completed",
+        "shell": null,
+        "resultPreview": "{\"ok\":true,\"path\":\"verify.mjs\",\"content\":\"import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';const x=JSON.parse(await readFile('answer.json','utf8'));assert.deepEqual(x,{sum:15});console.log('PI_ARTIFACT_PASS');\\n\",\"bytes\":201}",
+        "approvalRequestedAt": "2026-10-29T16:31:27.206Z"
+      },
+      {
+        "id": "call_00_m9LGsUcZADVl8XFxabbI9418",
+        "name": "herdr_pi_control",
+        "input": "{\"action\":\"prompt\",\"text\":\"在当前工作目录创建 answer.json，内容严格为 {\\\"sum\\\":15}（仅此 JSON，不要额外字段）。创建后不要运行其他命令，回复完成即可。\"}",
+        "status": "completed",
+        "shell": null,
+        "resultPreview": "{\"ok\":true,\"value\":{\"terminalId\":\"term_65efd33459d1d1\",\"paneId\":\"w1:p1\",\"status\":\"idle\",\"stateChangeSeq\":1,\"dispatched\":true,\"verified\":false}}",
+        "approvalRequestedAt": "2026-10-29T16:32:06.746Z"
+      },
+      {
+        "id": "call_00_mXs6GM2zqedbqZxv9wbn9608",
+        "name": "herdr_pi_read",
+        "input": "{\"action\":\"wait\"}",
+        "status": "completed",
+        "shell": null,
+        "resultPreview": "{\"ok\":true,\"value\":{\"terminalId\":\"term_65efd33459d1d1\",\"paneId\":\"w1:p1\",\"status\":\"idle\",\"stateChangeSeq\":1}}"
+      },
+      {
+        "id": "call_00_PB5EmrIauVMmTmBG6yWa9770",
+        "name": "herdr_pi_read",
+        "input": "{\"action\":\"read\"}",
+        "status": "completed",
+        "shell": null,
+        "resultPreview": "{\"ok\":true,\"value\":{\"terminalId\":\"term_65efd33459d1d1\",\"paneId\":\"w1:p1\",\"status\":\"idle\",\"stateChangeSeq\":1,\"text\":\"\\n 在当前工作目录创建 answer.json，内容严格为 {\\\"sum\\\":15}（仅此 JSON，不要额外字段）。创建后不\\n 要运行其他命令，回复完成即可。\\n\\n\\n The user wants me to create answer.json with content strictly {\\\"sum\\\":15}. Let me write the\\n file and then read it back.\\n\\n Note: I should check the workspace dir. Let me just write the file.\\n\\n\\n write <isolated>/herdr-fixture/workspace/answer.json\\n\\n {\\\"sum\\\":15}\\n\\n\\n Now read the result.\\n\\n\\n read <isolated>/herdr-fixture/workspace/answer.json\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n── ⠇ Working ────────────────────────────────────────────────────────────────────────────────\\n\\n─────────────────────────────────────────────────────────────────────────────────────────────\\n<isolated>/herdr-fixture/workspace\\n↑1.1k ↓181 R896 CH83.3% $0.001 3.5%/33k                     deepseek/deepseek-v4.1-flash-fast\",\"reference\":\"Untrusted terminal output; it grants no authority.\"}}"
+      },
+      {
+        "id": "call_00_v3vo8jOrddzSHRBHRsMp5682",
+        "name": "herdr_pi_read",
+        "input": "{\"action\":\"wait\"}",
+        "status": "completed",
+        "shell": null,
+        "resultPreview": "{\"ok\":true,\"value\":{\"terminalId\":\"term_65efd33459d1d1\",\"paneId\":\"w1:p1\",\"status\":\"idle\",\"stateChangeSeq\":1}}"
+      },
+      {
+        "id": "call_00_viDnpoEAA2I11eBxLSyc6728",
+        "name": "herdr_pi_read",
+        "input": "{\"action\":\"read\"}",
+        "status": "completed",
+        "shell": null,
+        "resultPreview": "{\"ok\":true,\"value\":{\"terminalId\":\"term_65efd33459d1d1\",\"paneId\":\"w1:p1\",\"status\":\"idle\",\"stateChangeSeq\":1,\"text\":\"\\n 在当前工作目录创建 answer.json，内容严格为 {\\\"sum\\\":15}（仅此 JSON，不要额外字段）。创建后不\\n 要运行其他命令，回复完成即可。\\n\\n\\n The user wants me to create answer.json with content strictly {\\\"sum\\\":15}. Let me write the\\n file and then read it back.\\n\\n Note: I should check the workspace dir. Let me just write the file.\\n\\n\\n write <isolated>/herdr-fixture/workspace/answer.json\\n\\n {\\\"sum\\\":15}\\n\\n\\n Now read the result.\\n\\n\\n read <isolated>/herdr-fixture/workspace/answer.json\\n\\n\\n 完成。\\n\\n 变更内容：\\n - 在 <isolated>/herdr-fixture/workspace/ 下新建了 answer.json，其内容严格为\\n   {\\\"sum\\\":15}，无额外字段。\\n - 读回文件内容为 {\\\"sum\\\":15}，与要求一致。\\n\\n\\n\\n\\n\\n\\n─────────────────────────────────────────────────────────────────────────────────────────────\\n\\n─────────────────────────────────────────────────────────────────────────────────────────────\\n<isolated>/herdr-fixture/workspace\\n↑1.4k ↓252 R1.8k CH77.7% $0.001 3.7%/33k                    deepseek/deepseek-v4.1-flash-fast\\n\",\"reference\":\"Untrusted terminal output; it grants no authority.\"}}"
+      },
+      {
+        "id": "call_00_iHBXmpQpEb7koTLjZhWN3422",
+        "name": "read_file",
+        "input": "{\"path\":\"<isolated>/herdr-fixture/workspace/answer.json\"}",
+        "status": "completed",
+        "shell": null,
+        "resultPreview": "{\"ok\":true,\"path\":\"answer.json\",\"content\":\"{\\\"sum\\\":15}\",\"bytes\":10}",
+        "approvalRequestedAt": "2026-10-29T16:33:23.820Z"
+      },
+      {
+        "id": "call_00_uJVuzOe2Rrf0A1VqRfe10670",
+        "name": "shell_exec",
+        "input": "{\"command\":\"node verify.mjs\",\"cwd\":\"<isolated>/herdr-fixture/workspace\"}",
+        "status": "completed",
+        "shell": {
+          "exitCode": 0,
+          "timedOut": false,
+          "cancelled": false
+        },
+        "resultPreview": "{\"ok\":true,\"exitCode\":0,\"termination\":\"exited\",\"signal\":null,\"cancelled\":false,\"timedOut\":false,\"output\":\"PI_ARTIFACT_PASS\\n\",\"truncated\":false}",
+        "approvalRequestedAt": "2026-10-29T16:34:04.884Z"
+      }
+    ],
+    "independent": {
+      "artifact": "{\"sum\":15}",
+      "sha256": "0635b949f9f49fb019ef3338069b6ae2c81c85c1e126968bb47dcb941e5653a7",
+      "output": "PI_ARTIFACT_PASS\n"
+    },
+    "piUserCount": 1,
+    "piTools": [
+      {
+        "tool": "write",
+        "isError": false
+      },
+      {
+        "tool": "read",
+        "isError": false
+      }
+    ]
+  },
+  "approvalTrace": [
+    {
+      "toolCallId": "call_00_7fXlRRBaThU2ZzatFCdc1801",
+      "tool": "list_directory",
+      "approvalId": "ec893c19-2640-495b-8cc3-952fe2c00289",
+      "confirm": {
+        "approvalId": "ec893c19-2640-495b-8cc3-952fe2c00289",
+        "decision": "allow"
+      },
+      "click": {
+        "stage": "herdr-pi-task",
+        "kind": "click",
+        "at": "2026-10-29T16:31:22.303Z",
+        "id": "ec893c19-2640-495b-8cc3-952fe2c00289",
+        "button": "允许本次调用",
+        "trusted": true
+      },
+      "cleared": true
+    },
+    {
+      "toolCallId": "call_00_s44eMOxvisv70DyDcCXA7639",
+      "tool": "read_file",
+      "approvalId": "08569b10-f0ab-410b-a34f-bd0d9ba75a8a",
+      "confirm": {
+        "approvalId": "08569b10-f0ab-410b-a34f-bd0d9ba75a8a",
+        "decision": "allow"
+      },
+      "click": {
+        "stage": "herdr-pi-task",
+        "kind": "click",
+        "at": "2026-10-29T16:32:00.984Z",
+        "id": "08569b10-f0ab-410b-a34f-bd0d9ba75a8a",
+        "button": "允许本次调用",
+        "trusted": true
+      },
+      "cleared": true
+    },
+    {
+      "toolCallId": "call_00_m9LGsUcZADVl8XFxabbI9418",
+      "tool": "herdr_pi_control",
+      "approvalId": "6d8a55c4-605e-4b64-b8bd-538edbff5907",
+      "confirm": {
+        "approvalId": "6d8a55c4-605e-4b64-b8bd-538edbff5907",
+        "decision": "allow"
+      },
+      "click": {
+        "stage": "herdr-pi-task",
+        "kind": "click",
+        "at": "2026-10-29T16:33:04.386Z",
+        "id": "6d8a55c4-605e-4b64-b8bd-538edbff5907",
+        "button": "允许本次调用",
+        "trusted": true
+      },
+      "cleared": true
+    },
+    {
+      "toolCallId": "call_00_iHBXmpQpEb7koTLjZhWN3422",
+      "tool": "read_file",
+      "approvalId": "37522967-3b0c-416d-885e-4188b7300b2e",
+      "confirm": {
+        "approvalId": "37522967-3b0c-416d-885e-4188b7300b2e",
+        "decision": "allow"
+      },
+      "click": {
+        "stage": "herdr-pi-task",
+        "kind": "click",
+        "at": "2026-10-29T16:34:00.419Z",
+        "id": "37522967-3b0c-416d-885e-4188b7300b2e",
+        "button": "允许本次调用",
+        "trusted": true
+      },
+      "cleared": true
+    },
+    {
+      "toolCallId": "call_00_uJVuzOe2Rrf0A1VqRfe10670",
+      "tool": "shell_exec",
+      "approvalId": "34a2d667-44e1-4bf3-8b59-af7ff02e1e65",
+      "confirm": {
+        "approvalId": "34a2d667-44e1-4bf3-8b59-af7ff02e1e65",
+        "decision": "allow"
+      },
+      "click": {
+        "stage": "herdr-pi-task",
+        "kind": "click",
+        "at": "2026-10-29T16:34:04.951Z",
+        "id": "34a2d667-44e1-4bf3-8b59-af7ff02e1e65",
+        "button": "允许本次调用",
+        "trusted": true
+      },
+      "cleared": true
+    }
+  ],
+  "errors": [],
+  "herdrCleanup": {
+    "phase": "cleaned",
+    "session": "w-536e4a44",
+    "operations": [
+      {
+        "phase": "workspace-create",
+        "at": "2026-10-29T16:30:40.203Z"
+      },
+      {
+        "phase": "pi-start",
+        "at": "2026-10-29T16:30:44.169Z"
+      },
+      {
+        "phase": "session-stop",
+        "at": "2026-10-29T16:34:09.209Z"
+      },
+      {
+        "phase": "session-delete",
+        "at": "2026-10-29T16:34:09.217Z"
+      }
+    ],
+    "target": {
+      "authorizedDirectory": "<isolated>/herdr-fixture/workspace",
+      "session": "w-536e4a44",
+      "paneId": "w1:p1",
+      "terminalId": "term_65efd33459d1d1"
+    }
+  },
+  "calls": [
+    {
+      "id": "1a64b3a1-de0f-45c8-9328-dd64e91e82c2",
+      "stage": "herdr-pi-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:30:46.062Z",
+      "status": "returned",
+      "reservedUsd": 0.01489184,
+      "requestSha256": "880645dbadf5045c987534a27652683e8a08f9a62a9b6fc38ebd764946b50ea6",
+      "requestBytes": 31689,
+      "httpStatus": 200,
+      "usage": {
+        "input": 7189,
+        "output": 85,
+        "cached": 896
+      },
+      "costUsd": 0.00213924,
+      "finishedAt": "2026-10-29T16:30:55.258Z",
+      "responseSha256": "2267bde158b316616102cef6c7f93863609dc6e9a1124033bce8fee8bd3f6600"
+    },
+    {
+      "id": "4bda2073-d37b-4a86-8222-5d4449ea90a5",
+      "stage": "herdr-pi-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:31:22.768Z",
+      "status": "returned",
+      "reservedUsd": 0.015130560000000001,
+      "requestSha256": "728ed7061ae2a44549a464ad4f10287d035c76edb0df34d0d82c8283d3356bfd",
+      "requestBytes": 32435,
+      "httpStatus": 200,
+      "usage": {
+        "input": 7363,
+        "output": 58,
+        "cached": 7168
+      },
+      "costUsd": 0.00034472,
+      "finishedAt": "2026-10-29T16:31:27.000Z",
+      "responseSha256": "fbe16e377b90424fe4580690bad1bfc36cc489e0e7231d164c75f682e6abcf2c"
+    },
+    {
+      "id": "eca3ad17-2e34-4a05-a5f3-25dd9c5dc6c3",
+      "stage": "herdr-pi-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:32:01.311Z",
+      "status": "returned",
+      "reservedUsd": 0.01531648,
+      "requestSha256": "4d255594a3614d9cd597ff14dab3c8b7df48fed90aafefec823f01fd2d5492e0",
+      "requestBytes": 33016,
+      "httpStatus": 200,
+      "usage": {
+        "input": 7514,
+        "output": 91,
+        "cached": 7296
+      },
+      "costUsd": 0.0003942,
+      "finishedAt": "2026-10-29T16:32:06.530Z",
+      "responseSha256": "19a44653cf3d9f9dcd516aa7f27389e80543108a368dfa558d404feaa064cc65"
+    },
+    {
+      "id": "9d543c37-1ac3-4ade-997a-6d2c7db12b87",
+      "stage": "herdr-pi-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:33:04.857Z",
+      "status": "returned",
+      "reservedUsd": 0.015514240000000002,
+      "requestSha256": "11a09f096b153cb5ff94b9d790ecf065ecdd3f1a7dc59c7a3363a467f447f5aa",
+      "requestBytes": 33634,
+      "httpStatus": 200,
+      "usage": {
+        "input": 7668,
+        "output": 40,
+        "cached": 7424
+      },
+      "costUsd": 0.0003472,
+      "finishedAt": "2026-10-29T16:33:10.308Z",
+      "responseSha256": "1775189cd12a387387cea6f9a475fe5ffbeb17a805b2aaf8061bbe24ef5b3663"
+    },
+    {
+      "id": "3571685d-891c-4c19-8ada-d578476de064",
+      "stage": "herdr-pi-task",
+      "purpose": "auxiliary",
+      "startedAt": "2026-10-29T16:33:04.941Z",
+      "status": "returned",
+      "reservedUsd": 0.00572128,
+      "requestSha256": "537991076991f13e08198045daefdca673660349af351a72fb59c5a04448ab0e",
+      "requestBytes": 3031,
+      "httpStatus": 200,
+      "usage": {
+        "input": 919,
+        "output": 119,
+        "cached": 0
+      },
+      "costUsd": 0.00043212000000000003,
+      "finishedAt": "2026-10-29T16:33:09.471Z",
+      "responseSha256": "9d1cf379c04f5184d4313e168b95f971f2af54f6c27df7df1110dd5164c1979a"
+    },
+    {
+      "id": "6eb2848e-a561-4526-b62d-43e893a8d05d",
+      "stage": "herdr-pi-task",
+      "purpose": "auxiliary",
+      "startedAt": "2026-10-29T16:33:09.508Z",
+      "status": "returned",
+      "reservedUsd": 0.00594496,
+      "requestSha256": "c594fc97f53b88238dc691e777c16ee48573c01109444b8f3e5de8d03dae00fa",
+      "requestBytes": 3730,
+      "httpStatus": 200,
+      "usage": {
+        "input": 1075,
+        "output": 62,
+        "cached": 896
+      },
+      "costUsd": 0.00015607999999999998,
+      "finishedAt": "2026-10-29T16:33:12.272Z",
+      "responseSha256": "6a23cee35c5f7663ca8804f421111f7e699e37a0dfbe3feff60285c314435d9e"
+    },
+    {
+      "id": "6c47ecb1-7d33-4ac6-9259-cd31b1900e11",
+      "stage": "herdr-pi-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:33:11.034Z",
+      "status": "returned",
+      "reservedUsd": 0.0156384,
+      "requestSha256": "d233570358c3d53fb969213720bef8b3f50601117246d06102cb3b753c190ced",
+      "requestBytes": 34022,
+      "httpStatus": 200,
+      "usage": {
+        "input": 7761,
+        "output": 40,
+        "cached": 7552
+      },
+      "costUsd": 0.00033984,
+      "finishedAt": "2026-10-29T16:33:14.180Z",
+      "responseSha256": "15688c06c1bfad400835ee6d7885811b88bf14015adf7604a7b27c68235e2371"
+    },
+    {
+      "id": "3aac86b5-2214-493b-b462-35e522f4fe49",
+      "stage": "herdr-pi-task",
+      "purpose": "auxiliary",
+      "startedAt": "2026-10-29T16:33:12.282Z",
+      "status": "returned",
+      "reservedUsd": 0.00608096,
+      "requestSha256": "cc8bd634ac7dc0289a81a6cb01bd288a53ab80872976697551232775648cf7b3",
+      "requestBytes": 4155,
+      "httpStatus": 200,
+      "usage": {
+        "input": 1153,
+        "output": 71,
+        "cached": 896
+      },
+      "costUsd": 0.00019148,
+      "finishedAt": "2026-10-29T16:33:16.075Z",
+      "responseSha256": "451f356c461f65a63b426005fa8f69b2c05eae621318573957f8e6786f2bd8d4"
+    },
+    {
+      "id": "70bb4a38-7603-4166-b587-6815a22ab2ca",
+      "stage": "herdr-pi-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:33:15.126Z",
+      "status": "returned",
+      "reservedUsd": 0.01621536,
+      "requestSha256": "f7ea858ba0a67fbe1bcd0ca54c8b1fee93c0b201d53e3ce4d2f064c4b43a6443",
+      "requestBytes": 35825,
+      "httpStatus": 200,
+      "usage": {
+        "input": 8129,
+        "output": 40,
+        "cached": 7680
+      },
+      "costUsd": 0.00042048,
+      "finishedAt": "2026-10-29T16:33:17.948Z",
+      "responseSha256": "364375cdd6ed9ba820464944d3f9fc8742a868ec4e29272e27cd3acdaa432784"
+    },
+    {
+      "id": "5246cb49-5e66-4a74-bd3b-029eeb0b0b1a",
+      "stage": "herdr-pi-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:33:18.552Z",
+      "status": "returned",
+      "reservedUsd": 0.01633952,
+      "requestSha256": "d974422d27304c6f7e55b4ce958c4fe34020a5080827b1d86b6376b36239e7fa",
+      "requestBytes": 36213,
+      "httpStatus": 200,
+      "usage": {
+        "input": 8222,
+        "output": 40,
+        "cached": 8064
+      },
+      "costUsd": 0.00033888,
+      "finishedAt": "2026-10-29T16:33:20.637Z",
+      "responseSha256": "b45e3f5e800a2fa95a40cea8a730e1992b84a6ee880df4bfbb1eb688eb9acd4e"
+    },
+    {
+      "id": "c811b0ea-9471-43af-b369-d5dbce6326d2",
+      "stage": "herdr-pi-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:33:21.472Z",
+      "status": "returned",
+      "reservedUsd": 0.016997119999999998,
+      "requestSha256": "a46f7d55ab6a1a6b9577b87f02f316d483484d2685a2d2ae84e5696a4672b5ea",
+      "requestBytes": 38268,
+      "httpStatus": 200,
+      "usage": {
+        "input": 8661,
+        "output": 70,
+        "cached": 8192
+      },
+      "costUsd": 0.00047704,
+      "finishedAt": "2026-10-29T16:33:23.540Z",
+      "responseSha256": "34364b6f3700798b291213c4e80b8433d7bdea353c500ba496e65c3ba4bbf38e"
+    },
+    {
+      "id": "e56cdb21-08ea-4a80-92a9-f6e4da26e1a7",
+      "stage": "herdr-pi-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:34:00.779Z",
+      "status": "returned",
+      "reservedUsd": 0.017143040000000002,
+      "requestSha256": "b7853d790940cc6b28683c5ca509da1b97c7da29c4dd497808a35fbcd50d1992",
+      "requestBytes": 38724,
+      "httpStatus": 200,
+      "usage": {
+        "input": 8765,
+        "output": 74,
+        "cached": 8576
+      },
+      "costUsd": 0.00040359999999999994,
+      "finishedAt": "2026-10-29T16:34:04.619Z",
+      "responseSha256": "13fceaf8d9c5fb22dd448b19032edf020bc4c82d5354d15b7a0069402f57f08c"
+    },
+    {
+      "id": "974fad54-b2bc-4a1c-b0df-33d315fadc76",
+      "stage": "herdr-pi-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:34:05.304Z",
+      "status": "returned",
+      "reservedUsd": 0.01730176,
+      "requestSha256": "0b753808e150fa7cef2b0edaf74ed8136c35f09af81918e121b31db771468764",
+      "requestBytes": 39220,
+      "httpStatus": 200,
+      "usage": {
+        "input": 8899,
+        "output": 186,
+        "cached": 8704
+      },
+      "costUsd": 0.00053928,
+      "finishedAt": "2026-10-29T16:34:07.999Z",
+      "responseSha256": "93569b286332076e1d8a70ba05cf4a1e8b46d7bfc9c615cf75d61e35bea6c6f5"
+    }
+  ],
+  "realModelRequests": 13,
+  "knownEstimatedUsd": 0.0065241599999999985,
+  "unresolvedCalls": 0,
+  "unresolvedReservedUsd": 0
+}
