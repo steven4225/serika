@@ -1,0 +1,15 @@
+{
+  "runId": "12f9b771-cf2b-4366-9b0e-477b45788807",
+  "startedAt": "2026-10-29T17:52:33.914Z",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@serika/desktop",
+    "smoke"
+  ],
+  "root": "/private/tmp/serika-smoke-hP67Uh",
+  "modelCredentialsPassed": false,
+  "exitCode": 0,
+  "signal": null,
+  "finishedAt": "2026-10-29T17:52:46.195Z"
+}

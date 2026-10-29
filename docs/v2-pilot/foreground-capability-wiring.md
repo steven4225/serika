@@ -1,6 +1,6 @@
 # 普通前台能力接线验收
 
-状态：2026-10-30 装配测试适配后全测通过，待干净源码 Electron smoke。分支 `codex/foreground-capability-wiring`，基线 `c88682c`，尚未推送或开 PR。三案已取得真实功能结果，剩余验收缺口见下表，日用未切换。
+状态：2026-10-30 本地全测及干净源码 Electron smoke 通过。分支 `codex/foreground-capability-wiring`，基线 `c88682c`。三案已取得真实功能结果，剩余验收缺口见下表；日用未切换，合并由用户操作。
 
 ## 1. 改了什么
 
@@ -22,7 +22,7 @@
 | 案 2 一句话读、修文件、跑检查、核对产物 | 真实 Electron、真实模型已完成：`sum.mjs` 从 `a-b` 改为 `a+b`，检查成功，修改后回读源码，外部独立执行及回读通过。成功检查执行了两次，严格“不重复”未通过；`maskedRequests=[]`。[文件案证据](evidence/foreground-capability-wiring/9e1163d6-4f79-40e4-ab95-8ba57131e4da.json)。 |
 | 案 3 固定 Herdr/Pi 小任务，Serika 独立检查 | 真实 Electron、真实模型已完成。结构化 `herdr_pi_control` 一次 prompt，Pi session 用户消息恰好一条；Pi 创建 `answer.json` 为 `{"sum":15}`。Serika 自己回读、运行 `node verify.mjs`，exit 0、`PI_ARTIFACT_PASS`，外部复核通过。仅新建目标已停止并删除。[Herdr/Pi 证据](evidence/foreground-capability-wiring/b6656086-4a3c-4e69-9d4a-899ef0d860c5.json)。 |
 | 权限及确认无放宽，批准后原 AgentLoop 继续 | 28 项相关单测通过，含既有权限快照、TG 不继承 remembered grants、Shell 不可记住及 Steer。最新文件案捕获 `remember:true`；Herdr/Pi 案 5 张卡的展示、点击、原 confirm、清卡闭环。原 IPC handler 未变。旧缺失归因保留。 |
-| 全测、干净源码 Electron smoke、PR | 已做：`pnpm test` exit 0，共 1865 通过、7 跳过、0 失败、0 取消。[最新全测原始结果](evidence/foreground-capability-wiring/a922abeb-7854-430e-be48-8a03f93a7b81/result.json)。干净源码 smoke 待运行，尚未开 PR；[旧 4 项失败](evidence/foreground-capability-wiring/79d45376-185f-4574-848b-bed89c4e02e4/result.json)原样保留。 |
+| 全测、干净源码 Electron smoke、PR | 已做：`pnpm test` exit 0，共 1865 通过、7 跳过、0 失败、0 取消。[最新全测原始结果](evidence/foreground-capability-wiring/a922abeb-7854-430e-be48-8a03f93a7b81/result.json)。真实 Electron、假模型 smoke 8/8，sourceWorktreeDirty=false，[smoke 原始结果](evidence/electron-smoke/result.json)。[旧 4 项失败](evidence/foreground-capability-wiring/79d45376-185f-4574-848b-bed89c4e02e4/result.json)原样保留。 |
 
 真实环境为 macOS、Electron 44.4.5 独立进程、原 preload/IPC、新建 HOME/profile/workspace，模型为 `deepseek/deepseek-v4.1-flash-fast`。真实模型使用 32,768 窗口，有效输入 26,624。1,000,000 窗口只有脚本化模型证据；日用常驻进程未验收。
 
@@ -43,6 +43,7 @@
 - `SERIKA_B2_RECORD_CONCURRENT_HOME=1 node scripts/test-home.mjs --home /private/tmp/serika-wiring-compaction-probe/home -- node /private/tmp/serika-wiring-compaction-probe/probe.mjs /private/tmp/serika-wiring-compaction-probe/evidence` → 0。guard violations 0，并发元数据变化 3。原脚本、stdout、result 和 summary 已归档，三个 SHA-256 均与 summary 一致。
 - `/private/tmp/serika-wiring-full-test.mjs` 旧全测 → 1，四项装配比较失败。适配后同命令新全测 → 0，原始 result、stdout 及 runner 已归档。Runtime 1197 通过/7 跳过，desktop 656 通过，脚本 12 通过。外层 guard passed、violations 0，记录并发变化 214、metadataUnchanged=false，不能声称日用目录元数据不变。两轮均未传模型凭据。
 - `pnpm build:runtime` 及 `pnpm typecheck` 本轮均 → 0。装配测试修前 1 通过/4 失败，修后 5/5、exit 0；guard passed、violations 0、并发变化 3，历史快照未改。远端 CI 为 `disabled_manually`，未把远端无检查结果当作通过。
+- `pnpm --filter @serika/desktop smoke` → 0，8/8。源码提交 `4f8fb2416bb33a2c565cb912ea394ad086af1743`，sourceWorktreeDirty=false，Electron 44.4.5，原 preload/IPC，realModelCalls=0。原 smoke 脚本 SHA-256 `dc93b146f85165710071944d59108a36898c7a60aac37605950aa2264dcbb994` 与基线一致；8 张截图均按证据 SHA-256 回算匹配。外层 guard passed、violations 0、并发变化 9，临时目录已清理。[隔离运行记录](evidence/foreground-capability-wiring/12f9b771-cf2b-4366-9b0e-477b45788807/result.json)。
 
 ## 5. 与计划不符的地方及理由
 
