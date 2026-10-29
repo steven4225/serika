@@ -1,0 +1,13 @@
+{
+  "runId": "79d45376-185f-4574-848b-bed89c4e02e4",
+  "startedAt": "2026-10-29T16:35:36.305Z",
+  "command": [
+    "pnpm",
+    "test"
+  ],
+  "root": "/private/tmp/serika-full-dYSRiT",
+  "modelCredentialsPassed": false,
+  "exitCode": 1,
+  "signal": null,
+  "finishedAt": "2026-10-29T16:37:43.430Z"
+}

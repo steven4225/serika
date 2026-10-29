@@ -1,0 +1,1367 @@
+{
+  "runId": "87548cea-eeda-4540-8551-d169f69e0e29",
+  "startedAt": "2026-10-29T16:35:10.310Z",
+  "verification": "scripted-model-and-summary-real-runtime-controller-shell-file-tools-storage",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "platform": "darwin",
+  "cases": [
+    {
+      "windowTokens": 32768,
+      "root": "/private/tmp/serika-wiring-compaction-probe/evidence/window-32768-CuBcAL",
+      "goal": "保留原要求 CLI_OBSERVED_ed9fd5fa690440339fe4e8d983b0025f：执行一次已批准的Shell检查并创建artifact.txt，读取一次bulk.txt，最后读取artifact.txt核对；不重复前面的工具。",
+      "marker": "CLI_OBSERVED_ed9fd5fa690440339fe4e8d983b0025f",
+      "artifact": "ARTIFACT_9d9620ae836844cbaa618e741a1d6c8a",
+      "steps": [
+        {
+          "phase": "primary",
+          "index": 0,
+          "promptFile": "prompt-primary-0.json",
+          "promptSha256": "40088aff75dc8572ac4831060a56a0142bd4774093d0ea946293626c981c03e1",
+          "promptBytes": 13716,
+          "diagnostics": {
+            "at": "2026-10-29T16:35:10.592Z",
+            "outcome": "passthrough",
+            "compactionId": null,
+            "estimatedInputTokens": 11314,
+            "error": null,
+            "summaryLayer": {
+              "tokens": 1,
+              "checklistTokens": 0,
+              "budget": 1248,
+              "borrowedTokens": 0,
+              "borrowLimitTokens": 2496,
+              "requiredBorrowTokens": 0
+            }
+          }
+        },
+        {
+          "phase": "primary",
+          "index": 1,
+          "promptFile": "prompt-primary-1.json",
+          "promptSha256": "40cadb5d182139eb92bd0f011362ec2346e6046411e0446886b1d4567787d7e6",
+          "promptBytes": 44256,
+          "diagnostics": {
+            "at": "2026-10-29T16:35:11.224Z",
+            "outcome": "passthrough",
+            "compactionId": null,
+            "estimatedInputTokens": 26617,
+            "error": null,
+            "summaryLayer": {
+              "tokens": 1598,
+              "checklistTokens": 1598,
+              "budget": 1248,
+              "borrowedTokens": 350,
+              "borrowLimitTokens": 2496,
+              "requiredBorrowTokens": 350
+            },
+            "degradation": {
+              "reasons": [
+                "input_limit",
+                "summary_overflow",
+                "checklist_overflow"
+              ],
+              "borrowedTokens": 350,
+              "borrowLimitTokens": 2496,
+              "requiredBorrowTokens": 350,
+              "maskedOriginalTokens": 1,
+              "maskedFromMessageId": null,
+              "checklistTokens": 1580,
+              "sectionBudget": 208,
+              "maskedThroughMessageId": null,
+              "emergencyMasking": []
+            }
+          }
+        },
+        {
+          "phase": "primary",
+          "index": 2,
+          "promptFile": "prompt-primary-2.json",
+          "promptSha256": "a00efca5f61650ecea4f0af442d13406e67e21c3d5b998e28b8e1087f5f55faa",
+          "promptBytes": 44254,
+          "diagnostics": {
+            "at": "2026-10-29T16:35:11.639Z",
+            "outcome": "passthrough",
+            "compactionId": null,
+            "estimatedInputTokens": 26618,
+            "error": null,
+            "summaryLayer": {
+              "tokens": 1644,
+              "checklistTokens": 1644,
+              "budget": 1248,
+              "borrowedTokens": 396,
+              "borrowLimitTokens": 2496,
+              "requiredBorrowTokens": 396
+            },
+            "degradation": {
+              "reasons": [
+                "input_limit",
+                "summary_overflow",
+                "checklist_overflow"
+              ],
+              "borrowedTokens": 396,
+              "borrowLimitTokens": 2496,
+              "requiredBorrowTokens": 396,
+              "maskedOriginalTokens": 15993,
+              "maskedFromMessageId": "97d5ce87-300a-4860-9afb-a095739268f7",
+              "checklistTokens": 1627,
+              "sectionBudget": 208,
+              "maskedThroughMessageId": "97d5ce87-300a-4860-9afb-a095739268f7",
+              "emergencyMasking": [
+                {
+                  "trigger": "input_threshold",
+                  "ranges": [
+                    {
+                      "fromMessageId": "97d5ce87-300a-4860-9afb-a095739268f7",
+                      "throughMessageId": "97d5ce87-300a-4860-9afb-a095739268f7"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "phase": "primary",
+          "index": 3,
+          "promptFile": "prompt-primary-3.json",
+          "promptSha256": "6757ba306086c79da2e421d22e156104ae087b2ee05022e9f822601d55380851",
+          "promptBytes": 17692,
+          "diagnostics": {
+            "at": "2026-10-29T16:35:12.038Z",
+            "outcome": "passthrough",
+            "compactionId": null,
+            "estimatedInputTokens": 13335,
+            "error": null,
+            "summaryLayer": {
+              "tokens": 1695,
+              "checklistTokens": 1695,
+              "budget": 1248,
+              "borrowedTokens": 447,
+              "borrowLimitTokens": 2496,
+              "requiredBorrowTokens": 447
+            },
+            "degradation": {
+              "reasons": [
+                "input_limit",
+                "summary_overflow",
+                "checklist_overflow"
+              ],
+              "borrowedTokens": 447,
+              "borrowLimitTokens": 2496,
+              "requiredBorrowTokens": 447,
+              "maskedOriginalTokens": 31986,
+              "maskedFromMessageId": "97d5ce87-300a-4860-9afb-a095739268f7",
+              "checklistTokens": 1677,
+              "sectionBudget": 208,
+              "maskedThroughMessageId": "d0fc3f46-c7e7-4691-9c28-9deb92c1924b",
+              "emergencyMasking": [
+                {
+                  "trigger": "input_threshold",
+                  "ranges": [
+                    {
+                      "fromMessageId": "97d5ce87-300a-4860-9afb-a095739268f7",
+                      "throughMessageId": "97d5ce87-300a-4860-9afb-a095739268f7"
+                    }
+                  ]
+                },
+                {
+                  "trigger": "input_threshold",
+                  "ranges": [
+                    {
+                      "fromMessageId": "d0fc3f46-c7e7-4691-9c28-9deb92c1924b",
+                      "throughMessageId": "d0fc3f46-c7e7-4691-9c28-9deb92c1924b"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "phase": "next",
+          "index": 0,
+          "promptFile": "prompt-next-0.json",
+          "promptSha256": "f241ed58167ab625b28a5dd13912827c98ea369af1dcc3ded76f1993869977d0",
+          "promptBytes": 17617,
+          "diagnostics": {
+            "at": "2026-10-29T16:35:12.934Z",
+            "outcome": "reused",
+            "compactionId": "d348f971-ee46-4830-9d2c-b3dc3b78bd8e",
+            "estimatedInputTokens": 13329,
+            "error": null,
+            "summaryLayer": {
+              "tokens": 1898,
+              "checklistTokens": 1595,
+              "budget": 1248,
+              "borrowedTokens": 651,
+              "borrowLimitTokens": 2496,
+              "requiredBorrowTokens": 651,
+              "reduction": {
+                "originalTokens": 483,
+                "requiredTokens": 304,
+                "budget": -347,
+                "reducedSegments": 2,
+                "compacted": true,
+                "indexDuplicateLines": 0
+              }
+            },
+            "degradation": {
+              "reasons": [
+                "summary_overflow",
+                "checklist_overflow"
+              ],
+              "borrowedTokens": 651,
+              "borrowLimitTokens": 2496,
+              "requiredBorrowTokens": 651,
+              "maskedOriginalTokens": 1,
+              "maskedFromMessageId": null,
+              "checklistTokens": 1578,
+              "sectionBudget": 208,
+              "maskedThroughMessageId": null,
+              "emergencyMasking": []
+            }
+          }
+        },
+        {
+          "phase": "next",
+          "index": 1,
+          "promptFile": "prompt-next-1.json",
+          "promptSha256": "dc2ad8a2eb9eb0e699558a1ca1cf4dfacc7bd395ef017ae60be5c1d5051a84d9",
+          "promptBytes": 18081,
+          "diagnostics": {
+            "at": "2026-10-29T16:35:13.380Z",
+            "outcome": "reused",
+            "compactionId": "d348f971-ee46-4830-9d2c-b3dc3b78bd8e",
+            "estimatedInputTokens": 13539,
+            "error": null,
+            "summaryLayer": {
+              "tokens": 1947,
+              "checklistTokens": 1644,
+              "budget": 1248,
+              "borrowedTokens": 700,
+              "borrowLimitTokens": 2496,
+              "requiredBorrowTokens": 700,
+              "reduction": {
+                "originalTokens": 483,
+                "requiredTokens": 304,
+                "budget": -396,
+                "reducedSegments": 2,
+                "compacted": true,
+                "indexDuplicateLines": 0
+              }
+            },
+            "degradation": {
+              "reasons": [
+                "summary_overflow",
+                "checklist_overflow"
+              ],
+              "borrowedTokens": 700,
+              "borrowLimitTokens": 2496,
+              "requiredBorrowTokens": 700,
+              "maskedOriginalTokens": 1,
+              "maskedFromMessageId": null,
+              "checklistTokens": 1626,
+              "sectionBudget": 208,
+              "maskedThroughMessageId": null,
+              "emergencyMasking": []
+            }
+          }
+        }
+      ],
+      "approvals": [
+        {
+          "phase": "primary",
+          "tool": "shell_exec",
+          "id": "23067628-3e18-43d8-b6bd-ba777092a5dd",
+          "remember": false
+        },
+        {
+          "phase": "next",
+          "tool": "read_file",
+          "id": "d635fd29-8d74-4915-a4cf-1a425ae64623",
+          "remember": false
+        }
+      ],
+      "errors": [],
+      "summaryCalls": 2,
+      "phase": "next",
+      "status": "passed",
+      "afterMask": {
+        "requestVisible": true,
+        "shellMarkerVisible": true,
+        "checklistVisible": true,
+        "masked": true
+      },
+      "primaryRunId": "7ec9f85f-57da-4c20-990d-21157ebe837c",
+      "primaryReceipt": {
+        "runId": "7ec9f85f-57da-4c20-990d-21157ebe837c",
+        "threadId": "probe",
+        "phase": "primary",
+        "status": "completed",
+        "startedAt": "2026-10-29T16:35:10.461Z",
+        "finishedAt": "2026-10-29T16:35:12.298Z",
+        "resultTextPreview": "核对完成 ARTIFACT_9d9620ae836844cbaa618e741a1d6c8a",
+        "resultTextTruncated": false,
+        "errorPreview": null,
+        "tools": [
+          {
+            "toolCallId": "shell-check",
+            "toolName": "shell_exec",
+            "status": "completed",
+            "requestedAt": "2026-10-29T16:35:10.758Z",
+            "startedAt": "2026-10-29T16:35:10.980Z",
+            "finishedAt": "2026-10-29T16:35:11.127Z",
+            "inputPreview": "{\"command\":\"'/opt/homebrew/Cellar/node/26.4.0/bin/node' -e 'const fs=require('\\\\''node:fs'\\\\'');fs.writeFileSync('\\\\''artifact.txt'\\\\'',\\\"ARTIFACT_9d9620ae836844cbaa618e741a1d6c8a\\\\n\\\");console.log(\\\"CLI_OBSERVED_ed9fd5fa690440339fe4e8d983b0025f\\\");console.log('\\\\''f'\\\\''.repeat(60000));'\"}",
+            "inputTruncated": false,
+            "resultPreview": "{\"ok\":true,\"exitCode\":0,\"termination\":\"exited\",\"signal\":null,\"cancelled\":false,\"timedOut\":false,\"output\":\"CLI_OBSERVED_ed9fd5fa690440339fe4e8d983b0025f\\nfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "resultTruncated": true,
+            "errorPreview": null,
+            "shell": {
+              "exitCode": 0,
+              "timedOut": false,
+              "cancelled": false
+            },
+            "approvalRequestedAt": "2026-10-29T16:35:10.980Z"
+          },
+          {
+            "toolCallId": "bulk-read",
+            "toolName": "read_file",
+            "status": "completed",
+            "requestedAt": "2026-10-29T16:35:11.317Z",
+            "startedAt": "2026-10-29T16:35:11.490Z",
+            "finishedAt": "2026-10-29T16:35:11.535Z",
+            "inputPreview": "{\"path\":\"bulk.txt\"}",
+            "inputTruncated": false,
+            "resultPreview": "{\"ok\":true,\"path\":\"bulk.txt\",\"content\":\"BULK_START\\nbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "resultTruncated": true,
+            "errorPreview": null,
+            "shell": null,
+            "fileInput": {
+              "path": "bulk.txt"
+            },
+            "fileRead": {
+              "path": "bulk.txt",
+              "bytes": 60021,
+              "sha256": "50b32f68c21ebbf83a2a5c30248b79d6ff5c37fe8dd920deca29ee30b8263a84"
+            }
+          },
+          {
+            "toolCallId": "artifact-read",
+            "toolName": "read_file",
+            "status": "completed",
+            "requestedAt": "2026-10-29T16:35:11.725Z",
+            "startedAt": "2026-10-29T16:35:11.896Z",
+            "finishedAt": "2026-10-29T16:35:11.941Z",
+            "inputPreview": "{\"path\":\"artifact.txt\"}",
+            "inputTruncated": false,
+            "resultPreview": "{\"ok\":true,\"path\":\"artifact.txt\",\"content\":\"ARTIFACT_9d9620ae836844cbaa618e741a1d6c8a\\n\",\"bytes\":42}",
+            "resultTruncated": false,
+            "errorPreview": null,
+            "shell": null,
+            "fileInput": {
+              "path": "artifact.txt"
+            },
+            "fileRead": {
+              "path": "artifact.txt",
+              "bytes": 42,
+              "sha256": "5d37dbcb3fd6f2f2e89fdf8f50ccef93c2cc92deda8547952b7f178abf7d2b9c"
+            }
+          }
+        ],
+        "trace": {
+          "version": 1,
+          "events": [
+            {
+              "sequence": 2,
+              "occurredAt": "2026-10-29T16:35:10.543Z",
+              "type": "step.started",
+              "stepNumber": 1
+            },
+            {
+              "sequence": 4,
+              "occurredAt": "2026-10-29T16:35:10.931Z",
+              "type": "step.completed",
+              "stepNumber": 1,
+              "finishReason": "tool-calls",
+              "usage": {
+                "inputTokens": 1,
+                "outputTokens": 1,
+                "totalTokens": 2
+              }
+            },
+            {
+              "sequence": 8,
+              "occurredAt": "2026-10-29T16:35:11.171Z",
+              "type": "step.started",
+              "stepNumber": 2
+            },
+            {
+              "sequence": 10,
+              "occurredAt": "2026-10-29T16:35:11.446Z",
+              "type": "step.completed",
+              "stepNumber": 2,
+              "finishReason": "tool-calls",
+              "usage": {
+                "inputTokens": 1,
+                "outputTokens": 1,
+                "totalTokens": 2
+              }
+            },
+            {
+              "sequence": 14,
+              "occurredAt": "2026-10-29T16:35:11.579Z",
+              "type": "step.started",
+              "stepNumber": 3
+            },
+            {
+              "sequence": 16,
+              "occurredAt": "2026-10-29T16:35:11.852Z",
+              "type": "step.completed",
+              "stepNumber": 3,
+              "finishReason": "tool-calls",
+              "usage": {
+                "inputTokens": 1,
+                "outputTokens": 1,
+                "totalTokens": 2
+              }
+            },
+            {
+              "sequence": 20,
+              "occurredAt": "2026-10-29T16:35:11.982Z",
+              "type": "step.started",
+              "stepNumber": 4
+            },
+            {
+              "sequence": 22,
+              "occurredAt": "2026-10-29T16:35:12.213Z",
+              "type": "step.completed",
+              "stepNumber": 4,
+              "finishReason": "stop",
+              "usage": {
+                "inputTokens": 1,
+                "outputTokens": 1,
+                "totalTokens": 2
+              }
+            }
+          ],
+          "truncated": false,
+          "incomplete": false,
+          "usage": {
+            "inputTokens": 4,
+            "outputTokens": 4,
+            "totalTokens": 8
+          },
+          "steps": 4
+        },
+        "memoryReferences": [],
+        "memoryReferencesTruncated": false
+      },
+      "artifactSha256": "5d37dbcb3fd6f2f2e89fdf8f50ccef93c2cc92deda8547952b7f178abf7d2b9c",
+      "diagnosticsAfterIdle": {
+        "ok": true,
+        "value": {
+          "threadId": "probe",
+          "enabled": true,
+          "budget": {
+            "enabled": true,
+            "contextWindowTokens": 32768,
+            "maxOutputTokens": 4096,
+            "safetyMarginTokens": 2048,
+            "keepRecentTokens": 8192,
+            "summaryMaxOutputTokens": 2048
+          },
+          "estimatorVersion": "char-half/v1",
+          "latestValidCompaction": {
+            "id": "d348f971-ee46-4830-9d2c-b3dc3b78bd8e",
+            "createdAt": "2026-10-29T16:35:12.741Z",
+            "modelId": "scripted",
+            "firstKeptMessageIndex": 3,
+            "firstKeptMessageId": "fe5dec08-a4a3-4232-99d6-a114ef9fc746",
+            "metrics": {
+              "estimatedInputBefore": 63723,
+              "estimatedInputAfter": 2341,
+              "durationMs": 178,
+              "attempts": 1,
+              "usage": {
+                "inputTokens": 1,
+                "outputTokens": 1,
+                "totalTokens": 2
+              }
+            }
+          },
+          "lastPreparation": {
+            "at": "2026-10-29T16:35:12.038Z",
+            "outcome": "passthrough",
+            "compactionId": null,
+            "estimatedInputTokens": 13335,
+            "error": null,
+            "summaryLayer": {
+              "tokens": 1695,
+              "checklistTokens": 1695,
+              "budget": 1248,
+              "borrowedTokens": 447,
+              "borrowLimitTokens": 2496,
+              "requiredBorrowTokens": 447
+            },
+            "degradation": {
+              "reasons": [
+                "input_limit",
+                "summary_overflow",
+                "checklist_overflow"
+              ],
+              "borrowedTokens": 447,
+              "borrowLimitTokens": 2496,
+              "requiredBorrowTokens": 447,
+              "maskedOriginalTokens": 31986,
+              "maskedFromMessageId": "97d5ce87-300a-4860-9afb-a095739268f7",
+              "checklistTokens": 1677,
+              "sectionBudget": 208,
+              "maskedThroughMessageId": "d0fc3f46-c7e7-4691-9c28-9deb92c1924b",
+              "emergencyMasking": [
+                {
+                  "trigger": "input_threshold",
+                  "ranges": [
+                    {
+                      "fromMessageId": "97d5ce87-300a-4860-9afb-a095739268f7",
+                      "throughMessageId": "97d5ce87-300a-4860-9afb-a095739268f7"
+                    }
+                  ]
+                },
+                {
+                  "trigger": "input_threshold",
+                  "ranges": [
+                    {
+                      "fromMessageId": "d0fc3f46-c7e7-4691-9c28-9deb92c1924b",
+                      "throughMessageId": "d0fc3f46-c7e7-4691-9c28-9deb92c1924b"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "background": {
+            "queued": false,
+            "running": false,
+            "error": null,
+            "normalizations": [],
+            "reduction": {
+              "budget": 208,
+              "segmentBefore": 100,
+              "segmentAfter": 100,
+              "indexBefore": 1,
+              "indexAfter": 1
+            }
+          },
+          "modelCallLogWriteFailures": 0,
+          "lastPreparationSource": {
+            "messageId": "deb5b842-8e72-4d1e-aa85-21e400065ccf",
+            "workTaskId": null
+          },
+          "requestedBudget": {
+            "enabled": true,
+            "contextWindowTokens": 32768,
+            "maxOutputTokens": 4096,
+            "safetyMarginTokens": 2048,
+            "keepRecentTokens": 8192,
+            "summaryMaxOutputTokens": 2048
+          },
+          "modelCapacity": {
+            "provider": "mock-provider",
+            "modelId": "mock-model-id",
+            "contextWindowTokens": 32768,
+            "source": "configuration"
+          }
+        }
+      },
+      "compactionRecords": [
+        {
+          "v": 2,
+          "type": "thread.context.compacted",
+          "threadId": "probe",
+          "id": "3e1d693f-4bb3-4ba7-b968-b7a166044a2f",
+          "previousCompactionId": null,
+          "firstKeptMessageIndex": 2,
+          "firstKeptMessageId": "d0fc3f46-c7e7-4691-9c28-9deb92c1924b",
+          "sourcePrefixHash": "compact-prefix/jcs-sha256:v1:37316217a7c000297e1f42583f566154dc8ba16292315030188ee05c1d87ce88",
+          "consolidationExcluded": true,
+          "excludedMessageIds": [],
+          "referencePrefix": [],
+          "checklist": {
+            "id": "runloom-compaction-checklist",
+            "role": "assistant",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Host checklist:\n{\"request\":\"deb5b842-8e72-4d1e-aa85-21e400065ccf\",\"permissions\":{\"files\":false,\"shell\":false,\"fileAuthorizations\":[{\"directory\":\"/private/tmp/serika-wiring-compaction-probe/evidence/window-32768-CuBcAL/workspace\",\"allowedPaths\":[\"\"],\"tools\":[\"read_file\"],\"lifetime\":\"run\"}]},\"recentReceipts\":[{\"id\":\"shell-check\",\"tool\":\"shell_exec\",\"status\":\"completed\",\"shell\":{\"exitCode\":0,\"timedOut\":false,\"cancelled\":false},\"command\":\"{\\\"command\\\":\\\"'/opt/homebrew/Cellar/node/26.4.0/bin/node' -e 'const fs=require('\\\\\\\\''node:fs'\\\\\\\\'');fs.writeFileSync('\\\\\\\\''artifact.txt'\\\\\\\\'',\\\\\\\"ARTIFACT_9d9620ae836844cbaa618e741a1d6c8a\\\\\\\\n\\\\\\\");console.log(\\\\\\\"CLI_OBSERVED_ed9fd5fa690440339fe4e8d983b0025f\\\\\\\");console.log('\\\\\\\\''f'\\\\\\\\''.repeat(60000));'\\\"}\",\"commandTruncated\":false,\"result\":\"{\\\"ok\\\":true,\\\"exitCode\\\":0,\\\"termination\\\":\\\"exited\\\",\\\"signal\\\":null,\\\"cancelled\\\":false,\\\"timedOut\\\":false,\\\"output\\\":\\\"CLI_OBSERVED_ed9fd5fa690440339fe4e8d983b0025f\\\\nfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"resultTruncated\":true,\"errorDetail\":null},{\"id\":\"bulk-read\",\"tool\":\"read_file\",\"status\":\"completed\",\"path\":\"bulk.txt\"},{\"id\":\"artifact-read\",\"tool\":\"read_file\",\"status\":\"completed\",\"path\":\"artifact.txt\"}]}"
+              }
+            ],
+            "metadata": {
+              "overflowTokens": 1677
+            }
+          },
+          "summary": {
+            "version": 2,
+            "goal": {
+              "text": "保留原要求 CLI_OBSERVED_ed9fd5fa690440339fe4e8d983b0025f：执行一次已批准的Shell检查并创建artifact.txt，读取一次bulk.txt，最后读取artifact.txt核对；不重复前面的工具。",
+              "evidenceMessageIds": [
+                "deb5b842-8e72-4d1e-aa85-21e400065ccf"
+              ]
+            },
+            "constraints": [],
+            "decisions": [],
+            "actions": [
+              {
+                "text": "shell_exec completed: ok=true truncated=false exitCode=0 timedOut=false cancelled=false",
+                "evidenceMessageIds": [
+                  "97d5ce87-300a-4860-9afb-a095739268f7"
+                ],
+                "status": "completed",
+                "toolCallIds": [
+                  "shell-check"
+                ]
+              }
+            ],
+            "pending": [],
+            "files": [],
+            "nextStep": null
+          },
+          "layers": {
+            "index": [],
+            "recent": [
+              {
+                "firstMessageId": "deb5b842-8e72-4d1e-aa85-21e400065ccf",
+                "lastMessageId": "97d5ce87-300a-4860-9afb-a095739268f7",
+                "timeRange": [
+                  "2026-10-29T16:35:10.343Z",
+                  null
+                ],
+                "summary": {
+                  "version": 2,
+                  "goal": {
+                    "text": "保留原要求 CLI_OBSERVED_ed9fd5fa690440339fe4e8d983b0025f：执行一次已批准的Shell检查并创建artifact.txt，读取一次bulk.txt，最后读取artifact.txt核对；不重复前面的工具。",
+                    "evidenceMessageIds": [
+                      "deb5b842-8e72-4d1e-aa85-21e400065ccf"
+                    ]
+                  },
+                  "constraints": [],
+                  "decisions": [],
+                  "actions": [
+                    {
+                      "text": "shell_exec completed: ok=true truncated=false exitCode=0 timedOut=false cancelled=false",
+                      "evidenceMessageIds": [
+                        "97d5ce87-300a-4860-9afb-a095739268f7"
+                      ],
+                      "status": "completed",
+                      "toolCallIds": [
+                        "shell-check"
+                      ]
+                    }
+                  ],
+                  "pending": [],
+                  "files": [],
+                  "nextStep": null
+                }
+              }
+            ]
+          },
+          "strategyVersion": "summary-json/v2",
+          "modelId": "scripted",
+          "createdAt": "2026-10-29T16:35:12.522Z",
+          "metrics": {
+            "estimatedInputBefore": 63723,
+            "estimatedInputAfter": 32323,
+            "durationMs": 174,
+            "attempts": 1,
+            "usage": {
+              "inputTokens": 1,
+              "outputTokens": 1,
+              "totalTokens": 2
+            }
+          }
+        },
+        {
+          "v": 2,
+          "type": "thread.context.compacted",
+          "threadId": "probe",
+          "id": "d348f971-ee46-4830-9d2c-b3dc3b78bd8e",
+          "previousCompactionId": "3e1d693f-4bb3-4ba7-b968-b7a166044a2f",
+          "firstKeptMessageIndex": 3,
+          "firstKeptMessageId": "fe5dec08-a4a3-4232-99d6-a114ef9fc746",
+          "sourcePrefixHash": "compact-prefix/jcs-sha256:v1:738ded424b9ebbd2d4a60aaa5cb4b4428b8d88e5e549415fa969f099dfaa3f1d",
+          "consolidationExcluded": true,
+          "excludedMessageIds": [],
+          "referencePrefix": [],
+          "checklist": {
+            "id": "runloom-compaction-checklist",
+            "role": "assistant",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Host checklist:\n{\"request\":\"deb5b842-8e72-4d1e-aa85-21e400065ccf\",\"permissions\":{\"files\":false,\"shell\":false,\"fileAuthorizations\":[{\"directory\":\"/private/tmp/serika-wiring-compaction-probe/evidence/window-32768-CuBcAL/workspace\",\"allowedPaths\":[\"\"],\"tools\":[\"read_file\"],\"lifetime\":\"run\"}]},\"recentReceipts\":[{\"id\":\"shell-check\",\"tool\":\"shell_exec\",\"status\":\"completed\",\"shell\":{\"exitCode\":0,\"timedOut\":false,\"cancelled\":false},\"command\":\"{\\\"command\\\":\\\"'/opt/homebrew/Cellar/node/26.4.0/bin/node' -e 'const fs=require('\\\\\\\\''node:fs'\\\\\\\\'');fs.writeFileSync('\\\\\\\\''artifact.txt'\\\\\\\\'',\\\\\\\"ARTIFACT_9d9620ae836844cbaa618e741a1d6c8a\\\\\\\\n\\\\\\\");console.log(\\\\\\\"CLI_OBSERVED_ed9fd5fa690440339fe4e8d983b0025f\\\\\\\");console.log('\\\\\\\\''f'\\\\\\\\''.repeat(60000));'\\\"}\",\"commandTruncated\":false,\"result\":\"{\\\"ok\\\":true,\\\"exitCode\\\":0,\\\"termination\\\":\\\"exited\\\",\\\"signal\\\":null,\\\"cancelled\\\":false,\\\"timedOut\\\":false,\\\"output\\\":\\\"CLI_OBSERVED_ed9fd5fa690440339fe4e8d983b0025f\\\\nfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"resultTruncated\":true,\"errorDetail\":null},{\"id\":\"bulk-read\",\"tool\":\"read_file\",\"status\":\"completed\",\"path\":\"bulk.txt\"},{\"id\":\"artifact-read\",\"tool\":\"read_file\",\"status\":\"completed\",\"path\":\"artifact.txt\"}]}"
+              }
+            ],
+            "metadata": {
+              "overflowTokens": 1677
+            }
+          },
+          "summary": {
+            "version": 2,
+            "goal": {
+              "text": "保留原要求 CLI_OBSERVED_ed9fd5fa690440339fe4e8d983b0025f：执行一次已批准的Shell检查并创建artifact.txt，读取一次bulk.txt，最后读取artifact.txt核对；不重复前面的工具。",
+              "evidenceMessageIds": [
+                "deb5b842-8e72-4d1e-aa85-21e400065ccf"
+              ]
+            },
+            "constraints": [],
+            "decisions": [],
+            "actions": [
+              {
+                "text": "read_file completed: ok=true path=bulk.txt bytes=60021",
+                "evidenceMessageIds": [
+                  "d0fc3f46-c7e7-4691-9c28-9deb92c1924b"
+                ],
+                "status": "completed",
+                "toolCallIds": [
+                  "bulk-read"
+                ]
+              }
+            ],
+            "pending": [],
+            "files": [],
+            "nextStep": null
+          },
+          "layers": {
+            "index": [],
+            "recent": [
+              {
+                "firstMessageId": "deb5b842-8e72-4d1e-aa85-21e400065ccf",
+                "lastMessageId": "97d5ce87-300a-4860-9afb-a095739268f7",
+                "timeRange": [
+                  "2026-10-29T16:35:10.343Z",
+                  null
+                ],
+                "summary": {
+                  "version": 2,
+                  "goal": {
+                    "text": "保留原要求 CLI_OBSERVED_ed9fd5fa690440339fe4e8d983b0025f：执行一次已批准的Shell检查并创建artifact.txt，读取一次bulk.txt，最后读取artifact.txt核对；不重复前面的工具。",
+                    "evidenceMessageIds": [
+                      "deb5b842-8e72-4d1e-aa85-21e400065ccf"
+                    ]
+                  },
+                  "constraints": [],
+                  "decisions": [],
+                  "actions": [
+                    {
+                      "text": "shell_exec completed: ok=true truncated=false exitCode=0 timedOut=false cancelled=false",
+                      "evidenceMessageIds": [
+                        "97d5ce87-300a-4860-9afb-a095739268f7"
+                      ],
+                      "status": "completed",
+                      "toolCallIds": [
+                        "shell-check"
+                      ]
+                    }
+                  ],
+                  "pending": [],
+                  "files": [],
+                  "nextStep": null
+                }
+              },
+              {
+                "firstMessageId": "d0fc3f46-c7e7-4691-9c28-9deb92c1924b",
+                "lastMessageId": "d0fc3f46-c7e7-4691-9c28-9deb92c1924b",
+                "timeRange": [
+                  null,
+                  null
+                ],
+                "summary": {
+                  "version": 2,
+                  "goal": {
+                    "text": "保留原要求 CLI_OBSERVED_ed9fd5fa690440339fe4e8d983b0025f：执行一次已批准的Shell检查并创建artifact.txt，读取一次bulk.txt，最后读取artifact.txt核对；不重复前面的工具。",
+                    "evidenceMessageIds": [
+                      "deb5b842-8e72-4d1e-aa85-21e400065ccf"
+                    ]
+                  },
+                  "constraints": [],
+                  "decisions": [],
+                  "actions": [
+                    {
+                      "text": "read_file completed: ok=true path=bulk.txt bytes=60021",
+                      "evidenceMessageIds": [
+                        "d0fc3f46-c7e7-4691-9c28-9deb92c1924b"
+                      ],
+                      "status": "completed",
+                      "toolCallIds": [
+                        "bulk-read"
+                      ]
+                    }
+                  ],
+                  "pending": [],
+                  "files": [],
+                  "nextStep": null
+                }
+              }
+            ]
+          },
+          "strategyVersion": "summary-json/v2",
+          "modelId": "scripted",
+          "createdAt": "2026-10-29T16:35:12.741Z",
+          "metrics": {
+            "estimatedInputBefore": 63723,
+            "estimatedInputAfter": 2341,
+            "durationMs": 178,
+            "attempts": 1,
+            "usage": {
+              "inputTokens": 1,
+              "outputTokens": 1,
+              "totalTokens": 2
+            }
+          }
+        }
+      ],
+      "nextRunId": "4186f693-7ece-4d89-81a7-0b84eab21518",
+      "finishedAt": "2026-10-29T16:35:13.795Z"
+    },
+    {
+      "windowTokens": 1000000,
+      "root": "/private/tmp/serika-wiring-compaction-probe/evidence/window-1000000-PsjlNa",
+      "goal": "保留原要求 CLI_OBSERVED_a1ef0131be7a437fa697487a870bc3e0：执行一次已批准的Shell检查并创建artifact.txt，读取一次bulk.txt，最后读取artifact.txt核对；不重复前面的工具。",
+      "marker": "CLI_OBSERVED_a1ef0131be7a437fa697487a870bc3e0",
+      "artifact": "ARTIFACT_841a92968cef429a9a4e8ba5b0e795aa",
+      "steps": [
+        {
+          "phase": "primary",
+          "index": 0,
+          "promptFile": "prompt-primary-0.json",
+          "promptSha256": "04ce9f44d057bc52cc96b7e2bb6c283476a308ed313b8f8fec7fee43c80334f0",
+          "promptBytes": 13720,
+          "diagnostics": {
+            "at": "2026-10-29T16:35:14.062Z",
+            "outcome": "passthrough",
+            "compactionId": null,
+            "estimatedInputTokens": 11316,
+            "error": null,
+            "summaryLayer": {
+              "tokens": 1,
+              "checklistTokens": 0,
+              "budget": 12000,
+              "borrowedTokens": 0,
+              "borrowLimitTokens": 24000,
+              "requiredBorrowTokens": 0
+            }
+          }
+        },
+        {
+          "phase": "primary",
+          "index": 1,
+          "promptFile": "prompt-primary-1.json",
+          "promptSha256": "7aff4a4ecb1ef20efd435a1068911f9aa23a70b33d48a7252a1978206e41e4a3",
+          "promptBytes": 74436,
+          "diagnostics": {
+            "at": "2026-10-29T16:35:14.555Z",
+            "outcome": "passthrough",
+            "compactionId": null,
+            "estimatedInputTokens": 41651,
+            "error": null,
+            "summaryLayer": {
+              "tokens": 1,
+              "checklistTokens": 0,
+              "budget": 12000,
+              "borrowedTokens": 0,
+              "borrowLimitTokens": 24000,
+              "requiredBorrowTokens": 0
+            }
+          }
+        },
+        {
+          "phase": "primary",
+          "index": 2,
+          "promptFile": "prompt-primary-2.json",
+          "promptSha256": "28f78f78e1270d7593f5249b5dd934adb2224c69212cedd537a5e63223175aa1",
+          "promptBytes": 106094,
+          "diagnostics": {
+            "at": "2026-10-29T16:35:14.950Z",
+            "outcome": "passthrough",
+            "compactionId": null,
+            "estimatedInputTokens": 57458,
+            "error": null,
+            "summaryLayer": {
+              "tokens": 1,
+              "checklistTokens": 0,
+              "budget": 12000,
+              "borrowedTokens": 0,
+              "borrowLimitTokens": 24000,
+              "requiredBorrowTokens": 0
+            }
+          }
+        },
+        {
+          "phase": "primary",
+          "index": 3,
+          "promptFile": "prompt-primary-3.json",
+          "promptSha256": "b1720a543b45de39e89ea9b5c5eb348bb421af49cf2ab0213104af48ecba6a42",
+          "promptBytes": 78154,
+          "diagnostics": {
+            "at": "2026-10-29T16:35:15.352Z",
+            "outcome": "passthrough",
+            "compactionId": null,
+            "estimatedInputTokens": 43465,
+            "error": null,
+            "summaryLayer": {
+              "tokens": 1,
+              "checklistTokens": 0,
+              "budget": 12000,
+              "borrowedTokens": 0,
+              "borrowLimitTokens": 24000,
+              "requiredBorrowTokens": 0
+            }
+          }
+        },
+        {
+          "phase": "next",
+          "index": 0,
+          "promptFile": "prompt-next-0.json",
+          "promptSha256": "3552b08f36da174393ea1f3d90f62df2ed3d81b2b336880c5ad53deee507308e",
+          "promptBytes": 49670,
+          "diagnostics": {
+            "at": "2026-10-29T16:35:16.049Z",
+            "outcome": "reused",
+            "compactionId": "9004380d-03ce-4660-b933-9f4739c9172e",
+            "estimatedInputTokens": 29316,
+            "error": null,
+            "summaryLayer": {
+              "tokens": 1892,
+              "checklistTokens": 1578,
+              "budget": 12000,
+              "borrowedTokens": 0,
+              "borrowLimitTokens": 24000,
+              "requiredBorrowTokens": 0,
+              "reduction": {
+                "originalTokens": 315,
+                "requiredTokens": 256,
+                "budget": 10422,
+                "reducedSegments": 0,
+                "compacted": false,
+                "indexDuplicateLines": 0
+              }
+            }
+          }
+        },
+        {
+          "phase": "next",
+          "index": 1,
+          "promptFile": "prompt-next-1.json",
+          "promptSha256": "adf97c1eab41ba1e935e774096b060af1acf60fc8f45fcd87c44c45893aabbe1",
+          "promptBytes": 50134,
+          "diagnostics": {
+            "at": "2026-10-29T16:35:16.497Z",
+            "outcome": "reused",
+            "compactionId": "9004380d-03ce-4660-b933-9f4739c9172e",
+            "estimatedInputTokens": 29527,
+            "error": null,
+            "summaryLayer": {
+              "tokens": 1941,
+              "checklistTokens": 1626,
+              "budget": 12000,
+              "borrowedTokens": 0,
+              "borrowLimitTokens": 24000,
+              "requiredBorrowTokens": 0,
+              "reduction": {
+                "originalTokens": 315,
+                "requiredTokens": 256,
+                "budget": 10374,
+                "reducedSegments": 0,
+                "compacted": false,
+                "indexDuplicateLines": 0
+              }
+            }
+          }
+        }
+      ],
+      "approvals": [
+        {
+          "phase": "primary",
+          "tool": "shell_exec",
+          "id": "d0a6df86-8f49-40cb-9892-fa0cd97e807b",
+          "remember": false
+        },
+        {
+          "phase": "next",
+          "tool": "read_file",
+          "id": "de2b614a-e6af-4cd1-b65f-695226cd3bec",
+          "remember": false
+        }
+      ],
+      "errors": [],
+      "summaryCalls": 1,
+      "phase": "next",
+      "status": "passed",
+      "afterMask": {
+        "requestVisible": true,
+        "shellMarkerVisible": true,
+        "masked": false
+      },
+      "primaryRunId": "d46dcd5e-5a9e-422d-bac6-9c70f2c67de7",
+      "primaryReceipt": {
+        "runId": "d46dcd5e-5a9e-422d-bac6-9c70f2c67de7",
+        "threadId": "probe",
+        "phase": "primary",
+        "status": "completed",
+        "startedAt": "2026-10-29T16:35:13.920Z",
+        "finishedAt": "2026-10-29T16:35:15.614Z",
+        "resultTextPreview": "核对完成 ARTIFACT_841a92968cef429a9a4e8ba5b0e795aa",
+        "resultTextTruncated": false,
+        "errorPreview": null,
+        "tools": [
+          {
+            "toolCallId": "shell-check",
+            "toolName": "shell_exec",
+            "status": "completed",
+            "requestedAt": "2026-10-29T16:35:14.154Z",
+            "startedAt": "2026-10-29T16:35:14.326Z",
+            "finishedAt": "2026-10-29T16:35:14.453Z",
+            "inputPreview": "{\"command\":\"'/opt/homebrew/Cellar/node/26.4.0/bin/node' -e 'const fs=require('\\\\''node:fs'\\\\'');fs.writeFileSync('\\\\''artifact.txt'\\\\'',\\\"ARTIFACT_841a92968cef429a9a4e8ba5b0e795aa\\\\n\\\");console.log(\\\"CLI_OBSERVED_a1ef0131be7a437fa697487a870bc3e0\\\");console.log('\\\\''f'\\\\''.repeat(60000));'\"}",
+            "inputTruncated": false,
+            "resultPreview": "{\"ok\":true,\"exitCode\":0,\"termination\":\"exited\",\"signal\":null,\"cancelled\":false,\"timedOut\":false,\"output\":\"CLI_OBSERVED_a1ef0131be7a437fa697487a870bc3e0\\nfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "resultTruncated": true,
+            "errorPreview": null,
+            "shell": {
+              "exitCode": 0,
+              "timedOut": false,
+              "cancelled": false
+            },
+            "approvalRequestedAt": "2026-10-29T16:35:14.326Z"
+          },
+          {
+            "toolCallId": "bulk-read",
+            "toolName": "read_file",
+            "status": "completed",
+            "requestedAt": "2026-10-29T16:35:14.646Z",
+            "startedAt": "2026-10-29T16:35:14.813Z",
+            "finishedAt": "2026-10-29T16:35:14.857Z",
+            "inputPreview": "{\"path\":\"bulk.txt\"}",
+            "inputTruncated": false,
+            "resultPreview": "{\"ok\":true,\"path\":\"bulk.txt\",\"content\":\"BULK_START\\nbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "resultTruncated": true,
+            "errorPreview": null,
+            "shell": null,
+            "fileInput": {
+              "path": "bulk.txt"
+            },
+            "fileRead": {
+              "path": "bulk.txt",
+              "bytes": 60021,
+              "sha256": "50b32f68c21ebbf83a2a5c30248b79d6ff5c37fe8dd920deca29ee30b8263a84"
+            }
+          },
+          {
+            "toolCallId": "artifact-read",
+            "toolName": "read_file",
+            "status": "completed",
+            "requestedAt": "2026-10-29T16:35:15.038Z",
+            "startedAt": "2026-10-29T16:35:15.210Z",
+            "finishedAt": "2026-10-29T16:35:15.254Z",
+            "inputPreview": "{\"path\":\"artifact.txt\"}",
+            "inputTruncated": false,
+            "resultPreview": "{\"ok\":true,\"path\":\"artifact.txt\",\"content\":\"ARTIFACT_841a92968cef429a9a4e8ba5b0e795aa\\n\",\"bytes\":42}",
+            "resultTruncated": false,
+            "errorPreview": null,
+            "shell": null,
+            "fileInput": {
+              "path": "artifact.txt"
+            },
+            "fileRead": {
+              "path": "artifact.txt",
+              "bytes": 42,
+              "sha256": "d66397ba44d2e5c1c4fc58d19177920d501cc0d94d839f4336e596ca862afc96"
+            }
+          }
+        ],
+        "trace": {
+          "version": 1,
+          "events": [
+            {
+              "sequence": 2,
+              "occurredAt": "2026-10-29T16:35:14.007Z",
+              "type": "step.started",
+              "stepNumber": 1
+            },
+            {
+              "sequence": 4,
+              "occurredAt": "2026-10-29T16:35:14.282Z",
+              "type": "step.completed",
+              "stepNumber": 1,
+              "finishReason": "tool-calls",
+              "usage": {
+                "inputTokens": 1,
+                "outputTokens": 1,
+                "totalTokens": 2
+              }
+            },
+            {
+              "sequence": 8,
+              "occurredAt": "2026-10-29T16:35:14.510Z",
+              "type": "step.started",
+              "stepNumber": 2
+            },
+            {
+              "sequence": 10,
+              "occurredAt": "2026-10-29T16:35:14.769Z",
+              "type": "step.completed",
+              "stepNumber": 2,
+              "finishReason": "tool-calls",
+              "usage": {
+                "inputTokens": 1,
+                "outputTokens": 1,
+                "totalTokens": 2
+              }
+            },
+            {
+              "sequence": 14,
+              "occurredAt": "2026-10-29T16:35:14.900Z",
+              "type": "step.started",
+              "stepNumber": 3
+            },
+            {
+              "sequence": 16,
+              "occurredAt": "2026-10-29T16:35:15.166Z",
+              "type": "step.completed",
+              "stepNumber": 3,
+              "finishReason": "tool-calls",
+              "usage": {
+                "inputTokens": 1,
+                "outputTokens": 1,
+                "totalTokens": 2
+              }
+            },
+            {
+              "sequence": 20,
+              "occurredAt": "2026-10-29T16:35:15.298Z",
+              "type": "step.started",
+              "stepNumber": 4
+            },
+            {
+              "sequence": 22,
+              "occurredAt": "2026-10-29T16:35:15.526Z",
+              "type": "step.completed",
+              "stepNumber": 4,
+              "finishReason": "stop",
+              "usage": {
+                "inputTokens": 1,
+                "outputTokens": 1,
+                "totalTokens": 2
+              }
+            }
+          ],
+          "truncated": false,
+          "incomplete": false,
+          "usage": {
+            "inputTokens": 4,
+            "outputTokens": 4,
+            "totalTokens": 8
+          },
+          "steps": 4
+        },
+        "memoryReferences": [],
+        "memoryReferencesTruncated": false
+      },
+      "artifactSha256": "d66397ba44d2e5c1c4fc58d19177920d501cc0d94d839f4336e596ca862afc96",
+      "diagnosticsAfterIdle": {
+        "ok": true,
+        "value": {
+          "threadId": "probe",
+          "enabled": true,
+          "budget": {
+            "enabled": true,
+            "contextWindowTokens": 1000000,
+            "maxOutputTokens": 4096,
+            "safetyMarginTokens": 32768,
+            "keepRecentTokens": 48000,
+            "summaryMaxOutputTokens": 6000,
+            "inputBudgetTokens": 256000,
+            "triggerRatio": 0.85,
+            "summaryInputChunkTokens": 32000
+          },
+          "estimatorVersion": "char-half/v1",
+          "latestValidCompaction": {
+            "id": "9004380d-03ce-4660-b933-9f4739c9172e",
+            "createdAt": "2026-10-29T16:35:15.842Z",
+            "modelId": "scripted",
+            "firstKeptMessageIndex": 2,
+            "firstKeptMessageId": "25cdee79-2548-4080-9db1-64b8d9c5bd1c",
+            "metrics": {
+              "estimatedInputBefore": 63559,
+              "estimatedInputAfter": 32092,
+              "durationMs": 177,
+              "attempts": 1,
+              "usage": {
+                "inputTokens": 1,
+                "outputTokens": 1,
+                "totalTokens": 2
+              }
+            }
+          },
+          "lastPreparation": {
+            "at": "2026-10-29T16:35:15.352Z",
+            "outcome": "passthrough",
+            "compactionId": null,
+            "estimatedInputTokens": 43465,
+            "error": null,
+            "summaryLayer": {
+              "tokens": 1,
+              "checklistTokens": 0,
+              "budget": 12000,
+              "borrowedTokens": 0,
+              "borrowLimitTokens": 24000,
+              "requiredBorrowTokens": 0
+            }
+          },
+          "background": {
+            "queued": false,
+            "running": false,
+            "error": null,
+            "normalizations": [],
+            "reduction": {
+              "budget": 2000,
+              "segmentBefore": 118,
+              "segmentAfter": 118,
+              "indexBefore": 1,
+              "indexAfter": 1
+            }
+          },
+          "modelCallLogWriteFailures": 0,
+          "lastPreparationSource": {
+            "messageId": "f83c5229-aa16-46ab-8239-1a07ae3f77f4",
+            "workTaskId": null
+          },
+          "requestedBudget": {
+            "enabled": true,
+            "contextWindowTokens": 1000000,
+            "maxOutputTokens": 4096,
+            "safetyMarginTokens": 32768,
+            "keepRecentTokens": 48000,
+            "summaryMaxOutputTokens": 6000,
+            "inputBudgetTokens": 256000,
+            "triggerRatio": 0.85,
+            "summaryInputChunkTokens": 32000
+          },
+          "modelCapacity": {
+            "provider": "mock-provider",
+            "modelId": "mock-model-id",
+            "contextWindowTokens": 1000000,
+            "source": "configuration"
+          }
+        }
+      },
+      "compactionRecords": [
+        {
+          "v": 2,
+          "type": "thread.context.compacted",
+          "threadId": "probe",
+          "id": "9004380d-03ce-4660-b933-9f4739c9172e",
+          "previousCompactionId": null,
+          "firstKeptMessageIndex": 2,
+          "firstKeptMessageId": "25cdee79-2548-4080-9db1-64b8d9c5bd1c",
+          "sourcePrefixHash": "compact-prefix/jcs-sha256:v1:67748370b26019fd8d1ed8ca8a60714ba0d592fca059047fd5cf2587b4347faa",
+          "consolidationExcluded": true,
+          "excludedMessageIds": [],
+          "referencePrefix": [],
+          "checklist": {
+            "id": "runloom-compaction-checklist",
+            "role": "assistant",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Host checklist:\n{\"request\":\"f83c5229-aa16-46ab-8239-1a07ae3f77f4\",\"permissions\":{\"files\":false,\"shell\":false,\"fileAuthorizations\":[{\"directory\":\"/private/tmp/serika-wiring-compaction-probe/evidence/window-1000000-PsjlNa/workspace\",\"allowedPaths\":[\"\"],\"tools\":[\"read_file\"],\"lifetime\":\"run\"}]},\"recentReceipts\":[{\"id\":\"shell-check\",\"tool\":\"shell_exec\",\"status\":\"completed\",\"shell\":{\"exitCode\":0,\"timedOut\":false,\"cancelled\":false},\"command\":\"{\\\"command\\\":\\\"'/opt/homebrew/Cellar/node/26.4.0/bin/node' -e 'const fs=require('\\\\\\\\''node:fs'\\\\\\\\'');fs.writeFileSync('\\\\\\\\''artifact.txt'\\\\\\\\'',\\\\\\\"ARTIFACT_841a92968cef429a9a4e8ba5b0e795aa\\\\\\\\n\\\\\\\");console.log(\\\\\\\"CLI_OBSERVED_a1ef0131be7a437fa697487a870bc3e0\\\\\\\");console.log('\\\\\\\\''f'\\\\\\\\''.repeat(60000));'\\\"}\",\"commandTruncated\":false,\"result\":\"{\\\"ok\\\":true,\\\"exitCode\\\":0,\\\"termination\\\":\\\"exited\\\",\\\"signal\\\":null,\\\"cancelled\\\":false,\\\"timedOut\\\":false,\\\"output\\\":\\\"CLI_OBSERVED_a1ef0131be7a437fa697487a870bc3e0\\\\nfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"resultTruncated\":true,\"errorDetail\":null},{\"id\":\"bulk-read\",\"tool\":\"read_file\",\"status\":\"completed\",\"path\":\"bulk.txt\"}]}"
+              }
+            ]
+          },
+          "summary": {
+            "version": 2,
+            "goal": {
+              "text": "保留原要求 CLI_OBSERVED_a1ef0131be7a437fa697487a870bc3e0：执行一次已批准的Shell检查并创建artifact.txt，读取一次bulk.txt，最后读取artifact.txt核对；不重复前面的工具。",
+              "evidenceMessageIds": [
+                "f83c5229-aa16-46ab-8239-1a07ae3f77f4"
+              ]
+            },
+            "constraints": [],
+            "decisions": [],
+            "actions": [
+              {
+                "text": "shell_exec completed: ok=true truncated=false exitCode=0 timedOut=false cancelled=false",
+                "evidenceMessageIds": [
+                  "f85dc1bf-4660-4429-81f5-3be6e19b6abd"
+                ],
+                "status": "completed",
+                "toolCallIds": [
+                  "shell-check"
+                ]
+              }
+            ],
+            "pending": [],
+            "files": [],
+            "nextStep": null
+          },
+          "layers": {
+            "index": [],
+            "recent": [
+              {
+                "firstMessageId": "f83c5229-aa16-46ab-8239-1a07ae3f77f4",
+                "lastMessageId": "f85dc1bf-4660-4429-81f5-3be6e19b6abd",
+                "timeRange": [
+                  "2026-10-29T16:35:13.802Z",
+                  null
+                ],
+                "summary": {
+                  "version": 2,
+                  "goal": {
+                    "text": "保留原要求 CLI_OBSERVED_a1ef0131be7a437fa697487a870bc3e0：执行一次已批准的Shell检查并创建artifact.txt，读取一次bulk.txt，最后读取artifact.txt核对；不重复前面的工具。",
+                    "evidenceMessageIds": [
+                      "f83c5229-aa16-46ab-8239-1a07ae3f77f4"
+                    ]
+                  },
+                  "constraints": [],
+                  "decisions": [],
+                  "actions": [
+                    {
+                      "text": "shell_exec completed: ok=true truncated=false exitCode=0 timedOut=false cancelled=false",
+                      "evidenceMessageIds": [
+                        "f85dc1bf-4660-4429-81f5-3be6e19b6abd"
+                      ],
+                      "status": "completed",
+                      "toolCallIds": [
+                        "shell-check"
+                      ]
+                    }
+                  ],
+                  "pending": [],
+                  "files": [],
+                  "nextStep": null
+                }
+              }
+            ]
+          },
+          "strategyVersion": "summary-json/v2",
+          "modelId": "scripted",
+          "createdAt": "2026-10-29T16:35:15.842Z",
+          "metrics": {
+            "estimatedInputBefore": 63559,
+            "estimatedInputAfter": 32092,
+            "durationMs": 177,
+            "attempts": 1,
+            "usage": {
+              "inputTokens": 1,
+              "outputTokens": 1,
+              "totalTokens": 2
+            }
+          }
+        }
+      ],
+      "nextRunId": "aeea49ea-ddb2-419b-84fe-6496c030a0bf",
+      "finishedAt": "2026-10-29T16:35:16.810Z"
+    }
+  ],
+  "status": "passed",
+  "finishedAt": "2026-10-29T16:35:16.812Z"
+}

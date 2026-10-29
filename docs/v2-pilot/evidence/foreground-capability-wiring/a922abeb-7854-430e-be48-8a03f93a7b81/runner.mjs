@@ -1,0 +1,6 @@
+import {mkdtemp,open,writeFile} from 'node:fs/promises';import {randomUUID} from 'node:crypto';import {spawn} from 'node:child_process';
+const root=await mkdtemp('/private/tmp/serika-full-'),repo='/Users/a1-6/Code/agents/serika-foreground-capability-wiring';
+const log=await open(root+'/stdout.log','w');const env=Object.fromEntries(['PATH','HOME','USER','LOGNAME','LANG','LC_ALL','TMPDIR','SHELL','TERM'].flatMap(k=>process.env[k]?[[k,process.env[k]]]:[]));env.SERIKA_TEST_HOME=root+'/home';env.SERIKA_B2_RECORD_CONCURRENT_HOME='1';
+const record={runId:randomUUID(),startedAt:new Date().toISOString(),command:['pnpm','test'],root,modelCredentialsPassed:false};
+await writeFile(root+'/result.json',JSON.stringify(record,null,2));console.log(JSON.stringify({started:true,root}));
+const child=spawn('pnpm',['test'],{cwd:repo,env,stdio:['ignore',log.fd,log.fd]});const result=await new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',(exitCode,signal)=>resolve({exitCode,signal}));});Object.assign(record,result,{finishedAt:new Date().toISOString()});await log.close();await writeFile(root+'/result.json',JSON.stringify(record,null,2));console.log(JSON.stringify(record));process.exitCode=result.exitCode??1;

@@ -1,0 +1,4 @@
+{"windowTokens":32768,"status":"passed","primaryRunId":"7ec9f85f-57da-4c20-990d-21157ebe837c","primaryCalls":4,"nextCalls":2,"summaryCalls":2,"compactionRecords":2,"masked":true,"approvals":["shell_exec","read_file"],"realModelCalls":0}
+{"windowTokens":1000000,"status":"passed","primaryRunId":"d46dcd5e-5a9e-422d-bac6-9c70f2c67de7","primaryCalls":4,"nextCalls":2,"summaryCalls":1,"compactionRecords":1,"masked":false,"approvals":["shell_exec","read_file"],"realModelCalls":0}
+{"status":"passed","runId":"87548cea-eeda-4540-8551-d169f69e0e29","result":"/private/tmp/serika-wiring-compaction-probe/evidence/result.json"}
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-wiring-compaction-probe/home/write-guard-J2PfcF/result.json","violations":0,"changes":3,"metadataUnchanged":false}

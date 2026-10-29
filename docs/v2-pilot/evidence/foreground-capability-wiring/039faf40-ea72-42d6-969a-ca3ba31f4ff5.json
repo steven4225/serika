@@ -1,0 +1,171 @@
+{
+  "runId": "039faf40-ea72-42d6-969a-ca3ba31f4ff5",
+  "generatedAt": "2026-10-29T16:10:45.632Z",
+  "verification": "real-electron-real-model-original-preload-ipc",
+  "platform": "darwin",
+  "sourceCommit": "c88682c85fd3632095e1de96b03b4871e96af692",
+  "sourceWorktreeDirty": true,
+  "sourceDiffSha256": "2a0d623738969dc9b0920ad0fc3f461ccf265c79ec7eefa521db167f4afee84e",
+  "scriptSha256": "d4f80919d88ad839d01f5016537440a95701239302e1d5f6e877ad4e839330e1",
+  "rawReportSha256": "89382828fffe4ff9c7ff5db1d58b728ce556f1aa7bc6e19da1c372645020dbd3",
+  "preflight": {
+    "runId": "d680a279-c9a9-4637-86f0-da7d061dd12f",
+    "sha256": "d5533a845ff99af4832b6f9f2cd7f21780a646bc88457cf46c34b8f7e2db5c37",
+    "status": "confirm-observation-preflight-passed",
+    "modelRequests": 0,
+    "rejectedStaleApproval": true,
+    "otherIpcIgnored": true,
+    "errors": [],
+    "originalHandlerUnchanged": true
+  },
+  "status": "stopped",
+  "failure": {
+    "name": "Error",
+    "message": "model budget or outcome stopped"
+  },
+  "errors": [],
+  "originalHandlerUnchanged": true,
+  "approvalTrace": [
+    {
+      "toolCallId": "call_00_GFGdGjByGuzBaSou1ivb8833",
+      "approvalId": "d11ea258-b4bc-4e75-ba39-7f926b57b01e",
+      "shown": true,
+      "click": {
+        "stage": "file-task",
+        "kind": "click",
+        "at": "2026-10-29T16:09:03.321Z",
+        "id": "d11ea258-b4bc-4e75-ba39-7f926b57b01e",
+        "button": "允许本次调用",
+        "trusted": true
+      },
+      "confirm": {
+        "approvalId": "d11ea258-b4bc-4e75-ba39-7f926b57b01e",
+        "decision": "allow"
+      },
+      "cleared": true
+    }
+  ],
+  "confirmCalls": [
+    {
+      "at": "2026-10-29T16:08:44.196Z",
+      "input": {
+        "approvalId": "unmatched-probe",
+        "decision": "allow"
+      },
+      "stack": [
+        {
+          "function": "",
+          "url": "",
+          "line": 9776
+        },
+        {
+          "function": "",
+          "url": "",
+          "line": 1
+        },
+        {
+          "function": "emit",
+          "url": "",
+          "line": 514
+        }
+      ]
+    },
+    {
+      "at": "2026-10-29T16:09:03.322Z",
+      "input": {
+        "approvalId": "d11ea258-b4bc-4e75-ba39-7f926b57b01e",
+        "decision": "allow"
+      },
+      "stack": [
+        {
+          "function": "",
+          "url": "",
+          "line": 9776
+        },
+        {
+          "function": "",
+          "url": "",
+          "line": 1
+        },
+        {
+          "function": "emit",
+          "url": "",
+          "line": 514
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "runId": "abd1bd9c-89bf-404b-8898-0329a6361394",
+      "runStatus": "cancelled",
+      "toolCallId": "call_00_GFGdGjByGuzBaSou1ivb8833",
+      "name": "list_directory",
+      "input": "{\"path\":\".\"}",
+      "status": "completed",
+      "approvalRequestedAt": "2026-10-29T16:08:49.230Z",
+      "startedAt": "2026-10-29T16:09:03.323Z",
+      "resultPreview": "{\"ok\":true,\"path\":\".\",\"entries\":[{\"name\":\"check.mjs\",\"type\":\"file\"},{\"name\":\"sum.mjs\",\"type\":\"file\"}],\"truncated\":false}"
+    }
+  ],
+  "calls": [
+    {
+      "id": "c4055acb-1229-49cf-9a33-ed9df8a180c5",
+      "stage": "file-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:08:44.688Z",
+      "status": "returned",
+      "reservedUsd": 0.01225312,
+      "requestSha256": "03b416aa80b0c08d07fbe71c38a52203db606030320a6a30d98c86ef29905d95",
+      "requestBytes": 23443,
+      "httpStatus": 200,
+      "usage": {
+        "input": 5400,
+        "output": 36,
+        "cached": 1152
+      },
+      "costUsd": 0.0014356800000000002,
+      "finishedAt": "2026-10-29T16:08:49.019Z",
+      "responseSha256": "035cb282724f5d2cb505a0b3d49a51a8f485c9276d91e6b6803daa9e2470edd5"
+    },
+    {
+      "id": "7789da51-793b-4669-97a2-adb6282aad0f",
+      "stage": "file-task",
+      "purpose": "primary",
+      "startedAt": "2026-10-29T16:09:03.627Z",
+      "status": "transport-unknown",
+      "reservedUsd": 0.0123824,
+      "requestSha256": "23ad8f922e5a90b72de0500cb527a1e27d414ac7a4ee91a04c35423b99ea3056",
+      "requestBytes": 23847
+    }
+  ],
+  "realModelRequests": 2,
+  "knownEstimatedUsd": 0.0014356800000000002,
+  "unresolvedCalls": 1,
+  "unresolvedReservedUsd": 0.0123824,
+  "allUsageReturned": false,
+  "capabilityBlocks": [
+    {
+      "request": 1,
+      "bytes": 1719,
+      "sha256": "7ffa0dfe53924633d0cdac412077333dfce2b554a5f15cc09f00b8966375c6a0"
+    },
+    {
+      "request": 2,
+      "bytes": 1719,
+      "sha256": "7ffa0dfe53924633d0cdac412077333dfce2b554a5f15cc09f00b8966375c6a0"
+    }
+  ],
+  "capabilityBlockBytesStable": true,
+  "cumulativeBatch": {
+    "requests": 11,
+    "knownEstimatedUsd": 0.008550239999999999,
+    "unresolvedReservedUsd": 0.0123824,
+    "budgetUsd": 0.5,
+    "maxRequests": 30,
+    "frozen": true
+  },
+  "credentialRemoved": true,
+  "electronStopped": true,
+  "remaining": "file repair/check/readback, Herdr/Pi, real-model compaction continuation, full pnpm test and clean-source Electron smoke not completed"
+}

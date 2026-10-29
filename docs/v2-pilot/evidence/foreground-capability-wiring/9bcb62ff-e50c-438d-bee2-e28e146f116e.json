@@ -1,0 +1,74 @@
+{
+  "runId": "9bcb62ff-e50c-438d-bee2-e28e146f116e",
+  "generatedAt": "2026-10-29T15:41:15.736Z",
+  "verification": "real-electron-real-model-original-preload-ipc",
+  "sourceCommit": "c88682c85fd3632095e1de96b03b4871e96af692",
+  "sourceWorktreeDirty": true,
+  "primaryRunStatus": "completed",
+  "tools": [
+    {
+      "toolCallId": "call_00_xaCmykSwx0O6m7Uz1cFb5664",
+      "name": "shell_exec",
+      "input": "{\"command\":\"command -v pi\",\"cwd\":\"<isolated>/shell-only/workspace\"}",
+      "status": "completed",
+      "exitCode": 0,
+      "approvalRequestedAt": "2026-10-29T15:39:10.605Z"
+    },
+    {
+      "toolCallId": "call_00_upd2HLDSgi2b4T4jY3Nz0800",
+      "name": "shell_exec",
+      "input": "{\"command\":\"pi --version; echo \\\"---\\\"; pi --help\",\"cwd\":\"<isolated>/shell-only/workspace\"}",
+      "status": "completed",
+      "exitCode": 0,
+      "approvalRequestedAt": "2026-10-29T15:39:45.149Z"
+    }
+  ],
+  "terminalEnabled": false,
+  "piVersionObserved": "1.4.0",
+  "versionHelpOutputObserved": true,
+  "primaryCapabilityBlocks": [
+    {
+      "request": 1,
+      "sha256": "e355439f6fdc406e416a9800163735fa7d46de36136014627517b6cfb4a0ba56",
+      "bytes": 1716
+    },
+    {
+      "request": 2,
+      "sha256": "e355439f6fdc406e416a9800163735fa7d46de36136014627517b6cfb4a0ba56",
+      "bytes": 1716
+    },
+    {
+      "request": 3,
+      "sha256": "e355439f6fdc406e416a9800163735fa7d46de36136014627517b6cfb4a0ba56",
+      "bytes": 1716
+    },
+    {
+      "request": 4,
+      "sha256": "e355439f6fdc406e416a9800163735fa7d46de36136014627517b6cfb4a0ba56",
+      "bytes": 1716
+    }
+  ],
+  "capabilityBlockBytesStable": true,
+  "harnessStatus": "stopped",
+  "harnessFailure": {
+    "name": "AssertionError",
+    "message": "The expression evaluated to a falsy value:\n\n  assert.ok(systems.every(x=>x===systems[0]))\n"
+  },
+  "rootCause": "all requests tagged pi-discovery included a background compactor system in whole-system comparison",
+  "remainingCases": "not_started_after_harness_failure",
+  "approvals": {
+    "hostRecorded": 2,
+    "harnessRecorded": 1,
+    "attribution": "second approval has host timestamp but no harness decision row; actor not established"
+  },
+  "realModelRequests": 5,
+  "allUsageReturned": true,
+  "knownEstimatedUsd": 0.0047440799999999995,
+  "unresolvedReservedUsd": 0,
+  "currency": "USD",
+  "budgetUsd": 0.5,
+  "temporaryRealCredentialCopyRemoved": true,
+  "screenshotSha256": "0ccc6c15c6f8532016b019f2ce3155df4fd56ad240a3cfead5e4a8d0153e0901",
+  "sourceDiffSha256": "2a0d623738969dc9b0920ad0fc3f461ccf265c79ec7eefa521db167f4afee84e",
+  "testSourceSha256": "bebbb9b7ef1672950b2e896347f0cb580aa54ffef337cfbd82b2d92c82d86b94"
+}

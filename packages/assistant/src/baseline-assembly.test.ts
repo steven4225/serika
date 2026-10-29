@@ -8,8 +8,10 @@ import { describe, it } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp } from "./app.js";
-import { formatCapabilityStatus } from "./capability-status.js";
+import { formatCapabilityStatus, formatCapabilitySummary, type CapabilityStatus } from "./capability-status.js";
 import { MEMORY_READ_INSTRUCTIONS } from "./memory-instructions.js";
+import { FOREGROUND_INSTRUCTIONS } from "./foreground-autonomy.js";
+import { CLI_DISCOVERY_INSTRUCTIONS } from "./modules/shell-module.js";
 
 /**
  * v2 pilot step 1 baseline (docs/architecture-v2.md §4.4). Locks, for three
@@ -60,6 +62,19 @@ function contentText(content: unknown): string {
     .map(part => part.type === "text" ? part.text ?? "" : `[${part.type}] ${JSON.stringify(part)}`).join("\n");
 }
 
+function fixtureExecution({ workspace, shellEnabled, autonomous = false }: {
+  workspace: string; shellEnabled: boolean; autonomous?: boolean;
+}): CapabilityStatus["execution"] {
+  return {
+    directories: [{ path: workspace, access: "readwrite" }],
+    files: autonomous ? "foreground_authorized" : "scoped_grants_or_confirmation", fileGrants: [],
+    shell: { configured: shellEnabled, registered: shellEnabled, mode: autonomous ? "seatbelt" : "host",
+      authorization: !shellEnabled ? "not_registered" : autonomous ? "foreground_authorized" : "per_call_confirmation", health: "not_checked" },
+    terminal: { configured: false, registered: false, authorization: "not_registered", health: "not_checked" },
+    pi: { registered: false, target: null, authorization: "selected_target_reads_auto; control_per_call_confirmation", health: "not_checked" },
+  };
+}
+
 /**
  * `desktopAutonomy`: the trusted desktop foreground (docs/v2-pilot/pending.md A.4). The config names this
  * workspace in `desktopAutonomy`, the app is created with `desktopAutonomyHost` (as desktop-runtime.ts does),
@@ -73,8 +88,10 @@ async function capture(modules: Record<string, unknown>, { desktopAutonomy = fal
   const configPath = join(root, "config.json");
   await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules, ...(desktopAutonomy ? { desktopAutonomy: { authorizedDirectory: workspace } } : {}) }));
   let request: Parameters<MockLanguageModelV3["doStream"]>[0] | undefined;
+  let runCapabilities: CapabilityStatus | undefined;
   const model = new MockLanguageModelV3({ doStream: async options => {
     request ??= options;
+    runCapabilities ??= app.getCapabilities?.();
     return { stream: simulateReadableStream({ chunks: [
       { type: "stream-start" as const, warnings: [] },
       { type: "finish" as const, finishReason: { unified: "stop" as const, raw: undefined }, usage: {
@@ -94,11 +111,16 @@ async function capture(modules: Record<string, unknown>, { desktopAutonomy = fal
   try {
     const user = { id: "baseline-user", role: "user" as const, parts: [{ type: "text" as const, text: "baseline" }] };
     if (desktopAutonomy) assert.equal(app.beginForegroundExecution?.("desktop", user), true, "the desktop foreground must be autonomous");
+    app.toolConfirmation?.beginRun(desktopAutonomy);
     try {
       const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId, messages: [user] });
       assert.equal((await handle.result).status, "completed");
-    } finally { if (desktopAutonomy) await app.endForegroundExecution?.(); }
+    } finally {
+      app.toolConfirmation?.endRun();
+      if (desktopAutonomy) await app.endForegroundExecution?.();
+    }
     assert.ok(request, "the primary model must be called once");
+    assert.ok(runCapabilities, "capabilities must be observed at the model boundary");
     written = "";
     await app.commands?.get("modules")?.execute("");
     const modulesText = written;
@@ -107,6 +129,10 @@ async function capture(modules: Record<string, unknown>, { desktopAutonomy = fal
     const capabilitiesText = written;
     const sections: string[] = [];
     const tools = (request.tools ?? []).flatMap(tool => tool.type === "function" ? [tool] : []);
+    const shellEnabled = modules.shell !== undefined;
+    if (shellEnabled) assert.deepEqual(modules.shell, { enabled: true });
+    assert.deepEqual([...runCapabilities.tools].sort(), tools.map(tool => tool.name).sort());
+    assert.deepEqual(runCapabilities.execution, fixtureExecution({ workspace, shellEnabled, autonomous: desktopAutonomy }));
     sections.push(`# tools (${tools.length})`, tools.map(tool => tool.name).join("\n"));
     for (const tool of tools) {
       sections.push(`## tool ${tool.name}`, tool.description ?? "", JSON.stringify(tool.inputSchema, null, 2));
@@ -114,8 +140,24 @@ async function capture(modules: Record<string, unknown>, { desktopAutonomy = fal
     const prompt = request.prompt;
     const userIndex = prompt.findIndex(message => message.role === "user");
     const instructions = userIndex === -1 ? prompt : prompt.slice(0, userIndex);
+    const block = formatCapabilitySummary(runCapabilities);
     sections.push(`# instructions (${instructions.length} messages before the user's text)`);
-    instructions.forEach((message, index) => sections.push(`## message ${index} ${message.role}`, contentText(message.content)));
+    instructions.forEach((message, index) => {
+      let text = contentText(message.content);
+      if (message.role === "system") {
+        assert.equal(text.split(block).length, 2, "the actual host capability block must appear exactly once");
+        assert.ok(text.endsWith("\n\n" + block));
+        text = text.slice(0, -("\n\n" + block).length);
+        assert.equal(text.split(FOREGROUND_INSTRUCTIONS).length, desktopAutonomy ? 2 : 1);
+        if (desktopAutonomy) {
+          assert.ok(text.endsWith("\n" + FOREGROUND_INSTRUCTIONS));
+          text = text.slice(0, -("\n" + FOREGROUND_INSTRUCTIONS).length);
+        }
+        assert.equal(text.split(CLI_DISCOVERY_INSTRUCTIONS).length, shellEnabled ? 2 : 1);
+        if (shellEnabled) text = text.replace(CLI_DISCOVERY_INSTRUCTIONS, "");
+      }
+      sections.push(`## message ${index} ${message.role}`, text);
+    });
     sections.push("# /modules", modulesText.trimEnd());
     sections.push("# /capabilities", capabilitiesText.trimEnd());
     const status = app.getCapabilities?.();
@@ -194,12 +236,13 @@ function assertStep3Assembly(actual: string, baseline: string, autonomous = fals
   assert.match(section(actual, "/capabilities"), /^terminal：未启用$/m);
   const capabilities = (text: string) => section(text, "/capabilities").replace(/^memory：.*\n/m, "").replace(/^terminal：未启用\n/m, "");
   assert.equal(capabilities(actual), capabilities(baseline));
-  const status = (text: string) => { const value = JSON.parse(section(text, "capability_status"));
+  const status = (text: string, execution?: CapabilityStatus["execution"]) => { const value = JSON.parse(section(text, "capability_status"));
+    if (execution) { assert.deepEqual(value.execution, execution); delete value.execution; }
     value.tools = value.tools.filter((name: string) => !name.startsWith("memory_") && !name.startsWith("history_"));
     value.modules = value.modules.map((module: { id: string; registeredTools: string[] }) => module.id === "memory" ? { ...module, registeredTools: [] } : module);
     if (autonomous) value.modules = value.modules.filter((module: { id: string }) => module.id !== "memory");
     return value; };
-  const currentStatus = status(actual);
+  const currentStatus = status(actual, fixtureExecution({ workspace: "<ROOT>/workspace", shellEnabled: before.has("shell_exec") }));
   assert.deepEqual(currentStatus.modules.find((module: { id: string }) => module.id === "terminal"), { id: "terminal", enabled: false, registeredTools: [], state: "disabled" });
   currentStatus.modules = currentStatus.modules.filter((module: { id: string }) => module.id !== "terminal");
   assert.deepEqual(currentStatus, status(baseline));
