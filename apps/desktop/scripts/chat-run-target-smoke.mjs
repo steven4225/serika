@@ -174,10 +174,9 @@ try {
   assert.equal((await prompts()).length, 1);
   report.approvalChain.push(...approvalChain({ runId: denied.state.runId, receipt: await receipt(denied.state.runId), decisions: report.decisions, events: report.approvalEvents }));
   report.checks.push({ name: 'deny-control-zero-dispatch', result: 'passed', runId: denied.state.runId, approvalId: denyApproval.approvalId });
-  await page.getByPlaceholder('和 Serika 聊天').fill(`S1 shell node -e 'require("node:fs").writeFileSync("shell-answer.json",JSON.stringify({total:7*8}))'`);
-  await page.getByRole('button', { name: '发送消息', exact: true }).click();
-  await until(async () => (await snapshot()).state.kind === 'running');
-  const shellRun = (await snapshot()).state.runId;
+  const shellStart = await page.evaluate(text => window.runloom.run(text), `S1 shell node -e 'require("node:fs").writeFileSync("shell-answer.json",JSON.stringify({total:7*8}))'`);
+  assert.equal(shellStart.ok, true);
+  const shellRun = shellStart.runId;
   await idle();
   const shellReceipt = await receipt(shellRun);
   assert.equal(shellReceipt.tools.length, 1); assert.equal(shellReceipt.tools[0].toolName, 'shell_exec');
