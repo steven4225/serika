@@ -18,6 +18,7 @@ export function ApprovalCard({ approval, deciding, onDecision }: {
   onDecision: (decision: "allow" | "deny", remember?: boolean) => void;
 }) {
   const computer = describeComputerApproval(approval);
+  const herdr = approval.herdr;
   const reminder = computer ? null : presentReminderConfirmation(approval);
   const invalidComputer = approval.toolName.startsWith("computer_") && approval.toolName !== "computer_check" && computer === undefined;
   // Strip only the terminal control suffix, not user text containing [y/n].
@@ -49,6 +50,12 @@ export function ApprovalCard({ approval, deciding, onDecision }: {
           </dl>
           <p className="approval-warning">{reminder.safety}</p>
           {reminder.details ? <details><summary>更多说明</summary><p>{reminder.details}</p></details> : null}
+        </> : herdr ? <>
+          <h3>{herdr.action.action === "prompt" ? "向本轮 Pi 发送任务" : herdr.action.action === "input" ? "向本轮 Pi 发送按键" : "停止本轮 Pi"}</h3>
+          <dl className="approval-target"><dt>目标会话</dt><dd>{herdr.target.session}</dd></dl>
+          <pre className="input-preview">{herdr.action.action === "prompt" ? herdr.action.text : herdr.action.action === "input" ? herdr.action.key : "ctrl+c"}</pre>
+          <p className="approval-warning">仅批准这次操作。发送前重新核对同一终端；目标变化时停止发送。</p>
+          <details><summary>目标详情</summary><pre>{JSON.stringify(herdr, null, 2)}</pre></details>
         </> : <>
           <h3>{heading}</h3>
           <pre className="prompt">{preview || "正在生成预览…"}</pre>

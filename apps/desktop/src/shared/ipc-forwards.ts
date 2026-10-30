@@ -43,6 +43,7 @@ export const IPC_FORWARDS = {
     run: 2,
     cancel: 0,
     confirm: 1,
+    selectHerdrTarget: 1,
     command: 1,
     listRuns: 0,
     getRun: 1,

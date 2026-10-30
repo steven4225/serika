@@ -132,6 +132,10 @@ export function assistantEventToRenderer(event: AssistantEvent): MainToRenderer 
       return { type: "approval", approval: event.approval };
     case "approval-cleared":
       return { type: "approval-cleared", approvalId: event.approvalId };
+    case "herdr-selection":
+      return { type: "herdr-selection", selection: event.selection };
+    case "herdr-selection-cleared":
+      return { type: "herdr-selection-cleared", selectionId: event.selectionId };
     case "steer":
       return { type: "steer", steer: event.steer };
     case "run-event":
@@ -169,6 +173,7 @@ function toUiSnapshot(snapshot: AssistantSnapshot, shellProgress: UiSnapshot["sh
     canSteer: snapshot.canSteer,
     steers: snapshot.steers,
     pendingApproval: snapshot.pendingApproval,
+    pendingHerdrSelection: snapshot.pendingHerdrSelection ?? null,
     recentOutput: snapshot.recentOutput,
     outputTruncated: snapshot.outputTruncated,
     toolActivity: snapshot.toolActivity,
@@ -382,6 +387,13 @@ export class RuntimeBridge {
       (input.remember !== undefined && input.remember !== true)) return { accepted: false };
     return { accepted: this.#controller.confirm({ approvalId: input.approvalId, decision: input.decision,
       ...(input.remember === true ? { remember: true } : {}) }) };
+  }
+
+  selectHerdrTarget(input: import("@serika/assistant").SelectHerdrTargetInput): ConfirmResponse {
+    if (typeof input !== "object" || input === null || Array.isArray(input) ||
+      Object.keys(input).some(key => key !== "selectionId" && key !== "candidateId") ||
+      typeof input.selectionId !== "string" || !(input.candidateId === null || typeof input.candidateId === "string")) return { accepted: false };
+    return { accepted: this.#controller.selectHerdrTarget({ selectionId: input.selectionId, candidateId: input.candidateId }) };
   }
 
   command(line: string): Promise<CommandResponse> {

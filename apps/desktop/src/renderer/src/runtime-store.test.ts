@@ -75,7 +75,7 @@ const watched = () => {
 test("runtime store starts from the values AssistantPage used to start with", () => {
   const store = newStore();
   assert.deepEqual(store.getState(), {
-    info: null, state: { kind: "idle" }, output: "", approval: null, homeSnapshot: null, memoryRefresh: 0, contextRefresh: 0, taskRefresh: 0,
+    info: null, state: { kind: "idle" }, output: "", approval: null, herdrSelection: null, homeSnapshot: null, memoryRefresh: 0, contextRefresh: 0, taskRefresh: 0,
     live: emptyLiveRun, lastResult: null, canSteer: false, finalRecord: null, steers: [], uncertainSteer: null,
     history: { rows: [], runId: null }, historyBefore: null, historyLoading: false,
     records: { status: "loading" }, recordDetail: { status: "idle" }, traceFocusTool: null,
@@ -108,6 +108,24 @@ test("output appends and keeps only the last OUTPUT_MAX_CHARS characters", () =>
   store.receive({ type: "output", text: "yz" });
   assert.equal(store.getState().output, "x".repeat(OUTPUT_MAX_CHARS - 2) + "yz");
   assert.equal(OUTPUT_MAX_CHARS, 64 * 1024);
+});
+
+test("Herdr choice survives a snapshot and only its own clear event removes it", () => {
+  const store = newStore();
+  const selection = { selectionId: "select-current", toolCallId: "call-current", candidates: [{
+    candidateId: "candidate-current", title: "Pi", status: "idle" as const,
+    target: { authorizedDirectory: "/workspace", session: "offline", paneId: "p1", terminalId: "t1" },
+  }] };
+  store.applySnapshot(snapshotOf({ state: running, pendingHerdrSelection: selection }));
+  assert.deepEqual(store.getState().herdrSelection, selection);
+  assert.equal(store.getState().approval, null);
+  store.receive({ type: "herdr-selection-cleared", selectionId: "select-old" });
+  assert.deepEqual(store.getState().herdrSelection, selection);
+  store.receive({ type: "herdr-selection-cleared", selectionId: selection.selectionId });
+  assert.equal(store.getState().herdrSelection, null);
+  store.receive({ type: "herdr-selection", selection });
+  store.applySnapshot(snapshotOf({ state: { kind: "idle" } }));
+  assert.equal(store.getState().herdrSelection, null);
 });
 
 test("home replaces the snapshot and null clears it", () => {

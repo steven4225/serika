@@ -55,20 +55,34 @@ it("TG capability queries never present cached registration as current during ru
     assert.equal(f.calls(), 0);
   } finally { await f.cleanup(); }
 });
-async function fixture(stream: (call: number, prompt?: string) => Promise<ReturnType<typeof response>> = async () => response(), backgroundReady = true, shellEnabled = false, herdrFixture = false, computerFixture = false) {
+async function fixture(stream: (call: number, prompt?: string) => Promise<ReturnType<typeof response>> = async () => response(), backgroundReady = true, shellEnabled = false, herdrFixture: boolean | "multiple" = false, computerFixture = false) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-telegram-unit-")));
   const workspace = join(root, "workspace"), applicationHome = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
   const bin = join(root, "bin");
   if (herdrFixture) {
     await mkdir(bin);
-    await writeFile(join(bin, "herdr"), `#!${process.execPath}
+    await writeFile(join(bin, "herdr"), herdrFixture === "multiple" ? `#!${process.execPath}
+import {appendFileSync} from 'node:fs';
+const args=process.argv.slice(2), pane=args[4], identity={pane_id:pane,terminal_id:pane==='p2'?'t2':'t1'};
+const agent={...identity,agent:'pi',agent_status:'idle',state_change_seq:1};
+if(args[0]==='session')console.log(JSON.stringify({sessions:[{name:'offline',running:true}]}));
+else if(args[2]==='pane'&&args[3]==='list')console.log(JSON.stringify({result:{type:'pane_list',panes:[{pane_id:'p1',terminal_id:'t1',terminal_title_stripped:'Pi one'},{pane_id:'p2',terminal_id:'t2',terminal_title_stripped:'Pi two'}]}}));
+else if(args[2]==='pane')console.log(JSON.stringify({result:{type:'pane_info',pane:identity}}));
+else if(args[3]==='prompt'){appendFileSync(${JSON.stringify(join(root,"herdr-prompts.jsonl"))},JSON.stringify(args)+'\\n');console.log(JSON.stringify({result:{type:'agent_prompted',agent}}));}
+else if(args[3]==='read')console.log('本次离线 Pi 输出');
+else console.log(JSON.stringify({result:{type:'agent_info',agent}}));
+` : `#!${process.execPath}
 const args=process.argv.slice(2);
+if(args[0]==="session")console.log(JSON.stringify({sessions:[{name:"offline",running:true}]}));
+else if(args[2]==="pane"&&args[3]==="list")console.log(JSON.stringify({result:{type:"pane_list",panes:[{pane_id:"p1",terminal_id:"t1",terminal_title_stripped:"Pi"}]}}));
+else {
 if(args[0]!=="--session"||args[1]!=="offline"||args[4]!=="p1")process.exit(3);
 if(args[2]==="pane")console.log(JSON.stringify({result:{type:"pane_info",pane:{pane_id:"p1",terminal_id:"t1"}}}));
 else if(args[3]==="get")console.log(JSON.stringify({result:{type:"agent_info",agent:{agent:"pi",agent_status:"idle",pane_id:"p1",terminal_id:"t1",state_change_seq:1}}}));
 else if(args[3]==="read")console.log("离线 Pi 的只读输出");
-else process.exit(4);`);
+else process.exit(4);
+}`);
     await chmod(join(bin, "herdr"), 0o700);
   }
   const computerDriver = join(root, "computer-driver");
@@ -81,7 +95,7 @@ else if(name==="get_window_state")console.log(JSON.stringify({pid:123,window_id:
 else process.exit(4);`);
     await chmod(computerDriver, 0o700);
   }
-  await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: shellEnabled }, ...(herdrFixture ? { terminal: { enabled: true, target: { authorizedDirectory: workspace, session: "offline", paneId: "p1", terminalId: "t1" } } } : {}), task: { enabled: true }, ...(computerFixture ? { computer: { enabled: true, executable: computerDriver, allowedBundleIds: ["com.example.Offline"] } } : {}) } }));
+  await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { "read-file": { enabled: true }, memory: { enabled: false }, shell: { enabled: shellEnabled }, ...(herdrFixture ? { terminal: { enabled: true, ...(herdrFixture === "multiple" ? {} : { target: { authorizedDirectory: workspace, session: "offline", paneId: "p1", terminalId: "t1" } }) } } : {}), task: { enabled: true }, ...(computerFixture ? { computer: { enabled: true, executable: computerDriver, allowedBundleIds: ["com.example.Offline"] } } : {}) } }));
   let calls = 0;
   let time = Date.now(), activations = 0;
   const host = await DesktopRuntime.create({ applicationHome, cwd: root, env: { RUNLOOM_CONFIG: configPath, ...(herdrFixture ? { PATH: bin, HOME: applicationHome } : {}), ...(computerFixture ? { HOME: applicationHome } : {}) }, modelAlias: "mock",
@@ -1510,5 +1524,46 @@ it("allowed Computer reads return through offline Telegram without approval and 
     assert.deepEqual(receipt?.tools.map(tool => [tool.toolName, tool.status, tool.approvalRequestedAt]), [
       ["computer_check", "completed", undefined], ["computer_observe", "completed", undefined], ["computer_observe", "completed", undefined],
     ]);
+  } finally { await f.cleanup(); }
+});
+
+
+it("Telegram chooses one discovered Pi within the same Run, then separately approves exactly one prompt", async () => {
+  const f = await fixture(async n => response(n === 1 ? { name: "herdr_pi_control", input: { action: "prompt", text: "isolated task" } } : undefined), true, false, "multiple");
+  try {
+    await f.bind();
+    await f.gateway.receive(update(2, "让已有 Pi 完成离线任务"));
+    await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("selection:") && x.state === "submitted"));
+    const source = f.store.snapshot().inputs.find(x => x.key === "42:2")!;
+    const selected = f.host.channelSnapshot().snapshot.pendingHerdrSelection!;
+    assert.equal(f.calls(), 1);
+    assert.equal(f.keyboards.length, 0);
+    assert.equal(selected.candidates.length, 2);
+    assert.equal(f.host.channelSnapshot().snapshot.state.kind, "running");
+    await assert.rejects(readFile(join(f.root, "herdr-prompts.jsonl")), { code: "ENOENT" });
+    const notice = f.store.snapshot().deliveries.find(x => x.key.startsWith("selection:"))!;
+    const selectionCode = notice.key.split(":").at(-1)!;
+    await f.gateway.receive(update(3, `选择 ${selectionCode} 2`, 99));
+    assert.equal(f.host.channelSnapshot().snapshot.pendingHerdrSelection?.selectionId, selected.selectionId);
+    await f.gateway.receive(update(4, `选择 ${selectionCode} 3`));
+    assert.equal(f.host.channelSnapshot().snapshot.pendingHerdrSelection?.selectionId, selected.selectionId);
+    await f.gateway.receive(update(5, `选择 ${selectionCode} 2`));
+    await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("approval:") && x.state === "submitted"));
+    const snapshot = f.host.channelSnapshot().snapshot;
+    assert.equal(snapshot.pendingHerdrSelection, null);
+    assert.equal(snapshot.state.kind === "running" && snapshot.state.runId, source.runId);
+    assert.equal(snapshot.pendingApproval?.herdr?.target.terminalId, "t2");
+    assert.equal(f.calls(), 1);
+    await assert.rejects(readFile(join(f.root, "herdr-prompts.jsonl")), { code: "ENOENT" });
+    const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
+    await f.gateway.receive(update(6, `允许 ${approval.key.split(":").at(-1)}`));
+    await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
+    const prompts = (await readFile(join(f.root, "herdr-prompts.jsonl"), "utf8")).trim().split("\n").map(line => JSON.parse(line));
+    assert.equal(prompts.length, 1);
+    assert.equal(prompts[0][4], "p2");
+    assert.equal(f.store.snapshot().inputs.find(x => x.key === "42:2")!.runId, source.runId);
+    await f.gateway.receive(update(7, `选择 ${selectionCode} 1`));
+    assert.match(f.sent.at(-1)!, /已过期|已处理/);
+    assert.equal(f.calls(), 2);
   } finally { await f.cleanup(); }
 });
