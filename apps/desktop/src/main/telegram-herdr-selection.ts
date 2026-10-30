@@ -47,7 +47,8 @@ export class TelegramHerdrSelection {
     this.#permit = permit;
     const labels = { idle: "空闲", working: "正在执行", blocked: "等待答复", done: "上次执行已结束" };
     const choices = context.selection.candidates.map((candidate, index) =>
-      `${index + 1}. ${candidate.title || candidate.target.session} · ${candidate.target.session} · ${labels[candidate.status]}`);
+      `${index + 1}. ${candidate.title || candidate.target.session} · ${candidate.target.session} · ${labels[candidate.status]}\n` +
+      `目标详情：pane ${candidate.target.paneId} · terminal ${candidate.target.terminalId}\n目录：${candidate.target.authorizedDirectory}`);
     return this.options.send(`selection:${permit.selectionId}:${permit.code}`, permit.chatId,
       ["选择本轮使用的 Pi：", ...choices, `发送“选择 ${permit.code} 序号”，或“取消选择 ${permit.code}”。`,
         "仅本轮使用。选择后继续当前任务，发送输入仍需另行确认。短码五分钟有效；发送 /confirm 可刷新当前选择。"].join("\n"));

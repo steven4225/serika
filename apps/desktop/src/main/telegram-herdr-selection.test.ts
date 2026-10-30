@@ -35,6 +35,7 @@ it("Telegram choice tokens reject changed owner, Run, candidate identity and exp
     assert.deepEqual(chosen, []);
   }
   const code = await fresh();
+  assert.match(sent.at(-1)!.text, /目标详情：pane p1 · terminal t1\n目录：\/workspace/);
   assert.match(channel.resolve(`选择 ${code} 2`)!, /不在当前候选/);
   assert.match(channel.resolve(`选择 ${code} 1`)!, /已提交本轮目标选择/);
   assert.deepEqual(chosen, [{ selectionId: "selection", candidateId: "candidate" }]);
