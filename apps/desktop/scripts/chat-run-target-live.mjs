@@ -9,25 +9,25 @@ import { parseEnv } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { _electron as electron, expect } from 'playwright/test';
 import { setup, addPi, cleanup } from './chat-run-target-live-herdr.mjs';
-import { confirmApproval, observeApprovals } from './chat-run-target-approval.mjs';
+import { approvalChain, confirmApproval, observeApprovals } from './chat-run-target-approval.mjs';
 
 const repo = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const hash = value => createHash('sha256').update(value).digest('hex');
 const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
-const model = 'deepseek/deepseek-v4.1-flash-fast', capUsd = 2, maxRequests = 24, maxRuns = 4;
+const model = 'deepseek/deepseek-v4.1-flash-fast', capUsd = .25, maxRequests = 24, maxRuns = 2;
 const price = { input: .32, output: 1.16, cacheRead: .03 };
-const source = parseEnv(await readFile('/Users/a1-6/.config/serika/v2-daily.env', 'utf8'));
+if (!process.argv.includes('--run')) {
+  console.log(JSON.stringify({ mode: 'zero-request-preflight', model, capUsd, maxRequests, maxRuns,
+    credentialPresent: 'not-inspected', credentialsWrittenToDisk: false, realModelCalls: 0,
+    scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))) }));
+  process.exit(0);
+}
+const source = parseEnv(await readFile('/Users/a1-6/.serika-test.env', 'utf8'));
 assert.ok(source.COMMAND_CODE_API_KEY);
 assert.equal(source.COMMAND_CODE_BASE_URL, 'https://api.commandcode.ai/provider/v1');
 assert.equal(source.COMMAND_CODE_MODEL_ID, model);
 const credentials = { key: source.COMMAND_CODE_API_KEY, base: source.COMMAND_CODE_BASE_URL };
 for (const key of Object.keys(source)) delete source[key];
-if (!process.argv.includes('--run')) {
-  console.log(JSON.stringify({ mode: 'zero-request-preflight', model, capUsd, maxRequests, maxRuns,
-    credentialPresent: true, credentialsWrittenToDisk: false, realModelCalls: 0,
-    scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))) }));
-  process.exit(0);
-}
 const outputIndex = process.argv.indexOf('--output');
 assert.ok(outputIndex >= 0 && process.argv[outputIndex + 1]);
 const output = resolve(process.argv[outputIndex + 1]);
@@ -39,7 +39,7 @@ const report = { runId: randomUUID(), startedAt: new Date().toISOString(), sourc
   verification: 'real-electron-real-model-real-isolated-herdr-pi', platform: process.platform, model,
   scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))), capUsd, maxRequests, maxRuns, pricePerMillionUsd: price,
   priceBasis: 'Conservative published peak rates; not invoice verified', priceSource: 'https://commandcode.ai/models/deepseek-v4-1-flash-fast',
-  credentialSource: 'user-authorized-daily-model-fields-in-process-only', credentialsWrittenToDisk: false,
+  credentialSource: 'test-only-model-fields-in-process-only', credentialsWrittenToDisk: false,
   calls: [], cases: [], launches: [], errors: [], screenshots: [], approvalEvents: [], costUsd: 0, status: 'running', isolatedRoot: root };
 let stage = 'startup', frozen = false, running, page, fixture, pendingId;
 const requests = new Set();
@@ -116,7 +116,7 @@ async function launch(name, pi) {
   const dir = join(root, name), work = pi?.work ?? join(dir, 'workspace'), home = pi?.env.HOME ?? join(dir, 'home');
   await Promise.all([mkdir(work, { recursive: true }), mkdir(home, { recursive: true }), mkdir(dir, { recursive: true })]);
   const configPath = join(dir, 'config.json'), envFile = join(dir, 'connection.env');
-  await writeFile(configPath, JSON.stringify({ version: 2, projectDirectory: work, authorizedDirectories: [{ path: work, access: 'readwrite' }],
+  await writeFile(configPath, JSON.stringify({ version: 2, projectDirectory: work, authorizedDirectories: [{ path: work, access: 'readwrite' }], desktopAutonomy: { authorizedDirectory: work },
     modules: { 'read-file': { enabled: true }, shell: { enabled: true }, terminal: { enabled: !!pi }, memory: { enabled: false } },
     run: { maxSteps: 16, totalTimeoutMs: 600000 },
     contextCompaction: { enabled: true, contextWindowTokens: 32768, maxOutputTokens: 4096, safetyMarginTokens: 2048, keepRecentTokens: 8192, summaryMaxOutputTokens: 2048 },
@@ -132,7 +132,10 @@ async function launch(name, pi) {
   await expect(page.getByPlaceholder('和 Serika 聊天')).toBeEnabled();
   await observeApprovals({ page, onEvent: event => {
     report.approvalEvents.push({ stage, ...event });
-    if (event.type === 'approval-cleared' && !report.cases.at(-1)?.decisions.some(row => row.value.approvalId === event.approvalId)) {
+    if (event.type === 'event' && event.event.type === 'tool.call.failed' && event.event.data.error.code === 'TOOL_OUTCOME_UNKNOWN') {
+      report.unknownEffect = true; frozen = true; report.stopReason = 'unknown-external-effect';
+    }
+    if (report.status === 'running' && event.type === 'approval-cleared' && !report.cases.at(-1)?.decisions.some(row => row.value.approvalId === event.approvalId)) {
       report.stopReason = 'approval-cleared-without-recorded-decision'; frozen = true;
     }
     return save();
@@ -152,18 +155,21 @@ async function decide(kind, value) {
   catch (error) { if (error.code === 'ENOENT') return false; throw error; }
   if (kind === 'selection') {
     assert.ok(Number.isSafeInteger(decision.index) && decision.index >= 0 && decision.index < value.candidates.length);
-    await page.getByRole('button', { name: '本轮使用', exact: true }).nth(decision.index).click();
+    const row = { kind, value, decision, runId: report.cases.at(-1).runId, source: 'user-decision-file-original-preload-selection', status: 'attempting', at: new Date().toISOString() };
+    report.cases.at(-1).decisions.push(row); await save();
+    row.response = await page.evaluate(input => window.runloom.selectHerdrTarget(input), { selectionId: value.selectionId, candidateId: value.candidates[decision.index].candidateId });
+    row.status = row.response.accepted ? 'accepted' : 'rejected'; await save();
+    assert.equal(row.response.accepted, true, 'Original host selection was not accepted');
+    return true;
   } else {
     assert.equal(decision.decision, 'allow');
-    const row = { kind, value, decision, at: new Date().toISOString(), source: 'original-preload-confirm', status: 'attempting' };
+    const row = { kind, value, decision, runId: report.cases.at(-1).runId, toolCallId: value.toolCallId, approvalId: id, at: new Date().toISOString(), source: 'original-preload-confirm', status: 'attempting' };
     report.cases.at(-1).decisions.push(row); await save();
     row.response = await confirmApproval({ page, approvalId: id, decision: decision.decision });
     row.status = row.response.accepted ? 'accepted' : 'rejected'; await save();
     assert.equal(row.response.accepted, true, 'Exact original approval ID was not accepted');
     return true;
   }
-  report.cases.at(-1).decisions.push({ kind, value, decision, at: new Date().toISOString() });
-  await save(); return true;
 }
 async function run(name, prompt, target) {
   assert.ok(report.cases.length < maxRuns && !frozen);
@@ -198,6 +204,8 @@ const messages = async file => (await readFile(file, 'utf8')).trim().split('\n')
 async function verifyPi(item, target, sessionFile, before, file, expected) {
   const controls = item.receipt.tools.filter(tool => tool.toolName === 'herdr_pi_control');
   assert.equal(controls.length, 1); assert.equal(controls[0].status, 'completed');
+  item.approvalChain = approvalChain({ runId: item.runId, receipt: item.receipt, events: report.approvalEvents,
+    decisions: item.decisions.filter(row => row.kind === 'approval').map(row => ({ ...row, decision: row.decision.decision })) });
   const approved = item.decisions.filter(decision => decision.value.herdr);
   item.actualArtifact = JSON.parse(await readFile(file, 'utf8'));
   const transcript = await messages(sessionFile); item.piUserMessagesAdded = transcript.length - before;
@@ -216,34 +224,25 @@ try {
   await writeFile(join(cli.work, 'input.json'), JSON.stringify({ quantity: 7, unitPrice: 8 }));
   const first = await run('ordinary-cli', '用 Node 读取 input.json，把 quantity 与 unitPrice 的乘积写入 answer.json 的 total 字段。完成后亲自检查文件和计算结果，告诉我结果。');
   assert.deepEqual(JSON.parse(await readFile(join(cli.work, 'answer.json'), 'utf8')), { total: 56 });
-  assert.ok(first.receipt.tools.some(tool => tool.shell?.exitCode === 0));
+  assert.ok(first.receipt.tools.some(tool => tool.toolName === 'shell_exec' && tool.shell?.exitCode === 0));
+  assert.ok(!first.receipt.tools.some(tool => tool.toolName === 'terminal_exec'), 'Shell acceptance cannot use terminal fallback');
+  first.approvalChain = approvalChain({ runId: first.runId, receipt: first.receipt, events: report.approvalEvents,
+    decisions: first.decisions.filter(row => row.kind === 'approval').map(row => ({ ...row, decision: row.decision.decision })) });
   first.status = 'passed'; first.actualArtifact = { total: 56 }; await save(); await stop();
 
   fixture = await setup(root, local + '/pi/v1', model); report.fixture = fixture; await save();
-  let current = await launch('atlas', fixture);
   const nonce = report.runId.slice(0, 8);
-  await writeFile(join(fixture.work, 'input.json'), JSON.stringify({ a: 7, b: 8, order: nonce }));
-  const second = await run('unique-pi', '请让现有 Pi 根据 input.json 把 a 与 b 的和及原 order 写入 answer.json，字段为 sum 和 order。完成后你亲自读取产物核对计算结果，再告诉我。', fixture.target);
-  assert.equal(second.decisions.filter(decision => decision.kind === 'selection').length, 0);
-  await verifyPi(second, fixture.target, fixture.piSession, 0, join(fixture.work, 'answer.json'), { sum: 15, order: nonce });
-  assert.equal(hash(await readFile(current.configPath)), report.launches.at(-1).configSha256Before); await stop();
-
   const other = await addPi(fixture.statePath); report.secondPi = other; await save();
-  current = await launch('blue', fixture);
+  const current = await launch('blue', fixture);
   await writeFile(join(fixture.work, 'blue.json'), JSON.stringify({ a: 5, b: 9, order: nonce + '-blue' }));
   const third = await run('multiple-pi', '请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。', other.target);
   assert.equal(third.decisions.filter(decision => decision.kind === 'selection').length, 1);
+  const selection = third.decisions.find(decision => decision.kind === 'selection');
+  assert.equal(selection.status, 'accepted'); assert.equal(selection.runId, third.runId);
+  assert.deepEqual(selection.value.candidates[selection.decision.index].target, other.target);
   await verifyPi(third, other.target, other.piSession, 0, join(fixture.work, 'blue-answer.json'), { sum: 14, order: nonce + '-blue' });
   assert.equal(hash(await readFile(current.configPath)), report.launches.at(-1).configSha256Before); await stop();
 
-  current = await launch('harbor', fixture);
-  await writeFile(join(fixture.work, 'brief.txt'), Array.from({ length: 1500 }, (_, index) => `记录 ${index + 1}：灯塔材料已按目录归档，编号只用于检索，金额以最后的交付清单为准。`).join('\n') + `\n交付清单：a=12，b=19，order=${nonce}-harbor。\n`);
-  const fourth = await run('compaction', `使用 ${other.target.session} 的 ${other.target.paneId} 中现有的 Pi。先确认这个目标，再完整读取 brief.txt，然后让 Pi 按文件最后的交付清单把和及 order 写入 harbor-answer.json，字段为 sum 和 order。最后你亲自读取结果并核对，不要重复已经成功的调查或写入。`, other.target);
-  await verifyPi(fourth, other.target, other.piSession, 1, join(fixture.work, 'harbor-answer.json'), { sum: 31, order: nonce + '-harbor' });
-  fourth.maskedRequests = report.calls.filter(call => call.stage === 'compaction' && call.masked).map(call => call.id);
-  if (!fourth.maskedRequests.length) fourth.status = 'failed';
-  assert.ok(fourth.maskedRequests.length, 'Real model did not trigger production foreground masking');
-  assert.equal(hash(await readFile(current.configPath)), report.launches.at(-1).configSha256Before);
   assert.deepEqual(report.errors, []); report.status = 'passed';
 } catch (error) {
   report.status = 'failed'; report.failure = { name: error.name, message: error.message.slice(0, 1500) };

@@ -931,7 +931,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         ...(tuiMode ? { modelRetryDelaysMs: [250, 1_000] } : {}),
         modelRetryDisabledAgentIds: [AUTO_CONSOLIDATION_AGENT_ID],
       }),
-      ...(extensions.afterToolCall ? { afterToolCall: extensions.afterToolCall } : {}),
+      ...(foregroundHerdr ? { afterToolCall: input => foregroundHerdr.afterToolCall(input, extensions.afterToolCall) }
+        : extensions.afterToolCall ? { afterToolCall: extensions.afterToolCall } : {}),
       ...(tuiMode
         ? {
             prepareModelContext: async ({ messages, signal, definition, contextOverflow }) => {

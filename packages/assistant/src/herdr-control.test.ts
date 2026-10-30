@@ -40,9 +40,9 @@ else console.log(JSON.stringify({result:{type:args[3]==='prompt'?'agent_prompted
     assistant: { configPath, threadId: "thread", dataDirectory: join(root, "data") }, modelAlias: "scripted",
     desktopAutonomyHost: { home }, authorizeTelegramAutonomy: () => true,
     model: new MockLanguageModelV3({ doStream: async () => {
-      const index = step++, input = inputs[index];
+      const index = step++ - 1, input = index < 0 ? {} : inputs[index];
       return { stream: simulateReadableStream({ chunks: [{ type: "stream-start" as const, warnings: [] },
-        ...(input ? [{ type: "tool-call" as const, toolCallId: `herdr-${index}`, toolName: index < 3 ? "herdr_pi_read" : "herdr_pi_control", input: JSON.stringify(input) }] : []),
+        ...(input ? [{ type: "tool-call" as const, toolCallId: `herdr-${index}`, toolName: index < 0 ? "herdr_pi_discover" : index < 3 ? "herdr_pi_read" : "herdr_pi_control", input: JSON.stringify(input) }] : []),
         { type: "finish" as const, finishReason: { unified: input ? "tool-calls" as const : "stop" as const, raw: undefined }, usage }] }) };
     } }) });
   const controller = createAssistantController(app), approvals: string[] = [];
@@ -61,7 +61,7 @@ else console.log(JSON.stringify({result:{type:args[3]==='prompt'?'agent_prompted
     assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
     assert.deepEqual(approvals, ["herdr_pi_control", "herdr_pi_control", "herdr_pi_control"]);
     const receipt = await controller.runs.get(start.runId);
-    assert.equal(receipt?.tools.length, 6);
+    assert.equal(receipt?.tools.length, 7);
     assert.ok(receipt?.tools.every(tool => tool.status === "completed"));
     const calls: string[][] = (await readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line));
     assert.equal(calls.filter(argv => argv[3] === "prompt").length, 1);

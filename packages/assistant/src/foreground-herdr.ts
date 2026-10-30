@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { UIMessage } from "ai";
-import { AgentError, hashCanonicalJson, type BeforeToolExecute, type BeforeToolExecuteInput, type ToolExecutionDecision } from "@serika/core";
+import { AgentError, hashCanonicalJson, type AfterToolCall, type AfterToolCallInput, type BeforeToolExecute, type BeforeToolExecuteInput, type ToolExecutionDecision } from "@serika/core";
 import { HerdrClient, herdrControlSchema, herdrReadSchema, type HerdrAction, type HerdrCandidate, type HerdrDiscovery, type HerdrTarget } from "./herdr.js";
 
 export interface HerdrSelectionCandidate extends HerdrCandidate { candidateId: string }
@@ -96,9 +96,15 @@ export class ForegroundHerdrTargets {
       if (this.#run !== run) return failure("HERDR_RUN_CHANGED", "原 Run 已结束，发现结果未采用");
       run.discovery = discovery;
       run.candidates = discovery.candidates.map(candidate => ({ ...candidate, candidateId: randomUUID() }));
-      if (run.adopted && !run.candidates.some(candidate => hashCanonicalJson(candidate.target) === hashCanonicalJson(run.adopted!.target))) {
-        delete run.adopted;
-        run.version++;
+      if (run.adopted) {
+        const current = run.candidates.find(candidate => hashCanonicalJson(candidate.target) === hashCanonicalJson(run.adopted!.target));
+        if (current) run.adopted = current;
+        else {
+          delete run.adopted;
+          run.calls.clear();
+          run.needsSelection = true;
+          run.version++;
+        }
       }
     }
     let matches = run.candidates;
@@ -114,12 +120,14 @@ export class ForegroundHerdrTargets {
       matches = run.candidates.filter(candidate => Object.entries(run.requested!).every(([key, value]) => candidate.target[key as keyof HerdrTarget] === value));
       if (run.adopted && (matches.length !== 1 || hashCanonicalJson(matches[0]!.target) !== hashCanonicalJson(run.adopted.target))) {
         delete run.adopted;
+        run.calls.clear();
+        run.needsSelection = true;
         run.version++;
       }
       if (!matches.length) return failure("HERDR_REQUESTED_TARGET_NOT_FOUND", "本轮明确指定的 Pi 目标未通过核对，不会采用其他终端");
     }
     const sameConfigured = !this.options.configuredTarget || matches[0] && hashCanonicalJson(matches[0].target) === hashCanonicalJson(this.options.configuredTarget);
-    if ((!run.adopted || input.requested) && matches.length === 1 && (run.requested || sameConfigured && !run.needsSelection)) {
+    if (!run.adopted && matches.length === 1 && (!run.needsSelection && (run.requested || sameConfigured))) {
       const failed = await this.#adopt(run, matches[0]!, signal);
       if (failed) return failed;
     }
@@ -138,16 +146,22 @@ export class ForegroundHerdrTargets {
     run.needsSelection = false;
     return undefined;
   }
-  async #choose(run: RunTarget, input: BeforeToolExecuteInput): Promise<Failure | undefined> {
-    if (!run.discovery) {
-      const result = await this.discover({}, input.signal);
-      if (!result.ok) return result;
+  async afterToolCall(input: AfterToolCallInput, next?: AfterToolCall) {
+    if (input.toolName !== "herdr_pi_discover") return next?.(input);
+    const run = this.#run;
+    if (!run || run.halted) return { kind: "stop" as const, message: "HERDR_RUN_HALTED: 原 Run 不可继续" };
+    if (run.discovery && !run.adopted) {
+      const failed = await this.#choose(run, input);
+      if (failed) return { kind: "stop" as const, message: `${failed.error.code}: ${failed.error.message}` };
     }
+    const decision = await next?.(input);
+    return decision ?? { kind: "feedback" as const, text: `Current Run Pi target after host selection: ${JSON.stringify(this.snapshot())}. candidateId is a temporary handle, not identity. Checked metadata alone is not adoption. Refreshing handles does not mean the target disappeared.` };
+  }
+  async #choose(run: RunTarget, input: Pick<AfterToolCallInput, "toolCallId" | "signal">): Promise<Failure | undefined> {
     if (!run.candidates.length) return failure("HERDR_NO_PI_TARGET", "未发现已核对的 Pi 目标；请查看发现失败原因，不会启动服务或改发其他终端");
     const candidates = run.requested ? run.candidates.filter(candidate => Object.entries(run.requested!).every(([key, value]) => candidate.target[key as keyof HerdrTarget] === value)) : run.candidates;
     if (!candidates.length) return failure("HERDR_REQUESTED_TARGET_NOT_FOUND", "本轮明确指定的 Pi 目标未通过核对，不会采用其他终端");
-    if (run.adopted) return undefined;
-    const signal = input.steerSignal ? AbortSignal.any([input.signal, input.steerSignal]) : input.signal;
+    const signal = input.signal;
     const candidateId = await new Promise<string | null>((resolve, reject) => {
       const clear = () => {
         signal.removeEventListener("abort", abort);
@@ -171,11 +185,8 @@ export class ForegroundHerdrTargets {
     if (!run || run.halted) return { allow: false, reason: run ? "HERDR_RUN_HALTED: 本轮未知结果须人工核对" : "HERDR_FOREGROUND_REQUIRED: 需要当前前台 Run" };
     const parsed = input.toolName === "herdr_pi_read" ? herdrReadSchema.safeParse(input.input) : herdrControlSchema.safeParse(input.input);
     if (!parsed.success) return { allow: false, reason: "HERDR_INVALID_ACTION: 操作参数无效" };
-    const signal = input.steerSignal ? AbortSignal.any([input.signal, input.steerSignal]) : input.signal;
-    const failed = await this.#choose(run, { ...input, signal });
-    signal.throwIfAborted();
-    if (failed) {
-      run.calls.set(input.toolCallId, { kind: "failed", result: failed });
+    if (!run.adopted) {
+      run.calls.set(input.toolCallId, { kind: "failed", result: failure("HERDR_DISCOVERY_REQUIRED", "本轮尚未采用 Pi 目标；先调用 herdr_pi_discover，由宿主推进选择，没有派发输入") });
       return { allow: true };
     }
     run.calls.set(input.toolCallId, { kind: "ready", target: structuredClone(run.adopted!.target), action: structuredClone(parsed.data),
@@ -202,6 +213,8 @@ export class ForegroundHerdrTargets {
       if (!result.ok && ["HERDR_TARGET_CHANGED", "HERDR_NOT_PI", "HERDR_STATE_UNKNOWN"].includes(result.error.code)) {
         delete run.adopted;
         delete run.discovery;
+        run.calls.clear();
+        run.needsSelection = true;
         run.version++;
       }
       return result;

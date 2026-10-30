@@ -98,3 +98,40 @@
 初次 `.app` 的 cwd 与 resident 身份不同，页面报启动身份不一致；未产生 Run 或模型请求。统一候选打包入口的 cwd 后连接成功，保留两次启动失败日志。没有修改产品验证规则。
 
 本次复验产品代码增删均为 0，仅新增审计脚本并更新报告、证据和费用账本。审计脚本运行、语法检查及 `git diff --check` 均退出 0，日用密钥值与常见密钥前缀扫描均为零命中。未重跑产品全测及标准 smoke，沿用上述相同产品源码的离线基线，本批真实 Electron 结果单独记为失败。真实失败指向候选含义及选择触发路径的引导：随机选择句柄变化不等于终端身份变化；已核对、多候选且尚未采用时应进入宿主选择。后续修复和新的真实 Run 尚未执行，不能用本报告替代复验通过。
+
+
+### 阶段 1 选择推进协议，2026-10-31（先于代码）
+
+本轮仅修已知失败，沿用 #197 与当前 Run 状态。真实批尚未授权，不沿用历史剩余额度。
+
+- [x] 读取 pstack/相关原则、恢复分支与原失败；按 bug-fix 分工只读调查 Shell 和审批。
+- [x] 复现发现后模型可直接结束的缺口，记录失败。
+- [x] Ground：跟踪 terminal tool → AgentLoop → afterToolCall → Controller → desktop/TG；Sketch：确定等待与身份契约。
+- [x] Agree：采用下述已获本轮范围授权的协议；Implement：只改选择推进、对应指引和观察器；Scrap：若契约不适配先记录再重画，禁止补第二循环。
+- [ ] 定向回归 → typecheck → 全测 → 干净源码的隔离 Electron；关口失败停止向后推进，修复仍留原失败。
+- [ ] 提交真实批 Run/请求/费用上限、渠道、断言与停止条件，等待用户“继续”。
+- [ ] 获准后隔离真实验收，逐项核对完成定义；更新既有 #197 后停止，不合并、不切日用。
+
+**Before / After / Demo**：目前多候选 discover 后模型可结束，用户看不到选择。修后 discover 返回后宿主立即等待选择，选定后同 Run 再向模型提供当前采用状态，控制另批。五分钟入口为隔离桌面聊天或 TG 假 API：已有两个 idle Pi，请求生成小文件；发现后模型请求数保持不变，卡/短码有效一次，选择后同 runId 续跑，批准一次 prompt，fixture 仅一条输入，回读和独立解析产物匹配；拒绝、取消或替换身份必须零派发。
+
+**边界与类型**：保留 `PendingHerdrSelection {selectionId, toolCallId, candidates}`、`RunTarget.adopted/version/calls`。新增宿主 `afterToolCall(input, next)` 只处理已完成的发现，不新增行为循环、持久目标或审批权限。它使用原 `AfterToolCallInput.signal`，处于工具 execute deadline 已 dispose 之后，也不经过暂停 Run 计时的 beforeToolExecute。选择等待消耗原 Run 剩余预算，取消/预算耗尽清除等待且不派发。
+
+**顺序**：discover 执行只做有界发现、原话精确 selector 校验及唯一候选核对；成功后宿主 afterToolCall 在交回模型或处理下个工具前检查当前目标。尚未采用且多候选时必建待选择；旧配置失效或真实身份变化时，即使只剩另一个目标也须明确选择。桌面卡/TG 短码共用此等待。有效选择一次性消费，再 get 核对真实身份，成功才采用；失败/取消停止当前 Run，不让模型重发或选别的。选择不产生操作批准。后续控制按原 toolCallId 冻结目标/正文/version，原确认批准后只用冻结值并再次核对身份。
+
+**发现前的 read/control**：没有已采用目标时不在 beforeToolExecute 中发现或等待，返回明确未派发的 `HERDR_DISCOVERY_REQUIRED`；由 discover 统一拥有发现与阻断式选择。脚本模型先 discover 再 control，避免旧测试仅从 control 触发选择而遗漏本次真实失败。已有唯一匹配与同 Run 已采用目标继续沿用。
+
+**身份**：candidateId 是临时句柄，真实身份为既有 `HerdrTarget` 完整字段。refresh 仅换句柄、真实身份相同时沿用采用/version，不重复选择；真实身份不同则撤销旧采用、清空冻结调用、递增 version 并要求选择。刚核对不等于已采用，句柄刷新不等于目标消失。精确 selector 仅匹配原 Run 用户原话并且唯一匹配才可直接采用。
+
+**方案取舍**：把等待塞进 discover.execute 会被工具 deadline 中断；把等待放 beforeToolExecute 会暂停 Run 计时。采用已有 afterToolCall，原 AgentLoop 顺序、工具超时与 Run 预算保持可检验。
+
+**审批观察**：先记录精确 runId/toolCallId/approvalId、冻结目标与正文和决定意图来源，再调用原 preload/IPC 并记录 accepted；cleared 可先于 accepted 回包，必须关联已有 attempt，最终再核对结果。每条需要批准的实际派发必须对应 accepted allow；每个 accepted allow 必须有执行或明确未执行结果。read 自动允许单记，不造卡。拒绝、选择取消、身份变化分别证明零派发，unknown 停止自动回读、重发、换目标及相关控制清理。原失败原件保持不变，后续复验另批。
+
+#### 阶段 1 当前记录（真实批前）
+
+1. 改了什么：`foreground-herdr.ts` 把选择等待迁到既有 afterToolCall；read/control 未采用时明确未派发。刷新同身份保留采用；refresh 或执行前核对发现身份变化均撤销冻结调用并要求重选。能力提示、桌面卡与 TG 文案同步。Shell 复用可信启动 Node，仍经可执行、canonical、protected path 与 dyld 核对，策略和环境白名单无变更。审批观察记录原事件、精确决定来源、accepted 与双向结论，独立文件读取不能伪装自动允许。
+2. 逐条对照：桌面/Controller 假模型已证明发现后停在第一个模型请求、工具已 completed 后才待选、同 Run 一次选择、同身份刷新不重选、批准后单次派发与独立文件核查；取消选择、拒绝、待批取消、身份替换与剩余总预算均有零派发回归。TG 离线 API 已证明 discover 后短码等待、同 Run 单次选择与独立批准、准确正文及取消短码零派发；真实 TG 未测。真实模型证据链仍待新批，不以旧失败或本轮假模型代替。
+3. Shell 分支结论：最小启动 PATH 下，仅按 PATH 发现报 `Seatbelt runtime missing`；同环境下修后原 Runner 执行写入，外部解析 `total=56`，exit 0。native 等价启动环境已通过，Electron 等价启动环境尚待关口。旧日用回执只有 SANDBOX_UNAVAILABLE，不能证明本次复现是其唯一历史原因。现有策略下可修的路径已建立；未声称日用 Shell 已恢复。原 `/private/var/select/sh` 的权限拒绝提示仍保留，未为消除此提示改策略。
+4. 命令：定向回归先失败 `3 !== 1`，修后相关 20 项通过，新增待批取消与执行失败后重选专项 2/2；TG 3/3，observer unit 1/1。初轮 `pnpm typecheck`、`pnpm test` 退出 0，总计 1898 项，1891 pass / 7 skip / 0 fail / 0 cancelled；最终文案后的全套与隔离 Electron 将另行记录。原始预期失败、一次仪器挂在旧 bridge 导致记录为空、一次 nullable Run ID typecheck 失败均保留本地，不改历史结果。
+5. 偏离和待办：测试与验收脚本新增行数多于产品，是本轮明确要求桌面/TG、预算、身份失效、审批双向结论及真实 Shell 产物的覆盖所需；不改变旧权限/副作用预期，不删除测试。修改旧 fixture 为先 discover 再 control，并相应增加工具/模型步计数；compaction 检查移到实际 bulk 后的请求，原断言保留。检查过旧约束 Tool side-effect invariants、Thin TUI confirmation、Shell sandbox、Trusted desktop foreground autonomy、Compact desktop execution display。审核复现的 sole replacement 与 file approval 来源漏洞已补回归。按 Fix Root Causes 修宿主边界，按 Prove It Works 核查真实 Shell 产物；审核 trail reviewed inline，真实模型与真实 TG 仍未覆盖。
+
+**待批准真实批方案**：仅隔离桌面，2 个任务 Run / 总计最多 24 次上游模型请求（含 Serika、Pi 与任何辅助请求）/ $0.25 硬上限，任一达到即停，不补新 Run、不沿用旧剩余。模型拟沿用 `deepseek/deepseek-v4.1-flash-fast`，测试连接字段仅从测试专用 `~/.serika-test.env` 在进程内读取，未读取、未验证内容；不自动借用日用密钥。第一 Run 使用与日用安全策略等价的隔离 Seatbelt Shell，执行并外部解析 `total=56`，禁止 terminal/host fallback。第二 Run 在独占隔离 Herdr 内先有两个 idle Pi，普通请求触发发现、宿主阻断、一次 accepted 选择、核对采用、同 runId、独立控制批准、冻结目标/正文一致、仅一条 Pi 输入、回读并外部核查文件。真实 TG 和真实压缩不在本批覆盖，不能据此报告通过。任何断言、审批来源、费用结算或运输失败均保存原失败并停止；unknown 立即冻结模型代理，不自动回读、重发、换目标或控制清理。预算尚未批准，等待用户“继续”。

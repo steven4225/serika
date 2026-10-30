@@ -155,9 +155,9 @@ else console.log(JSON.stringify({result:{type:'agent_info',agent}}));
         modelAlias: "scripted", output: new PassThrough(), cwd: root, env: { PATH: bin, HOME: root },
         desktopAutonomyHost: { home: join(root, `round3-${source}`) }, authorizeTelegramAutonomy: () => true,
         model: new MockLanguageModelV3({ doStream: async () => {
-          const call = step++;
+          const call = step++ - (selected[0].startsWith("herdr_pi_") ? 1 : 0);
           return { stream: simulateReadableStream({ chunks: [{ type: "stream-start" as const, warnings: [] },
-            ...(call < 2 ? [{ type: "tool-call" as const, toolCallId: `round3-${call}`, toolName: selected[0], input: JSON.stringify(selected[2]) }] : []),
+            ...(call < 2 ? [{ type: "tool-call" as const, toolCallId: `round3-${call}`, toolName: call < 0 ? "herdr_pi_discover" : selected[0], input: JSON.stringify(call < 0 ? {} : selected[2]) }] : []),
             { type: "finish" as const, finishReason: { unified: call < 2 ? "tool-calls" as const : "stop" as const, raw: undefined }, usage }] }) };
         } }) });
       const controller = createAssistantController(app);

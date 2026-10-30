@@ -21,10 +21,11 @@ export function createDesktopSmokeModel() {
     let piAnswer: string | undefined;
     if (text.startsWith("S2 pi ")) {
       const results = prompt.slice(lastUser + 1).flatMap(message => message.role === "tool" ? message.content : []);
-      const failed = results.some(result => result.type === "tool-result" && result.output.type === "json" &&
-        typeof result.output.value === "object" && result.output.value !== null && "ok" in result.output.value && result.output.value.ok === false);
+      const failed = results.some(result => result.type === "tool-result" && (result.output.type === "error-text" || result.output.type === "error-json" || result.output.type === "json" &&
+        typeof result.output.value === "object" && result.output.value !== null && "ok" in result.output.value && result.output.value.ok === false));
       const names = results.flatMap(result => result.type === "tool-result" ? [result.toolName] : []);
       if (failed) piAnswer = "S2_PI_STOPPED";
+      else if (!names.includes("herdr_pi_discover")) { toolName = "herdr_pi_discover"; input = {}; }
       else if (!names.includes("herdr_pi_control")) { toolName = "herdr_pi_control"; input = { action: "prompt", text }; }
       else if (!names.includes("herdr_pi_read")) { toolName = "herdr_pi_read"; input = { action: "read" }; }
       else if (!names.includes("read_file")) { toolName = "read_file"; input = { path: "answer.json" }; }

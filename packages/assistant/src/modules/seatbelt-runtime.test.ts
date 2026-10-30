@@ -41,3 +41,14 @@ test("missing discovery and protected executable, library or config directories 
     await assert.rejects(resolveSeatbeltRuntime({ ...f.options, configPath: join(dirname(f.library), "trusted.json") }), /Protected/);
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
+
+test("trusted launch Node works without a PATH Node and still rejects protected runtime paths", async () => {
+  const f = await fixture();
+  try {
+    await unlink(join(f.root, "bin/node"));
+    await assert.rejects(resolveSeatbeltRuntime(f.options), /runtime missing/);
+    const result = await resolveSeatbeltRuntime({ ...f.options, nodeExecutable: f.first });
+    assert.equal(result.node, f.first);
+    await assert.rejects(resolveSeatbeltRuntime({ ...f.options, nodeExecutable: f.first, protectedPaths: [dirname(f.first)] }), /Protected/);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});

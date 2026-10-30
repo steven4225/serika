@@ -1481,7 +1481,8 @@ it("binding success describes the current host grant and authorized directory", 
 it("fixed-target Herdr read returns through offline Telegram without approval", async () => {
   let observed = false;
   const f = await fixture(async (n, prompt) => {
-    if (n === 1) return response({ name: "herdr_pi_read", input: { action: "read" } });
+    if (n === 1) return response({ name: "herdr_pi_discover", input: {} }, "", "discover");
+    if (n === 2) return response({ name: "herdr_pi_read", input: { action: "read" } }, "", "read");
     observed = prompt?.includes("离线 Pi 的只读输出") === true;
     return response(undefined, observed ? "离线 Pi 的只读输出" : "fixture result missing");
   }, true, false, true);
@@ -1495,9 +1496,9 @@ it("fixed-target Herdr read returns through offline Telegram without approval", 
     assert.equal(f.sent.some(text => text.includes("需要你确认")), false);
     const input = f.store.snapshot().inputs.find(x => x.key === "42:2")!;
     const receipt = await f.host.channelReceipt(f.store.snapshot().owner!.threadId, input.runId!);
-    assert.equal(receipt?.tools[0]?.toolName, "herdr_pi_read");
-    assert.equal(receipt?.tools[0]?.status, "completed");
-    assert.equal(receipt?.tools[0]?.approvalRequestedAt, undefined);
+    assert.equal(receipt?.tools[1]?.toolName, "herdr_pi_read");
+    assert.equal(receipt?.tools[1]?.status, "completed");
+    assert.equal(receipt?.tools[1]?.approvalRequestedAt, undefined);
   } finally { await f.cleanup(); }
 });
 
@@ -1529,9 +1530,10 @@ it("allowed Computer reads return through offline Telegram without approval and 
 
 
 it("Telegram chooses one discovered Pi within the same Run, then separately approves exactly one prompt", async () => {
-  const f = await fixture(async n => response(n === 1 ? { name: "herdr_pi_control", input: { action: "prompt", text: "isolated task" } } : undefined), true, false, "multiple");
+  const f = await fixture(async n => response(n === 1 ? { name: "herdr_pi_discover", input: {} } : n === 2 ? { name: "herdr_pi_control", input: { action: "prompt", text: "isolated task" } } : undefined, "", `call-${n}`), true, false, "multiple");
   try {
     await f.bind();
+    const decisions: { runId: string | undefined; toolCallId: string | undefined; approvalId: string; source: string; accepted: boolean }[] = [];
     await f.gateway.receive(update(2, "让已有 Pi 完成离线任务"));
     await until(() => f.store.snapshot().deliveries.some(x => x.key.startsWith("selection:") && x.state === "submitted"));
     const source = f.store.snapshot().inputs.find(x => x.key === "42:2")!;
@@ -1553,17 +1555,45 @@ it("Telegram chooses one discovered Pi within the same Run, then separately appr
     assert.equal(snapshot.pendingHerdrSelection, null);
     assert.equal(snapshot.state.kind === "running" && snapshot.state.runId, source.runId);
     assert.equal(snapshot.pendingApproval?.herdr?.target.terminalId, "t2");
-    assert.equal(f.calls(), 1);
+    assert.equal(f.calls(), 2);
     await assert.rejects(readFile(join(f.root, "herdr-prompts.jsonl")), { code: "ENOENT" });
     const approval = f.store.snapshot().deliveries.find(x => x.key.startsWith("approval:"))!;
+    const originalConfirm = f.host.current.confirm.bind(f.host.current);
+    f.host.current.confirm = input => {
+      const current = f.host.channelSnapshot().snapshot;
+      const result = originalConfirm(input);
+      decisions.push({ runId: current.state.kind === "running" ? current.state.runId ?? undefined : undefined,
+        toolCallId: current.pendingApproval?.toolCallId, approvalId: input.approvalId, source: "telegram-short-code", accepted: result.accepted });
+      return result;
+    };
     await f.gateway.receive(update(6, `允许 ${approval.key.split(":").at(-1)}`));
     await until(() => f.store.snapshot().deliveries.find(x => x.key === "result:42:2")?.state === "submitted");
     const prompts = (await readFile(join(f.root, "herdr-prompts.jsonl"), "utf8")).trim().split("\n").map(line => JSON.parse(line));
     assert.equal(prompts.length, 1);
     assert.equal(prompts[0][4], "p2");
+    assert.equal(prompts[0][5], snapshot.pendingApproval?.herdr?.action.action === "prompt" ? snapshot.pendingApproval.herdr.action.text : null);
+    assert.deepEqual(decisions, [{ runId: source.runId, toolCallId: snapshot.pendingApproval?.toolCallId,
+      approvalId: snapshot.pendingApproval?.approvalId, source: "telegram-short-code", accepted: true }]);
+    const receipt = await f.host.channelReceipt(f.store.snapshot().owner!.threadId, source.runId!);
+    assert.equal(receipt?.tools.find(tool => tool.toolName === "herdr_pi_control")?.toolCallId, decisions[0]?.toolCallId);
     assert.equal(f.store.snapshot().inputs.find(x => x.key === "42:2")!.runId, source.runId);
     await f.gateway.receive(update(7, `选择 ${selectionCode} 1`));
     assert.match(f.sent.at(-1)!, /已过期|已处理/);
-    assert.equal(f.calls(), 2);
+    assert.equal(f.calls(), 3);
+  } finally { await f.cleanup(); }
+});
+
+it("Telegram cancels discovery choice without another model request or control approval", async () => {
+  const f = await fixture(async n => response(n === 1 ? { name: "herdr_pi_discover", input: {} } : undefined, "", `cancel-${n}`), true, false, "multiple");
+  try {
+    await f.bind();
+    await f.gateway.receive(update(2, "让已有 Pi 完成离线任务"));
+    await until(() => f.store.snapshot().deliveries.some(row => row.key.startsWith("selection:") && row.state === "submitted"));
+    const notice = f.store.snapshot().deliveries.find(row => row.key.startsWith("selection:"))!;
+    await f.gateway.receive(update(3, `取消选择 ${notice.key.split(":").at(-1)}`));
+    await until(() => f.host.channelSnapshot().snapshot.state.kind === "idle");
+    assert.equal(f.calls(), 1);
+    assert.ok(!f.store.snapshot().deliveries.some(row => row.key.startsWith("approval:")));
+    await assert.rejects(readFile(join(f.root, "herdr-prompts.jsonl")), { code: "ENOENT" });
   } finally { await f.cleanup(); }
 });
