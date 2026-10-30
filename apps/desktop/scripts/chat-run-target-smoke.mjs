@@ -2,7 +2,7 @@ import { _electron as electron, expect } from 'playwright/test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { access, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,7 +21,7 @@ const report = { runId: randomUUID(), startedAt: new Date().toISOString(), verif
   checks: [], screenshots: [], approvalEvents: [], decisions: [], selections: [], consoleErrors: [], pageErrors: [], status: 'failed' };
 assert.equal(report.sourceWorktreeDirty, false, 'Commit source before recording Electron evidence');
 await mkdir(output, { recursive: true });
-const root = await mkdtemp(join(tmpdir(), 'serika-run-target-smoke-'));
+const root = await realpath(await mkdtemp(join(tmpdir(), 'serika-run-target-smoke-')));
 const workspace = join(root, 'workspace'), home = join(root, 'home'), profile = join(root, 'profile'), bin = join(root, 'bin');
 await Promise.all([workspace, home, bin].map(path => mkdir(path)));
 const state = join(root, 'identities.json'), log = join(root, 'prompts.jsonl'), artifact = join(workspace, 'answer.json');
@@ -112,21 +112,13 @@ try {
   await shot('approve-frozen-pi');
   assert.deepEqual(await decide('unmatched-probe', 'allow'), { accepted: false });
   assert.deepEqual(await decide(approved.pendingApproval.approvalId, 'allow'), { accepted: true });
-  await until(async () => (await snapshot()).pendingApproval?.toolName === 'read_file');
-  const fileApproval = await snapshot();
-  assert.deepEqual(await decide(approved.pendingApproval.approvalId, 'allow'), { accepted: false });
-  assert.equal((await snapshot()).pendingApproval.approvalId, fileApproval.pendingApproval.approvalId);
-  assert.equal(fileApproval.state.runId, first.state.runId);
-  assert.equal((await prompts()).length, 1);
-  assert.ok(report.approvalEvents.some(event => event.type === 'approval' && event.approval.approvalId === approved.pendingApproval.approvalId));
-  assert.ok(report.approvalEvents.some(event => event.type === 'approval-cleared' && event.approvalId === approved.pendingApproval.approvalId));
-  await shot('approve-independent-file-read');
-  assert.deepEqual(await decide(fileApproval.pendingApproval.approvalId, 'allow'), { accepted: true });
   await idle();
   await expect(page.getByText('S2_PI_DONE', { exact: true })).toBeVisible();
   const completed = await receipt(first.state.runId), result = JSON.parse(await readFile(artifact, 'utf8'));
   assert.deepEqual(completed.tools.map(tool => tool.toolName), ['herdr_pi_discover', 'herdr_pi_control', 'herdr_pi_read', 'read_file']);
   assert.ok(completed.tools.every(tool => tool.status === 'completed'));
+  assert.equal(completed.tools.find(tool => tool.toolName === 'read_file').approvalRequestedAt, undefined);
+  assert.ok(!report.approvalEvents.some(row => row.type === 'approval' && row.runId === first.state.runId && row.approval.toolName === 'read_file'));
   assert.equal(result.answer, 56); assert.equal(result.paneId, 'p2'); assert.equal(result.request, `S2 pi ${report.runId}-first`);
   assert.equal((await prompts()).length, 1);
   assert.equal((await snapshot()).pendingHerdrSelection, null);
@@ -139,9 +131,8 @@ try {
   assert.equal(report.selections.filter(row => row.runId === first.state.runId && row.response.accepted).length, 1);
   report.checks.push({ name: 'choose-continue-approve-readback-independent-file-check', result: 'passed', runId: first.state.runId,
     selectionId: selection.selectionId, approvalId: approved.pendingApproval.approvalId,
-    fileApprovalId: fileApproval.pendingApproval.approvalId, actualArtifact: result,
+    fileApprovalId: null, filePermission: 'existing-workspace-autonomy', actualArtifact: result,
     tools: completed.tools.map(({ toolName, status }) => ({ toolName, status })), screenshot: await shot('independently-verified') });
-  report.checks.push({ name: 'original-preload-exact-approval-id-rejects-stale-and-unmatched', result: 'passed' });
   const second = await send(`S2 pi ${report.runId}-replaced`);
   assert.notEqual(second.pendingHerdrSelection.selectionId, selection.selectionId);
   assert.deepEqual(await page.evaluate(input => window.runloom.selectHerdrTarget(input), {
@@ -150,6 +141,9 @@ try {
   await page.getByRole('button', { name: '本轮使用', exact: true }).nth(1).click();
   await until(async () => !!(await snapshot()).pendingApproval?.preview);
   const stale = (await snapshot()).pendingApproval;
+  assert.deepEqual(await decide(approved.pendingApproval.approvalId, 'allow'), { accepted: false });
+  assert.equal((await snapshot()).pendingApproval.approvalId, stale.approvalId);
+  report.checks.push({ name: 'original-preload-exact-approval-id-rejects-stale-and-unmatched', result: 'passed' });
   await writeFile(state, JSON.stringify({ p1: 't1', p2: 'replacement-t2' }));
   assert.deepEqual(await decide(stale.approvalId, 'allow'), { accepted: true });
   await idle();
