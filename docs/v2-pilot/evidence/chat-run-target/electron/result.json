@@ -1,0 +1,98 @@
+{
+  "runId": "dcb8a901-c4bc-4427-8ffc-b5802b1eb581",
+  "startedAt": "2026-10-30T10:30:39.828Z",
+  "verification": "real-electron-scripted-model-offline-herdr",
+  "sourceCommit": "daef7db33ebf8bc04e9f369e248a93ccb3290486",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "0d04d04a35feb72e6cddbd637d2b0c64d6a43fb7cb1f4498e2ab341a3dcd693f",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "checks": [
+    {
+      "name": "choose-continue-approve-readback-independent-file-check",
+      "result": "passed",
+      "runId": "09f4a89a-c2d0-474a-96ce-6ab8b4ff1ee1",
+      "selectionId": "e89fc313-8b6f-48cc-ba7b-588bc30ad1eb",
+      "approvalId": "c6427e69-2431-44a6-9e61-395b72b50154",
+      "fileApprovalId": "b7fcc55a-5857-4a25-aacd-ac042028e1e6",
+      "actualArtifact": {
+        "request": "S2 pi dcb8a901-c4bc-4427-8ffc-b5802b1eb581-first",
+        "paneId": "p2",
+        "answer": 56
+      },
+      "tools": [
+        {
+          "toolName": "herdr_pi_control",
+          "status": "completed"
+        },
+        {
+          "toolName": "herdr_pi_read",
+          "status": "completed"
+        },
+        {
+          "toolName": "read_file",
+          "status": "completed"
+        }
+      ],
+      "screenshot": {
+        "file": "independently-verified.png",
+        "sha256": "fbe18835c54c05249d0d750a30cca74e4992ce313fddbd25e8af785bbb4301c3"
+      }
+    },
+    {
+      "name": "new-run-reselects-old-choice-invalid-replacement-blocks-old-approval",
+      "result": "passed",
+      "runId": "ac7838a9-a227-4e60-b570-c87d2ecc3f47",
+      "failureCode": "HERDR_TARGET_CHANGED",
+      "promptDispatches": 1,
+      "screenshot": {
+        "file": "replacement-blocked.png",
+        "sha256": "a6066399a7669abc5bb9a2c09693589eafb7892a8471199167937fedb2ba5af4"
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "choose-pi.png",
+      "sha256": "c4a90da823f6c767732e497479b054072038fb45e669b5415bf105d5a95c569e"
+    },
+    {
+      "file": "approve-frozen-pi.png",
+      "sha256": "2bf6b7ec8e7d881710ffa31ed1ad11db76c896a1d95171e915431716794419ab"
+    },
+    {
+      "file": "approve-independent-file-read.png",
+      "sha256": "25ae73fce1c98cf6ef1224d62a008cbe4e7450533b3063da5048af0dfc0f3805"
+    },
+    {
+      "file": "independently-verified.png",
+      "sha256": "fbe18835c54c05249d0d750a30cca74e4992ce313fddbd25e8af785bbb4301c3"
+    },
+    {
+      "file": "replacement-blocked.png",
+      "sha256": "a6066399a7669abc5bb9a2c09693589eafb7892a8471199167937fedb2ba5af4"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "status": "passed",
+  "configSha256Before": "ccd97c75c7e0568d2e26477b730d2e009e2fbd67e96fbbba36affac9c61be423",
+  "artifactHashes": {
+    "out/main/index.js": "b999e7f4f3219b6e6bc3b562d74a592aeddd003e8aab228177e8a6d6379e1e48",
+    "out/preload/index.cjs": "1001a6b85f82a25f42428f97643258cbff80115e7f9489cad7a209fdaa1d7a36",
+    "out/renderer/index.html": "13fd99258afba3596fe88775c52db364421dd48aa97ccce9dd35b32b26b6a57f"
+  },
+  "main": {
+    "electron": "44.4.5",
+    "pid": 62809,
+    "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-sgOCvQ/profile",
+    "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-sgOCvQ/home"
+  },
+  "renderer": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+    "url": "file:///Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/out/renderer/index.html"
+  },
+  "configSha256After": "ccd97c75c7e0568d2e26477b730d2e009e2fbd67e96fbbba36affac9c61be423",
+  "electronStopped": true,
+  "temporaryDirectoryRemoved": true
+}

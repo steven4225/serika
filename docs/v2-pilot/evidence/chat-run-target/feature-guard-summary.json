@@ -1,0 +1,26 @@
+{
+  "runId": "72961fe8-9c5f-4085-9a1e-f0599554de5d",
+  "startedAt": "2026-10-30T10:30:39.663Z",
+  "home": "/private/tmp/serika-chat-target-feature-guard-local",
+  "protectedRoot": "/Users/a1-6/.serika",
+  "command": [
+    "node",
+    "apps/desktop/scripts/chat-run-target-smoke.mjs",
+    "--output",
+    "/private/tmp/serika-chat-target-electron-local"
+  ],
+  "recordConcurrentChanges": true,
+  "exitCode": 0,
+  "signal": null,
+  "status": "passed",
+  "violations": [],
+  "metadataUnchanged": false,
+  "finishedAt": "2026-10-30T10:30:47.726Z",
+  "metadataEntryCounts": {
+    "before": 272,
+    "after": 272
+  },
+  "concurrentChanges": 6,
+  "sourceSha256": "e94b7ac9b9ea39c2641778d30411325fe4fb4c2d1fad45b16d79c02758234311",
+  "projection": "Original guard result with daily metadata paths omitted; counts and source digest are derived from the original."
+}
