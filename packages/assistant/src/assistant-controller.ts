@@ -23,6 +23,7 @@ import type { WorkTask } from "./work-task-store.js";
 import { recoverRunningWorkTasks } from "./work-task-recovery.js";
 import type { ShellProgress } from "./modules/shell-module.js";
 import type { PendingToolApproval } from "./tool-confirmation.js";
+import type { PendingHerdrSelection, SelectHerdrTargetInput } from "./foreground-herdr.js";
 import { memoryControlFailure } from "./memory-controls.js";
 
 const MAX_RECENT_OUTPUT_CHARS = 16 * 1024;
@@ -63,6 +64,7 @@ export interface AssistantSnapshot {
   canSteer: boolean;
   steers: readonly AssistantSteerRecord[];
   pendingApproval: PendingToolApproval | null;
+  pendingHerdrSelection?: PendingHerdrSelection | null;
   recentOutput: string;
   outputTruncated: boolean;
   toolActivity: readonly ToolActivity[];
@@ -75,6 +77,8 @@ export type AssistantEvent =
   | { type: "steer"; steer: AssistantSteerRecord }
   | { type: "approval"; approval: PendingToolApproval }
   | { type: "approval-cleared"; approvalId: string }
+  | { type: "herdr-selection"; selection: PendingHerdrSelection }
+  | { type: "herdr-selection-cleared"; selectionId: string }
   | { type: "run-event"; phase: "primary" | "skill"; event: AgentEvent }
   | { type: "run-result"; phase: "primary" | "skill"; result: RunResult }
   | { type: "shell-progress"; phase: "primary" | "skill"; runId: string; progress: ShellProgress }
@@ -133,6 +137,7 @@ export interface AssistantController {
   cancel(): Promise<void>;
   /** `remember: true` keeps the approval's offered conversation grant (see `PendingToolApproval.remember`). */
   confirm(input: { approvalId: string; decision: "allow" | "deny"; remember?: boolean }): boolean;
+  selectHerdrTarget(input: SelectHerdrTargetInput): boolean;
   /**
    * Resolves after the command settles. A command that threw or was cancelled
    * returns `ok: false` here as well as emitting an `error` event; callers
@@ -238,6 +243,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   const toolActivity: ToolActivity[] = [];
   const toolNames = new Map<string, string>();
   let pendingApproval = app.toolConfirmation?.getPending() ?? null;
+  let pendingHerdrSelection = app.foregroundHerdr?.getPending() ?? null;
   const listeners = new Set<(event: AssistantEvent) => void>();
 
   const emit = (event: AssistantEvent): void => {
@@ -268,6 +274,12 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
   const unsubscribeShellProgress = app.subscribeShellProgress?.((progress) => {
     if (state.kind !== "running" || state.runId === null) return;
     emit({ type: "shell-progress", phase: state.phase, runId: state.runId, progress });
+  });
+  const unsubscribeHerdr = app.foregroundHerdr?.subscribe(next => {
+    const previous = pendingHerdrSelection;
+    pendingHerdrSelection = next ?? null;
+    if (previous && previous.selectionId !== next?.selectionId) emit({ type: "herdr-selection-cleared", selectionId: previous.selectionId });
+    if (next) emit({ type: "herdr-selection", selection: next });
   });
   const unsubscribeMemoryReferences = app.subscribeMemoryReferences?.(() => {
     const references = app.getMemoryReferences?.();
@@ -642,6 +654,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       canSteer: !closed && !cancelRequested && state.kind === "running" && state.phase === "primary" && state.runId !== null && activeHandle?.runId === state.runId && activeHandle.steer !== undefined,
       steers: structuredClone(steers),
       pendingApproval,
+      pendingHerdrSelection,
       recentOutput,
       outputTruncated,
       toolActivity: [...toolActivity],
@@ -774,6 +787,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       if (activeHandle !== undefined) await activeHandle.cancel("Cancelled from application");
     },
     confirm: (input) => app.toolConfirmation?.resolveApproval(input) ?? false,
+    selectHerdrTarget: input => app.foregroundHerdr?.select(input) ?? false,
     command: async (line) => {
       const { name, args } = commandParts(line);
       if (name.length === 0) return { ok: false, reason: "empty" };
@@ -871,6 +885,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
         workTaskLease?.release() ?? Promise.resolve(),
       ]);
       unsubscribeApproval?.();
+      unsubscribeHerdr?.();
       unsubscribeShellProgress?.();
       unsubscribeMemoryReferences?.();
       unsubscribeMemoryUpdates?.();

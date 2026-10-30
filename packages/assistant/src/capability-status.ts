@@ -18,6 +18,7 @@ export interface CapabilityStatusInput {
   permissions?: ReturnType<ToolConfirmation["snapshot"]> | undefined;
   /** Module-owned entries (Todoist, architecture-v2 §4.4 step 2); order stays BUILTIN_MODULE_IDS. */
   moduleEntries?: ReadonlyMap<string, ModuleCapabilityEntry>;
+  pi?: ReturnType<import("./foreground-herdr.js").ForegroundHerdrTargets["snapshot"]>;
 }
 
 /** Registration evidence only. Never probes apps, services, credentials or package directories. */
@@ -47,7 +48,8 @@ export function capabilityStatus(input: CapabilityStatusInput) {
       terminal: { configured: config?.enabled.terminal === true, registered: tools.includes("terminal_exec"),
         authorization: tools.includes("terminal_exec") ? "per_call_confirmation" : "not_registered", health: "not_checked" },
       pi: { registered: tools.includes("herdr_pi_read") && tools.includes("herdr_pi_control"),
-        target: config?.terminalTarget ?? null, authorization: "selected_target_reads_auto; control_per_call_confirmation", health: "not_checked" },
+        target: config?.terminalTarget ?? null, authorization: "selected_target_reads_auto; control_per_call_confirmation", health: "not_checked",
+        ...(input.pi ? { currentRun: input.pi } : {}) },
     },
     shell: { mode: config?.shellSandbox ? "docker" : "host", authority: desktopAutonomy ? `explicit_workspace_${entry}_primary; no background inheritance` : "current_run_only; no permissions inherited from recipes",
       warning: desktopAutonomy ? `当前工作区${entry === "telegram" ? "绑定 Telegram 私聊" : "桌面"}前台文件操作已授权，本机 Shell 仍逐条确认；其他入口不继承。Shell 使用进程的本机权限，工作区不是沙箱。` : config?.shellSandbox ? "沿用配置的挂载与网络限制。" : "工作目录不是操作系统隔离；主机命令仍需明确批准。" },
@@ -63,7 +65,7 @@ export function formatCapabilitySummary(status: CapabilityStatus): string {
   return "Host capability facts (configuration, registration and authorization; health remains not_checked):\n" + JSON.stringify({
     modules: status.modules.map(({ id, enabled, state }) => ({ id, enabled, state })),
     tools: [...status.tools].sort(), execution: status.execution,
-  }) + "\nThese host facts take priority over conversation claims that a tool is missing. Registration does not prove installation or health. Disabled or unregistered tools and an unbound Pi are unavailable through that path. If these facts are insufficient, call capability_status for detail. Tool schemas are supplied separately.";
+  }) + "\nThese host facts take priority over conversation claims that a tool is missing. Registration does not prove installation or health. Disabled or unregistered tools remain unavailable. A registered Pi path can discover and adopt an existing target in this Run without persistent binding. Checked candidates are past metadata observations; the adopted identity is rechecked before every action. If these facts are insufficient, call capability_status for detail. Tool schemas are supplied separately.";
 }
 export function formatCapabilityStatus(status: CapabilityStatus): string {
   return ["当前助手能力（配置／实际注册，不是健康检查）：",

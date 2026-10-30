@@ -67,6 +67,7 @@ export interface PendingToolApproval {
    * built from, set together with the preview. Display only, never authority.
    */
   reminder?: ReminderConfirmationFields;
+  herdr?: { target: import("./herdr.js").HerdrTarget; action: import("./herdr.js").HerdrControl; selectionVersion: number };
 }
 
 /** A non-persistent file-tool rule that applies to one subsequent Run. */
@@ -454,7 +455,8 @@ export function createToolConfirmation(
       try {
         const text = typeof card === "string" ? card : card.text;
         entry.approval.preview = text;
-        if (typeof card !== "string") entry.approval.reminder = { ...card.reminder };
+        if (typeof card !== "string" && "reminder" in card) entry.approval.reminder = { ...card.reminder };
+        if (typeof card !== "string" && "herdr" in card) entry.approval.herdr = structuredClone(card.herdr);
         notifyPending();
         if (pending !== entry) return;
         const remember = entry.approval.remember;

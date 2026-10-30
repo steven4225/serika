@@ -18,7 +18,10 @@ for (const source of ["desktop", "telegram"] as const) it(`${source} structured 
   await writeFile(join(bin, "herdr"), `#!${process.execPath}
 import {appendFileSync} from 'node:fs';
 const args=process.argv.slice(2);appendFileSync(${JSON.stringify(log)},JSON.stringify(args)+'\\n');
-if(args[0]!=='--session'||args[1]!=='offline'||args[4]!=='p1')process.exit(3);
+if(args[0]==='session'){console.log(JSON.stringify({sessions:[{name:'offline',running:true}]}));process.exit(0);}
+if(args[0]!=='--session'||args[1]!=='offline')process.exit(3);
+if(args[2]==='pane'&&args[3]==='list'){console.log(JSON.stringify({result:{panes:[{pane_id:'p1',terminal_id:'t1',terminal_title_stripped:'Pi'}]}}));process.exit(0);}
+if(args[4]!=='p1')process.exit(3);
 const agent={agent:'pi',agent_status:'idle',pane_id:'p1',terminal_id:'t1',state_change_seq:1};
 if(args[2]==='pane')console.log(JSON.stringify({result:{type:'pane_info',pane:{pane_id:'p1',terminal_id:'t1'}}}));
 else if(args[3]==='read')console.log('offline Pi output');
@@ -63,7 +66,7 @@ else console.log(JSON.stringify({result:{type:args[3]==='prompt'?'agent_prompted
     const calls: string[][] = (await readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line));
     assert.equal(calls.filter(argv => argv[3] === "prompt").length, 1);
     assert.equal(calls.filter(argv => argv[3] === "send-keys").length, 2);
-    assert.equal(calls.filter(argv => argv[2] === "pane").length, 7);
-    assert.ok(calls.every(argv => argv[0] === "--session" && argv[1] === "offline" && argv[4] === "p1"));
+    assert.equal(calls.filter(argv => argv[2] === "pane").length, 10);
+    assert.ok(calls.filter(argv => argv[0] === "--session" && argv[3] !== "list").every(argv => argv[1] === "offline" && argv[4] === "p1"));
   } finally { remove(); await controller.shutdown(); app.dispose(); await rm(root, { recursive: true, force: true }); }
 });

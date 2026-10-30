@@ -90,6 +90,7 @@ export type { AssistantDataPaths } from "./data-paths.js";
 export { resolveApplicationHome } from "./application-home.js";
 
 export { HerdrClient, herdrTargetSchema, type HerdrTarget, type HerdrPane, type HerdrSession } from "./herdr.js";
+export type { HerdrSelectionCandidate, PendingHerdrSelection, SelectHerdrTargetInput } from "./foreground-herdr.js";
 export { ComputerDriverUnavailableError } from "./tui-module-config.js";
 export { computerConfigSchema, createDriverCall, discoverComputerApps } from "./modules/computer-module.js";
 
