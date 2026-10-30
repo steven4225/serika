@@ -16,6 +16,7 @@ type FrozenCall = { kind: "ready"; target: HerdrTarget; action: HerdrAction; sel
   | { kind: "failed"; result: Failure };
 type RunTarget = {
   request: string;
+  requestId: string | undefined;
   discovery?: HerdrDiscovery;
   candidates: HerdrSelectionCandidate[];
   adopted?: HerdrSelectionCandidate;
@@ -38,13 +39,15 @@ export class ForegroundHerdrTargets {
   }
   begin(request?: UIMessage): void {
     this.end();
-    this.#run = { request: request?.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n") ?? "",
+    this.#run = { requestId: request?.id, request: request?.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n") ?? "",
       candidates: [], version: 0, calls: new Map(), halted: false, steers: new Set(), needsSelection: false };
   }
   observeSteers(messages: readonly UIMessage[]): void {
     const run = this.#run;
     if (!run) return;
-    for (const message of messages) {
+    const start = messages.findIndex(message => message.id === run.requestId && message.role === "user");
+    if (start < 0) return;
+    for (const message of messages.slice(start + 1)) {
       if (message.role !== "user" || (message.metadata as { source?: unknown } | undefined)?.source !== "steer" || run.steers.has(message.id)) continue;
       run.steers.add(message.id);
       run.request += "\n" + message.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n");

@@ -119,6 +119,23 @@ it("a new explicit selector revokes the old adoption and remains binding through
   } finally { await f.cleanup(); }
 });
 
+it("historical Steer cannot become new-Run target evidence or revive a selection", async () => {
+  const f = await fixture({ calls: [] });
+  try {
+    const target = f.app.foregroundHerdr!;
+    const current = { id: "new-request", role: "user" as const, parts: [{ type: "text" as const, text: "当前新任务" }] };
+    const old = { id: "old-steer", role: "user" as const, metadata: { source: "steer" }, parts: [{ type: "text" as const, text: "offline p1" }] };
+    target.begin(current);
+    target.observeSteers([old, current]);
+    const result = await target.discover({ requested: { session: "offline", paneId: "p1", sourceQuote: "offline p1" } });
+    assert.ok(!result.ok);
+    assert.equal(result.error.code, "HERDR_REQUEST_EVIDENCE_INVALID");
+    assert.equal(target.snapshot().adoptedTarget, null);
+    assert.ok(!(await f.calls()).some(a => a[3] === "prompt"));
+    target.end();
+  } finally { await f.cleanup(); }
+});
+
 for (const windowTokens of [32768, 1000000]) it(`current Run choice and discovery survive production compaction at ${windowTokens} tokens`, async () => {
   const f = await fixture({ windowTokens, calls: [prompt, { name: "read_file", input: { path: "bulk.txt" } },
     { name: "herdr_pi_read", input: { action: "read" } }, { name: "read_file", input: { path: "answer.json" } }] });
