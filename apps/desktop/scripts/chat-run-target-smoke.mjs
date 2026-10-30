@@ -102,6 +102,12 @@ try {
   assert.equal(approved.pendingHerdrSelection, null); assert.deepEqual(await prompts(), []);
   await shot('approve-frozen-pi');
   await page.getByRole('button', { name: '允许本次调用', exact: true }).click();
+  await until(async () => (await snapshot()).pendingApproval?.toolName === 'read_file');
+  const fileApproval = await snapshot();
+  assert.equal(fileApproval.state.runId, first.state.runId);
+  assert.equal((await prompts()).length, 1);
+  await shot('approve-independent-file-read');
+  await page.getByRole('button', { name: '允许本次调用', exact: true }).click();
   await idle();
   await expect(page.getByText('S2_PI_DONE', { exact: true })).toBeVisible();
   const completed = await receipt(first.state.runId), result = JSON.parse(await readFile(artifact, 'utf8'));
@@ -111,7 +117,8 @@ try {
   assert.equal((await prompts()).length, 1);
   assert.equal((await snapshot()).pendingHerdrSelection, null);
   report.checks.push({ name: 'choose-continue-approve-readback-independent-file-check', result: 'passed', runId: first.state.runId,
-    selectionId: selection.selectionId, approvalId: approved.pendingApproval.approvalId, actualArtifact: result,
+    selectionId: selection.selectionId, approvalId: approved.pendingApproval.approvalId,
+    fileApprovalId: fileApproval.pendingApproval.approvalId, actualArtifact: result,
     tools: completed.tools.map(({ toolName, status }) => ({ toolName, status })), screenshot: await shot('independently-verified') });
   const second = await send(`S2 pi ${report.runId}-replaced`);
   assert.notEqual(second.pendingHerdrSelection.selectionId, selection.selectionId);
