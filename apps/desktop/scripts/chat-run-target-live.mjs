@@ -9,6 +9,7 @@ import { parseEnv } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { _electron as electron, expect } from 'playwright/test';
 import { setup, addPi, cleanup } from './chat-run-target-live-herdr.mjs';
+import { confirmApproval, observeApprovals } from './chat-run-target-approval.mjs';
 
 const repo = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -39,12 +40,17 @@ const report = { runId: randomUUID(), startedAt: new Date().toISOString(), sourc
   scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))), capUsd, maxRequests, maxRuns, pricePerMillionUsd: price,
   priceBasis: 'Conservative published peak rates; not invoice verified', priceSource: 'https://commandcode.ai/models/deepseek-v4-1-flash-fast',
   credentialSource: 'user-authorized-daily-model-fields-in-process-only', credentialsWrittenToDisk: false,
-  calls: [], cases: [], launches: [], errors: [], screenshots: [], costUsd: 0, status: 'running', isolatedRoot: root };
+  calls: [], cases: [], launches: [], errors: [], screenshots: [], approvalEvents: [], costUsd: 0, status: 'running', isolatedRoot: root };
 let stage = 'startup', frozen = false, running, page, fixture, pendingId;
+const requests = new Set();
 let saving = Promise.resolve();
 const save = () => { const text = JSON.stringify(report, null, 2) + '\n'; saving = saving.then(() => writeFile(join(output, 'result.json'), text)); return saving; };
 const tell = value => console.log(JSON.stringify(value));
-const server = createServer(async (req, res) => {
+const server = createServer((req, res) => {
+  const request = handleRequest(req, res);
+  requests.add(request); void request.finally(() => requests.delete(request));
+});
+async function handleRequest(req, res) {
   let row;
   try {
     assert.ok(['/serika/v1/chat/completions', '/pi/v1/chat/completions'].includes(req.url));
@@ -63,8 +69,8 @@ const server = createServer(async (req, res) => {
     row = { id: randomUUID(), stage, caller: req.url.startsWith('/pi/') ? 'pi' : 'serika', startedAt: new Date().toISOString(),
       status: 'dispatched', reservedUsd, requestBytes: Buffer.byteLength(text), requestSha256: hash(text),
       masked: text.includes('masked pending background'), carriesRunTarget: text.includes('adoptedTarget'), maxOutputTokens: maxOutput };
-    report.calls.push(row);
-    await writeFile(join(output, `request-${report.calls.length}.json`), JSON.stringify(body, null, 2) + '\n'); await save();
+    report.calls.push(row); row.sequence = report.calls.length;
+    await writeFile(join(output, `request-${row.sequence}.json`), JSON.stringify(body, null, 2) + '\n'); await save();
     const response = await fetch(credentials.base + '/chat/completions', { method: 'POST', headers: {
       Authorization: `Bearer ${credentials.key}`, 'Content-Type': 'application/json' }, body: text, signal: AbortSignal.timeout(120000) });
     row.httpStatus = response.status;
@@ -87,14 +93,14 @@ const server = createServer(async (req, res) => {
       if (row.costUsd > reservedUsd) { frozen = true; report.stopReason = 'reservation-exceeded'; }
     }
     row.finishedAt = new Date().toISOString(); await save(); res.end();
-    tell({ call: report.calls.length, caller: row.caller, stage, status: row.status, costUsd: report.costUsd });
+    tell({ call: row.sequence, caller: row.caller, stage: row.stage, status: row.status, costUsd: report.costUsd });
   } catch {
     frozen = true;
     if (row?.status === 'dispatched') row.status = 'transport-unknown';
     await save(); if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'application/json' });
     res.end('{"error":{"message":"Isolated request stopped; no automatic replay"}}');
   }
-});
+}
 await new Promise(done => server.listen(0, '127.0.0.1', done));
 const local = `http://127.0.0.1:${server.address().port}`;
 const baseEnv = Object.fromEntries(['PATH', 'USER', 'LOGNAME', 'TMPDIR', 'LANG', 'LC_ALL'].flatMap(key => process.env[key] ? [[key, process.env[key]]] : []));
@@ -124,6 +130,13 @@ async function launch(name, pi) {
   page.on('pageerror', error => report.errors.push({ stage, type: 'page', message: error.message }));
   page.on('console', message => { if (message.type() === 'error') report.errors.push({ stage, type: 'console', message: message.text() }); });
   await expect(page.getByPlaceholder('和 Serika 聊天')).toBeEnabled();
+  await observeApprovals({ page, onEvent: event => {
+    report.approvalEvents.push({ stage, ...event });
+    if (event.type === 'approval-cleared' && !report.cases.at(-1)?.decisions.some(row => row.value.approvalId === event.approvalId)) {
+      report.stopReason = 'approval-cleared-without-recorded-decision'; frozen = true;
+    }
+    return save();
+  } });
   report.launches.push({ name, main: await running.evaluate(({ app }) => ({ electron: process.versions.electron, pid: process.pid, userData: app.getPath('userData'), home: app.getPath('home') })),
     renderer: await page.evaluate(() => ({ userAgent: navigator.userAgent, url: location.href })), configSha256Before: hash(await readFile(configPath)) });
   await save(); return { work, configPath };
@@ -142,7 +155,12 @@ async function decide(kind, value) {
     await page.getByRole('button', { name: '本轮使用', exact: true }).nth(decision.index).click();
   } else {
     assert.equal(decision.decision, 'allow');
-    await page.getByRole('button', { name: '允许本次调用', exact: true }).click();
+    const row = { kind, value, decision, at: new Date().toISOString(), source: 'original-preload-confirm', status: 'attempting' };
+    report.cases.at(-1).decisions.push(row); await save();
+    row.response = await confirmApproval({ page, approvalId: id, decision: decision.decision });
+    row.status = row.response.accepted ? 'accepted' : 'rejected'; await save();
+    assert.equal(row.response.accepted, true, 'Exact original approval ID was not accepted');
+    return true;
   }
   report.cases.at(-1).decisions.push({ kind, value, decision, at: new Date().toISOString() });
   await save(); return true;
@@ -181,8 +199,11 @@ async function verifyPi(item, target, sessionFile, before, file, expected) {
   const controls = item.receipt.tools.filter(tool => tool.toolName === 'herdr_pi_control');
   assert.equal(controls.length, 1); assert.equal(controls[0].status, 'completed');
   const approved = item.decisions.filter(decision => decision.value.herdr);
+  item.actualArtifact = JSON.parse(await readFile(file, 'utf8'));
+  const transcript = await messages(sessionFile); item.piUserMessagesAdded = transcript.length - before;
+  await save();
   assert.equal(approved.length, 1); assert.deepEqual(approved[0].value.herdr.target, target);
-  const transcript = await messages(sessionFile); assert.equal(transcript.length, before + 1);
+  assert.equal(approved[0].status, 'accepted'); assert.equal(transcript.length, before + 1);
   const text = transcript.at(-1).message.content.filter(part => part.type === 'text').map(part => part.text).join('\n');
   assert.equal(text, approved[0].value.herdr.action.text);
   const artifact = JSON.parse(await readFile(file, 'utf8')); assert.deepEqual(artifact, expected);
@@ -226,6 +247,7 @@ try {
   assert.deepEqual(report.errors, []); report.status = 'passed';
 } catch (error) {
   report.status = 'failed'; report.failure = { name: error.name, message: error.message.slice(0, 1500) };
+  if (report.cases.at(-1)?.status === 'running') report.cases.at(-1).status = 'failed';
   if (running) await shot('failure').catch(() => {});
 } finally {
   if (running) {
@@ -233,11 +255,12 @@ try {
     if (snapshot?.state.kind !== 'idle') await page.evaluate(() => window.runloom.cancel()).catch(() => {});
     await stop();
   }
+  await new Promise(done => server.close(done));
+  await Promise.all([...requests]);
   if (fixture && !frozen && !report.unknownEffect) {
     try { report.cleanup = await cleanup(fixture.statePath); }
     catch { report.cleanup = { status: 'retained-for-inspection', statePath: fixture.statePath }; }
   }
-  await new Promise(done => server.close(done));
   if (fixture) {
     const state = JSON.parse(await readFile(fixture.statePath, 'utf8'));
     await writeFile(join(output, 'herdr-state.json'), JSON.stringify(state, null, 2) + '\n');

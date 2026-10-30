@@ -6,6 +6,7 @@ import { access, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { confirmApproval, observeApprovals } from './chat-run-target-approval.mjs';
 
 const desktop = fileURLToPath(new URL('..', import.meta.url)), repo = resolve(desktop, '../..');
 const args = process.argv.slice(2), outputIndex = args.indexOf('--output');
@@ -17,7 +18,7 @@ const git = (...values) => execFileSync('git', values, { cwd: repo, encoding: 'u
 const report = { runId: randomUUID(), startedAt: new Date().toISOString(), verification: 'real-electron-scripted-model-offline-herdr',
   sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: !!git('status', '--porcelain'),
   scriptSha256: await hash(fileURLToPath(import.meta.url)), realModelCalls: 0, costUsd: 0,
-  checks: [], screenshots: [], consoleErrors: [], pageErrors: [], status: 'failed' };
+  checks: [], screenshots: [], approvalEvents: [], consoleErrors: [], pageErrors: [], status: 'failed' };
 assert.equal(report.sourceWorktreeDirty, false, 'Commit source before recording Electron evidence');
 await mkdir(output, { recursive: true });
 const root = await mkdtemp(join(tmpdir(), 'serika-run-target-smoke-'));
@@ -62,6 +63,7 @@ const shot = async name => {
 };
 const send = async text => {
   await expect(page.getByPlaceholder('和 Serika 聊天')).toBeEnabled();
+  await observeApprovals({ page, onEvent: event => report.approvalEvents.push(event) });
   await page.getByPlaceholder('和 Serika 聊天').fill(text);
   await page.getByRole('button', { name: '发送消息', exact: true }).click();
   await expect(page.getByRole('region', { name: '本轮 Pi 目标选择' })).toBeVisible();
@@ -92,6 +94,7 @@ try {
   assert.deepEqual(await prompts(), []);
   await shot('choose-pi');
   await page.reload();
+  await observeApprovals({ page, onEvent: event => report.approvalEvents.push(event) });
   await expect(page.getByRole('region', { name: '本轮 Pi 目标选择' })).toBeVisible();
   assert.equal((await snapshot()).pendingHerdrSelection.selectionId, selection.selectionId);
   await page.getByRole('button', { name: '本轮使用', exact: true }).nth(1).click();
@@ -101,11 +104,16 @@ try {
   assert.equal(approved.pendingApproval.herdr.target.terminalId, 't2');
   assert.equal(approved.pendingHerdrSelection, null); assert.deepEqual(await prompts(), []);
   await shot('approve-frozen-pi');
-  await page.getByRole('button', { name: '允许本次调用', exact: true }).click();
+  assert.deepEqual(await confirmApproval({ page, approvalId: 'unmatched-probe', decision: 'allow' }), { accepted: false });
+  assert.deepEqual(await confirmApproval({ page, approvalId: approved.pendingApproval.approvalId, decision: 'allow' }), { accepted: true });
   await until(async () => (await snapshot()).pendingApproval?.toolName === 'read_file');
   const fileApproval = await snapshot();
+  assert.deepEqual(await confirmApproval({ page, approvalId: approved.pendingApproval.approvalId, decision: 'allow' }), { accepted: false });
+  assert.equal((await snapshot()).pendingApproval.approvalId, fileApproval.pendingApproval.approvalId);
   assert.equal(fileApproval.state.runId, first.state.runId);
   assert.equal((await prompts()).length, 1);
+  assert.ok(report.approvalEvents.some(event => event.type === 'approval' && event.approval.approvalId === approved.pendingApproval.approvalId));
+  assert.ok(report.approvalEvents.some(event => event.type === 'approval-cleared' && event.approvalId === approved.pendingApproval.approvalId));
   await shot('approve-independent-file-read');
   await page.getByRole('button', { name: '允许本次调用', exact: true }).click();
   await idle();
@@ -120,6 +128,7 @@ try {
     selectionId: selection.selectionId, approvalId: approved.pendingApproval.approvalId,
     fileApprovalId: fileApproval.pendingApproval.approvalId, actualArtifact: result,
     tools: completed.tools.map(({ toolName, status }) => ({ toolName, status })), screenshot: await shot('independently-verified') });
+  report.checks.push({ name: 'original-preload-exact-approval-id-rejects-stale-and-unmatched', result: 'passed' });
   const second = await send(`S2 pi ${report.runId}-replaced`);
   assert.notEqual(second.pendingHerdrSelection.selectionId, selection.selectionId);
   assert.deepEqual(await page.evaluate(input => window.runloom.selectHerdrTarget(input), {
