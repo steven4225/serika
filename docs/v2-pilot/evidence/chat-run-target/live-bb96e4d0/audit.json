@@ -1,0 +1,37 @@
+{
+  "auditId": "e1a146e3-4032-4cf7-9710-7531916ee491",
+  "auditedAt": "2026-10-30T13:12:13.133Z",
+  "verification": "post-run-archived-evidence-audit",
+  "sourceResultSha256": "f1989eba4eaf216a56a981ae4d906f56f1bfed309775283bc270f6c539319f6c",
+  "sourceRunId": "bb96e4d0-e124-49b4-a1dd-ca31b19d5814",
+  "originalStatus": "failed",
+  "sourceResultUnmodified": true,
+  "realModelRequests": 19,
+  "taskRuns": 2,
+  "amount": 0.012035719999999996,
+  "amountBasis": "Conservative published peak rates; not invoice verified",
+  "unresolvedCalls": 0,
+  "unresolvedReservedUsd": 0,
+  "originalFooterUnresolvedReservedUsd": 0.014480640000000001,
+  "footerReconciliation": "Every request row returned with usage; original footer was saved before the last handler settled.",
+  "ordinaryCliArtifact": {
+    "total": 56
+  },
+  "pi": {
+    "singlePromptMatchesReceipt": true,
+    "serikaReadArtifact": {
+      "sum": 15,
+      "order": "bb96e4d0"
+    },
+    "recordedControlDecisions": 0,
+    "approvalSource": "unobserved",
+    "externalFilesystemCheck": "not-reached-before-original-assertion-failed"
+  },
+  "unexecuted": [
+    "multiple-pi",
+    "real-model-compaction",
+    "real-telegram"
+  ],
+  "acceptance": "incomplete",
+  "productApprovalBypass": "not-established"
+}

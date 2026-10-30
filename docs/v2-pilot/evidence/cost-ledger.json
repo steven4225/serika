@@ -136,8 +136,24 @@
       "unresolvedReservedUsd": 0,
       "evidence": "foreground-capability-wiring/b6656086-4a3c-4e69-9d4a-899ef0d860c5.json",
       "evidenceSha256": "6b29dca0618027f1b3054c15081a91e42485b8c99b4a92d7fa844d8f05accc26"
+    },
+    {
+      "step": "chat-run-target",
+      "runId": "bb96e4d0-e124-49b4-a1dd-ca31b19d5814",
+      "realModelRequests": 19,
+      "taskRuns": 2,
+      "amount": 0.012035719999999996,
+      "amountBasis": "Conservative published peak rates; not invoice verified",
+      "authorizedBatchCapUsd": 2,
+      "authorizedBatchMaxRequests": 24,
+      "authorizedBatchMaxRuns": 4,
+      "unresolvedCalls": 0,
+      "unresolvedReservedUsd": 0,
+      "evidence": "chat-run-target/live-bb96e4d0/result.json",
+      "evidenceSha256": "f1989eba4eaf216a56a981ae4d906f56f1bfed309775283bc270f6c539319f6c",
+      "reconciliation": "All 19 per-request rows returned with usage. Original failed result and its stale footer reservation remain unchanged; see chat-run-target/live-bb96e4d0/audit.json. No fresh batch or allowance reset."
     }
   ],
-  "total": 2.0816631999999995,
-  "knownTotal": 2.0679559999999997
+  "total": 2.0936989199999996,
+  "knownTotal": 2.0799917199999998
 }

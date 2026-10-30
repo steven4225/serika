@@ -1,0 +1,14 @@
+{
+  "runId": "678a945d-79f4-4317-bf0e-8c920c9bde9b",
+  "startedAt": "2026-10-30T13:10:25.749Z",
+  "finishedAt": "2026-10-30T13:10:33.713Z",
+  "status": "passed",
+  "exitCode": 0,
+  "signal": null,
+  "recordConcurrentChanges": true,
+  "metadataUnchanged": false,
+  "originalSha256": "48fd24e12e4abd4f0f4089a46dbf9a50c829486c7fde4ce142ca63dbb8c81fc3",
+  "violationsCount": 0,
+  "concurrentEventCount": 4,
+  "rawRetainedAt": "/private/tmp/serika-run-choice-observer-guard/write-guard-nobc5Q/result.json"
+}

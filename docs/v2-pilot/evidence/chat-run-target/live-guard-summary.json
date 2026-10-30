@@ -1,0 +1,14 @@
+{
+  "runId": "fbb95227-04a8-499b-91d9-cc146789196b",
+  "startedAt": "2026-10-30T12:59:40.827Z",
+  "finishedAt": "2026-10-30T13:06:36.949Z",
+  "status": "failed",
+  "exitCode": 1,
+  "signal": null,
+  "recordConcurrentChanges": true,
+  "metadataUnchanged": false,
+  "originalSha256": "68a7c866acc03911f4a1555fc1b3f44fecad5a13ebb86b8efd276978c3c6f7a0",
+  "violationsCount": 0,
+  "concurrentEventCount": 253,
+  "rawRetainedAt": "/private/tmp/serika-run-choice-live-guard/write-guard-2Gjsg2/result.json"
+}
