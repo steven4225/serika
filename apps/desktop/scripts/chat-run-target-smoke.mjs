@@ -45,7 +45,7 @@ await writeFile(config, JSON.stringify({ version: 2, projectDirectory: workspace
 await writeFile(envFile, 'RUNLOOM_MODEL=mock\n', { mode: 0o600 });
 report.configSha256Before = await hash(config);
 const env = Object.fromEntries(['USER', 'LOGNAME', 'LANG', 'LC_ALL', 'TMPDIR', 'DISPLAY', 'XAUTHORITY'].flatMap(name => process.env[name] ? [[name, process.env[name]]] : []));
-Object.assign(env, { PATH: bin, HOME: home, XDG_CONFIG_HOME: join(home, '.config'), XDG_CACHE_HOME: join(home, '.cache'),
+Object.assign(env, { PATH: `${bin}:/usr/bin:/bin:/usr/sbin:/sbin`, HOME: home, XDG_CONFIG_HOME: join(home, '.config'), XDG_CACHE_HOME: join(home, '.cache'),
   RUNLOOM_MODEL: 'mock', RUNLOOM_DESKTOP_TEST: '1', RUNLOOM_USER_DATA: profile, RUNLOOM_CONFIG: config,
   RUNLOOM_ENV_FILE: envFile, RUNLOOM_WORKSPACE: workspace, RUNLOOM_TRANSCRIPTS: join(root, 'transcripts'), RUNLOOM_THREAD: 'chat-run-target-smoke' });
 let running, page;
