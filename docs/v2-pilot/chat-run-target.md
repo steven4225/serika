@@ -78,3 +78,5 @@
 原真实脚本及外层 guard 退出 1，guard violations=0、并发事件 253，不能称 guard 通过或日用元数据未变。隔离 Herdr 在核对本目标 idle 后清理，目录已删除；原 Pi 外部文件检查因审批断言失败未到达，只可确认 Serika 已读出正确产物。剩余 5 次请求不足以可靠完成另两个完整场景，未新开批次或刷新额度。
 
 本轮最终离线全测 1881 pass／7 skip，无失败或取消；修复后专项 3/3、标准 Electron 8/8。源码提交 `542e854`，三者启动时均为干净工作区，未在真实模型下重跑修复后的脚本。证据密钥值与常见密钥前缀扫描为零命中。按 Prove It Works 保留产物与请求原件，按 Fix Root Causes 修复观察与结算时序，没有把失败改成通过。
+
+原始 SSE 响应以空行结束，普通 `git diff --check` 对 19 份 response 提示 blank line at EOF；为保持原响应 SHA 未删空行。`git -c core.whitespace=-blank-at-eof diff --check 315f89a HEAD` 退出 0，其余空白检查保留。
