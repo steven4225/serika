@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -133,6 +133,16 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
       ["computer_action", "action", { bundleId: "com.example.Offline", pid: 1, windowId: 1, observationId: "offline", elementToken: "offline", action: "click" }],
       ["terminal_exec", "browser", { command: "ego-browser --help" }],
     ] as const;
+    const bin = join(root, "bin"); await mkdir(bin);
+    await writeFile(join(bin, "herdr"), `#!${process.execPath}
+const a=process.argv.slice(2),identity={pane_id:'p1',terminal_id:'t1'},agent={...identity,agent:'pi',agent_status:'idle'};
+if(a[0]==='session')console.log(JSON.stringify({sessions:[{name:'offline',running:true}]}));
+else if(a[2]==='pane')console.log(JSON.stringify({result:a[3]==='list'?{panes:[{...identity,terminal_title_stripped:'Offline Pi'}]}:{type:'pane_info',pane:identity}}));
+else if(a[3]==='read')console.log('offline fixture output');
+else if(a[3]==='prompt'||a[3]==='send-keys')process.exit(9);
+else console.log(JSON.stringify({result:{type:'agent_info',agent}}));
+`);
+    await chmod(join(bin, "herdr"), 0o700);
     for (const source of ["desktop", "telegram"] as const) {
       const configPath = join(root, `round3-${source}.json`);
       await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
@@ -142,7 +152,7 @@ it("b0 locks full host decisions, current Memory, configuration and filesystem b
       let selected: typeof round3Calls[number] = round3Calls[0], step = 0;
       const app = await createRuntimeApp({ directory: join(root, `round3-${source}`, "transcripts"),
         assistant: { dataDirectory: join(root, `round3-${source}`, "data"), threadId: "thread", configPath },
-        modelAlias: "scripted", output: new PassThrough(), cwd: root, env: {},
+        modelAlias: "scripted", output: new PassThrough(), cwd: root, env: { PATH: bin, HOME: root },
         desktopAutonomyHost: { home: join(root, `round3-${source}`) }, authorizeTelegramAutonomy: () => true,
         model: new MockLanguageModelV3({ doStream: async () => {
           const call = step++;

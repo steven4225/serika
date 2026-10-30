@@ -23,6 +23,8 @@ type RunTarget = {
   calls: Map<string, FrozenCall>;
   halted: boolean;
   requested?: Partial<Pick<HerdrTarget, "session" | "paneId" | "terminalId">>;
+  steers: Set<string>;
+  needsSelection: boolean;
 };
 type SelectionWait = { selection: PendingHerdrSelection; settle(candidateId: string | null): void; abort(): void };
 
@@ -37,7 +39,21 @@ export class ForegroundHerdrTargets {
   begin(request?: UIMessage): void {
     this.end();
     this.#run = { request: request?.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n") ?? "",
-      candidates: [], version: 0, calls: new Map(), halted: false };
+      candidates: [], version: 0, calls: new Map(), halted: false, steers: new Set(), needsSelection: false };
+  }
+  observeSteers(messages: readonly UIMessage[]): void {
+    const run = this.#run;
+    if (!run) return;
+    for (const message of messages) {
+      if (message.role !== "user" || (message.metadata as { source?: unknown } | undefined)?.source !== "steer" || run.steers.has(message.id)) continue;
+      run.steers.add(message.id);
+      run.request += "\n" + message.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n");
+      delete run.adopted;
+      delete run.requested;
+      run.version++;
+      run.calls.clear();
+      run.needsSelection = true;
+    }
   }
   end(): void {
     this.#run = undefined;
@@ -64,6 +80,7 @@ export class ForegroundHerdrTargets {
       checkedCandidates: structuredClone(run?.candidates ?? []),
       adoptedTarget: run?.adopted ? structuredClone(run.adopted) : null,
       selectionVersion: run?.version ?? 0, halted: run?.halted ?? false,
+      requestedTarget: structuredClone(run?.requested ?? null),
       failures: structuredClone(run?.discovery?.failures ?? []) };
   }
   async discover(input: { refresh?: boolean | undefined; requested?: { session?: string | undefined; paneId?: string | undefined; terminalId?: string | undefined; sourceQuote: string } | undefined }, signal?: AbortSignal) {
@@ -89,11 +106,17 @@ export class ForegroundHerdrTargets {
         return failure("HERDR_REQUEST_EVIDENCE_INVALID", "明确目标须附本轮用户原话及其中的准确目标标识；否则由用户选择");
       }
       run.requested = Object.fromEntries(fields);
-      matches = run.candidates.filter(candidate => fields.every(([key, value]) => candidate.target[key as keyof HerdrTarget] === value));
+    }
+    if (run.requested) {
+      matches = run.candidates.filter(candidate => Object.entries(run.requested!).every(([key, value]) => candidate.target[key as keyof HerdrTarget] === value));
+      if (run.adopted && (matches.length !== 1 || hashCanonicalJson(matches[0]!.target) !== hashCanonicalJson(run.adopted.target))) {
+        delete run.adopted;
+        run.version++;
+      }
       if (!matches.length) return failure("HERDR_REQUESTED_TARGET_NOT_FOUND", "本轮明确指定的 Pi 目标未通过核对，不会采用其他终端");
     }
     const sameConfigured = !this.options.configuredTarget || matches[0] && hashCanonicalJson(matches[0].target) === hashCanonicalJson(this.options.configuredTarget);
-    if ((!run.adopted || input.requested) && matches.length === 1 && (input.requested || sameConfigured)) {
+    if ((!run.adopted || input.requested) && matches.length === 1 && (run.requested || sameConfigured && !run.needsSelection)) {
       const failed = await this.#adopt(run, matches[0]!, signal);
       if (failed) return failed;
     }
@@ -109,6 +132,7 @@ export class ForegroundHerdrTargets {
     }
     run.adopted = structuredClone(candidate);
     run.version++;
+    run.needsSelection = false;
     return undefined;
   }
   async #choose(run: RunTarget, input: BeforeToolExecuteInput): Promise<Failure | undefined> {
@@ -116,10 +140,10 @@ export class ForegroundHerdrTargets {
       const result = await this.discover({}, input.signal);
       if (!result.ok) return result;
     }
-    if (run.adopted) return undefined;
     if (!run.candidates.length) return failure("HERDR_NO_PI_TARGET", "未发现已核对的 Pi 目标；请查看发现失败原因，不会启动服务或改发其他终端");
     const candidates = run.requested ? run.candidates.filter(candidate => Object.entries(run.requested!).every(([key, value]) => candidate.target[key as keyof HerdrTarget] === value)) : run.candidates;
     if (!candidates.length) return failure("HERDR_REQUESTED_TARGET_NOT_FOUND", "本轮明确指定的 Pi 目标未通过核对，不会采用其他终端");
+    if (run.adopted) return undefined;
     const signal = input.steerSignal ? AbortSignal.any([input.signal, input.steerSignal]) : input.signal;
     const candidateId = await new Promise<string | null>((resolve, reject) => {
       const clear = () => {
@@ -144,7 +168,9 @@ export class ForegroundHerdrTargets {
     if (!run || run.halted) return { allow: false, reason: run ? "HERDR_RUN_HALTED: 本轮未知结果须人工核对" : "HERDR_FOREGROUND_REQUIRED: 需要当前前台 Run" };
     const parsed = input.toolName === "herdr_pi_read" ? herdrReadSchema.safeParse(input.input) : herdrControlSchema.safeParse(input.input);
     if (!parsed.success) return { allow: false, reason: "HERDR_INVALID_ACTION: 操作参数无效" };
-    const failed = await this.#choose(run, input);
+    const signal = input.steerSignal ? AbortSignal.any([input.signal, input.steerSignal]) : input.signal;
+    const failed = await this.#choose(run, { ...input, signal });
+    signal.throwIfAborted();
     if (failed) {
       run.calls.set(input.toolCallId, { kind: "failed", result: failed });
       return { allow: true };

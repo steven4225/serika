@@ -140,7 +140,7 @@ it("Herdr discovery checks running candidates and reports safe per-session and i
     const result = await f.client.discover();
     assert.deepEqual(result.candidates, [{ target: f.target, title: "password=[REDACTED]", status: "idle", stateChangeSeq: 3 }]);
     assert.deepEqual(result.failures.map(item => [item.session, item.paneId, item.error.code]), [
-      ["offline", "w1:p2", "HERDR_NOT_PI"], ["broken", undefined, "HERDR_SERVER_NOT_RUNNING"],
+      ["offline", "w1:p2", "HERDR_NOT_PI"], ["broken", undefined, "HERDR_SERVER_NOT_RUNNING"], ["stopped", undefined, "HERDR_SESSION_NOT_RUNNING"],
     ]);
     assert.ok(!JSON.stringify(result).includes(f.secret));
     const calls = await f.calls();

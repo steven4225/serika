@@ -767,7 +767,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       createMemoryReferenceSource({ store: memoryStore, threadId, projectId: project?.id ?? null }),
       createTaskTimeSource(project),
       createWorkTaskSource(() => currentRun.workTaskMessage),
-      createForegroundTaskSource(() => currentRun.foreground?.request, () => foregroundHerdr?.snapshot()),
+      createForegroundTaskSource(() => currentRun.foreground?.request),
     ], project?.id ?? null);
     const referencePrefix = async (messages: readonly UIMessage[], signal: AbortSignal) => (await buildReferencePrefix(messages, signal)).prefix;
     let lastUncompactedPreparation: ContextDiagnostics["lastPreparation"] = null;
@@ -824,6 +824,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       consolidationAgentId: AUTO_CONSOLIDATION_AGENT_ID,
       isTextSkill: agentId => automation.skills.find(skill => skill.agentId === agentId)?.kind === "text",
       primary: async (messages, signal) => {
+        foregroundHerdr?.observeSteers(messages);
         const currentUser = [...messages].reverse().find(message => message.role === "user");
         // Runtime requires one new user message per Run. Capture it before
         // reference injection/compaction; WorkTask contracts are not user facts.

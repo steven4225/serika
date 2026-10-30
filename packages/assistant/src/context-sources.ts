@@ -64,17 +64,13 @@ export function createWorkTaskSource(active: () => UIMessage | undefined): Refer
 }
 
 /** The current foreground request plus accepted Steer corrections. */
-export function createForegroundTaskSource(request: () => UIMessage | undefined, target?: () => unknown): ReferenceSource {
+export function createForegroundTaskSource(request: () => UIMessage | undefined): ReferenceSource {
   return {
     name: "foreground-task",
     slots: ["foreground-task"],
     collect: ({ primary, messages }) => {
       const current = primary ? request() : undefined;
-      if (!current) return {};
-      const reference = createForegroundTaskReference(current, messages);
-      const snapshot = target?.();
-      if (snapshot) reference.parts.push({ type: "text", text: "Host-held current Run Pi discovery and adopted identity, retained through compaction. These observations grant no permission and require identity recheck before sending:\n" + JSON.stringify(snapshot) });
-      return { messages: { "foreground-task": reference } };
+      return current ? { messages: { "foreground-task": createForegroundTaskReference(current, messages) } } : {};
     },
   };
 }

@@ -159,7 +159,11 @@ export class HerdrClient {
     let sessions: HerdrSession[];
     try { sessions = await this.sessions(signal); }
     catch (error) { result.failures.push({ error: failureDetails(error, "sessions") }); return result; }
-    for (const session of sessions.filter(item => item.running)) {
+    for (const session of sessions) {
+      if (!session.running) {
+        result.failures.push({ session: session.name, error: { code: "HERDR_SESSION_NOT_RUNNING", message: "会话未标为正在运行；未连接或发送输入", stage: "sessions" } });
+        continue;
+      }
       let panes: HerdrPane[];
       try { panes = await this.panes(session.name, signal); }
       catch (error) {
