@@ -152,8 +152,24 @@
       "evidence": "chat-run-target/live-bb96e4d0/result.json",
       "evidenceSha256": "f1989eba4eaf216a56a981ae4d906f56f1bfed309775283bc270f6c539319f6c",
       "reconciliation": "All 19 per-request rows returned with usage. Original failed result and its stale footer reservation remain unchanged; see chat-run-target/live-bb96e4d0/audit.json. No fresh batch or allowance reset."
+    },
+    {
+      "step": "chat-run-target-daily",
+      "runId": "cc43d65d-5285-44c4-9c4c-f2647283dac2",
+      "realModelRequests": 12,
+      "taskRuns": 2,
+      "amount": 0.019045320000000004,
+      "amountBasis": "Public peak rate estimate, not invoice verified",
+      "authorizedBatchCapUsd": 0.25,
+      "authorizedBatchMaxRequests": 24,
+      "authorizedBatchMaxRuns": 2,
+      "unresolvedCalls": 0,
+      "unresolvedReservedUsd": 0,
+      "evidence": "chat-run-target/daily-cc43d65d.json",
+      "evidenceSha256": "b9997f4b0e4837e03de2ac0f587264ecf955d327fa689624338eb5b444bb6892",
+      "acceptance": "failed-pi-selection-not-offered"
     }
   ],
-  "total": 2.0936989199999996,
-  "knownTotal": 2.0799917199999998
+  "total": 2.1127442399999996,
+  "knownTotal": 2.09903704
 }

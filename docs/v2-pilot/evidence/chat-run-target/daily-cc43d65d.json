@@ -1,0 +1,76 @@
+{
+  "auditId": "284fe86a-17a1-4706-a45a-b697fed7428a",
+  "auditedAt": "2026-10-30T13:53:28.798Z",
+  "sourceRunId": "cc43d65d-5285-44c4-9c4c-f2647283dac2",
+  "verification": "daily-mode-real-electron-real-model-original-preload-ipc",
+  "acceptance": "failed-pi-selection-not-offered",
+  "rawEvidenceKeptLocal": true,
+  "rawEvidenceSha256": {
+    "state": "78f4c029514ccf2e779ccd0d77bd6822ee1d680f0c401f981d7e7cbd73bdca58",
+    "ui": "5494df7dd7f4b53eb9858b06a70435b4a5da69356b8a09996b29a87d03715886",
+    "usage": "9f62458c4b24aa3556bb8e61d4580ba1712e2204334cdc52e1ea95e6e85ea103"
+  },
+  "testedRevision": "4bdb22d728defa0a05ea60e756cf8b30baaac6f8",
+  "testedBuildId": "e45fd69d02c65071",
+  "taskRuns": [
+    {
+      "runId": "75f2c84f-97e4-4c9f-828b-fbced61f636c",
+      "name": "ordinary-cli",
+      "runtimeStatus": "completed"
+    },
+    {
+      "runId": "9149caba-3e55-4d2a-8ee5-4e475ffc66c7",
+      "name": "existing-pi",
+      "runtimeStatus": "completed"
+    }
+  ],
+  "cli": {
+    "externalArtifact": {
+      "total": 56
+    },
+    "artifactSha256": "86a8893c3172be148ff17993094aee056e2baeeba8928c38d92d525788492dc5",
+    "shellErrors": [
+      "SANDBOX_UNAVAILABLE"
+    ],
+    "terminalCalls": 6,
+    "recordedScriptDecisions": 5,
+    "unrecordedDecisionSources": 1,
+    "result": "artifact-correct-existing-host-terminal-confirmation-used"
+  },
+  "pi": {
+    "discoveryCalls": 2,
+    "checkedCandidateCounts": [
+      8,
+      8
+    ],
+    "candidateStatusCounts": [
+      {
+        "idle": 8
+      },
+      {
+        "idle": 8
+      }
+    ],
+    "adopted": false,
+    "selectionCards": 0,
+    "controlDispatches": 0,
+    "failure": "Model misread refreshed candidate IDs and past-observation caution as invalid targets, then ended without host selection."
+  },
+  "realModelRequests": 12,
+  "amount": 0.019045320000000004,
+  "amountBasis": "Public peak rate estimate, not invoice verified",
+  "authorizedBatchMaxRequests": 24,
+  "authorizedBatchMaxRuns": 2,
+  "authorizedBatchCapUsd": 0.25,
+  "unresolvedCalls": 0,
+  "unresolvedReservedUsd": 0,
+  "configUnchanged": true,
+  "bindingUnchanged": true,
+  "rollback": {
+    "state": "original-daily-restored",
+    "buildId": "3284971335fa6ff8",
+    "workerRunning": true
+  },
+  "realPiPromptRequests": 0,
+  "merged": false
+}

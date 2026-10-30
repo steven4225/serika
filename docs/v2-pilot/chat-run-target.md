@@ -64,7 +64,7 @@
 - 最后审查修复两处来源问题：同 Run 明确改目标必须撤销旧采用及审批；旧 Run Steer 不得成为当前目标证据。还为 Telegram 同名候选增加精确目标详情。
 - CI 当前为 `disabled_manually`，以提交的本地运行证据为据。PR 交用户审核，不自动合并或部署。
 
-五分钟演示入口是桌面聊天，前提为已启用 terminal 且隔离 Herdr 内有两个现存 Pi。请求 Pi 生成小文件，选择一次，批准发送，再批准独立文件读取；应在同一 Run 看见核查结果。取消选择或在审批前替换终端身份，应没有输入派发。当前可试用 PR，但不能据此宣布全部真实验收通过。
+五分钟演示入口是桌面聊天，前提为已启用 terminal 且隔离 Herdr 内有两个现存 Pi。请求 Pi 生成小文件，选择一次，批准发送，再批准独立文件读取；应在同一 Run 看见核查结果。取消选择或在审批前替换终端身份，应没有输入派发。候选版尚未通过真实 Pi 选择验收，不能据此作为日用已可用的结论。
 
 
 ### 本轮真实验收与脚本修复
@@ -80,3 +80,21 @@
 本轮最终离线全测 1881 pass／7 skip，无失败或取消；修复后专项 3/3、标准 Electron 8/8。源码提交 `542e854`，三者启动时均为干净工作区，未在真实模型下重跑修复后的脚本。证据密钥值与常见密钥前缀扫描为零命中。按 Prove It Works 保留产物与请求原件，按 Fix Root Causes 修复观察与结算时序，没有把失败改成通过。
 
 原始 SSE 响应以空行结束，普通 `git diff --check` 对 19 份 response 提示 blank line at EOF；为保持原响应 SHA 未删空行。`git -c core.whitespace=-blank-at-eof diff --check 315f89a HEAD` 退出 0，其余空白检查保留。
+
+
+### 日用模式复验，2026-10-30 21:43–21:48 +08:00
+
+用户另批 2 Run／24 请求／$0.25，并明确取消旧 Telegram 待批 Run。临时切换 `4bdb22d` 到真实日用 HOME、原配置、原 preload／IPC，候选 Build ID `e45fd69d02c65071`。未合并 PR，未改持久目标、PATH 或权限。先保留原入口、服务与身份，再空闲切换；worker 测试期间暂停，结束后恢复。
+
+| 场景 | 实际结果 |
+| --- | --- |
+| 普通 CLI | `shell_exec` 返回 `SANDBOX_UNAVAILABLE`，无宿主 fallback。模型随后请求既有、逐次审批的 `terminal_exec`；一次绝对 cwd 被 `INVALID_PATH` 拒绝，PATH 中也没有 Homebrew Node。最终发现 `/opt/homebrew/bin/node`、读取版本／帮助、写文件及 read_file 核查，外部解析 `total:56` 通过。共 6 次 terminal 调用，不符合“少量确认即可完成”的体验预期。 |
+| 已有 Pi | `herdr_pi_discover` 两次均返回 8 个已核对 idle 候选，旧配置目标返回会话未运行。模型把 refresh 后随机 candidateId 的变化及 past metadata observations 提示误判为候选失效，未调用 read／control 去触发宿主选择。选择卡 0、采用 0、控制派发 0。业务验收失败，不能把模型最后的 completed 当目标完成。 |
+| 审批证据 | CLI 的 6 次终端调用有 5 条脚本精确 approvalId 决定；另一次有卡片清除和执行记录，来源未归因，不补填。后续加原 IPC handler 的 debugger 观察，未替换 handler／preload；Pi 没有任何控制审批或发送。 |
+| 费用与恢复 | 12 次模型请求均 returned，用量重算 $0.01904532，非账单核验；两个 Run 已用完，不新开 Run 消耗剩余请求。已恢复原 Build ID `3284971335fa6ff8`，resident idle、worker 正常，配置 hash 及绑定未变，代理停止。候选 release 与回退材料保留。 |
+
+[去除日用内容的审计摘要](evidence/chat-run-target/daily-cc43d65d.json) 由 `node scripts/chat-run-target-daily-audit.mjs /Users/a1-6/Applications/Serika-support/chat-target-daily-8de06471-8064-4e9a-85a7-ecbe8e902857 docs/v2-pilot/evidence/chat-run-target/daily-cc43d65d.json` 生成，退出 0，`node --check` 退出 0。完整原始回执、截图和脚本保存在该本地 support 目录，避免把日用内容传到 PR。产物保留在日用工作区的 `orders-cc43d65d/answer.json`。
+
+初次 `.app` 的 cwd 与 resident 身份不同，页面报启动身份不一致；未产生 Run 或模型请求。统一候选打包入口的 cwd 后连接成功，保留两次启动失败日志。没有修改产品验证规则。
+
+本次复验产品代码增删均为 0，仅新增审计脚本并更新报告、证据和费用账本。审计脚本运行、语法检查及 `git diff --check` 均退出 0，日用密钥值与常见密钥前缀扫描均为零命中。未重跑产品全测及标准 smoke，沿用上述相同产品源码的离线基线，本批真实 Electron 结果单独记为失败。真实失败指向候选含义及选择触发路径的引导：随机选择句柄变化不等于终端身份变化；已核对、多候选且尚未采用时应进入宿主选择。后续修复和新的真实 Run 尚未执行，不能用本报告替代复验通过。
