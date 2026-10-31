@@ -105,6 +105,7 @@ export function createMemoryExtraction(options: { store: ScopedMemoryStore; thre
       if (!replay && saved?.retry?.throughMessageId === message.id) break;
     }
     let fragment: { messageId: string; end: number; complete: boolean } | undefined;
+    let impassable = false;
     if (!selected.length) {
       const oversized = backlog[0];
       if (!oversized) return;
@@ -114,9 +115,11 @@ export function createMemoryExtraction(options: { store: ScopedMemoryStore; thre
         const mid = Math.floor((low + high) / 2), part = { ...oversized, parts: [{ type: "text" as const, text: characters.slice(offset, offset + mid).join("") }] };
         if (Math.ceil(JSON.stringify(extractionMessages([part])).length / 2) <= threshold) { count = mid; low = mid + 1; } else high = mid - 1;
       }
-      if (!count) throw new MemoryExtractionError("MEMORY_EXTRACTION_METADATA_TOO_LARGE", "抽取元数据超过块窗口，原文保留");
-      selected.splice(0, selected.length, { ...oversized, parts: [{ type: "text", text: characters.slice(offset, offset + count).join("") }] });
-      fragment = { messageId: oversized.id, end: offset + count, complete: offset + count === characters.length };
+      if (!count) { impassable = true; selected.push(oversized); }
+      else {
+        selected.splice(0, selected.length, { ...oversized, parts: [{ type: "text", text: characters.slice(offset, offset + count).join("") }] });
+        fragment = { messageId: oversized.id, end: offset + count, complete: offset + count === characters.length };
+      }
     }
     const projectIds = new Set(inProject(messages).map(message => message.id));
     const projectMessages = selected.filter(message => projectIds.has(message.id));
@@ -125,12 +128,33 @@ export function createMemoryExtraction(options: { store: ScopedMemoryStore; thre
     const signal = new AbortController(); abort = signal;
     const started = now(); let dispatched = false;
     const projectId = options.projectId ?? null;
+    // An unfinished oversized source is parked, not retried in place: partial coverage is deferred by contract, and a stuck retry would freeze every later message.
+    const parked = (messageId: string): V7Document["progress"][number] => {
+      const hash = prefixHash(messages, messageId);
+      const cursorAt = saved?.throughMessageId ? messages.findIndex(message => message.id === saved.throughMessageId) : -1;
+      const messageAt = messages.findIndex(message => message.id === messageId);
+      const alreadyPast = messageAt >= 0 && cursorAt >= messageAt;
+      return { projectId, threadId: options.threadId, throughMessageId: alreadyPast ? saved!.throughMessageId : messageId,
+        prefixHash: alreadyPast ? saved!.prefixHash : hash, retry: null,
+        pending: [...pending.filter(item => item.messageId !== messageId), { messageId, prefixHash: hash }] };
+    };
     const progress = (failures: number): V7Document["progress"][number] => ({ projectId, threadId: options.threadId,
       throughMessageId: saved?.throughMessageId ?? null, prefixHash: saved?.prefixHash ?? null,
       pending, retry: { throughMessageId: last, prefixHash: selectedHash, failures } });
     let proposalIndex = 0, stage: MemoryExtractionStage = "prepare";
     delete diagnostics.validationFailure;
     try {
+      if (impassable) {
+        const next = parked(last);
+        stage = "save";
+        const committed = await options.store.writeV7!([], signal.signal, { expectedProgress: saved, progress: next, automatic: true, sourceOrder: messages.map(message => message.id) });
+        if (!committed.ok) {
+          if (committed.error.code === "MEMORY_COMMIT_UNCERTAIN") uncertain = true;
+          throw new MemoryExtractionError(committed.error.code, committed.error.message);
+        }
+        diagnostics.completed++; diagnostics.pendingSegments = next.pending.length; delete diagnostics.error;
+        return next.throughMessageId !== (saved?.throughMessageId ?? null);
+      }
       const facts = document.entries.filter(entry => entry.state === "active" && entry.category !== "document" );
       const eligibleIds = new Set(extractionMessages(projectMessages).map(message => message.id));
       const prompt = originalBlock(projectMessages.filter(message => eligibleIds.has(message.id)), { threadId: options.threadId }) + "\nTask: extract memory from the preceding original block.\n" + MEMORY_WRITE_RULES +
@@ -162,7 +186,9 @@ export function createMemoryExtraction(options: { store: ScopedMemoryStore; thre
       const boundary = firstDeferred < 0 ? last : selected[selected.findIndex(message => message.id === users[firstDeferred]!.id) - 1]?.id ?? saved?.throughMessageId ?? null;
       let next: V7Document["progress"][number] = { projectId, pending, threadId: options.threadId, throughMessageId: boundary,
         prefixHash: boundary ? prefixHash(messages, boundary) : null, retry: firstDeferred < 0 ? null : progress(Math.min(3, (saved?.retry?.failures ?? 0) + 1)).retry };
-      if (fragment && firstDeferred < 0 && !fragment.complete) next = {
+      let skippedFragment = false;
+      if (fragment && !fragment.complete && firstDeferred >= 0 && users[firstDeferred]?.id === fragment.messageId) { next = parked(fragment.messageId); skippedFragment = true; }
+      else if (fragment && firstDeferred < 0 && !fragment.complete) next = {
         projectId, threadId: options.threadId, throughMessageId: saved?.throughMessageId ?? null, prefixHash: saved?.prefixHash ?? null, retry: null,
         pending: [...pending.filter(item => item.messageId !== fragment!.messageId), { messageId: fragment.messageId, prefixHash: selectedHash, offset: fragment.end }],
       };
@@ -178,9 +204,19 @@ export function createMemoryExtraction(options: { store: ScopedMemoryStore; thre
         throw new MemoryExtractionError(committed.error.code, committed.error.message);
       }
       diagnostics.completed++; diagnostics.pendingSegments = next.pending.length + ((next.retry?.failures ?? 0) >= 2 ? 1 : 0); delete diagnostics.error;
-      return next.retry === null && (fragment?.complete === false || next.throughMessageId !== (saved?.throughMessageId ?? null));
+      const moved = next.throughMessageId !== (saved?.throughMessageId ?? null);
+      return skippedFragment ? moved : next.retry === null && (fragment?.complete === false || moved);
     } catch (error) {
       if (signal.signal.aborted) { if (dispatched) diagnostics.cancelled++; return; }
+      if (fragment && !fragment.complete && error instanceof MemoryExtractionError && (error.code === "MEMORY_EXTRACTION_INPUT_TOO_LARGE" || error.code === "MEMORY_EXTRACTION_METADATA_TOO_LARGE")) {
+        const next = parked(fragment.messageId);
+        const committed = await options.store.writeV7!([], signal.signal, { expectedProgress: saved, progress: next, automatic: true, sourceOrder: messages.map(message => message.id) }).catch(() => undefined);
+        if (committed?.ok) {
+          diagnostics.completed++; diagnostics.pendingSegments = next.pending.length; delete diagnostics.error;
+          return next.throughMessageId !== (saved?.throughMessageId ?? null);
+        }
+        if (committed && !committed.ok && committed.error.code === "MEMORY_COMMIT_UNCERTAIN") uncertain = true;
+      }
       diagnostics.failed++; diagnostics.error = error instanceof MemoryStoreError ? `${error.code}: ${error.message}` : error instanceof Error ? error.message : "抽取失败";
       await recordFailure(stage, error);
       if (error instanceof MemoryWriteValidationError) diagnostics.validationFailure = { ...error.validationFailure, proposalIndex };
