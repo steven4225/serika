@@ -58,14 +58,14 @@ export function approvalChain({ runId, receipt, decisions, events }) {
     const cards = events.filter(row => row.type === 'approval' && row.runId === runId && row.approval.toolCallId === tool.toolCallId);
     if (cards.length || tool.approvalRequestedAt) {
       assert.equal(accepted.length, 1, 'An observed approval needs exactly one accepted decision source');
-      assert.ok(['original-preload-confirm', 'desktop-ipc'].includes(accepted[0].source));
+      assert.ok(['original-preload-confirm', 'runtime-bridge'].includes(accepted[0].source));
       assert.ok(cards.some(card => card.approval.approvalId === accepted[0].approvalId), 'Accepted ID lacks original approval event');
     }
     if (tool.toolName === 'herdr_pi_control') {
       assert.equal(accepted.length, 1, 'Each control conclusion needs exactly one accepted host decision');
       const decision = accepted[0], output = end.data.output;
       assert.ok(decision.value?.herdr, 'Missing frozen identity and action');
-      assert.ok(['original-preload-confirm', 'desktop-ipc'].includes(decision.source));
+      assert.ok(['original-preload-confirm', 'runtime-bridge'].includes(decision.source));
       const requested = raw.find(event => event.type === 'tool.call.requested' && event.data.toolCallId === tool.toolCallId);
       assert.ok(requested, 'Missing original requested action');
       assert.deepEqual(requested.data.input, decision.value.herdr.action, 'Requested and approved bodies differ');

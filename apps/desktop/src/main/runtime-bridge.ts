@@ -393,7 +393,7 @@ export class RuntimeBridge {
     const accepted = this.#controller.confirm(request);
     this.#send({ type: "approval-decision", runId: snapshot.state.kind === "running" ? snapshot.state.runId : null,
       input: request, approval: snapshot.pendingApproval?.approvalId === request.approvalId ? snapshot.pendingApproval : null,
-      accepted, source: "desktop-ipc", decidedAt: new Date().toISOString() });
+      accepted, source: "runtime-bridge", decidedAt: new Date().toISOString() });
     return { accepted };
   }
 
@@ -406,7 +406,7 @@ export class RuntimeBridge {
     const accepted = this.#controller.selectHerdrTarget(request);
     this.#send({ type: "herdr-selection-decision", runId: snapshot.state.kind === "running" ? snapshot.state.runId : null,
       input: request, selection: snapshot.pendingHerdrSelection?.selectionId === request.selectionId ? snapshot.pendingHerdrSelection : null,
-      accepted, source: "desktop-ipc", decidedAt: new Date().toISOString() });
+      accepted, source: "runtime-bridge", decidedAt: new Date().toISOString() });
     return { accepted };
   }
 

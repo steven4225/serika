@@ -220,7 +220,7 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 | --- | --- |
 | 先定协议 | 本节先于代码写入。沿用 pstack 的最小改动、类型约束与实物核查；不改变来源校验、选择状态机、审批或预算。 |
 | 修模型契约 | 删除无条件重复发现的指引；afterToolCall 明确返回已采用状态与下一步 read/control。 |
-| 补决定记录 | RuntimeBridge 在原 IPC 方法调用前捕获当前 pending/runId，调用后通过既有 MainToRenderer 消息发送原输入、pending、accepted 与宿主决定时间。renderer 观察时间另记。只标 desktop-ipc，不能据此臆断 human。选择 accepted 与后续核对采用分别核查。审批采用同一观察路径，覆盖用户原生点击。 |
+| 补决定记录 | RuntimeBridge 在原 IPC 方法调用前捕获当前 pending/runId，调用后通过既有 MainToRenderer 消息发送原输入、pending、accepted 与宿主决定时间。renderer 观察时间另记。只标 runtime-bridge，因为该方法也被 TG gateway 调用，不能据此臆断渠道或 human。桌面渠道及脚本 actor 由本批入口和原生点击记录另证。选择 accepted 与后续核对采用分别核查。审批采用同一观察路径，覆盖用户原生点击。 |
 | 方案取舍 | 使用既有消息流；不替换 preload/IPC，不加 DOM 测试事件或暂停运行的调试断点。验收脚本通过原生选择按钮操作，单独记录脚本 actor；宿主事件记录接受结果。用户手选则按实际接受的候选继续，禁止硬编码第二项。 |
 | 隔离演示 | 两个测试 Pi、原生桌面入口：发现后选卡只选一次，同 Run 继续，独立批准一次发送，回读并外部核查 sum=14 与当批 order；Shell 原安全策略核查 total=56。任何失败即停，unknown 保留现场。 |
 | 验证与停点 | 按用户后续指示跳过离线、typecheck、全测与假模型，不把历史结果算本改动通过。仅构建真实 Electron 所需产物；构建失败不进真批。前两批额度均用尽，新批另报最多 2 Run / 24 请求 / $0.25，等批准后才调用模型。真实渠道仅桌面，TG 不报通过。 |
