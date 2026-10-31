@@ -1,0 +1,21 @@
+{
+  "id": "c7be1092-61bf-40f9-b302-26ca0dbe6d95",
+  "verifiedAt": "2026-10-31T05:54:33.884Z",
+  "sourceRunId": "fc56f36f-c74c-42b4-9e5b-d6298db4f05a",
+  "verification": "archive-hashes-cost-selection-provenance-stop-and-secret-scan-only-no-model-invocation",
+  "originalStatus": "failed",
+  "acceptance": "failed-pi-task-incomplete",
+  "rawResultSha256": "f5a9586d237d659c042050a59c56382cca433d608109dd835be9e58506ad085f",
+  "originalFilesUnmodified": true,
+  "manifestFilesVerified": 31,
+  "ledgerEntries": 1,
+  "requests": 9,
+  "taskRuns": 2,
+  "amount": 0.010173080000000001,
+  "unknownCalls": 0,
+  "actualCredentialMatches": 0,
+  "commonCredentialPrefixMatches": 0,
+  "filesScanned": 35,
+  "modelApiCallsByVerification": 0,
+  "auditScriptSha256": "25ffc1391b36d683cc1916c5590a9cf0dcf94a133524dfbde4565dc17f831a1c"
+}

@@ -1,0 +1,142 @@
+{
+  "auditId": "8897fbd4-2c78-49c9-b06b-bd7d33e36372",
+  "auditedAt": "2026-10-31T05:51:38.625Z",
+  "verification": "post-run-failure-stop-evidence-audit",
+  "sourceRunId": "fc56f36f-c74c-42b4-9e5b-d6298db4f05a",
+  "sourceResultSha256": "f5a9586d237d659c042050a59c56382cca433d608109dd835be9e58506ad085f",
+  "sourceResultUnmodified": true,
+  "originalStatus": "failed",
+  "acceptance": "failed-pi-task-incomplete",
+  "realModelRequests": 9,
+  "taskRuns": 2,
+  "amount": 0.010173080000000001,
+  "amountBasis": "Conservative published peak rates; not invoice verified",
+  "unresolvedCalls": 0,
+  "unresolvedReservedUsd": 0,
+  "failureStopGate": "passed",
+  "subsequentModelCalls": 0,
+  "rejected": {
+    "runId": "048e1e8a-c471-457d-8919-8e27f67fc2c0",
+    "toolCallId": "call_00_cMLRGDyRUl2B9lark2g39596",
+    "occurredAt": "2026-10-31T05:49:35.228Z",
+    "error": {
+      "code": "HERDR_REQUEST_EVIDENCE_INVALID",
+      "message": "明确目标须附本轮用户原话及其中的准确目标标识；否则由用户选择"
+    },
+    "request": {
+      "toolCallId": "call_00_cMLRGDyRUl2B9lark2g39596",
+      "toolName": "herdr_pi_discover",
+      "input": {
+        "requested": {
+          "session": "w-dd9d296c",
+          "paneId": "w1:p1",
+          "terminalId": "term_65f1c77757e2f1",
+          "sourceQuote": "请找一个现有 Pi"
+        }
+      }
+    }
+  },
+  "modelContexts": [
+    {
+      "requestSequence": 7,
+      "requestSha256": "e3f530b317c4028f1cc3788a3c620cfe3f742e5cb56e7b4f613cbe7a6f0fd5e2",
+      "adoptedTargetPresent": false,
+      "selectionVersionOne": false,
+      "directContinuationInstructionPresent": true
+    },
+    {
+      "requestSequence": 8,
+      "requestSha256": "cf0855634d56bca9b42f97310e076427c151c18e21a5859e6132a6af9d50fed5",
+      "adoptedTargetPresent": true,
+      "selectionVersionOne": true,
+      "directContinuationInstructionPresent": true
+    },
+    {
+      "requestSequence": 9,
+      "requestSha256": "40e471c920713191a9f1292346147c658fb94a4bf35587391a45a5c6bf9d8a87",
+      "adoptedTargetPresent": true,
+      "selectionVersionOne": true,
+      "directContinuationInstructionPresent": true
+    }
+  ],
+  "selection": {
+    "selectionId": "bb983cf2-d1d4-4802-87ed-48d103799d83",
+    "candidates": 2,
+    "shownAt": "2026-10-31T05:49:00.308Z",
+    "clearedAt": "2026-10-31T05:49:29.502Z",
+    "adopted": {
+      "requestSequence": 8,
+      "requestSha256": "cf0855634d56bca9b42f97310e076427c151c18e21a5859e6132a6af9d50fed5",
+      "target": {
+        "authorizedDirectory": "/private/tmp/c-krWXBl/herdr-fixture/workspace",
+        "session": "w-dd9d296c",
+        "paneId": "w1:p1",
+        "terminalId": "term_65f1c77757e2f1"
+      },
+      "selectionVersion": 1
+    },
+    "recordedDecisionSources": 1,
+    "sourceAttribution": "native-button-click-and-original-host-accepted-event",
+    "decision": {
+      "stage": "multiple-pi",
+      "type": "herdr-selection-decision",
+      "runId": "048e1e8a-c471-457d-8919-8e27f67fc2c0",
+      "input": {
+        "selectionId": "bb983cf2-d1d4-4802-87ed-48d103799d83",
+        "candidateId": "5005fa17-6877-4a92-bdf2-0dc077ecca97"
+      },
+      "selection": {
+        "selectionId": "bb983cf2-d1d4-4802-87ed-48d103799d83",
+        "toolCallId": "call_01_v0YgndqDkl78CVMn9QtU1701",
+        "candidates": [
+          {
+            "target": {
+              "authorizedDirectory": "/private/tmp/c-krWXBl/herdr-fixture/workspace",
+              "session": "w-dd9d296c",
+              "paneId": "w1:p1",
+              "terminalId": "term_65f1c77757e2f1"
+            },
+            "title": "π - workspace",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "5005fa17-6877-4a92-bdf2-0dc077ecca97"
+          },
+          {
+            "target": {
+              "authorizedDirectory": "/private/tmp/c-krWXBl/herdr-fixture/workspace",
+              "session": "w-dd9d296c",
+              "paneId": "w1:p2",
+              "terminalId": "term_65f1c77b197412"
+            },
+            "title": "π - workspace",
+            "status": "idle",
+            "stateChangeSeq": 2,
+            "candidateId": "4ee073fd-d760-4dc4-ab8a-072cbcf8cb5d"
+          }
+        ]
+      },
+      "accepted": true,
+      "source": "runtime-bridge",
+      "decidedAt": "2026-10-31T05:49:29.501Z",
+      "at": "2026-10-31T05:49:29.505Z"
+    },
+    "click": {
+      "stage": "multiple-pi",
+      "type": "herdr-selection-click",
+      "runId": "048e1e8a-c471-457d-8919-8e27f67fc2c0",
+      "selectionId": "bb983cf2-d1d4-4802-87ed-48d103799d83",
+      "candidateId": "5005fa17-6877-4a92-bdf2-0dc077ecca97",
+      "isTrusted": true,
+      "at": "2026-10-31T05:49:29.501Z"
+    },
+    "actor": "codex-under-current-batch-user-authorization",
+    "waitingModelCalls": 0
+  },
+  "controlDispatches": 0,
+  "approvalDecisions": 0,
+  "piModelRequests": 0,
+  "ordinaryCliArtifact": {
+    "total": 56
+  },
+  "retainedIsolatedRoot": "/private/tmp/c-krWXBl"
+}

@@ -1,0 +1,34 @@
+{
+  "kind": "selection",
+  "stage": "multiple-pi",
+  "value": {
+    "selectionId": "bb983cf2-d1d4-4802-87ed-48d103799d83",
+    "toolCallId": "call_01_v0YgndqDkl78CVMn9QtU1701",
+    "candidates": [
+      {
+        "target": {
+          "authorizedDirectory": "/private/tmp/c-krWXBl/herdr-fixture/workspace",
+          "session": "w-dd9d296c",
+          "paneId": "w1:p1",
+          "terminalId": "term_65f1c77757e2f1"
+        },
+        "title": "π - workspace",
+        "status": "idle",
+        "stateChangeSeq": 1,
+        "candidateId": "5005fa17-6877-4a92-bdf2-0dc077ecca97"
+      },
+      {
+        "target": {
+          "authorizedDirectory": "/private/tmp/c-krWXBl/herdr-fixture/workspace",
+          "session": "w-dd9d296c",
+          "paneId": "w1:p2",
+          "terminalId": "term_65f1c77b197412"
+        },
+        "title": "π - workspace",
+        "status": "idle",
+        "stateChangeSeq": 2,
+        "candidateId": "4ee073fd-d760-4dc4-ab8a-072cbcf8cb5d"
+      }
+    ]
+  }
+}

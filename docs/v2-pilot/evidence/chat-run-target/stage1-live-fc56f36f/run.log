@@ -1,0 +1,12 @@
+{"call":1,"caller":"serika","stage":"ordinary-cli","status":"returned","costUsd":0.0015706000000000001}
+{"call":2,"caller":"serika","stage":"ordinary-cli","status":"returned","costUsd":0.0018626800000000002}
+{"call":3,"caller":"serika","stage":"ordinary-cli","status":"returned","costUsd":0.00231312}
+{"call":4,"caller":"serika","stage":"ordinary-cli","status":"returned","costUsd":0.0026548}
+{"call":5,"caller":"serika","stage":"ordinary-cli","status":"returned","costUsd":0.00312752}
+{"call":6,"caller":"serika","stage":"ordinary-cli","status":"returned","costUsd":0.00380444}
+{"call":7,"caller":"serika","stage":"multiple-pi","status":"returned","costUsd":0.006049280000000001}
+{"pending":"selection","id":"bb983cf2-d1d4-4802-87ed-48d103799d83","stage":"multiple-pi","output":"/private/tmp/serika-197-stage1-live-c"}
+{"call":8,"caller":"serika","stage":"multiple-pi","status":"returned","costUsd":0.00822368}
+{"call":9,"caller":"serika","stage":"multiple-pi","status":"returned","costUsd":0.010173080000000001}
+{"status":"failed","calls":9,"runs":2,"costUsd":0.010173080000000001,"unresolvedReservedUsd":0,"output":"/private/tmp/serika-197-stage1-live-c"}
+{"testHomeGuard":"failed","evidence":"/private/tmp/serika-197-stage1-live-guard-c/write-guard-1V6FDj/result.json","violations":0,"changes":43,"metadataUnchanged":false}

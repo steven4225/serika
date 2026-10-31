@@ -234,3 +234,24 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 3. 相对本轮起点 `f93471e`，产品 `+29/-9`，验证脚本 `+78/-26`，文档不计。没有新增测试用例。验证脚本增加量用于原生决定记录、实际目标映射、同 Run/一次选择/零等待请求/零多余发现/未选目标零消息断言及失败冻结。
 4. `pnpm build` 退出 0，最终产品源码 `e65dc63`，前后端 source dirty 均 false，Build ID `c3368d295c3bde2a`。构建日志在 `/private/tmp/serika-197-closure-build.log`；有 Node 弃用提示和第三方 Zod 注释提示，无构建错误。`git diff --check` 退出 0。按用户指示未执行离线测试、typecheck 命令、全测、假模型或 smoke。本轮新增真实模型请求 0，费用 0。
 5. 与原工序的偏离为用户明确跳过离线关口；历史通过不计为本改动通过。上一批 failed 与原始观察缺口不改写，新批最多 2 Run / 24 请求 / $0.25 已单独提请批准，未沿用旧额度。真实渠道仅桌面，不覆盖 TG；不合并、不部署日用，旧冻结现场不复用或自动清理。
+
+### 收口候选真实复验，fc56f36f，2026-10-31
+
+**阶段 1 仍未完成。本批 failed，已停止。** 用户明确批准新批 2 Run / 24 请求 / $0.25，允许 Codex 在隔离桌面选择及独立批准操作，沿用日用 env 的模型连接字段。没有复用旧现场或旧额度。
+
+1. 改了什么：本批从干净 `580269f` 构建并启动真实 Electron 44.4.5，Build ID `e5042d5ce091095a`，保留原 preload/IPC。真实运行期间产品与脚本未改。失败后仅扩展原停止审计，核对新宿主选择事件、原生点击、实际 actor、采用快照和到达模型的指引，原 result 保持 failed，不进行产品修复或追加复验。
+2. 逐项对照如下。原生选择决定来源的观察缺口已在本批补齐；采用后重复 discover 的行为仍复现，不能报告收口成功。
+
+| 完成定义 | 本批直接证据与缺口 |
+| --- | --- |
+| 多候选 → 宿主等待 → 一次有效选择 → 核对采用 → 同 Run | 发现 2 个 idle；选卡等待期间 0 新模型请求。Codex 在本批授权下点击第一项原生按钮，宿主原事件 accepted=true 恰好一次。第 8、9 请求系统上下文均有 adoptedTarget、selectionVersion=1；后续 read_file 与选择保持同 Run `048e1e8a-c471-457d-8919-8e27f67fc2c0`。 |
+| 单独操作批准 → 一次发送 → 回读与独立核查 | **未到达**。模型先读 blue.json，随后再次 discover.requested，引用“请找一个现有 Pi”，其中没有它提供的 session/pane/terminal。宿主正确返回 HERDR_REQUEST_EVIDENCE_INVALID；控制批准 0、控制派发 0、Pi 模型请求 0，没有 Pi 产物成功结论。 |
+| 安全策略内 Shell 可执行与产物核查 | 最小启动 PATH、原 Seatbelt，3 次 shell_exec 均 exit 0，read_file、Shell 计算复核及外部解析均为 total=56，没有 terminal_exec fallback。只证明本批隔离环境可执行，未切日用，也不证明 PATH 是旧统一 unavailable 的唯一历史原因。 |
+| 审批观察链与只读自动允许 | 选择关联 runId/toolCallId/selectionId、完整候选身份、原生 click、Codex actor、宿主 accepted/decidedAt 与观察时间。本批无需批文件/Shell 调用按真实自动授权记录，无审批卡不补造；独立控制审批未到达，完整需批链本批未证明。 |
+| 失败即停、身份边界与渠道 | 拒绝后 0 新上游请求、0 控制派发，全部请求已结算，无 unknown。未追加负例、TG、压缩或日用验收；历史回归不计本次改动通过。 |
+
+3. 实际 2 Run / 9 次请求，全部 Serika / returned，按批准的峰时费率快照保守估算 `$0.01017308`，非账单核验；未结算请求与预留费用均为 0，已独立记入 cost-ledger。真实运行后产品增删为 0；审计脚本增量为 `+36/-6`，文档与原始证据不计。两个 Run 额度已用尽，不用剩余请求补新 Run。
+4. `pnpm build` 退出 0。真实命令 `SERIKA_B2_RECORD_CONCURRENT_HOME=1 node scripts/test-home.mjs --home /private/tmp/serika-197-stage1-live-guard-c -- node apps/desktop/scripts/chat-run-target-live.mjs --env-file /Users/a1-6/.config/serika/v2-daily.env --run --output /private/tmp/serika-197-stage1-live-c` 退出 1。事后 `node scripts/chat-run-target-stop-audit.mjs /private/tmp/serika-197-stage1-live-c` 退出 0，只表示原件 hash、费用、选择归因及停止证据核对通过，业务仍 failed-pi-task-incomplete。按用户指示未跑离线测试、typecheck 命令、全测、假模型或 smoke。
+5. 偏离：新指引与当前采用快照确实到达第 8、9 请求，模型仍重复 discover。不能归因为用户选错、没有可用 Pi、宿主漏采用或提示没有送达；当前证据说明这次提示修复不足，未放宽原话校验。两个隔离 Electron pid 18749、19071 已退出；冻结后保留 Herdr `w-dd9d296c` / server pid 19027 / `/private/tmp/c-krWXBl`，未追加目标回读或控制清理，代理已退出。guard failed / violations=0 / changes=43 / metadataUnchanged=false，不能说日用元数据未变。不合并、不部署，在更新原 #197 后停止。
+
+[原始 failed](evidence/chat-run-target/stage1-live-fc56f36f/result.json) · [独立停止审计](evidence/chat-run-target/stage1-live-fc56f36f/stop-audit.json) · [归档与 hash](evidence/chat-run-target/stage1-live-fc56f36f/archive-summary.json) · [保留现场](evidence/chat-run-target/stage1-live-fc56f36f/retained-processes.json)。[提交核查](evidence/chat-run-target/stage1-live-fc56f36f/submission-verification.json)确认原件未变、费用仅入账一次，真实密钥值及常见前缀扫描均零命中；这些核查不改变业务失败结论。
