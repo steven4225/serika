@@ -137,5 +137,5 @@ Codex／Cursor 的产品行为 PR 遵守本节。第 4 节试点步骤要求提�
 2. **一张脸。** 一个 PR 只含 desktop、telegram、harness/docs 之一。不要再交 #197 那种整链产品加证据合订。
 3. **不连环补。** feat 合并后 48 小时内不为同一主题再开 fix PR。未完成的收进合并前的同一个 PR。
 4. **CI 如实。** CI 为 `disabled_manually` 时必须写明。本地绿不等于远端检查绿。
-5. **已采用后的 discover。** 真 TG 验收须断言软继续：结果含 `HERDR_TARGET_ALREADY_ADOPTED`（或同等文案）且 Run 继续。只扫到没有 `TOOL_NOT_FOUND` 不算通过；#198 之后软路径仍可能带上该 code。
+5. **已采用后的 discover。** #199 合入后，软拒绝的 code 是 `TOOL_SOFT_REJECTED`，消息仍含 `HERDR_TARGET_ALREADY_ADOPTED`（或同等文案），Run 继续。真 TG 验收须断言该 code 和／或这段消息。仅没有 `TOOL_NOT_FOUND` 不算通过；未登记工具仍以 `TOOL_NOT_FOUND` 结束 Run。
 
