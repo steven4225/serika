@@ -1,0 +1,18 @@
+{
+  "id": "a60ca148-8129-42d8-8c05-a3de23d95418",
+  "observedAt": "2026-10-31T02:34:56.924Z",
+  "runId": "92d89332-9deb-452f-8a3b-510b5ba6b65c",
+  "toolCallId": "call_01_PZctGHniNNDdOqTRaAhQ0126",
+  "selectionId": "8a933635-1dcc-448f-b760-616db316c8d3",
+  "qualifiedCandidates": 2,
+  "modelCallsAtHeldSelection": 7,
+  "discoverCompletedAt": "2026-10-31T02:34:31.524Z",
+  "index": 1,
+  "target": {
+    "authorizedDirectory": "/private/tmp/c-UKF8eT/herdr-fixture/workspace",
+    "session": "w-3f57c2cf",
+    "paneId": "w1:p2",
+    "terminalId": "term_65f19c0222be12"
+  },
+  "actor": "Codex under explicit stage1 isolated-test authorization"
+}

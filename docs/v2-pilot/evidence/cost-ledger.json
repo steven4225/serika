@@ -168,8 +168,25 @@
       "evidence": "chat-run-target/daily-cc43d65d.json",
       "evidenceSha256": "b9997f4b0e4837e03de2ac0f587264ecf955d327fa689624338eb5b444bb6892",
       "acceptance": "failed-pi-selection-not-offered"
+    },
+    {
+      "step": "chat-run-target-stage1",
+      "runId": "3a40ff59-9413-4117-9506-f98415612218",
+      "realModelRequests": 19,
+      "taskRuns": 2,
+      "amount": 0.0142214,
+      "amountBasis": "Conservative published peak rates; not invoice verified",
+      "authorizedBatchCapUsd": 0.25,
+      "authorizedBatchMaxRequests": 24,
+      "authorizedBatchMaxRuns": 2,
+      "unresolvedCalls": 0,
+      "unresolvedReservedUsd": 0,
+      "evidence": "chat-run-target/stage1-live-3a40ff59/result.json",
+      "evidenceSha256": "f4b58192df4fa4b9733353127b7dbca5918434effa9278b44623d919edbc8862",
+      "acceptance": "incomplete-failure-stop-not-enforced",
+      "audit": "chat-run-target/stage1-live-3a40ff59/stage1-audit.json"
     }
   ],
-  "total": 2.1127442399999996,
-  "knownTotal": 2.09903704
+  "total": 2.1269656399999994,
+  "knownTotal": 2.1132584399999996
 }
