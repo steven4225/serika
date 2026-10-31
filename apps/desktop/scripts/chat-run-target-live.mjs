@@ -62,6 +62,20 @@ async function handleRequest(req, res) {
     const chunks = []; for await (const chunk of req) chunks.push(chunk);
     const body = JSON.parse(Buffer.concat(chunks).toString());
     assert.equal(body.model, model);
+    for (const message of body.messages ?? []) {
+      if (message.role !== 'tool' || typeof message.content !== 'string') continue;
+      let result;
+      try { result = JSON.parse(message.content); } catch { continue; }
+      if (result?.ok !== false) continue;
+      frozen = true; report.stopReason = 'non-success-tool-result';
+      report.rejectedToolResult = { toolCallId: message.tool_call_id, error: result.error };
+      if (result.error?.code === 'TOOL_OUTCOME_UNKNOWN') report.unknownEffect = true;
+      await writeFile(join(output, 'stopped-request.json'), JSON.stringify(body, null, 2) + '\n');
+      await save();
+      res.writeHead(429, { 'Content-Type': 'application/json' });
+      res.end('{"error":{"message":"Stopped after non-success tool result; no upstream request"}}');
+      return;
+    }
     const maxOutput = body.max_tokens ?? body.max_completion_tokens ?? 4096;
     assert.ok(Number.isSafeInteger(maxOutput) && maxOutput > 0 && maxOutput <= 4096);
     if (body.max_tokens === undefined && body.max_completion_tokens === undefined) body.max_tokens = maxOutput;
@@ -139,6 +153,12 @@ async function launch(name, pi) {
     report.approvalEvents.push({ stage, ...event });
     if (event.type === 'event' && event.event.type === 'tool.call.failed' && event.event.data.error.code === 'TOOL_OUTCOME_UNKNOWN') {
       report.unknownEffect = true; frozen = true; report.stopReason = 'unknown-external-effect';
+    }
+    if (!report.unknownEffect && event.type === 'event' && (event.event.type === 'tool.call.failed' ||
+      event.event.type === 'tool.call.completed' && event.event.data.output?.ok === false)) {
+      frozen = true; report.stopReason = 'non-success-tool-result';
+      report.rejectedToolResult = { runId: event.event.runId, toolCallId: event.event.data.toolCallId,
+        error: event.event.data.error ?? event.event.data.output.error };
     }
     if (report.status === 'running' && event.type === 'approval-cleared' && !report.cases.at(-1)?.decisions.some(row => row.value.approvalId === event.approvalId)) {
       report.stopReason = 'approval-cleared-without-recorded-decision'; frozen = true;

@@ -186,3 +186,8 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 真实 Electron 44.4.5、原 preload/IPC，启动源码 `f2b24e5` 且 `sourceWorktreeDirty=false`。两个测试主进程 70247、70588 均已退出；本批独占 Herdr 在核对两个目标 idle/done 后停止并删除，隔离目录已移除，没有 unknown。guard passed / violations=0 / changes=60 / metadataUnchanged=false，不能声称日用元数据未变。未合并、未部署或切换日用。CI 当前仍为 `disabled_manually`，不声称远端 checks 通过。
 
 原始 [result](evidence/chat-run-target/stage1-live-3a40ff59/result.json)、[独立审计](evidence/chat-run-target/stage1-live-3a40ff59/stage1-audit.json)、[等待选择时的观察](evidence/chat-run-target/stage1-live-3a40ff59/selection-hold.json)、[归档清单](evidence/chat-run-target/stage1-live-3a40ff59/archive-summary.json)。价格依据为 [Command Code 官方模型页](https://commandcode.ai/models/deepseek-v4-1-flash-fast)，峰时输入/输出/缓存读取分别为每百万 token `$0.32 / $1.16 / $0.03`。下一步需先离线补齐真批的非成功工具结果停止关口，再另批授权复验；本轮在更新 #197 后停止。
+
+
+后续用户要求跳过离线测试，直接真实验收。按此收窄流程，仅补验收脚本的非成功工具结果停止：原事件观察器立即冻结，并在模型代理入口检查上一工具的顶层 `ok=false`，防止 renderer 事件传播延迟导致下一请求已出网。原失败及审计不变；新批仍需单独批准预算，不复用已用完的两个 Run。当前未新增真实请求。
+
+用户已另批新预算：最多 2 Run / 24 次上游请求 / $0.25，明确跳过离线测试，直接隔离真实验收。以下脚本改动仅为验收停止条件，不改产品逻辑；新批独立记录，不复用旧额度。
