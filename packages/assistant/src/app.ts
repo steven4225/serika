@@ -80,7 +80,7 @@ import { beginRoundOutputTiming } from "./round-output-timing.js";
 import type { ModelPurpose } from "./model-usage.js";
 import { createWebModule } from "./modules/web-module.js";
 import { createComputerModule } from "./modules/computer-module.js";
-import { capabilityStatus, formatCapabilityStatus, formatCapabilitySummary, type CapabilityStatus } from "./capability-status.js";
+import { capabilityStatus, formatCapabilityStatus, formatCapabilitySummary, scrubCapabilityTools, type CapabilityStatus } from "./capability-status.js";
 import { RecipeStore } from "./recipe-store.js";
 import { createRecipeModule } from "./modules/recipe-module.js";
 import { createTaskStore } from "./task-store.js";
@@ -713,7 +713,10 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     });
     const statusRegistration = { metadata: { name: "capability_status", version: "1", risk: "read" as const, timeoutMs: 1000, idempotent: true },
       tool: tool({ description: "Read current host-registered tools and static capability/permission mode. No service probes, process/app inspection, credentials, installation or writes. Service/OS permission health remains not_checked.",
-        inputSchema: z.object({}).strict(), execute: async () => getCapabilities() }) };
+        inputSchema: z.object({}).strict(), execute: async () => {
+          const status = getCapabilities();
+          return scrubCapabilityTools(status, foregroundHerdr?.availableTools(status.tools) ?? status.tools);
+        } }) };
     if (tuiMode) registeredTools.push(statusRegistration);
     commands?.set("capabilities", { name: "capabilities", execute: () => { output.write(`${formatCapabilityStatus(getCapabilities())}\n`); } });
     const tools = new ToolRegistry(registeredTools);
