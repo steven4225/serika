@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { inspectTelegramInbound, redactTelegramEvidence, telegramHandoff } from './chat-run-target-telegram-inbound.mjs';
+import { inspectTelegramInbound, redactTelegramEvidence, telegramHandoff, limitTelegramRuns } from './chat-run-target-telegram-inbound.mjs';
 import { writeTelegramStopAudit } from '../../../scripts/chat-run-target-telegram-stop-audit.mjs';
 import { assertTelegramDelivery } from './chat-run-target-telegram-delivery.mjs';
 import { PassThrough } from 'node:stream';
@@ -69,6 +69,44 @@ it('owner/type failures remain separate; undefined text never becomes an expecte
   const wrongResponse = inspectTelegramInbound({ update: { error: 'bad response' }, context: { ...context, pollResponseIsArray: false }, binding });
   assert.ok(wrongResponse.failedPredicates.includes('updates_response_array'));
   await keep('predicate-boundaries.json', { wrongOwner, nonText, valid, malformed, wrongResponse });
+});
+
+it('live failed native callback and all controls reach the original gateway without a second approval policy', async () => {
+  const historical = JSON.parse(await readFile(new URL('../../../docs/v2-pilot/evidence/chat-run-target/stage1-telegram-d71b0a0d/result.json', import.meta.url), 'utf8'));
+  const old = historical.inboundChecks.find(row => row.update?.callback_query);
+  assert.equal(old.accepted, false);
+  const actual = inspectTelegramInbound({ update: old.update, context: { ...context, owner: old.sourceOwner }, binding: old.bindingBefore });
+  assert.equal(actual.accepted, true); assert.deepEqual(actual.failedPredicates, []);
+  assert.equal(actual.controlAuthority, 'original-telegram-gateway');
+  assert.equal(actual.safeToAcknowledge, false, 'Only gateway processing can acknowledge a control');
+  assert.deepEqual(actual.update, old.update);
+  const running = { ...binding, owner, runId: 'same-run' };
+  const controls = [update('/confirm'), update('允许：ABCDEF1234'), update('选择 ABCDEF1234 2'),
+    { ...old.update, callback_query: { ...old.update.callback_query, from: { id: 99, is_bot: false } } }];
+  for (const raw of controls) {
+    const record = inspectTelegramInbound({ update: raw, context, binding: running });
+    assert.equal(record.accepted, true); assert.equal(record.controlAuthority, 'original-telegram-gateway');
+    assert.equal(record.safeToAcknowledge, false); assert.deepEqual(record.update, raw);
+  }
+  const callbackAfterRun = inspectTelegramInbound({ update: old.update, context, binding: { ...running, runId: null } });
+  assert.equal(callbackAfterRun.accepted, true); assert.equal(callbackAfterRun.phase, 'control');
+  const oldText = inspectTelegramInbound({ update: update('允许 ABCDEF1234'), context: { ...context, taskMessageId: 123 }, binding: { ...running, runId: null } });
+  assert.equal(oldText.accepted, true); assert.equal(oldText.phase, 'control');
+  await keep('gateway-control-boundary.json', { auditId: randomUUID(), actual, callbackAfterRun });
+});
+
+it('Run budget is enforced at host admission after gateway parsing, independently of approval syntax', async () => {
+  let calls = 0;
+  const stopped = [];
+  const admission = () => limitTelegramRuns({ run: async (...args) => { calls++; return args; }, taskText: 'current task', maxRuns: 1, stop: reason => stopped.push(reason) });
+  const rejected = admission();
+  await assert.rejects(rejected('thread', 'foreign task', false), /admission rejected/);
+  await assert.rejects(rejected('thread', 'current task', false), /admission rejected/);
+  assert.equal(calls, 0);
+  const run = admission();
+  await run('thread', 'current task', false);
+  await assert.rejects(run('thread', 'current task', false), /admission rejected/);
+  assert.equal(calls, 1); assert.equal(stopped.length, 3);
 });
 
 it('rejected observed update requires acknowledgement beyond the old store offset before daily restore', async () => {

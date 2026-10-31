@@ -1,0 +1,4819 @@
+{
+  "batchId": "5b15071f-ea43-49fd-9151-1c22c85cd457",
+  "startedAt": "2026-10-31T17:21:08.369Z",
+  "verification": "real-herdr-real-host-scripted-model-fake-telegram",
+  "sourceCommit": "f34b9c468f8fd52e07c7de84bcb3f46704008eca",
+  "sourceWorktreeDirty": true,
+  "scriptSha256": "0acb26ecdd767dd9fe0945247ec6c4f4552fcf4df526de7cf39bc9257dca7601",
+  "root": "/private/tmp/g197-QAarIF",
+  "platform": "darwin",
+  "node": "v26.4.0",
+  "status": "passed",
+  "realModelCalls": 0,
+  "realTelegramCalls": 0,
+  "costUsd": 0,
+  "modelCalls": 5,
+  "piRequests": [
+    {
+      "sequence": 1,
+      "body": {
+        "model": "offline-gate",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Work only inside /private/tmp/g197-QAarIF/herdr-fixture/workspace. Use only read, write and edit tools. Complete the requested small file task. Never run commands, install software or access unrelated paths.\n\n<cwd>\n/private/tmp/g197-QAarIF/herdr-fixture/workspace\n</cwd>"
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "store": false,
+        "max_completion_tokens": 4096,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read",
+              "description": "Read the contents of a file. Supports text files and images (jpg, png, gif, webp, bmp). Images are sent as attachments. For text files, output is truncated to 2000 lines or 50KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.",
+              "parameters": {
+                "type": "object",
+                "required": [
+                  "path"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path to the file to read (relative or absolute)"
+                  },
+                  "offset": {
+                    "type": "number",
+                    "description": "Line number to start reading from (1-indexed)"
+                  },
+                  "limit": {
+                    "type": "number",
+                    "description": "Maximum number of lines to read"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "write",
+              "description": "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.",
+              "parameters": {
+                "type": "object",
+                "required": [
+                  "path",
+                  "content"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path to the file to write (relative or absolute)"
+                  },
+                  "content": {
+                    "type": "string",
+                    "description": "Content to write to the file"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "edit",
+              "description": "Edit a single file using exact text replacement. Every edits[].oldText must match a unique, non-overlapping region of the original file. If two changes affect the same block or nearby lines, merge them into one edit instead of emitting overlapping edits. Do not include large unchanged regions just to connect distant changes.",
+              "parameters": {
+                "type": "object",
+                "required": [
+                  "path",
+                  "edits"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path to the file to edit (relative or absolute)"
+                  },
+                  "edits": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "oldText",
+                        "newText"
+                      ],
+                      "properties": {
+                        "oldText": {
+                          "type": "string",
+                          "description": "Exact text for one targeted replacement. It must be unique in the original file and must not overlap with any other edits[].oldText in the same call."
+                        },
+                        "newText": {
+                          "type": "string",
+                          "description": "Replacement text for this targeted edit."
+                        }
+                      }
+                    },
+                    "description": "One or more targeted replacements. Each edit is matched against the original file, not incrementally. Do not include overlapping or nested edits. If two changes touch the same block or nearby lines, merge them into one edit instead."
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 2,
+      "body": {
+        "model": "offline-gate",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Work only inside /private/tmp/g197-QAarIF/herdr-fixture/workspace. Use only read, write and edit tools. Complete the requested small file task. Never run commands, install software or access unrelated paths.\n\n<cwd>\n/private/tmp/g197-QAarIF/herdr-fixture/workspace\n</cwd>"
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。"
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "pi-1",
+                "type": "function",
+                "function": {
+                  "name": "read",
+                  "arguments": "{\"path\":\"blue.json\"}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"a\":5,\"b\":9,\"order\":\"5b15071f-blue\"}",
+            "tool_call_id": "pi-1"
+          }
+        ],
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "store": false,
+        "max_completion_tokens": 4096,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read",
+              "description": "Read the contents of a file. Supports text files and images (jpg, png, gif, webp, bmp). Images are sent as attachments. For text files, output is truncated to 2000 lines or 50KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.",
+              "parameters": {
+                "type": "object",
+                "required": [
+                  "path"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path to the file to read (relative or absolute)"
+                  },
+                  "offset": {
+                    "type": "number",
+                    "description": "Line number to start reading from (1-indexed)"
+                  },
+                  "limit": {
+                    "type": "number",
+                    "description": "Maximum number of lines to read"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "write",
+              "description": "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.",
+              "parameters": {
+                "type": "object",
+                "required": [
+                  "path",
+                  "content"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path to the file to write (relative or absolute)"
+                  },
+                  "content": {
+                    "type": "string",
+                    "description": "Content to write to the file"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "edit",
+              "description": "Edit a single file using exact text replacement. Every edits[].oldText must match a unique, non-overlapping region of the original file. If two changes affect the same block or nearby lines, merge them into one edit instead of emitting overlapping edits. Do not include large unchanged regions just to connect distant changes.",
+              "parameters": {
+                "type": "object",
+                "required": [
+                  "path",
+                  "edits"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path to the file to edit (relative or absolute)"
+                  },
+                  "edits": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "oldText",
+                        "newText"
+                      ],
+                      "properties": {
+                        "oldText": {
+                          "type": "string",
+                          "description": "Exact text for one targeted replacement. It must be unique in the original file and must not overlap with any other edits[].oldText in the same call."
+                        },
+                        "newText": {
+                          "type": "string",
+                          "description": "Replacement text for this targeted edit."
+                        }
+                      }
+                    },
+                    "description": "One or more targeted replacements. Each edit is matched against the original file, not incrementally. Do not include overlapping or nested edits. If two changes touch the same block or nearby lines, merge them into one edit instead."
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "body": {
+        "model": "offline-gate",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Work only inside /private/tmp/g197-QAarIF/herdr-fixture/workspace. Use only read, write and edit tools. Complete the requested small file task. Never run commands, install software or access unrelated paths.\n\n<cwd>\n/private/tmp/g197-QAarIF/herdr-fixture/workspace\n</cwd>"
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。"
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "pi-1",
+                "type": "function",
+                "function": {
+                  "name": "read",
+                  "arguments": "{\"path\":\"blue.json\"}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "{\"a\":5,\"b\":9,\"order\":\"5b15071f-blue\"}",
+            "tool_call_id": "pi-1"
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "pi-2",
+                "type": "function",
+                "function": {
+                  "name": "write",
+                  "arguments": "{\"path\":\"blue-answer.json\",\"content\":\"{\\\"sum\\\":14,\\\"order\\\":\\\"5b15071f-blue\\\"}\\n\"}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "Successfully wrote to blue-answer.json",
+            "tool_call_id": "pi-2"
+          }
+        ],
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "store": false,
+        "max_completion_tokens": 4096,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read",
+              "description": "Read the contents of a file. Supports text files and images (jpg, png, gif, webp, bmp). Images are sent as attachments. For text files, output is truncated to 2000 lines or 50KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.",
+              "parameters": {
+                "type": "object",
+                "required": [
+                  "path"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path to the file to read (relative or absolute)"
+                  },
+                  "offset": {
+                    "type": "number",
+                    "description": "Line number to start reading from (1-indexed)"
+                  },
+                  "limit": {
+                    "type": "number",
+                    "description": "Maximum number of lines to read"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "write",
+              "description": "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.",
+              "parameters": {
+                "type": "object",
+                "required": [
+                  "path",
+                  "content"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path to the file to write (relative or absolute)"
+                  },
+                  "content": {
+                    "type": "string",
+                    "description": "Content to write to the file"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "edit",
+              "description": "Edit a single file using exact text replacement. Every edits[].oldText must match a unique, non-overlapping region of the original file. If two changes affect the same block or nearby lines, merge them into one edit instead of emitting overlapping edits. Do not include large unchanged regions just to connect distant changes.",
+              "parameters": {
+                "type": "object",
+                "required": [
+                  "path",
+                  "edits"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path to the file to edit (relative or absolute)"
+                  },
+                  "edits": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "oldText",
+                        "newText"
+                      ],
+                      "properties": {
+                        "oldText": {
+                          "type": "string",
+                          "description": "Exact text for one targeted replacement. It must be unique in the original file and must not overlap with any other edits[].oldText in the same call."
+                        },
+                        "newText": {
+                          "type": "string",
+                          "description": "Replacement text for this targeted edit."
+                        }
+                      }
+                    },
+                    "description": "One or more targeted replacements. Each edit is matched against the original file, not incrementally. Do not include overlapping or nested edits. If two changes touch the same block or nearby lines, merge them into one edit instead."
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "transport": [
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。工具仍逐次确认。例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。",
+      "format": "HTML",
+      "messageId": 1,
+      "status": "submitted"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+      "format": "HTML",
+      "messageId": 2,
+      "status": "submitted"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "当前没有属于 Telegram 的待确认操作；没有批准任何操作。",
+      "format": "HTML",
+      "messageId": 3,
+      "status": "submitted"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+      "format": "HTML",
+      "messageId": 4,
+      "status": "submitted"
+    },
+    {
+      "direction": "answer-callback",
+      "id": "cb-f7b82d97-48cf-42be-8f39-3617a1d94d0c"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "选择本轮使用的 Pi：\n候选刚核对，尚未采用。临时句柄不是真实身份；刷新句柄不表示目标消失。\n1. π - workspace · w-2166d42f · 空闲\n目标详情：pane w1:p1 · terminal term_65f26237777e41\n目录：/private/tmp/g197-QAarIF/herdr-fixture/workspace\n2. π - workspace · w-2166d42f · 空闲\n目标详情：pane w1:p2 · terminal term_65f2623b4e3be2\n目录：/private/tmp/g197-QAarIF/herdr-fixture/workspace\n发送“选择 3AB8CAAABE 序号”，或“取消选择 3AB8CAAABE”。\n仅本轮使用。选择后继续当前任务，发送输入仍需另行确认。短码五分钟有效；发送 /confirm 可刷新当前选择。",
+      "format": "HTML",
+      "messageId": 6,
+      "status": "submitted"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "已提交本轮目标选择。宿主核对后继续，发送输入仍需另行确认。",
+      "format": "HTML",
+      "messageId": 7,
+      "status": "submitted"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "需要你确认 · 使用工具 herdr_pi_control\n\n\nTool: herdr_pi_control\n{\n  &quot;action&quot;: &quot;prompt&quot;,\n  &quot;text&quot;: &quot;请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。&quot;\n}\n本 Run 已采用且已冻结的 Herdr 目标 {&quot;authorizedDirectory&quot;:&quot;/private/tmp/g197-QAarIF/herdr-fixture/workspace&quot;,&quot;session&quot;:&quot;w-2166d42f&quot;,&quot;paneId&quot;:&quot;w1:p2&quot;,&quot;terminalId&quot;:&quot;term_65f2623b4e3be2&quot;}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] \n\n允许 13D37D012D\n拒绝 13D37D012D\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+      "format": "HTML",
+      "keyboard": {
+        "inline_keyboard": [
+          [
+            {
+              "text": "允许这次",
+              "callback_data": "allow:13D37D012D"
+            },
+            {
+              "text": "取消",
+              "callback_data": "deny:13D37D012D"
+            }
+          ]
+        ]
+      },
+      "messageId": 8,
+      "status": "submitted"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "需要你确认 · 使用工具 herdr_pi_control\n\n\nTool: herdr_pi_control\n{\n  &quot;action&quot;: &quot;prompt&quot;,\n  &quot;text&quot;: &quot;请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。&quot;\n}\n本 Run 已采用且已冻结的 Herdr 目标 {&quot;authorizedDirectory&quot;:&quot;/private/tmp/g197-QAarIF/herdr-fixture/workspace&quot;,&quot;session&quot;:&quot;w-2166d42f&quot;,&quot;paneId&quot;:&quot;w1:p2&quot;,&quot;terminalId&quot;:&quot;term_65f2623b4e3be2&quot;}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] \n\n允许 920B4FBD0B\n拒绝 920B4FBD0B\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+      "format": "HTML",
+      "keyboard": {
+        "inline_keyboard": [
+          [
+            {
+              "text": "允许这次",
+              "callback_data": "allow:920B4FBD0B"
+            },
+            {
+              "text": "取消",
+              "callback_data": "deny:920B4FBD0B"
+            }
+          ]
+        ]
+      },
+      "messageId": 9,
+      "status": "submitted"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "Telegram 已接收新的当前确认；不代表你已阅读。\n旧短码失效，仍需你允许或拒绝同一次操作。",
+      "format": "HTML",
+      "messageId": 10,
+      "status": "submitted"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+      "format": "HTML",
+      "messageId": 11,
+      "status": "submitted"
+    },
+    {
+      "direction": "answer-callback",
+      "id": "cb-852020e3-3c0f-48cb-a2de-739897b9dd5b"
+    },
+    {
+      "direction": "answer-callback",
+      "id": "cb-74a27c9d-4854-4a69-bf7e-28d70a0394b9"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+      "format": "HTML",
+      "messageId": 14,
+      "status": "submitted"
+    },
+    {
+      "direction": "answer-callback",
+      "id": "cb-a6e3d668-21dc-4904-b106-dce277760207"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "已处理这一次确认，不适用于后续操作。",
+      "format": "HTML",
+      "messageId": 16,
+      "status": "submitted"
+    },
+    {
+      "direction": "answer-callback",
+      "id": "cb-3d2f6005-419d-4960-8979-97954436542e"
+    },
+    {
+      "direction": "answer-callback",
+      "id": "cb-3d2f6005-419d-4960-8979-97954436542e"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+      "format": "HTML",
+      "messageId": 19,
+      "status": "submitted"
+    },
+    {
+      "direction": "answer-callback",
+      "id": "cb-b339195d-e6e1-437e-bc01-dcfd7fa80f86"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+      "format": "HTML",
+      "messageId": 21,
+      "status": "submitted"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "目标选择已过期、已处理或不属于当前执行。没有选择目标或发送输入；发送 /confirm 查看当前选择。",
+      "format": "HTML",
+      "messageId": 22,
+      "status": "submitted"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "需要你确认 · 读取文件\n\n\nTool: read_file\nPath: &quot;blue-answer.json&quot;\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] \n\n允许 72540C7031\n拒绝 72540C7031\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+      "format": "HTML",
+      "keyboard": {
+        "inline_keyboard": [
+          [
+            {
+              "text": "允许这次",
+              "callback_data": "allow:72540C7031"
+            },
+            {
+              "text": "取消",
+              "callback_data": "deny:72540C7031"
+            }
+          ]
+        ]
+      },
+      "messageId": 23,
+      "status": "submitted"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "已处理这一次确认，不适用于后续操作。",
+      "format": "HTML",
+      "messageId": 24,
+      "status": "submitted"
+    },
+    {
+      "direction": "answer-callback",
+      "id": "cb-b8c90515-fcfc-4ded-8df3-be0013671f2e"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "独立核查完成 5b15071f-blue",
+      "format": "HTML",
+      "messageId": 26,
+      "status": "submitted"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+      "format": "HTML",
+      "messageId": 27,
+      "status": "submitted"
+    },
+    {
+      "direction": "answer-callback",
+      "id": "cb-9adcb088-fb0a-43e1-9638-7621c14470d2"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+      "format": "HTML",
+      "messageId": 29,
+      "status": "submitted"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "目标选择已过期、已处理或不属于当前执行。没有选择目标或发送输入；发送 /confirm 查看当前选择。",
+      "format": "HTML",
+      "messageId": 30,
+      "status": "submitted"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "当前没有属于 Telegram 的待确认操作；没有批准任何操作。",
+      "format": "HTML",
+      "messageId": 31,
+      "status": "submitted"
+    },
+    {
+      "direction": "answer-callback",
+      "id": "cb-3d2f6005-419d-4960-8979-97954436542e"
+    },
+    {
+      "direction": "outbound",
+      "chatId": 42,
+      "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+      "format": "HTML",
+      "messageId": 33,
+      "status": "submitted"
+    },
+    {
+      "direction": "answer-callback",
+      "id": "cb-0713d8ae-4423-4e4c-a859-97f8cda72c40"
+    }
+  ],
+  "inboundChecks": [
+    {
+      "at": "2026-10-31T17:21:16.891Z",
+      "pollId": "0a3e7765-2275-46b6-9086-458f909afd9b",
+      "indexInPoll": 0,
+      "phase": "pairing",
+      "controlAuthority": null,
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "17bdca80d84b44b7afaf8a3b2ba76810d5294180f031fe2607aee985aa359c1f",
+      "update": {
+        "update_id": 1,
+        "message": {
+          "message_id": 1001,
+          "date": 1,
+          "text": "/start 11C47DC8D5",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "chat": {
+            "id": 42,
+            "type": "private"
+          }
+        }
+      },
+      "normalizedText": "/start 11C47DC8D5",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 1,
+          "passed": true
+        },
+        {
+          "id": "message_present",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "message_id_valid",
+          "expected": "positive safe integer",
+          "actual": 1001,
+          "passed": true
+        },
+        {
+          "id": "owner_user_matches",
+          "expected": 42,
+          "actual": 42,
+          "passed": true
+        },
+        {
+          "id": "owner_chat_matches",
+          "expected": 42,
+          "actual": 42,
+          "passed": true
+        },
+        {
+          "id": "chat_private",
+          "expected": "private",
+          "actual": "private",
+          "passed": true
+        },
+        {
+          "id": "sender_is_human",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "id": "not_forwarded",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "id": "not_via_bot",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "id": "text_is_string",
+          "expected": "string",
+          "actual": "string",
+          "passed": true
+        },
+        {
+          "id": "text_matches_phase",
+          "expected": "/start 11C47DC8D5",
+          "actual": "/start 11C47DC8D5",
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": null,
+        "pairing": {
+          "code": "11C47DC8D5",
+          "expiresAt": "2026-10-31T17:26:16.891Z",
+          "proposed": null
+        },
+        "botId": 123456,
+        "threadId": "1ff5a52c-031a-4e6e-939f-6792e70cbbb7",
+        "offset": 0,
+        "state": "idle",
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": null,
+        "pairing": {
+          "code": "11C47DC8D5",
+          "expiresAt": "2026-10-31T17:26:16.891Z",
+          "proposed": {
+            "userId": 42,
+            "chatId": 42,
+            "name": "Telegram 用户"
+          }
+        },
+        "botId": 123456,
+        "threadId": "1ff5a52c-031a-4e6e-939f-6792e70cbbb7",
+        "offset": 2,
+        "state": "idle",
+        "runId": null
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:16.963Z",
+      "pollId": "15f11356-c80c-4844-bb75-604648101924",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "663baf772f2cf939fea95cff5f9763139d6271dd7f85270816ff4b3762a52767",
+      "update": {
+        "update_id": 2,
+        "message": {
+          "message_id": 1002,
+          "date": 1,
+          "text": "允许 ABCDEF1234",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "chat": {
+            "id": 42,
+            "type": "private"
+          }
+        }
+      },
+      "normalizedText": "允许 ABCDEF1234",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 2,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "1ff5a52c-031a-4e6e-939f-6792e70cbbb7",
+        "offset": 2,
+        "state": "idle",
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "1ff5a52c-031a-4e6e-939f-6792e70cbbb7",
+        "offset": 3,
+        "state": "idle",
+        "runId": null
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:17.024Z",
+      "pollId": "bdf2d89c-05b3-4c5b-9dc6-7dc533e864dc",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "04281ab93378198ff04c5218d982f7fc40a95a68a3845933ead32f4714d82fb3",
+      "update": {
+        "update_id": 3,
+        "message": {
+          "message_id": 1003,
+          "date": 1,
+          "text": "/confirm",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "chat": {
+            "id": 42,
+            "type": "private"
+          }
+        }
+      },
+      "normalizedText": "/confirm",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 3,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "1ff5a52c-031a-4e6e-939f-6792e70cbbb7",
+        "offset": 3,
+        "state": "idle",
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "1ff5a52c-031a-4e6e-939f-6792e70cbbb7",
+        "offset": 4,
+        "state": "idle",
+        "runId": null
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:17.087Z",
+      "pollId": "e36ae9b9-4297-4959-8574-e1625183c118",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "0007280606d9ca55c4902867e2816a2cf9b110a77e7005036622b069d4dc5fb2",
+      "update": {
+        "update_id": 4,
+        "callback_query": {
+          "id": "cb-f7b82d97-48cf-42be-8f39-3617a1d94d0c",
+          "data": "allow:ABCDEF1234",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "message": {
+            "message_id": 1,
+            "from": {
+              "id": 123456,
+              "is_bot": true
+            },
+            "chat": {
+              "id": 42,
+              "type": "private"
+            }
+          }
+        }
+      },
+      "normalizedText": null,
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 4,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "1ff5a52c-031a-4e6e-939f-6792e70cbbb7",
+        "offset": 4,
+        "state": "idle",
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "1ff5a52c-031a-4e6e-939f-6792e70cbbb7",
+        "offset": 5,
+        "state": "idle",
+        "runId": null
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:17.169Z",
+      "pollId": "dbbea158-5c01-4802-ae07-832d782f701f",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "66f129fccbbd57baca2ce125b64bdcbb3237c365fe84e5f07b18e5710cf5bd4f",
+      "update": {
+        "update_id": 5,
+        "message": {
+          "message_id": 1004,
+          "date": 1,
+          "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "chat": {
+            "id": 42,
+            "type": "private"
+          }
+        }
+      },
+      "normalizedText": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 5,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "1ff5a52c-031a-4e6e-939f-6792e70cbbb7",
+        "offset": 5,
+        "state": "idle",
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 6,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:17.952Z",
+      "pollId": "7ce25263-3305-4528-a298-e8ea8f5ee56f",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "a2777f076aa30ba303cf4c4a0ba185cf3b044c2b5d457fc692f6f7711c17b738",
+      "update": {
+        "update_id": 6,
+        "message": {
+          "message_id": 1004,
+          "date": 1,
+          "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "chat": {
+            "id": 42,
+            "type": "private"
+          }
+        }
+      },
+      "normalizedText": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 6,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 6,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 7,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:17.973Z",
+      "pollId": "929efa10-96dd-42e2-8720-ab551711a61a",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "507ad3503a0cc6021837a1170ed770d9a36e12d4b9991434463f6d14469713cc",
+      "update": {
+        "update_id": 7,
+        "message": {
+          "message_id": 1005,
+          "date": 1,
+          "text": "选择 3AB8CAAABE 2",
+          "from": {
+            "id": 99,
+            "is_bot": false
+          },
+          "chat": {
+            "id": 42,
+            "type": "private"
+          }
+        }
+      },
+      "normalizedText": "选择 3AB8CAAABE 2",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 7,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 7,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 8,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:17.994Z",
+      "pollId": "0658452a-2fad-4d82-ae83-5b112f7118c7",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "107dc95e5ebf2e67e284b59d7462cd0500ded34360142336667ff46316994ca4",
+      "update": {
+        "update_id": 8,
+        "message": {
+          "message_id": 1006,
+          "date": 1,
+          "text": "选择 3AB8CAAABE 2",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "chat": {
+            "id": 42,
+            "type": "private"
+          }
+        }
+      },
+      "normalizedText": "选择 3AB8CAAABE 2",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 8,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 8,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 9,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:18.403Z",
+      "pollId": "4b722604-b872-439c-b8a5-28035c968b8d",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "991ead0aa70c3a5472ac18e7516707dd4587788bf64054d1bbfbf1849ae58c26",
+      "update": {
+        "update_id": 9,
+        "message": {
+          "message_id": 1007,
+          "date": 1,
+          "text": "/confirm",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "chat": {
+            "id": 42,
+            "type": "private"
+          }
+        }
+      },
+      "normalizedText": "/confirm",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 9,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 9,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 10,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:18.505Z",
+      "pollId": "a8ae11e2-dbc4-40e1-82ae-6cea26e8b0ed",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "cd76bb3916baa942af7453d52948e908871321e80945f897e55b884482fef0bd",
+      "update": {
+        "update_id": 10,
+        "callback_query": {
+          "id": "cb-852020e3-3c0f-48cb-a2de-739897b9dd5b",
+          "data": "allow:13D37D012D",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "message": {
+            "message_id": 8,
+            "from": {
+              "id": 123456,
+              "is_bot": true
+            },
+            "chat": {
+              "id": 42,
+              "type": "private"
+            }
+          }
+        }
+      },
+      "normalizedText": null,
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 10,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 10,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 11,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:18.566Z",
+      "pollId": "3c3bb7ed-e9dd-49c3-b576-b06f6e51c7a7",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "f2e56bdee6093b7e36ba20bad2234a37223500ba18a23054723393236f680285",
+      "update": {
+        "update_id": 11,
+        "callback_query": {
+          "id": "cb-74a27c9d-4854-4a69-bf7e-28d70a0394b9",
+          "data": "allow:920B4FBD0B",
+          "from": {
+            "id": 99,
+            "is_bot": false
+          },
+          "message": {
+            "message_id": 9,
+            "from": {
+              "id": 123456,
+              "is_bot": true
+            },
+            "chat": {
+              "id": 42,
+              "type": "private"
+            }
+          }
+        }
+      },
+      "normalizedText": null,
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 11,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 11,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 12,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:18.588Z",
+      "pollId": "5427d15a-8ba8-48da-a2c4-b6e454833ae6",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "c5c4a5e2ffa47555aa1ad09bac20ab3210a1ea18be8f25a548b74c85db51f9af",
+      "update": {
+        "update_id": 12,
+        "callback_query": {
+          "id": "cb-a6e3d668-21dc-4904-b106-dce277760207",
+          "data": "allow:920B4FBD0B",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "message": {
+            "message_id": 1009,
+            "from": {
+              "id": 123456,
+              "is_bot": true
+            },
+            "chat": {
+              "id": 42,
+              "type": "private"
+            }
+          }
+        }
+      },
+      "normalizedText": null,
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 12,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 12,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 13,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:18.673Z",
+      "pollId": "187e7403-fb06-464f-8e85-d9c7d806872f",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "c93413458a3b3d562a9aa847f957a1dfff1f7db567e58d141f2567d965b9198b",
+      "update": {
+        "update_id": 13,
+        "callback_query": {
+          "id": "cb-3d2f6005-419d-4960-8979-97954436542e",
+          "data": "allow:920B4FBD0B",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "message": {
+            "message_id": 9,
+            "from": {
+              "id": 123456,
+              "is_bot": true
+            },
+            "chat": {
+              "id": 42,
+              "type": "private"
+            }
+          }
+        }
+      },
+      "normalizedText": null,
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 13,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 13,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 14,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:18.980Z",
+      "pollId": "bbd0b3a5-cda7-4ff8-a512-80e76198f8f1",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "2445edef7bdf8a4c7ab1530cced1723fb5899eadd99283e0cd59734abc0aa899",
+      "update": {
+        "update_id": 14,
+        "callback_query": {
+          "id": "cb-3d2f6005-419d-4960-8979-97954436542e",
+          "data": "allow:920B4FBD0B",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "message": {
+            "message_id": 9,
+            "from": {
+              "id": 123456,
+              "is_bot": true
+            },
+            "chat": {
+              "id": 42,
+              "type": "private"
+            }
+          }
+        }
+      },
+      "normalizedText": null,
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 14,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 14,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 15,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:19.001Z",
+      "pollId": "4f4e0a70-1921-47d7-88ad-c586b352faa1",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "fb9927ed09fb2bc3338d09b51011d3a547e31f3171ba0b96dea18dfa1c722bda",
+      "update": {
+        "update_id": 15,
+        "callback_query": {
+          "id": "cb-b339195d-e6e1-437e-bc01-dcfd7fa80f86",
+          "data": "allow:920B4FBD0B",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "message": {
+            "message_id": 9,
+            "from": {
+              "id": 123456,
+              "is_bot": true
+            },
+            "chat": {
+              "id": 42,
+              "type": "private"
+            }
+          }
+        }
+      },
+      "normalizedText": null,
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 15,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 15,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 16,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:19.065Z",
+      "pollId": "8ee1ca80-221b-4d44-afe5-8e858aacaa44",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "61e34261a409ee8a938145b3f71be51eeb4fdf1ca8fb2e435348c3121f9b1d2f",
+      "update": {
+        "update_id": 16,
+        "message": {
+          "message_id": 1008,
+          "date": 1,
+          "text": "允许 920B4FBD0B",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "chat": {
+            "id": 42,
+            "type": "private"
+          }
+        }
+      },
+      "normalizedText": "允许 920B4FBD0B",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 16,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 16,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 17,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:19.126Z",
+      "pollId": "59cd0884-7ff6-4c46-94a4-cd7990c34c8f",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "8646b55bbf9f38c0178cd22de515ec49eb1402089bfc70676317af9fc1f425c6",
+      "update": {
+        "update_id": 17,
+        "message": {
+          "message_id": 1009,
+          "date": 1,
+          "text": "选择 3AB8CAAABE 1",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "chat": {
+            "id": 42,
+            "type": "private"
+          }
+        }
+      },
+      "normalizedText": "选择 3AB8CAAABE 1",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 17,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 17,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 18,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:20.172Z",
+      "pollId": "3afe8c63-f51a-4d3f-ae5f-62a656e28d75",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "1d43b764039587fcd4b253d113de75951c56c8fc78da57b830d371c19dacc476",
+      "update": {
+        "update_id": 18,
+        "callback_query": {
+          "id": "cb-b8c90515-fcfc-4ded-8df3-be0013671f2e",
+          "data": "allow:72540C7031",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "message": {
+            "message_id": 23,
+            "from": {
+              "id": 123456,
+              "is_bot": true
+            },
+            "chat": {
+              "id": 42,
+              "type": "private"
+            }
+          }
+        }
+      },
+      "normalizedText": null,
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 18,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 18,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 19,
+        "state": "running",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:20.704Z",
+      "pollId": "9ab16c29-6362-4c46-aaf0-bc00ec1a3978",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "42020d6cad705e94c47a1470117aa40ba7236965a49ad53eb2cfd051e3596075",
+      "update": {
+        "update_id": 19,
+        "message": {
+          "message_id": 1004,
+          "date": 1,
+          "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "chat": {
+            "id": 42,
+            "type": "private"
+          }
+        }
+      },
+      "normalizedText": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 19,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 19,
+        "state": "idle",
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 20,
+        "state": "idle",
+        "runId": null
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:20.726Z",
+      "pollId": "88499e41-da3d-4297-9af6-642d321eaebf",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "812041a186ae9b33c32412f907c82f87114fcd2fe72f8ca5b64ab950bbcd1176",
+      "update": {
+        "update_id": 20,
+        "callback_query": {
+          "id": "cb-9adcb088-fb0a-43e1-9638-7621c14470d2",
+          "data": "allow:920B4FBD0B",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "message": {
+            "message_id": 9,
+            "from": {
+              "id": 123456,
+              "is_bot": true
+            },
+            "chat": {
+              "id": 42,
+              "type": "private"
+            }
+          }
+        }
+      },
+      "normalizedText": null,
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 20,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 20,
+        "state": "idle",
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 21,
+        "state": "idle",
+        "runId": null
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:20.789Z",
+      "pollId": "eee134dc-9538-41e6-bb50-6c809c5e9a9a",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "d38b70e8400a9f1e9e338cef863ba0da99367a5622bb9e5eb1b20772bdbf7e0a",
+      "update": {
+        "update_id": 21,
+        "message": {
+          "message_id": 1010,
+          "date": 1,
+          "text": "允许 920B4FBD0B",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "chat": {
+            "id": 42,
+            "type": "private"
+          }
+        }
+      },
+      "normalizedText": "允许 920B4FBD0B",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 21,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 21,
+        "state": "idle",
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 22,
+        "state": "idle",
+        "runId": null
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:20.850Z",
+      "pollId": "ca6bcf35-41fa-42d2-a17a-0e1b7afb1c4f",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "30f156a05e3fdfef3c5a10fa20cd9a5809aa55c9863a2276f9f7b830b3563655",
+      "update": {
+        "update_id": 22,
+        "message": {
+          "message_id": 1011,
+          "date": 1,
+          "text": "选择 3AB8CAAABE 1",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "chat": {
+            "id": 42,
+            "type": "private"
+          }
+        }
+      },
+      "normalizedText": "选择 3AB8CAAABE 1",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 22,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 22,
+        "state": "idle",
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 23,
+        "state": "idle",
+        "runId": null
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:20.912Z",
+      "pollId": "bb17dd3f-f88b-43e6-ac45-05a87d596321",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "d3cc76d3fe19dfcf1894d4815b87427185b978289e0516adcbe2268f97e56895",
+      "update": {
+        "update_id": 23,
+        "message": {
+          "message_id": 1012,
+          "date": 1,
+          "text": "/confirm",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "chat": {
+            "id": 42,
+            "type": "private"
+          }
+        }
+      },
+      "normalizedText": "/confirm",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 23,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 23,
+        "state": "idle",
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 24,
+        "state": "idle",
+        "runId": null
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:20.973Z",
+      "pollId": "45be8d82-e9eb-4bb3-b3d1-5d8bf5a91815",
+      "indexInPoll": 0,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "0c44dfc5404a6a26c76284f03e86c415686ef634ba2bf815251da0bd90884ac3",
+      "update": {
+        "update_id": 24,
+        "message": {
+          "message_id": 1004,
+          "date": 1,
+          "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "chat": {
+            "id": 42,
+            "type": "private"
+          }
+        }
+      },
+      "normalizedText": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 24,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 24,
+        "state": "idle",
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 25,
+        "state": "idle",
+        "runId": null
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:20.974Z",
+      "pollId": "d625b3cb-8cf8-4e50-a1db-dd76662d7596",
+      "indexInPoll": 1,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "09bf71d17465f6404bdc21c1f4ba99e063e596eff5fa596006ce0b1f1f26a88b",
+      "update": {
+        "update_id": 25,
+        "callback_query": {
+          "id": "cb-3d2f6005-419d-4960-8979-97954436542e",
+          "data": "allow:920B4FBD0B",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "message": {
+            "message_id": 9,
+            "from": {
+              "id": 123456,
+              "is_bot": true
+            },
+            "chat": {
+              "id": 42,
+              "type": "private"
+            }
+          }
+        }
+      },
+      "normalizedText": null,
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 25,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 24,
+        "state": "idle",
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 26,
+        "state": "idle",
+        "runId": null
+      }
+    },
+    {
+      "at": "2026-10-31T17:21:20.974Z",
+      "pollId": "b3f3fafd-b9b5-4973-b385-7477ddd0f26d",
+      "indexInPoll": 2,
+      "phase": "control",
+      "controlAuthority": "original-telegram-gateway",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": null
+      },
+      "updateSha256": "aa51517f5dbbd64dbef4d49148d56b2835d2faa2ac1478287e346b4089e3f7d8",
+      "update": {
+        "update_id": 26,
+        "callback_query": {
+          "id": "cb-0713d8ae-4423-4e4c-a859-97f8cda72c40",
+          "data": "allow:920B4FBD0B",
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "message": {
+            "message_id": 9,
+            "from": {
+              "id": 123456,
+              "is_bot": true
+            },
+            "chat": {
+              "id": 42,
+              "type": "private"
+            }
+          }
+        }
+      },
+      "normalizedText": null,
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 26,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 24,
+        "state": "idle",
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 42,
+          "chatId": 42,
+          "name": "Telegram 用户",
+          "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+        },
+        "pairing": null,
+        "botId": 123456,
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "offset": 27,
+        "state": "idle",
+        "runId": null
+      }
+    }
+  ],
+  "approvalEvents": [
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "4079fd94-458e-4123-90a1-c9885d509de8",
+        "type": "run.started",
+        "occurredAt": "2026-10-31T17:21:17.454Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 1,
+        "data": {
+          "agentId": "calculator",
+          "agentVersion": "1"
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:17.454Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "03444879-25da-40c6-948e-9909185ad679",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T17:21:17.455Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 2,
+        "data": {
+          "stepNumber": 1
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:17.501Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "8631afb4-bf8b-489a-b7dc-9a2c3b9805bf",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-31T17:21:17.599Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 3,
+        "data": {
+          "toolCallId": "gate-1",
+          "toolName": "herdr_pi_discover",
+          "input": {}
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:17.643Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "fa4250ae-0d74-4ea7-92e1-4d55b9a05767",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T17:21:17.729Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 4,
+        "data": {
+          "stepNumber": 1,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 1,
+            "outputTokens": 1,
+            "totalTokens": 2
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:17.776Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "9906e662-7a44-4bd8-8cc9-5f731f857b74",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T17:21:17.776Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 5,
+        "data": {
+          "usage": {
+            "inputTokens": 1,
+            "outputTokens": 1,
+            "totalTokens": 2
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:17.776Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "edc52700-611d-407d-8b88-d84efea00457",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-31T17:21:17.776Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 6,
+        "data": {
+          "toolCallId": "gate-1",
+          "toolName": "herdr_pi_discover"
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:17.821Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "a0366f9d-65b9-4d5a-817e-cfd3fb47ad5e",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-31T17:21:17.855Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 7,
+        "data": {
+          "toolCallId": "gate-1",
+          "toolName": "herdr_pi_discover",
+          "output": {
+            "ok": true,
+            "value": {
+              "configuredTarget": null,
+              "checkedCandidates": [
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/tmp/g197-QAarIF/herdr-fixture/workspace",
+                    "session": "w-2166d42f",
+                    "paneId": "w1:p1",
+                    "terminalId": "term_65f26237777e41"
+                  },
+                  "title": "π - workspace",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "bdceb5ce-be10-4512-a6df-5414f1e80a5b"
+                },
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/tmp/g197-QAarIF/herdr-fixture/workspace",
+                    "session": "w-2166d42f",
+                    "paneId": "w1:p2",
+                    "terminalId": "term_65f2623b4e3be2"
+                  },
+                  "title": "π - workspace",
+                  "status": "idle",
+                  "stateChangeSeq": 2,
+                  "candidateId": "c0409036-266e-4434-b4a3-553881afad1e"
+                }
+              ],
+              "adoptedTarget": null,
+              "selectionVersion": 0,
+              "halted": false,
+              "requestedTarget": null,
+              "failures": [
+                {
+                  "session": "default",
+                  "error": {
+                    "code": "HERDR_SESSION_NOT_RUNNING",
+                    "message": "会话未标为正在运行；未连接或发送输入",
+                    "stage": "sessions"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:17.900Z"
+    },
+    {
+      "type": "herdr-selection",
+      "selection": {
+        "selectionId": "e7f25bf6-de5b-47ae-a8a8-d244daf249be",
+        "toolCallId": "gate-1",
+        "candidates": [
+          {
+            "target": {
+              "authorizedDirectory": "/private/tmp/g197-QAarIF/herdr-fixture/workspace",
+              "session": "w-2166d42f",
+              "paneId": "w1:p1",
+              "terminalId": "term_65f26237777e41"
+            },
+            "title": "π - workspace",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "bdceb5ce-be10-4512-a6df-5414f1e80a5b"
+          },
+          {
+            "target": {
+              "authorizedDirectory": "/private/tmp/g197-QAarIF/herdr-fixture/workspace",
+              "session": "w-2166d42f",
+              "paneId": "w1:p2",
+              "terminalId": "term_65f2623b4e3be2"
+            },
+            "title": "π - workspace",
+            "status": "idle",
+            "stateChangeSeq": 2,
+            "candidateId": "c0409036-266e-4434-b4a3-553881afad1e"
+          }
+        ]
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:17.900Z"
+    },
+    {
+      "type": "herdr-selection-cleared",
+      "selectionId": "e7f25bf6-de5b-47ae-a8a8-d244daf249be",
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:18.004Z"
+    },
+    {
+      "type": "herdr-selection-decision",
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "input": {
+        "selectionId": "e7f25bf6-de5b-47ae-a8a8-d244daf249be",
+        "candidateId": "c0409036-266e-4434-b4a3-553881afad1e"
+      },
+      "selection": {
+        "selectionId": "e7f25bf6-de5b-47ae-a8a8-d244daf249be",
+        "toolCallId": "gate-1",
+        "candidates": [
+          {
+            "target": {
+              "authorizedDirectory": "/private/tmp/g197-QAarIF/herdr-fixture/workspace",
+              "session": "w-2166d42f",
+              "paneId": "w1:p1",
+              "terminalId": "term_65f26237777e41"
+            },
+            "title": "π - workspace",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "bdceb5ce-be10-4512-a6df-5414f1e80a5b"
+          },
+          {
+            "target": {
+              "authorizedDirectory": "/private/tmp/g197-QAarIF/herdr-fixture/workspace",
+              "session": "w-2166d42f",
+              "paneId": "w1:p2",
+              "terminalId": "term_65f2623b4e3be2"
+            },
+            "title": "π - workspace",
+            "status": "idle",
+            "stateChangeSeq": 2,
+            "candidateId": "c0409036-266e-4434-b4a3-553881afad1e"
+          }
+        ]
+      },
+      "accepted": true,
+      "source": "runtime-bridge",
+      "decidedAt": "2026-10-31T17:21:18.004Z",
+      "at": "2026-10-31T17:21:18.004Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "905783fc-2e33-43ff-bcdf-660357cfe1ab",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T17:21:18.020Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 8,
+        "data": {
+          "stepNumber": 2
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:18.067Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "379cd2d8-3f0a-4ddf-8a47-6db43f1d0628",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-31T17:21:18.162Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 9,
+        "data": {
+          "toolCallId": "gate-2",
+          "toolName": "herdr_pi_control",
+          "input": {
+            "action": "prompt",
+            "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。"
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:18.207Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "8854be6e-d9e1-4511-9e00-b9ece83aa8b2",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T17:21:18.293Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 10,
+        "data": {
+          "stepNumber": 2,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 1,
+            "outputTokens": 1,
+            "totalTokens": 2
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:18.343Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "ec830d99-b813-43e5-bb71-976811915394",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T17:21:18.344Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 11,
+        "data": {
+          "usage": {
+            "inputTokens": 2,
+            "outputTokens": 2,
+            "totalTokens": 4
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:18.344Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "8928d3de-75a5-49d8-b1de-4d2f3892971a",
+        "toolCallId": "gate-2",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。"
+        },
+        "preview": ""
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:18.344Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "8928d3de-75a5-49d8-b1de-4d2f3892971a",
+        "toolCallId": "gate-2",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/tmp/g197-QAarIF/herdr-fixture/workspace\",\"session\":\"w-2166d42f\",\"paneId\":\"w1:p2\",\"terminalId\":\"term_65f2623b4e3be2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/tmp/g197-QAarIF/herdr-fixture/workspace",
+            "session": "w-2166d42f",
+            "paneId": "w1:p2",
+            "terminalId": "term_65f2623b4e3be2"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:18.344Z"
+    },
+    {
+      "type": "approval-cleared",
+      "approvalId": "8928d3de-75a5-49d8-b1de-4d2f3892971a",
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:18.686Z"
+    },
+    {
+      "type": "approval-decision",
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "input": {
+        "approvalId": "8928d3de-75a5-49d8-b1de-4d2f3892971a",
+        "decision": "allow"
+      },
+      "approval": {
+        "approvalId": "8928d3de-75a5-49d8-b1de-4d2f3892971a",
+        "toolCallId": "gate-2",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/tmp/g197-QAarIF/herdr-fixture/workspace\",\"session\":\"w-2166d42f\",\"paneId\":\"w1:p2\",\"terminalId\":\"term_65f2623b4e3be2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/tmp/g197-QAarIF/herdr-fixture/workspace",
+            "session": "w-2166d42f",
+            "paneId": "w1:p2",
+            "terminalId": "term_65f2623b4e3be2"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "accepted": true,
+      "source": "runtime-bridge",
+      "decidedAt": "2026-10-31T17:21:18.686Z",
+      "at": "2026-10-31T17:21:18.686Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "a003e9b3-43a6-4532-806e-d7f77e571fc4",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-31T17:21:18.687Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 12,
+        "data": {
+          "toolCallId": "gate-2",
+          "toolName": "herdr_pi_control"
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:18.754Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "a6c25920-42ec-4eb5-a685-88d688b8d2ed",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-31T17:21:18.775Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 13,
+        "data": {
+          "toolCallId": "gate-2",
+          "toolName": "herdr_pi_control",
+          "output": {
+            "ok": true,
+            "value": {
+              "terminalId": "term_65f2623b4e3be2",
+              "paneId": "w1:p2",
+              "status": "idle",
+              "stateChangeSeq": 2,
+              "dispatched": true,
+              "verified": false
+            }
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:18.824Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "357a8c21-e4f8-4d4a-8ed2-4e2d1f7946d8",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T17:21:18.824Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 14,
+        "data": {
+          "stepNumber": 3
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:18.871Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "11e55ba8-1265-4d26-b0f1-b8a6bf89f9f9",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-31T17:21:19.190Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 15,
+        "data": {
+          "toolCallId": "gate-3",
+          "toolName": "herdr_pi_read",
+          "input": {
+            "action": "read"
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:19.236Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "a6b692be-a521-4376-b542-21b91e71dfbc",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T17:21:19.320Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 16,
+        "data": {
+          "stepNumber": 3,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 1,
+            "outputTokens": 1,
+            "totalTokens": 2
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:19.364Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "0015fa56-c3c6-4c62-8beb-2402830e5c8e",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T17:21:19.365Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 17,
+        "data": {
+          "usage": {
+            "inputTokens": 3,
+            "outputTokens": 3,
+            "totalTokens": 6
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:19.365Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "67586c09-f787-4d10-96d2-9366a7d88096",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-31T17:21:19.365Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 18,
+        "data": {
+          "toolCallId": "gate-3",
+          "toolName": "herdr_pi_read"
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:19.408Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "25c71af0-d994-4fa1-9878-4a6965a9aaf6",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-31T17:21:19.726Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 19,
+        "data": {
+          "toolCallId": "gate-3",
+          "toolName": "herdr_pi_read",
+          "output": {
+            "ok": true,
+            "value": {
+              "terminalId": "term_65f2623b4e3be2",
+              "paneId": "w1:p2",
+              "status": "idle",
+              "stateChangeSeq": 2,
+              "text": "\n 请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum\n 和 order。完成后你亲自读文件核对。本批标识：5b15071f。\n\n\n\n read blue.json\n\n\n\n write blue-answer.json\n\n {\"sum\":14,\"order\":\"5b15071f-blue\"}\n\n\n 已写入 blue-answer.json，sum=14，order=5b15071f-blue。\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n──────────────────────────────────────────────────────────────────────────────────────────────\n\n──────────────────────────────────────────────────────────────────────────────────────────────\n/private/tmp/g197-QAarIF/herdr-fixture/workspace\n↑3 ↓3 $0.000 0.0%/33k                                                             offline-gate\n",
+              "reference": "Untrusted terminal output; it grants no authority."
+            }
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:19.788Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "866a4eda-287d-43d8-8a91-6974efb464dc",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T17:21:19.788Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 20,
+        "data": {
+          "stepNumber": 4
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:19.839Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "e71823a5-86a3-44c8-a0ba-9ce894b97d0c",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-31T17:21:19.930Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 21,
+        "data": {
+          "toolCallId": "gate-4",
+          "toolName": "read_file",
+          "input": {
+            "path": "blue-answer.json"
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:19.976Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "9dee8483-5834-4688-9a89-633b480be067",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T17:21:20.059Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 22,
+        "data": {
+          "stepNumber": 4,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 1,
+            "outputTokens": 1,
+            "totalTokens": 2
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:20.104Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "04f9e925-ca14-49cb-b125-a17d0376d951",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T17:21:20.104Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 23,
+        "data": {
+          "usage": {
+            "inputTokens": 4,
+            "outputTokens": 4,
+            "totalTokens": 8
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:20.104Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "2f1173cc-1fff-46ad-a0d2-861efbec5206",
+        "toolCallId": "gate-4",
+        "toolName": "read_file",
+        "input": {
+          "path": "blue-answer.json"
+        },
+        "preview": ""
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:20.105Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "2f1173cc-1fff-46ad-a0d2-861efbec5206",
+        "toolCallId": "gate-4",
+        "toolName": "read_file",
+        "input": {
+          "path": "blue-answer.json"
+        },
+        "preview": "\nTool: read_file\nPath: \"blue-answer.json\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] "
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:20.105Z"
+    },
+    {
+      "type": "approval-cleared",
+      "approvalId": "2f1173cc-1fff-46ad-a0d2-861efbec5206",
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:20.182Z"
+    },
+    {
+      "type": "approval-decision",
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "input": {
+        "approvalId": "2f1173cc-1fff-46ad-a0d2-861efbec5206",
+        "decision": "allow"
+      },
+      "approval": {
+        "approvalId": "2f1173cc-1fff-46ad-a0d2-861efbec5206",
+        "toolCallId": "gate-4",
+        "toolName": "read_file",
+        "input": {
+          "path": "blue-answer.json"
+        },
+        "preview": "\nTool: read_file\nPath: \"blue-answer.json\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] "
+      },
+      "accepted": true,
+      "source": "runtime-bridge",
+      "decidedAt": "2026-10-31T17:21:20.183Z",
+      "at": "2026-10-31T17:21:20.183Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "e4522b13-042c-465d-982f-9c50cf791876",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-31T17:21:20.183Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 24,
+        "data": {
+          "toolCallId": "gate-4",
+          "toolName": "read_file"
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:20.234Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "f42dfb98-409e-44c8-a421-3fb3119640f0",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-31T17:21:20.236Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 25,
+        "data": {
+          "toolCallId": "gate-4",
+          "toolName": "read_file",
+          "output": {
+            "ok": true,
+            "path": "blue-answer.json",
+            "content": "{\"sum\":14,\"order\":\"5b15071f-blue\"}\n",
+            "bytes": 35
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:20.279Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "70c94439-fafe-4305-b2cc-7fb95d9832b4",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T17:21:20.279Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 26,
+        "data": {
+          "stepNumber": 5
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:20.326Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "f720e8dd-066a-4d8c-97fe-4c7536feeced",
+        "type": "message.delta",
+        "occurredAt": "2026-10-31T17:21:20.418Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 27,
+        "data": {
+          "text": "独立核查完成 5b15071f-blue"
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:20.418Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "50aab5ef-2831-41d0-bd5b-1a317a4d89fa",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T17:21:20.504Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 28,
+        "data": {
+          "stepNumber": 5,
+          "finishReason": "stop",
+          "usage": {
+            "inputTokens": 1,
+            "outputTokens": 1,
+            "totalTokens": 2
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:20.549Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "652b5fd4-504e-49b0-878a-2cb51ffb5e1f",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T17:21:20.549Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 29,
+        "data": {
+          "usage": {
+            "inputTokens": 5,
+            "outputTokens": 5,
+            "totalTokens": 10
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:20.550Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "8d02dfa8-bf50-40de-b302-aa72e9e7ade8",
+        "type": "run.completed",
+        "occurredAt": "2026-10-31T17:21:20.557Z",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "sequence": 30,
+        "data": {
+          "text": "独立核查完成 5b15071f-blue",
+          "steps": 5,
+          "usage": {
+            "inputTokens": 5,
+            "outputTokens": 5,
+            "totalTokens": 10
+          }
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:20.557Z"
+    },
+    {
+      "type": "result",
+      "phase": "primary",
+      "result": {
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "status": "completed",
+        "text": "独立核查完成 5b15071f-blue",
+        "steps": 5,
+        "usage": {
+          "inputTokens": 5,
+          "outputTokens": 5,
+          "totalTokens": 10
+        }
+      },
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "at": "2026-10-31T17:21:20.647Z"
+    }
+  ],
+  "cases": [
+    {
+      "hostDecisions": [
+        {
+          "kind": "selection",
+          "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+          "value": {
+            "selectionId": "e7f25bf6-de5b-47ae-a8a8-d244daf249be",
+            "toolCallId": "gate-1",
+            "candidates": [
+              {
+                "target": {
+                  "authorizedDirectory": "/private/tmp/g197-QAarIF/herdr-fixture/workspace",
+                  "session": "w-2166d42f",
+                  "paneId": "w1:p1",
+                  "terminalId": "term_65f26237777e41"
+                },
+                "title": "π - workspace",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "bdceb5ce-be10-4512-a6df-5414f1e80a5b"
+              },
+              {
+                "target": {
+                  "authorizedDirectory": "/private/tmp/g197-QAarIF/herdr-fixture/workspace",
+                  "session": "w-2166d42f",
+                  "paneId": "w1:p2",
+                  "terminalId": "term_65f2623b4e3be2"
+                },
+                "title": "π - workspace",
+                "status": "idle",
+                "stateChangeSeq": 2,
+                "candidateId": "c0409036-266e-4434-b4a3-553881afad1e"
+              }
+            ]
+          },
+          "input": {
+            "selectionId": "e7f25bf6-de5b-47ae-a8a8-d244daf249be",
+            "candidateId": "c0409036-266e-4434-b4a3-553881afad1e"
+          },
+          "toolCallId": "gate-1",
+          "response": {
+            "accepted": true
+          },
+          "source": "runtime-bridge",
+          "at": "2026-10-31T17:21:18.004Z",
+          "telegramInbound": {
+            "updateId": 8,
+            "messageId": 1006,
+            "text": "选择 3AB8CAAABE 2"
+          }
+        },
+        {
+          "kind": "approval",
+          "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+          "value": {
+            "approvalId": "8928d3de-75a5-49d8-b1de-4d2f3892971a",
+            "toolCallId": "gate-2",
+            "toolName": "herdr_pi_control",
+            "input": {
+              "action": "prompt",
+              "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。"
+            },
+            "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/tmp/g197-QAarIF/herdr-fixture/workspace\",\"session\":\"w-2166d42f\",\"paneId\":\"w1:p2\",\"terminalId\":\"term_65f2623b4e3be2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+            "herdr": {
+              "target": {
+                "authorizedDirectory": "/private/tmp/g197-QAarIF/herdr-fixture/workspace",
+                "session": "w-2166d42f",
+                "paneId": "w1:p2",
+                "terminalId": "term_65f2623b4e3be2"
+              },
+              "action": {
+                "action": "prompt",
+                "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。"
+              },
+              "selectionVersion": 1
+            }
+          },
+          "input": {
+            "approvalId": "8928d3de-75a5-49d8-b1de-4d2f3892971a",
+            "decision": "allow"
+          },
+          "toolCallId": "gate-2",
+          "approvalId": "8928d3de-75a5-49d8-b1de-4d2f3892971a",
+          "decision": "allow",
+          "response": {
+            "accepted": true
+          },
+          "source": "runtime-bridge",
+          "at": "2026-10-31T17:21:18.686Z",
+          "telegramInbound": {
+            "updateId": 13,
+            "callback": {
+              "id": "cb-3d2f6005-419d-4960-8979-97954436542e",
+              "data": "allow:920B4FBD0B",
+              "messageId": 9
+            }
+          }
+        },
+        {
+          "kind": "approval",
+          "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+          "value": {
+            "approvalId": "2f1173cc-1fff-46ad-a0d2-861efbec5206",
+            "toolCallId": "gate-4",
+            "toolName": "read_file",
+            "input": {
+              "path": "blue-answer.json"
+            },
+            "preview": "\nTool: read_file\nPath: \"blue-answer.json\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] "
+          },
+          "input": {
+            "approvalId": "2f1173cc-1fff-46ad-a0d2-861efbec5206",
+            "decision": "allow"
+          },
+          "toolCallId": "gate-4",
+          "approvalId": "2f1173cc-1fff-46ad-a0d2-861efbec5206",
+          "decision": "allow",
+          "response": {
+            "accepted": true
+          },
+          "source": "runtime-bridge",
+          "at": "2026-10-31T17:21:20.183Z",
+          "telegramInbound": {
+            "updateId": 18,
+            "callback": {
+              "id": "cb-b8c90515-fcfc-4ded-8df3-be0013671f2e",
+              "data": "allow:72540C7031",
+              "messageId": 23
+            }
+          }
+        }
+      ],
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e"
+    }
+  ],
+  "checks": [
+    {
+      "name": "original-observer-starts-one-run",
+      "status": "passed"
+    },
+    {
+      "name": "real-two-pi-selection-card",
+      "status": "passed"
+    },
+    {
+      "name": "selection-does-not-approve-operation",
+      "status": "passed"
+    },
+    {
+      "name": "original-gateway-callback-consumes-once",
+      "status": "passed"
+    },
+    {
+      "name": "stale-foreign-copied-controls-zero-dispatch",
+      "status": "passed"
+    },
+    {
+      "name": "duplicate-task-callback-text-zero-extra-dispatch",
+      "status": "passed"
+    },
+    {
+      "name": "adoption-narrows-tool-contract",
+      "status": "passed"
+    },
+    {
+      "name": "pi-writes-and-host-independently-verifies",
+      "status": "passed"
+    }
+  ],
+  "errors": [],
+  "sourceHashes": {
+    "chat-run-target-telegram-gate.mjs": "0acb26ecdd767dd9fe0945247ec6c4f4552fcf4df526de7cf39bc9257dca7601",
+    "chat-run-target-telegram-live.mjs": "f3d5ae56f6ec709c88ff8ecccd3f3dfa8b43412bd4e51e2a5302b4ab8579c99c",
+    "chat-run-target-telegram-inbound.mjs": "8380ce9560638ff7a769e465e45728f6b913d3ffd32cab8879288f2e91db082d",
+    "chat-run-target-live-herdr.mjs": "8d429f2e2f7adf612f7c63d93c6b105a39d8c21dc16009f2b4c4acfa47ebdc3b",
+    "chat-run-target-approval.mjs": "66bc3c161d13fba302eddd009dd0829f73be635d810baf4dbf2bc27b28f220e4"
+  },
+  "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+  "receipt": {
+    "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+    "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+    "phase": "primary",
+    "status": "completed",
+    "startedAt": "2026-10-31T17:21:17.364Z",
+    "finishedAt": "2026-10-31T17:21:20.592Z",
+    "resultTextPreview": "独立核查完成 5b15071f-blue",
+    "resultTextTruncated": false,
+    "errorPreview": null,
+    "tools": [
+      {
+        "toolCallId": "gate-1",
+        "toolName": "herdr_pi_discover",
+        "status": "completed",
+        "requestedAt": "2026-10-31T17:21:17.599Z",
+        "startedAt": "2026-10-31T17:21:17.776Z",
+        "finishedAt": "2026-10-31T17:21:17.855Z",
+        "inputPreview": "{}",
+        "inputTruncated": false,
+        "resultPreview": "{\"ok\":true,\"value\":{\"configuredTarget\":null,\"checkedCandidates\":[{\"target\":{\"authorizedDirectory\":\"/private/tmp/g197-QAarIF/herdr-fixture/workspace\",\"session\":\"w-2166d42f\",\"paneId\":\"w1:p1\",\"terminalId\":\"term_65f26237777e41\"},\"title\":\"π - workspace\",\"status\":\"idle\",\"stateChangeSeq\":1,\"candidateId\":\"bdceb5ce-be10-4512-a6df-5414f1e80a5b\"},{\"target\":{\"authorizedDirectory\":\"/private/tmp/g197-QAarIF/herdr-fixture/workspace\",\"session\":\"w-2166d42f\",\"paneId\":\"w1:p2\",\"terminalId\":\"term_65f2623b4e3be2\"},\"title\":\"π - workspace\",\"status\":\"idle\",\"stateChangeSeq\":2,\"candidateId\":\"c0409036-266e-4434-b4a3-553881afad1e\"}],\"adoptedTarget\":null,\"selectionVersion\":0,\"halted\":false,\"requestedTarget\":null,\"failures\":[{\"session\":\"default\",\"error\":{\"code\":\"HERDR_SESSION_NOT_RUNNING\",\"message\":\"会话未标为正在运行；未连接或发送输入\",\"stage\":\"sessions\"}}]}}",
+        "resultTruncated": false,
+        "errorPreview": null,
+        "shell": null
+      },
+      {
+        "toolCallId": "gate-2",
+        "toolName": "herdr_pi_control",
+        "status": "completed",
+        "requestedAt": "2026-10-31T17:21:18.162Z",
+        "startedAt": "2026-10-31T17:21:18.687Z",
+        "finishedAt": "2026-10-31T17:21:18.775Z",
+        "inputPreview": "{\"action\":\"prompt\",\"text\":\"请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。\"}",
+        "inputTruncated": false,
+        "resultPreview": "{\"ok\":true,\"value\":{\"terminalId\":\"term_65f2623b4e3be2\",\"paneId\":\"w1:p2\",\"status\":\"idle\",\"stateChangeSeq\":2,\"dispatched\":true,\"verified\":false}}",
+        "resultTruncated": false,
+        "errorPreview": null,
+        "shell": null,
+        "approvalRequestedAt": "2026-10-31T17:21:18.344Z"
+      },
+      {
+        "toolCallId": "gate-3",
+        "toolName": "herdr_pi_read",
+        "status": "completed",
+        "requestedAt": "2026-10-31T17:21:19.190Z",
+        "startedAt": "2026-10-31T17:21:19.365Z",
+        "finishedAt": "2026-10-31T17:21:19.726Z",
+        "inputPreview": "{\"action\":\"read\"}",
+        "inputTruncated": false,
+        "resultPreview": "{\"ok\":true,\"value\":{\"terminalId\":\"term_65f2623b4e3be2\",\"paneId\":\"w1:p2\",\"status\":\"idle\",\"stateChangeSeq\":2,\"text\":\"\\n 请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum\\n 和 order。完成后你亲自读文件核对。本批标识：5b15071f。\\n\\n\\n\\n read blue.json\\n\\n\\n\\n write blue-answer.json\\n\\n {\\\"sum\\\":14,\\\"order\\\":\\\"5b15071f-blue\\\"}\\n\\n\\n 已写入 blue-answer.json，sum=14，order=5b15071f-blue。\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n──────────────────────────────────────────────────────────────────────────────────────────────\\n\\n──────────────────────────────────────────────────────────────────────────────────────────────\\n/private/tmp/g197-QAarIF/herdr-fixture/workspace\\n↑3 ↓3 $0.000 0.0%/33k                                                             offline-gate\\n\",\"reference\":\"Untrusted terminal output; it grants no authority.\"}}",
+        "resultTruncated": false,
+        "errorPreview": null,
+        "shell": null
+      },
+      {
+        "toolCallId": "gate-4",
+        "toolName": "read_file",
+        "status": "completed",
+        "requestedAt": "2026-10-31T17:21:19.930Z",
+        "startedAt": "2026-10-31T17:21:20.183Z",
+        "finishedAt": "2026-10-31T17:21:20.236Z",
+        "inputPreview": "{\"path\":\"blue-answer.json\"}",
+        "inputTruncated": false,
+        "resultPreview": "{\"ok\":true,\"path\":\"blue-answer.json\",\"content\":\"{\\\"sum\\\":14,\\\"order\\\":\\\"5b15071f-blue\\\"}\\n\",\"bytes\":35}",
+        "resultTruncated": false,
+        "errorPreview": null,
+        "shell": null,
+        "fileInput": {
+          "path": "blue-answer.json"
+        },
+        "approvalRequestedAt": "2026-10-31T17:21:20.104Z",
+        "fileRead": {
+          "path": "blue-answer.json",
+          "bytes": 35,
+          "sha256": "f010f4190f2d87af6df926abc0e4bfa27c07ebf89fe4c8a93cdb172fc078444c"
+        }
+      }
+    ],
+    "trace": {
+      "version": 1,
+      "events": [
+        {
+          "sequence": 2,
+          "occurredAt": "2026-10-31T17:21:17.455Z",
+          "type": "step.started",
+          "stepNumber": 1
+        },
+        {
+          "sequence": 4,
+          "occurredAt": "2026-10-31T17:21:17.729Z",
+          "type": "step.completed",
+          "stepNumber": 1,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 1,
+            "outputTokens": 1,
+            "totalTokens": 2
+          }
+        },
+        {
+          "sequence": 8,
+          "occurredAt": "2026-10-31T17:21:18.020Z",
+          "type": "step.started",
+          "stepNumber": 2
+        },
+        {
+          "sequence": 10,
+          "occurredAt": "2026-10-31T17:21:18.293Z",
+          "type": "step.completed",
+          "stepNumber": 2,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 1,
+            "outputTokens": 1,
+            "totalTokens": 2
+          }
+        },
+        {
+          "sequence": 14,
+          "occurredAt": "2026-10-31T17:21:18.824Z",
+          "type": "step.started",
+          "stepNumber": 3
+        },
+        {
+          "sequence": 16,
+          "occurredAt": "2026-10-31T17:21:19.320Z",
+          "type": "step.completed",
+          "stepNumber": 3,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 1,
+            "outputTokens": 1,
+            "totalTokens": 2
+          }
+        },
+        {
+          "sequence": 20,
+          "occurredAt": "2026-10-31T17:21:19.788Z",
+          "type": "step.started",
+          "stepNumber": 4
+        },
+        {
+          "sequence": 22,
+          "occurredAt": "2026-10-31T17:21:20.059Z",
+          "type": "step.completed",
+          "stepNumber": 4,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 1,
+            "outputTokens": 1,
+            "totalTokens": 2
+          }
+        },
+        {
+          "sequence": 26,
+          "occurredAt": "2026-10-31T17:21:20.279Z",
+          "type": "step.started",
+          "stepNumber": 5
+        },
+        {
+          "sequence": 28,
+          "occurredAt": "2026-10-31T17:21:20.504Z",
+          "type": "step.completed",
+          "stepNumber": 5,
+          "finishReason": "stop",
+          "usage": {
+            "inputTokens": 1,
+            "outputTokens": 1,
+            "totalTokens": 2
+          }
+        }
+      ],
+      "truncated": false,
+      "incomplete": false,
+      "usage": {
+        "inputTokens": 5,
+        "outputTokens": 5,
+        "totalTokens": 10
+      },
+      "steps": 5
+    },
+    "memoryReferences": [],
+    "memoryReferencesTruncated": false
+  },
+  "approvalChain": [
+    {
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "toolCallId": "gate-1",
+      "toolName": "herdr_pi_discover",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "gate-1",
+        "toolName": "herdr_pi_discover",
+        "output": {
+          "ok": true,
+          "value": {
+            "configuredTarget": null,
+            "checkedCandidates": [
+              {
+                "target": {
+                  "authorizedDirectory": "/private/tmp/g197-QAarIF/herdr-fixture/workspace",
+                  "session": "w-2166d42f",
+                  "paneId": "w1:p1",
+                  "terminalId": "term_65f26237777e41"
+                },
+                "title": "π - workspace",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "bdceb5ce-be10-4512-a6df-5414f1e80a5b"
+              },
+              {
+                "target": {
+                  "authorizedDirectory": "/private/tmp/g197-QAarIF/herdr-fixture/workspace",
+                  "session": "w-2166d42f",
+                  "paneId": "w1:p2",
+                  "terminalId": "term_65f2623b4e3be2"
+                },
+                "title": "π - workspace",
+                "status": "idle",
+                "stateChangeSeq": 2,
+                "candidateId": "c0409036-266e-4434-b4a3-553881afad1e"
+              }
+            ],
+            "adoptedTarget": null,
+            "selectionVersion": 0,
+            "halted": false,
+            "requestedTarget": null,
+            "failures": [
+              {
+                "session": "default",
+                "error": {
+                  "code": "HERDR_SESSION_NOT_RUNNING",
+                  "message": "会话未标为正在运行；未连接或发送输入",
+                  "stage": "sessions"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "toolCallId": "gate-2",
+      "approvalId": "8928d3de-75a5-49d8-b1de-4d2f3892971a",
+      "frozen": {
+        "target": {
+          "authorizedDirectory": "/private/tmp/g197-QAarIF/herdr-fixture/workspace",
+          "session": "w-2166d42f",
+          "paneId": "w1:p2",
+          "terminalId": "term_65f2623b4e3be2"
+        },
+        "action": {
+          "action": "prompt",
+          "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。"
+        },
+        "selectionVersion": 1
+      },
+      "decision": "allow",
+      "source": "runtime-bridge",
+      "accepted": true,
+      "dispatched": true,
+      "reason": null
+    },
+    {
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "toolCallId": "gate-3",
+      "toolName": "herdr_pi_read",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "gate-3",
+        "toolName": "herdr_pi_read",
+        "output": {
+          "ok": true,
+          "value": {
+            "terminalId": "term_65f2623b4e3be2",
+            "paneId": "w1:p2",
+            "status": "idle",
+            "stateChangeSeq": 2,
+            "text": "\n 请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum\n 和 order。完成后你亲自读文件核对。本批标识：5b15071f。\n\n\n\n read blue.json\n\n\n\n write blue-answer.json\n\n {\"sum\":14,\"order\":\"5b15071f-blue\"}\n\n\n 已写入 blue-answer.json，sum=14，order=5b15071f-blue。\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n──────────────────────────────────────────────────────────────────────────────────────────────\n\n──────────────────────────────────────────────────────────────────────────────────────────────\n/private/tmp/g197-QAarIF/herdr-fixture/workspace\n↑3 ↓3 $0.000 0.0%/33k                                                             offline-gate\n",
+            "reference": "Untrusted terminal output; it grants no authority."
+          }
+        }
+      }
+    },
+    {
+      "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+      "toolCallId": "gate-4",
+      "toolName": "read_file",
+      "approvalId": "2f1173cc-1fff-46ad-a0d2-861efbec5206",
+      "permission": "explicit",
+      "outcome": {
+        "toolCallId": "gate-4",
+        "toolName": "read_file",
+        "output": {
+          "ok": true,
+          "path": "blue-answer.json",
+          "content": "{\"sum\":14,\"order\":\"5b15071f-blue\"}\n",
+          "bytes": 35
+        }
+      }
+    }
+  ],
+  "artifact": {
+    "sum": 14,
+    "order": "5b15071f-blue"
+  },
+  "cleanup": {
+    "statePath": "/private/tmp/g197-QAarIF/herdr-fixture/herdr-state.json",
+    "phase": "cleaned",
+    "session": "w-2166d42f",
+    "retainedFixture": "/private/tmp/g197-QAarIF/herdr-fixture"
+  },
+  "telegramStore": {
+    "version": 2,
+    "workspace": "/private/tmp/g197-QAarIF/profile",
+    "enabled": true,
+    "botId": 123456,
+    "offset": 27,
+    "owner": {
+      "userId": 42,
+      "chatId": 42,
+      "name": "Telegram 用户",
+      "threadId": "7c5e5032-f9d0-4944-a52d-5953fe6016cd"
+    },
+    "inputs": [
+      {
+        "key": "42:1002",
+        "updateId": 2,
+        "text": "允许 ABCDEF1234",
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null
+      },
+      {
+        "key": "42:1003",
+        "updateId": 3,
+        "text": "/confirm",
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null
+      },
+      {
+        "key": "callback:cb-f7b82d97-48cf-42be-8f39-3617a1d94d0c",
+        "updateId": 4,
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null,
+        "text": "允许 ABCDEF1234",
+        "callback": {
+          "id": "cb-f7b82d97-48cf-42be-8f39-3617a1d94d0c",
+          "messageId": 1
+        }
+      },
+      {
+        "key": "42:1004",
+        "updateId": 5,
+        "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。",
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "finished",
+        "runId": "917d312e-481f-4ee9-ba51-cb9e30b7a25e",
+        "taskId": null
+      },
+      {
+        "key": "42:1006",
+        "updateId": 8,
+        "text": "选择 3AB8CAAABE 2",
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null
+      },
+      {
+        "key": "42:1007",
+        "updateId": 9,
+        "text": "/confirm",
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null
+      },
+      {
+        "key": "callback:cb-852020e3-3c0f-48cb-a2de-739897b9dd5b",
+        "updateId": 10,
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null,
+        "text": "允许 13D37D012D",
+        "callback": {
+          "id": "cb-852020e3-3c0f-48cb-a2de-739897b9dd5b",
+          "messageId": 8
+        }
+      },
+      {
+        "key": "callback:cb-a6e3d668-21dc-4904-b106-dce277760207",
+        "updateId": 12,
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null,
+        "text": "允许 920B4FBD0B",
+        "callback": {
+          "id": "cb-a6e3d668-21dc-4904-b106-dce277760207",
+          "messageId": 1009
+        }
+      },
+      {
+        "key": "callback:cb-3d2f6005-419d-4960-8979-97954436542e",
+        "updateId": 13,
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null,
+        "text": "允许 920B4FBD0B",
+        "callback": {
+          "id": "cb-3d2f6005-419d-4960-8979-97954436542e",
+          "messageId": 9
+        }
+      },
+      {
+        "key": "callback:cb-b339195d-e6e1-437e-bc01-dcfd7fa80f86",
+        "updateId": 15,
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null,
+        "text": "允许 920B4FBD0B",
+        "callback": {
+          "id": "cb-b339195d-e6e1-437e-bc01-dcfd7fa80f86",
+          "messageId": 9
+        }
+      },
+      {
+        "key": "42:1008",
+        "updateId": 16,
+        "text": "允许 920B4FBD0B",
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null
+      },
+      {
+        "key": "42:1009",
+        "updateId": 17,
+        "text": "选择 3AB8CAAABE 1",
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null
+      },
+      {
+        "key": "callback:cb-b8c90515-fcfc-4ded-8df3-be0013671f2e",
+        "updateId": 18,
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null,
+        "text": "允许 72540C7031",
+        "callback": {
+          "id": "cb-b8c90515-fcfc-4ded-8df3-be0013671f2e",
+          "messageId": 23
+        }
+      },
+      {
+        "key": "callback:cb-9adcb088-fb0a-43e1-9638-7621c14470d2",
+        "updateId": 20,
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null,
+        "text": "允许 920B4FBD0B",
+        "callback": {
+          "id": "cb-9adcb088-fb0a-43e1-9638-7621c14470d2",
+          "messageId": 9
+        }
+      },
+      {
+        "key": "42:1010",
+        "updateId": 21,
+        "text": "允许 920B4FBD0B",
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null
+      },
+      {
+        "key": "42:1011",
+        "updateId": 22,
+        "text": "选择 3AB8CAAABE 1",
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null
+      },
+      {
+        "key": "42:1012",
+        "updateId": 23,
+        "text": "/confirm",
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null
+      },
+      {
+        "key": "callback:cb-0713d8ae-4423-4e4c-a859-97f8cda72c40",
+        "updateId": 26,
+        "receivedAt": "2026-11-01T01:21+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null,
+        "text": "允许 920B4FBD0B",
+        "callback": {
+          "id": "cb-0713d8ae-4423-4e4c-a859-97f8cda72c40",
+          "messageId": 9
+        }
+      }
+    ],
+    "deliveries": [
+      {
+        "key": "binding:7c5e5032-f9d0-4944-a52d-5953fe6016cd",
+        "chatId": 42,
+        "text": "已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。工具仍逐次确认。例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。",
+        "parts": [
+          {
+            "text": "已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。工具仍逐次确认。例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。",
+            "state": "submitted",
+            "messageId": 1
+          }
+        ],
+        "state": "submitted",
+        "messageId": 1
+      },
+      {
+        "key": "input:42:1002",
+        "chatId": 42,
+        "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+        "parts": [
+          {
+            "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+            "state": "submitted",
+            "messageId": 2
+          }
+        ],
+        "state": "submitted",
+        "messageId": 2
+      },
+      {
+        "key": "input:42:1003",
+        "chatId": 42,
+        "text": "当前没有属于 Telegram 的待确认操作；没有批准任何操作。",
+        "parts": [
+          {
+            "text": "当前没有属于 Telegram 的待确认操作；没有批准任何操作。",
+            "state": "submitted",
+            "messageId": 3
+          }
+        ],
+        "state": "submitted",
+        "messageId": 3
+      },
+      {
+        "key": "input:callback:cb-f7b82d97-48cf-42be-8f39-3617a1d94d0c",
+        "chatId": 42,
+        "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+        "parts": [
+          {
+            "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+            "state": "submitted",
+            "messageId": 4
+          }
+        ],
+        "state": "submitted",
+        "messageId": 4
+      },
+      {
+        "key": "selection:e7f25bf6-de5b-47ae-a8a8-d244daf249be:3AB8CAAABE",
+        "chatId": 42,
+        "text": "选择本轮使用的 Pi：\n候选刚核对，尚未采用。临时句柄不是真实身份；刷新句柄不表示目标消失。\n1. π - workspace · w-2166d42f · 空闲\n目标详情：pane w1:p1 · terminal term_65f26237777e41\n目录：/private/tmp/g197-QAarIF/herdr-fixture/workspace\n2. π - workspace · w-2166d42f · 空闲\n目标详情：pane w1:p2 · terminal term_65f2623b4e3be2\n目录：/private/tmp/g197-QAarIF/herdr-fixture/workspace\n发送“选择 3AB8CAAABE 序号”，或“取消选择 3AB8CAAABE”。\n仅本轮使用。选择后继续当前任务，发送输入仍需另行确认。短码五分钟有效；发送 /confirm 可刷新当前选择。",
+        "parts": [
+          {
+            "text": "选择本轮使用的 Pi：\n候选刚核对，尚未采用。临时句柄不是真实身份；刷新句柄不表示目标消失。\n1. π - workspace · w-2166d42f · 空闲\n目标详情：pane w1:p1 · terminal term_65f26237777e41\n目录：/private/tmp/g197-QAarIF/herdr-fixture/workspace\n2. π - workspace · w-2166d42f · 空闲\n目标详情：pane w1:p2 · terminal term_65f2623b4e3be2\n目录：/private/tmp/g197-QAarIF/herdr-fixture/workspace\n发送“选择 3AB8CAAABE 序号”，或“取消选择 3AB8CAAABE”。\n仅本轮使用。选择后继续当前任务，发送输入仍需另行确认。短码五分钟有效；发送 /confirm 可刷新当前选择。",
+            "state": "submitted",
+            "messageId": 6
+          }
+        ],
+        "state": "submitted",
+        "messageId": 6
+      },
+      {
+        "key": "input:42:1006",
+        "chatId": 42,
+        "text": "已提交本轮目标选择。宿主核对后继续，发送输入仍需另行确认。",
+        "parts": [
+          {
+            "text": "已提交本轮目标选择。宿主核对后继续，发送输入仍需另行确认。",
+            "state": "submitted",
+            "messageId": 7
+          }
+        ],
+        "state": "submitted",
+        "messageId": 7
+      },
+      {
+        "key": "approval:8928d3de-75a5-49d8-b1de-4d2f3892971a:13D37D012D",
+        "chatId": 42,
+        "text": "需要你确认 · 使用工具 herdr_pi_control\n\n\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/tmp/g197-QAarIF/herdr-fixture/workspace\",\"session\":\"w-2166d42f\",\"paneId\":\"w1:p2\",\"terminalId\":\"term_65f2623b4e3be2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] \n\n允许 13D37D012D\n拒绝 13D37D012D\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+        "parts": [
+          {
+            "text": "需要你确认 · 使用工具 herdr_pi_control\n\n\nTool: herdr_pi_control\n{\n  &quot;action&quot;: &quot;prompt&quot;,\n  &quot;text&quot;: &quot;请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。&quot;\n}\n本 Run 已采用且已冻结的 Herdr 目标 {&quot;authorizedDirectory&quot;:&quot;/private/tmp/g197-QAarIF/herdr-fixture/workspace&quot;,&quot;session&quot;:&quot;w-2166d42f&quot;,&quot;paneId&quot;:&quot;w1:p2&quot;,&quot;terminalId&quot;:&quot;term_65f2623b4e3be2&quot;}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] \n\n允许 13D37D012D\n拒绝 13D37D012D\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+            "state": "submitted",
+            "messageId": 8
+          }
+        ],
+        "keyboard": {
+          "inline_keyboard": [
+            [
+              {
+                "text": "允许这次",
+                "callback_data": "allow:13D37D012D"
+              },
+              {
+                "text": "取消",
+                "callback_data": "deny:13D37D012D"
+              }
+            ]
+          ]
+        },
+        "state": "submitted",
+        "messageId": 8
+      },
+      {
+        "key": "approval:8928d3de-75a5-49d8-b1de-4d2f3892971a:920B4FBD0B",
+        "chatId": 42,
+        "text": "需要你确认 · 使用工具 herdr_pi_control\n\n\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/tmp/g197-QAarIF/herdr-fixture/workspace\",\"session\":\"w-2166d42f\",\"paneId\":\"w1:p2\",\"terminalId\":\"term_65f2623b4e3be2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] \n\n允许 920B4FBD0B\n拒绝 920B4FBD0B\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+        "parts": [
+          {
+            "text": "需要你确认 · 使用工具 herdr_pi_control\n\n\nTool: herdr_pi_control\n{\n  &quot;action&quot;: &quot;prompt&quot;,\n  &quot;text&quot;: &quot;请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：5b15071f。&quot;\n}\n本 Run 已采用且已冻结的 Herdr 目标 {&quot;authorizedDirectory&quot;:&quot;/private/tmp/g197-QAarIF/herdr-fixture/workspace&quot;,&quot;session&quot;:&quot;w-2166d42f&quot;,&quot;paneId&quot;:&quot;w1:p2&quot;,&quot;terminalId&quot;:&quot;term_65f2623b4e3be2&quot;}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] \n\n允许 920B4FBD0B\n拒绝 920B4FBD0B\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+            "state": "submitted",
+            "messageId": 9
+          }
+        ],
+        "keyboard": {
+          "inline_keyboard": [
+            [
+              {
+                "text": "允许这次",
+                "callback_data": "allow:920B4FBD0B"
+              },
+              {
+                "text": "取消",
+                "callback_data": "deny:920B4FBD0B"
+              }
+            ]
+          ]
+        },
+        "state": "submitted",
+        "messageId": 9
+      },
+      {
+        "key": "input:42:1007",
+        "chatId": 42,
+        "text": "Telegram 已接收新的当前确认；不代表你已阅读。\n旧短码失效，仍需你允许或拒绝同一次操作。",
+        "parts": [
+          {
+            "text": "Telegram 已接收新的当前确认；不代表你已阅读。\n旧短码失效，仍需你允许或拒绝同一次操作。",
+            "state": "submitted",
+            "messageId": 10
+          }
+        ],
+        "state": "submitted",
+        "messageId": 10
+      },
+      {
+        "key": "input:callback:cb-852020e3-3c0f-48cb-a2de-739897b9dd5b",
+        "chatId": 42,
+        "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+        "parts": [
+          {
+            "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+            "state": "submitted",
+            "messageId": 11
+          }
+        ],
+        "state": "submitted",
+        "messageId": 11
+      },
+      {
+        "key": "input:callback:cb-a6e3d668-21dc-4904-b106-dce277760207",
+        "chatId": 42,
+        "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+        "parts": [
+          {
+            "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+            "state": "submitted",
+            "messageId": 14
+          }
+        ],
+        "state": "submitted",
+        "messageId": 14
+      },
+      {
+        "key": "input:callback:cb-3d2f6005-419d-4960-8979-97954436542e",
+        "chatId": 42,
+        "text": "已处理这一次确认，不适用于后续操作。",
+        "parts": [
+          {
+            "text": "已处理这一次确认，不适用于后续操作。",
+            "state": "submitted",
+            "messageId": 16
+          }
+        ],
+        "state": "submitted",
+        "messageId": 16
+      },
+      {
+        "key": "input:callback:cb-b339195d-e6e1-437e-bc01-dcfd7fa80f86",
+        "chatId": 42,
+        "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+        "parts": [
+          {
+            "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+            "state": "submitted",
+            "messageId": 19
+          }
+        ],
+        "state": "submitted",
+        "messageId": 19
+      },
+      {
+        "key": "input:42:1008",
+        "chatId": 42,
+        "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+        "parts": [
+          {
+            "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+            "state": "submitted",
+            "messageId": 21
+          }
+        ],
+        "state": "submitted",
+        "messageId": 21
+      },
+      {
+        "key": "input:42:1009",
+        "chatId": 42,
+        "text": "目标选择已过期、已处理或不属于当前执行。没有选择目标或发送输入；发送 /confirm 查看当前选择。",
+        "parts": [
+          {
+            "text": "目标选择已过期、已处理或不属于当前执行。没有选择目标或发送输入；发送 /confirm 查看当前选择。",
+            "state": "submitted",
+            "messageId": 22
+          }
+        ],
+        "state": "submitted",
+        "messageId": 22
+      },
+      {
+        "key": "approval:2f1173cc-1fff-46ad-a0d2-861efbec5206:72540C7031",
+        "chatId": 42,
+        "text": "需要你确认 · 读取文件\n\n\nTool: read_file\nPath: \"blue-answer.json\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] \n\n允许 72540C7031\n拒绝 72540C7031\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+        "parts": [
+          {
+            "text": "需要你确认 · 读取文件\n\n\nTool: read_file\nPath: &quot;blue-answer.json&quot;\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] \n\n允许 72540C7031\n拒绝 72540C7031\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+            "state": "submitted",
+            "messageId": 23
+          }
+        ],
+        "keyboard": {
+          "inline_keyboard": [
+            [
+              {
+                "text": "允许这次",
+                "callback_data": "allow:72540C7031"
+              },
+              {
+                "text": "取消",
+                "callback_data": "deny:72540C7031"
+              }
+            ]
+          ]
+        },
+        "state": "submitted",
+        "messageId": 23
+      },
+      {
+        "key": "input:callback:cb-b8c90515-fcfc-4ded-8df3-be0013671f2e",
+        "chatId": 42,
+        "text": "已处理这一次确认，不适用于后续操作。",
+        "parts": [
+          {
+            "text": "已处理这一次确认，不适用于后续操作。",
+            "state": "submitted",
+            "messageId": 24
+          }
+        ],
+        "state": "submitted",
+        "messageId": 24
+      },
+      {
+        "key": "result:42:1004",
+        "chatId": 42,
+        "text": "独立核查完成 5b15071f-blue",
+        "parts": [
+          {
+            "text": "独立核查完成 5b15071f-blue",
+            "state": "submitted",
+            "messageId": 26
+          }
+        ],
+        "state": "submitted",
+        "messageId": 26
+      },
+      {
+        "key": "input:callback:cb-9adcb088-fb0a-43e1-9638-7621c14470d2",
+        "chatId": 42,
+        "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+        "parts": [
+          {
+            "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+            "state": "submitted",
+            "messageId": 27
+          }
+        ],
+        "state": "submitted",
+        "messageId": 27
+      },
+      {
+        "key": "input:42:1010",
+        "chatId": 42,
+        "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+        "parts": [
+          {
+            "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+            "state": "submitted",
+            "messageId": 29
+          }
+        ],
+        "state": "submitted",
+        "messageId": 29
+      },
+      {
+        "key": "input:42:1011",
+        "chatId": 42,
+        "text": "目标选择已过期、已处理或不属于当前执行。没有选择目标或发送输入；发送 /confirm 查看当前选择。",
+        "parts": [
+          {
+            "text": "目标选择已过期、已处理或不属于当前执行。没有选择目标或发送输入；发送 /confirm 查看当前选择。",
+            "state": "submitted",
+            "messageId": 30
+          }
+        ],
+        "state": "submitted",
+        "messageId": 30
+      },
+      {
+        "key": "input:42:1012",
+        "chatId": 42,
+        "text": "当前没有属于 Telegram 的待确认操作；没有批准任何操作。",
+        "parts": [
+          {
+            "text": "当前没有属于 Telegram 的待确认操作；没有批准任何操作。",
+            "state": "submitted",
+            "messageId": 31
+          }
+        ],
+        "state": "submitted",
+        "messageId": 31
+      },
+      {
+        "key": "input:callback:cb-0713d8ae-4423-4e4c-a859-97f8cda72c40",
+        "chatId": 42,
+        "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+        "parts": [
+          {
+            "text": "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。",
+            "state": "submitted",
+            "messageId": 33
+          }
+        ],
+        "state": "submitted",
+        "messageId": 33
+      }
+    ],
+    "routes": []
+  },
+  "finishedAt": "2026-10-31T17:21:21.503Z"
+}

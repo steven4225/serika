@@ -1,0 +1,64 @@
+import assert from 'node:assert/strict';
+import {readFile,writeFile,cp,lstat,rename} from 'node:fs/promises';
+import {join} from 'node:path';
+import {randomUUID,createHash} from 'node:crypto';
+import {loadTelegramTestSettings,inspectTelegramTestStore} from '/Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/scripts/chat-run-target-telegram-profile.mjs';
+import {createRequire} from 'node:module';
+import {pathToFileURL} from 'node:url';
+import {DesktopRuntime} from '/Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/src/main/desktop-runtime.ts';
+import {TelegramGateway} from '/Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/src/main/telegram-gateway.ts';
+import {TelegramStore} from '/Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/src/main/telegram-store.ts';
+import {createTelegramApi} from '/Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/src/main/telegram-api.ts';
+import {redactTelegramEvidence} from '/Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/scripts/chat-run-target-telegram-inbound.mjs';
+import {cleanup} from '/Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/scripts/chat-run-target-live-herdr.mjs';
+import {tryAcquireFlock} from '/Users/a1-6/Code/agents/serika-chat-run-target/packages/assistant/dist/flock.js';
+import {HerdrClient} from '/Users/a1-6/Code/agents/serika-chat-run-target/packages/assistant/dist/herdr.js';
+const repo='/Users/a1-6/Code/agents/serika-chat-run-target',output='/private/tmp/s197-tg-authorized-01nov-c/reconciliation-2',root='/private/tmp/s197-tg',retained='/private/tmp/s197-tg-failed-d71b0a0d';
+const oldPath=join(repo,'docs/v2-pilot/evidence/chat-run-target/stage1-telegram-d71b0a0d/result.json');
+const oldBytes=await readFile(oldPath),original=JSON.parse(oldBytes),sha=value=>createHash('sha256').update(value).digest('hex');
+const statePath=join(root,'herdr-fixture/herdr-state.json'),state=JSON.parse(await readFile(statePath));
+const report={auditId:randomUUID(),startedAt:new Date().toISOString(),purpose:'authorized-next-batch-test-only-handoff-without-replay',oldBatchId:original.batchId,oldResultSha256:sha(oldBytes),root,retained,status:'failed',realModelCalls:0,costUsd:0,ignoredSockets:[]};
+let lease,api,settings,host;let modelCalls=0;
+const save=()=>writeFile(join(output,'result.json'),JSON.stringify(redactTelegramEvidence(report,settings?[settings.credentials.key,settings.credentials.telegram,settings.credentials.proxy]:[]),null,2)+'\n');
+try{
+ assert.equal(original.status,'failed');assert.equal(original.unknownEffect,undefined);assert.equal(original.unresolvedReservedUsd,0);
+ assert.ok(original.calls.every(call=>call.status==='returned'));
+ const receipt=original.cases[0].receiptAfterShutdown;assert.equal(receipt.status,'cancelled');assert.ok(receipt.tools.length&&receipt.tools.every(tool=>tool.status==='not_started'));
+ assert.equal(state.unknown,false);assert.equal(state.phase,'ready');assert.equal(state.root,join(root,'herdr-fixture'));
+ settings=await loadTelegramTestSettings({envFile:'/Users/a1-6/.config/serika/chat-run-target-telegram-test.env',forbiddenBotId:8797046945});assert.equal(settings.runtimeRoot,root);
+ lease=await tryAcquireFlock(join(settings.profileRoot,'harness.lock'));assert.ok(lease,'Another test host owns profile');
+ const store=new TelegramStore(join(settings.applicationHome,'resident/telegram.json'),settings.applicationHome);await store.load();const before=store.snapshot();
+ assert.deepEqual(before,original.telegramStoreAfterShutdown);assert.equal(before.enabled,false);report.storeBefore=before;
+ const source=before.inputs.find(row=>row.runId===receipt.runId);assert.ok(source&&source.state==='bound');
+ const require=createRequire(join(repo,'apps/desktop/package.json'));const {MockLanguageModelV3}=await import(pathToFileURL(require.resolve('ai/test')));
+ host=await DesktopRuntime.create({applicationHome:settings.applicationHome,cwd:state.work,env:{HOME:state.home,RUNLOOM_CONFIG:settings.configPath,RUNLOOM_DESKTOP_TEST:'1'},modelAlias:'offline-reconciliation',model:new MockLanguageModelV3({doStream:async()=>{modelCalls++;throw new Error('Model forbidden during reconciliation');}}),send:()=>{}});
+ await host.selectThread(before.owner.threadId);
+ const currentReceipt=await host.channelReceipt(before.owner.threadId,receipt.runId);assert.deepEqual(currentReceipt,receipt);report.currentReceipt=currentReceipt;
+ const offlineGateway=new TelegramGateway(host,store);host.attachTelegram(offlineGateway);await offlineGateway.initialize();
+ assert.equal(store.snapshot().inputs.find(row=>row.key===source.key).state,'unknown');report.gatewayInitializedWithoutTransport=true;
+ await offlineGateway.reviewInput({key:source.key,note:'用户授权继续专用 Bot 验收。Codex 本轮核对原执行回执为 cancelled，list_directory 与 herdr_pi_discover 均 not_started，两个隔离 Pi 转录无用户输入。仅完成旧测试输入核对；不重放旧任务、批准或 callback，d71b0a0d 验收仍为失败。'});
+ assert.equal(store.snapshot().inputs.find(row=>row.key===source.key).state,'reviewed');assert.equal(modelCalls,0);report.operatorReview=store.snapshot().inputs.find(row=>row.key===source.key);
+ await host.shutdown();host=undefined;report.offlineHostStopped=true;
+ inspectTelegramTestStore({data:store.snapshot(),settings});
+ const rejected=original.inboundChecks.filter(row=>!row.forwarded);
+ assert.equal(rejected.length,1);const callback=rejected[0].update.callback_query;
+ assert.ok(callback);assert.equal(callback.from.id,settings.owner.userId);assert.equal(callback.from.is_bot,false);
+ assert.equal(callback.message.chat.id,settings.owner.chatId);assert.equal(callback.message.chat.type,'private');assert.equal(callback.message.from.id,settings.botId);assert.equal(callback.message.from.is_bot,true);
+ assert.ok(/^allow:[A-F0-9]{10}$/.test(callback.data));
+ report.oldCallbackOwnershipVerified=true;report.oldCallbackForwarded=false;
+ for(const path of state.piSessions){let text;try{text=await readFile(path,'utf8');}catch(error){if(error.code!=='ENOENT')throw error;text='';}assert.equal(text.trim().split('\n').filter(Boolean).map(row=>JSON.parse(row)).filter(row=>row.type==='message'&&row.message?.role==='user').length,0);}
+ await cp(root,join(output,'scene-before-close'),{recursive:true,dereference:false,verbatimSymlinks:true,filter:async path=>{const stat=await lstat(path);if(stat.isSocket()){report.ignoredSockets.push(path);return false;}return true;}});report.sceneSnapshotSaved=true;await save();
+ const offset=Math.max(before.offset,...original.inboundChecks.map(row=>row.update.update_id+1));report.ack={offset,dispatchingAt:new Date().toISOString()};await save();
+ api=createTelegramApi(settings.credentials.telegram,fetch,settings.credentials.proxy?{proxyUrl:settings.credentials.proxy}:{});
+ const identity=await api.identity(new AbortController().signal);assert.equal(identity.id,settings.botId);report.botIdentityMatches=true;
+ const updates=await api.updates(offset,new AbortController().signal);report.ack={...report.ack,returnedAt:new Date().toISOString(),responseIsArray:Array.isArray(updates),returnedUpdates:updates};await save();
+ assert.ok(Array.isArray(updates)&&updates.length===0,'Pending test updates returned; no forwarding or further acknowledgement');report.ack.confirmed=true;
+ await store.update(data=>{assert.deepEqual(data.owner,before.owner);assert.equal(data.enabled,false);data.offset=Math.max(data.offset,offset);});report.storeAfter=store.snapshot();await api.close();api=undefined;
+ const env={HOME:state.home,PATH:'/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',XDG_CONFIG_HOME:join(state.home,'.config'),LANG:'en_US.UTF-8'};
+ const client=new HerdrClient({env,cwd:state.work,authorizedDirectory:state.work});report.targetChecks=[];
+ for(const target of state.targets){const observation=await client.execute(target,{action:'get'});report.targetChecks.push({target,observation});await save();assert.ok(observation.ok&&['idle','done'].includes(observation.value.status),'Old target not confirmed idle/done; preserve');}
+ report.cleanup=await cleanup(statePath);assert.equal(report.cleanup.phase,'cleaned');await rename(root,retained);report.retainedDirectoryRenamed=true;
+ assert.equal(sha(await readFile(oldPath)),report.oldResultSha256);report.originalEvidenceUnchanged=true;report.status='passed';
+}catch(error){report.failure={name:error.name,message:error instanceof assert.AssertionError?error.message:'Reconciliation failed; private details withheld'};process.exitCode=1;}
+finally{if(host)await host.shutdown();report.modelCalls=modelCalls;if(api)await api.close();if(lease){await lease.release();report.profileLeaseReleased=true;}report.finishedAt=new Date().toISOString();await save();}
+console.log(JSON.stringify({status:report.status,failure:report.failure,ackConfirmed:report.ack?.confirmed,oldTargets:report.targetChecks?.map(row=>row.observation.ok?row.observation.value.status:'error'),retained:report.retainedDirectoryRenamed?retained:root,realModelCalls:0,output}));

@@ -1,0 +1,262 @@
+diff --git a/apps/desktop/scripts/chat-run-target-telegram-inbound.mjs b/apps/desktop/scripts/chat-run-target-telegram-inbound.mjs
+index 6a7e517..a564d64 100644
+--- a/apps/desktop/scripts/chat-run-target-telegram-inbound.mjs
++++ b/apps/desktop/scripts/chat-run-target-telegram-inbound.mjs
+@@ -15,36 +15,35 @@ export function redactTelegramEvidence(value, secrets = []) {
+ 
+ export function inspectTelegramInbound({ update, context, binding, secrets = [] }) {
+   const message = update?.message, text = typeof message?.text === 'string' ? message.text.trim() : null;
+-  const phase = !binding.owner ? 'pairing' : binding.runId ? 'control' : 'task';
+-  const expectedCommand = phase === 'pairing' ? context.pairingCode && `/start ${context.pairingCode}` : context.taskText;
+-  const commandMatches = text !== null && (phase === 'control'
+-    ? /^(?:选择\s+[A-F0-9]{10}\s+[1-9][0-9]*|取消选择\s+[A-F0-9]{10}|(?:允许|拒绝)\s+[A-F0-9]{10})$/i.test(text)
+-    : typeof expectedCommand === 'string' && text === expectedCommand);
++  const phase = update?.callback_query || binding.owner ? 'control' : 'pairing';
++  const expectedCommand = context.pairingCode && `/start ${context.pairingCode}`;
++  const commandMatches = text !== null && typeof expectedCommand === 'string' && text === expectedCommand;
+   const check = (id, expected, actual, passed = actual === expected) => ({ id, expected, actual: actual ?? null, passed });
+   const predicates = [
+     check('update_object_valid', 'object', update === null ? 'null' : Array.isArray(update) ? 'array' : typeof update, !!update && typeof update === 'object' && !Array.isArray(update)),
+     check('update_id_valid', 'nonnegative safe integer', update?.update_id, Number.isSafeInteger(update?.update_id) && update.update_id >= 0),
+-    check('message_present', true, !!message),
+-    check('message_id_valid', 'positive safe integer', message?.message_id, Number.isSafeInteger(message?.message_id) && message.message_id > 0),
+-    check('owner_user_matches', context.owner.userId, message?.from?.id),
+-    check('owner_chat_matches', context.owner.chatId, message?.chat?.id),
+-    check('chat_private', 'private', message?.chat?.type),
+-    check('sender_is_human', false, message?.from?.is_bot),
+-    check('not_forwarded', false, message?.forward_origin !== undefined),
+-    check('not_via_bot', false, message?.via_bot !== undefined),
+-    check('text_is_string', 'string', typeof message?.text),
+-    check('text_matches_phase', phase === 'control' ? 'selection/cancel/allow/deny shortcode' : expectedCommand ?? 'command not ready', text, commandMatches),
+-    check('single_task_message', context.taskMessageId ?? 'first task', message?.message_id,
+-      phase !== 'task' || !context.taskMessageId || context.taskMessageId === message?.message_id),
++    ...(phase === 'control' ? [] : [
++      check('message_present', true, !!message),
++      check('message_id_valid', 'positive safe integer', message?.message_id, Number.isSafeInteger(message?.message_id) && message.message_id > 0),
++      check('owner_user_matches', context.owner.userId, message?.from?.id),
++      check('owner_chat_matches', context.owner.chatId, message?.chat?.id),
++      check('chat_private', 'private', message?.chat?.type),
++      check('sender_is_human', false, message?.from?.is_bot),
++      check('not_forwarded', false, message?.forward_origin !== undefined),
++      check('not_via_bot', false, message?.via_bot !== undefined),
++      check('text_is_string', 'string', typeof message?.text),
++      check('text_matches_phase', expectedCommand ?? 'command not ready', text, commandMatches),
++    ]),
+   ];
+   if (context.pollResponseIsArray === false) predicates.push(check('updates_response_array', true, false));
+   if (context.handoffResponseSize !== undefined) predicates.push(check('handoff_response_empty', 0, context.handoffResponseSize));
+   const failures = predicates.filter(predicate => !predicate.passed).map(predicate => predicate.id);
+   return redactTelegramEvidence({ at: new Date().toISOString(), pollId: context.pollId, indexInPoll: context.indexInPoll, phase,
++    controlAuthority: phase === 'control' ? 'original-telegram-gateway' : null,
+     sourceOwner: { userId: context.owner.userId, chatId: context.owner.chatId, threadId: context.owner.threadId ?? null },
+     updateSha256: createHash('sha256').update(JSON.stringify(update) ?? 'undefined').digest('hex'), update: update ?? null, normalizedText: text, predicates,
+     accepted: failures.length === 0, failedPredicate: failures[0] ?? null, failedPredicates: failures,
+-    safeToAcknowledge: predicates.filter(predicate => !['text_matches_phase', 'single_task_message'].includes(predicate.id)).every(predicate => predicate.passed),
++    safeToAcknowledge: phase !== 'control' && predicates.filter(predicate => predicate.id !== 'text_matches_phase').every(predicate => predicate.passed),
+     forwarded: false, bindingBefore: binding, bindingAfter: binding }, secrets);
+ }
+ 
+@@ -54,3 +53,16 @@ export function telegramHandoff({ storeOffset, records, confirmedOffset }) {
+   return { storeOffset, requiredOffset, confirmedOffset, confirmed: !unsafe.length && confirmedOffset >= requiredOffset,
+     blockedBy: unsafe.map(record => ({ updateId: record.update?.update_id ?? null, failedPredicates: record.failedPredicates })) };
+ }
++
++export function limitTelegramRuns({ run, taskText, maxRuns, stop }) {
++  let started = 0, blocked = false;
++  return async (...args) => {
++    if (blocked || started >= maxRuns || args[1] !== taskText || args[2] !== false) {
++      blocked = true;
++      stop('unexpected-task-or-run-budget');
++      throw new Error('Telegram acceptance Run admission rejected');
++    }
++    started++;
++    return run(...args);
++  };
++}
+diff --git a/apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs b/apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs
+index a1eaea6..5e9521d 100644
+--- a/apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs
++++ b/apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs
+@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
+ import { createRequire } from 'node:module';
+ import { spawnSync } from 'node:child_process';
+ import { randomUUID } from 'node:crypto';
+-import { inspectTelegramInbound, redactTelegramEvidence, telegramHandoff } from './chat-run-target-telegram-inbound.mjs';
++import { inspectTelegramInbound, redactTelegramEvidence, telegramHandoff, limitTelegramRuns } from './chat-run-target-telegram-inbound.mjs';
+ import { writeTelegramStopAudit } from '../../../scripts/chat-run-target-telegram-stop-audit.mjs';
+ import { assertTelegramDelivery } from './chat-run-target-telegram-delivery.mjs';
+ import { PassThrough } from 'node:stream';
+@@ -71,6 +71,44 @@ it('owner/type failures remain separate; undefined text never becomes an expecte
+   await keep('predicate-boundaries.json', { wrongOwner, nonText, valid, malformed, wrongResponse });
+ });
+ 
++it('live failed native callback and all controls reach the original gateway without a second approval policy', async () => {
++  const historical = JSON.parse(await readFile(new URL('../../../docs/v2-pilot/evidence/chat-run-target/stage1-telegram-d71b0a0d/result.json', import.meta.url), 'utf8'));
++  const old = historical.inboundChecks.find(row => row.update?.callback_query);
++  assert.equal(old.accepted, false);
++  const actual = inspectTelegramInbound({ update: old.update, context: { ...context, owner: old.sourceOwner }, binding: old.bindingBefore });
++  assert.equal(actual.accepted, true); assert.deepEqual(actual.failedPredicates, []);
++  assert.equal(actual.controlAuthority, 'original-telegram-gateway');
++  assert.equal(actual.safeToAcknowledge, false, 'Only gateway processing can acknowledge a control');
++  assert.deepEqual(actual.update, old.update);
++  const running = { ...binding, owner, runId: 'same-run' };
++  const controls = [update('/confirm'), update('允许：ABCDEF1234'), update('选择 ABCDEF1234 2'),
++    { ...old.update, callback_query: { ...old.update.callback_query, from: { id: 99, is_bot: false } } }];
++  for (const raw of controls) {
++    const record = inspectTelegramInbound({ update: raw, context, binding: running });
++    assert.equal(record.accepted, true); assert.equal(record.controlAuthority, 'original-telegram-gateway');
++    assert.equal(record.safeToAcknowledge, false); assert.deepEqual(record.update, raw);
++  }
++  const callbackAfterRun = inspectTelegramInbound({ update: old.update, context, binding: { ...running, runId: null } });
++  assert.equal(callbackAfterRun.accepted, true); assert.equal(callbackAfterRun.phase, 'control');
++  const oldText = inspectTelegramInbound({ update: update('允许 ABCDEF1234'), context: { ...context, taskMessageId: 123 }, binding: { ...running, runId: null } });
++  assert.equal(oldText.accepted, true); assert.equal(oldText.phase, 'control');
++  await keep('gateway-control-boundary.json', { auditId: randomUUID(), actual, callbackAfterRun });
++});
++
++it('Run budget is enforced at host admission after gateway parsing, independently of approval syntax', async () => {
++  let calls = 0;
++  const stopped = [];
++  const admission = () => limitTelegramRuns({ run: async (...args) => { calls++; return args; }, taskText: 'current task', maxRuns: 1, stop: reason => stopped.push(reason) });
++  const rejected = admission();
++  await assert.rejects(rejected('thread', 'foreign task', false), /admission rejected/);
++  await assert.rejects(rejected('thread', 'current task', false), /admission rejected/);
++  assert.equal(calls, 0);
++  const run = admission();
++  await run('thread', 'current task', false);
++  await assert.rejects(run('thread', 'current task', false), /admission rejected/);
++  assert.equal(calls, 1); assert.equal(stopped.length, 3);
++});
++
+ it('rejected observed update requires acknowledgement beyond the old store offset before daily restore', async () => {
+   const rejected = inspectTelegramInbound({ update: update('继续，允许临时停用并恢复日用 TG 接入。'), context, binding });
+   const before = telegramHandoff({ storeOffset: 414513485, records: [rejected], confirmedOffset: 414513485 });
+diff --git a/apps/desktop/scripts/chat-run-target-telegram-live.mjs b/apps/desktop/scripts/chat-run-target-telegram-live.mjs
+index 0af3171..85c919a 100644
+--- a/apps/desktop/scripts/chat-run-target-telegram-live.mjs
++++ b/apps/desktop/scripts/chat-run-target-telegram-live.mjs
+@@ -16,7 +16,7 @@ import { listDesktopThreads } from '../src/main/desktop-identity.ts';
+ import { configureCliModel } from '@serika/assistant';
+ import { setup, addPi, cleanup } from './chat-run-target-live-herdr.mjs';
+ import { approvalChain } from './chat-run-target-approval.mjs';
+-import { inspectTelegramInbound, redactTelegramEvidence, telegramHandoff } from './chat-run-target-telegram-inbound.mjs';
++import { inspectTelegramInbound, redactTelegramEvidence, telegramHandoff, limitTelegramRuns } from './chat-run-target-telegram-inbound.mjs';
+ import { waitForTelegramPairReady } from './chat-run-target-telegram-pairing.mjs';
+ import { defaultTelegramTestEnv, loadTelegramTestSettings, prepareTelegramTestProfile, writeTelegramTestConfig, inspectTelegramTestStore } from './chat-run-target-telegram-profile.mjs';
+ import { writeTelegramStopAudit } from '../../../scripts/chat-run-target-telegram-stop-audit.mjs';
+@@ -41,18 +41,23 @@ if (!process.argv.includes('--run')) {
+     modelCalls: 0, telegramCalls: 0, scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))) }));
+   process.exit(0);
+ }
+-assert.equal(git('status', '--porcelain'), '', 'Commit the harness before live evidence');
++const sourceStatus = git('status', '--porcelain');
++const sourcePatch = execFileSync('git', ['diff', 'HEAD', '--binary'], { cwd: repo, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
++const sourceFiles = ['chat-run-target-telegram-live.mjs', 'chat-run-target-telegram-inbound.mjs', 'chat-run-target-telegram-profile.mjs', 'chat-run-target-telegram-pairing.mjs', 'chat-run-target-approval.mjs', 'chat-run-target-live-herdr.mjs'];
++const sourceHashes = Object.fromEntries(await Promise.all(sourceFiles.map(async file => [file, hash(await readFile(join(repo, 'apps/desktop/scripts', file)))])));
++assert.equal(git('diff', 'HEAD', '--name-only', '--', 'apps/desktop/src', 'packages/assistant/src', 'packages/core/src', 'packages/ai-sdk-adapter/src'), '', 'Product source must match the committed offline baseline');
+ const output = resolve(arg('--output')); assert.ok(output.startsWith('/private/tmp/')); await mkdir(output);
++await writeFile(join(output, 'source.patch'), sourcePatch);
+ const historical = JSON.parse(await readFile(join(repo, 'docs/v2-pilot/evidence/chat-run-target/stage1-telegram-2856460a/result.json'), 'utf8'));
+ const settings = await loadTelegramTestSettings({ envFile, forbiddenBotId: historical.telegramIdentity.actualBotId });
+ const { credentials } = settings, root = settings.runtimeRoot;
+-const report = { batchId: randomUUID(), startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
++const report = { batchId: randomUUID(), startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: !!sourceStatus, sourceStatus, sourcePatchSha256: hash(sourcePatch), sourceHashes,
+   verification: 'real-telegram-dedicated-test-bot-original-runtime-isolated-herdr-pi', channelStrategy: 'dedicated-test-bot', dailyAccess: 'none', platform: process.platform, node: process.version,
+   scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))), model, capUsd, maxRequests, maxRuns, pricePerMillionUsd: price,
+   priceBasis: 'Frozen desktop c9a16383 script rates; not invoice verified', credentialSource: envFile, credentialsWrittenToDisk: false,
+   calls: [], cases: [], errors: [], approvalEvents: [], transport: [], inboundChecks: [], pairReadiness: [], costUsd: 0, status: 'running', isolatedRoot: root };
+ let frozen = false, stage = 'preparation', fixture, secondPi, host, gateway, store, lease;
+-let lastPollOffset = -1, activeInbound, expectedPairing, expectedPrompt, taskMessageId, runId;
++let lastPollOffset = -1, activeInbound, expectedPairing, expectedPrompt, runId;
+ let saving = Promise.resolve();
+ const save = () => { const value = JSON.stringify(redactTelegramEvidence(report, [credentials.key, credentials.telegram, credentials.proxy]), null, 2) + '\n'; saving = saving.then(() => writeFile(join(output, 'result.json'), value)); return saving; };
+ const tell = value => console.log(JSON.stringify(value));
+@@ -140,7 +145,8 @@ function observe(message) {
+       report.cases[0]?.hostDecisions.push({ kind: selection ? 'selection' : 'approval', runId: message.runId, value: selection ? message.selection : message.approval,
+         input: message.input, toolCallId: selection ? message.selection?.toolCallId : message.approval?.toolCallId, approvalId: message.approval?.approvalId,
+         decision: message.input.decision, response: { accepted: message.accepted }, source: message.source, at: message.decidedAt,
+-        telegramInbound: activeInbound && { updateId: activeInbound.update_id, messageId: activeInbound.message?.message_id, text: activeInbound.message?.text } });
++        telegramInbound: activeInbound && { updateId: activeInbound.update_id, messageId: activeInbound.message?.message_id, text: activeInbound.message?.text,
++          callback: activeInbound.callback_query && { id: activeInbound.callback_query.id, data: activeInbound.callback_query.data, messageId: activeInbound.callback_query.message?.message_id } } });
+       if (!message.accepted || message.input.decision === 'deny' || selection && message.input.candidateId === null) stop('decision-rejected-denied-or-cancelled');
+     }
+     if (message.type === 'event' && (message.event.type === 'tool.call.failed' || message.event.type === 'tool.call.completed' && message.event.data.output?.ok === false)) {
+@@ -172,6 +178,7 @@ try {
+   await store.update(data => { data.enabled = false; });
+   const nonce = report.batchId.slice(0, 8); await writeFile(join(fixture.work, 'blue.json'), JSON.stringify({ a: 5, b: 9, order: nonce + '-blue' }));
+   expectedPrompt = `请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：${nonce}。`;
++  host.channelRun = limitTelegramRuns({ run: host.channelRun.bind(host), taskText: expectedPrompt, maxRuns, stop });
+   report.cases.push({ name: 'telegram-multiple-pi', prompt: expectedPrompt, hostDecisions: [], status: 'waiting-for-user' });
+   const realApi = createTelegramApi(credentials.telegram, fetch, credentials.proxy ? { proxyUrl: credentials.proxy } : {});
+   const api = {
+@@ -181,7 +188,8 @@ try {
+       await save(); if (!report.telegramIdentity.matches) stop('telegram-bot-identity-mismatch');
+       assert.ok(report.telegramIdentity.matches); return value;
+     },
+-    webhook: signal => realApi.webhook(signal), close: () => realApi.close(), answerCallback: () => { throw new Error('Use text shortcodes for this batch'); },
++    webhook: signal => realApi.webhook(signal), close: () => realApi.close(),
++    answerCallback: (id, signal) => realApi.answerCallback(id, signal),
+     updates: async (offset, signal) => {
+       assert.ok(!frozen);
+       let updates;
+@@ -195,12 +203,10 @@ try {
+         throw new assert.AssertionError({ message: 'Inbound rejected: updates_response_array' });
+       }
+       lastPollOffset = offset; report.lastPollOffset = offset;
+-      let projectedTaskMessageId = taskMessageId;
+       const records = updates.map((update, indexInPoll) => {
+         const record = inspectTelegramInbound({ update, context: { pollId, indexInPoll,
+-          owner: settings.owner, pairingCode: expectedPairing, taskText: expectedPrompt, taskMessageId: projectedTaskMessageId }, binding: bindingSnapshot(),
++          owner: settings.owner, pairingCode: expectedPairing }, binding: bindingSnapshot(),
+           secrets: [credentials.key, credentials.telegram, credentials.proxy] });
+-        if (record.accepted && record.phase === 'task') projectedTaskMessageId ??= update.message.message_id;
+         return record;
+       });
+       report.inboundChecks.push(...records);
+@@ -211,7 +217,6 @@ try {
+         throw new assert.AssertionError({ message: `Inbound rejected: ${rejected.failedPredicate}` });
+       }
+       for (const record of records) {
+-        if (record.phase === 'task') taskMessageId ??= record.update.message.message_id;
+         report.transport.push({ direction: 'inbound', at: record.at, offset, update: record.update });
+       }
+       await save(); return updates;
+@@ -229,7 +234,12 @@ try {
+     const record = report.inboundChecks.findLast(row => row.update?.update_id === update.update_id);
+     assert.ok(record?.accepted); record.bindingBefore = bindingSnapshot(); record.forwarded = true; await save();
+     try { return await receive(update); }
+-    finally { record.bindingAfter = bindingSnapshot(); activeInbound = undefined; await save(); }
++    finally {
++      record.bindingAfter = bindingSnapshot();
++      record.gatewayInputs = store.snapshot().inputs.filter(input => input.updateId === update.update_id);
++      if (record.phase === 'control') record.safeToAcknowledge = record.bindingAfter.offset > update.update_id;
++      activeInbound = undefined; await save();
++    }
+   };
+   assert.equal(store.snapshot().enabled, false); assert.equal(gateway.status().connection, 'disabled');
+   if (!store.snapshot().owner) {
+diff --git a/docs/v2-pilot/chat-run-target.md b/docs/v2-pilot/chat-run-target.md
+index 3650510..6db862e 100644
+--- a/docs/v2-pilot/chat-run-target.md
++++ b/docs/v2-pilot/chat-run-target.md
+@@ -1,6 +1,6 @@
+ # 聊天发现 CLI 与当前 Run Pi 目标
+ 
+-> 2026-11-01 最新结论：观察器修复 `cbde809` 已在新真实批 d71b0a0d 使任务成功启动；本批随后因文字短码专用 harness 拒绝了原卡片的“允许这次”按钮 callback_query 而失败停止。1 宿主 Run／1 模型请求／约 $0.00198856，两个工具均 not_started，未到 Pi 选择或控制；测试通道 disabled、租约释放，当前现场保留且游标未确认。旧 4ebdd9b2 现场已按用户明确授权封存、确认游标、核对两个 idle Pi 后关闭并保留目录归档，旧失败原件不变。桌面 PASS、采用后契约、专用 Bot 方向保持；不合并、不部署，当前等待下一步决定。
++> 2026-11-01 本轮修复验收边界：已配对入站原样进入原 Telegram 网关，按钮与文字共用其校验和一次消费；Run 预算放在宿主启动边界。真实 Herdr、真实宿主、假 TG 传输和脚本模型门禁 8/8，完整串行全测 1903 pass / 7 skip / 0 fail，采用后契约与桌面 PASS 保持。真 TG 尚未复跑，d71b0a0d 失败及保留现场不变。本轮未合并、未部署、未切日用。
+ 
+ ## 1. 改了什么
+ 
+@@ -495,3 +495,12 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0
+ 3. 数字：1 宿主 Run／1 Serika 模型请求／0 Pi 请求，6265 输入、384 缓存读取、82 输出 tokens，冻结脚本费率核算 $0.00198856，非账单核验；未结算/预留 0，费用只入账一次。模型请求全部 returned，工具实际执行与 Pi 任务输入为 0。产品/harness/测试代码 `+0/-0`；本轮只新增失败证据、报告和费用记录，没有失败后改码重跑。测试 profile 已 disabled、原绑定保留、宿主/网关停止且租约释放；因 callback 被当作 unowned/malformed，游标交接 blocked/未确认，未丢弃该 update 或自动重放。当前 `/private/tmp/s197-tg` 现场保留，无失败后 Herdr 回读/控制/清理。
+ 4. 命令与退出码：旧场景 `reconcile.mjs` exit 0；`node --import ./apps/desktop/node_modules/tsx/dist/loader.mjs apps/desktop/scripts/chat-run-target-telegram-live.mjs --run --env-file /Users/a1-6/.config/serika/chat-run-target-telegram-test.env --output /private/tmp/s197-tg-live-01nov-b` exit 1。原 stop-audit CLI exit 0，只证明失败诊断与原件一致，不表示业务通过。原件/hash、用量费用复算与归档前缀扫描 0 命中、ledger 唯一性检查均 exit 0；见 [result](evidence/chat-run-target/stage1-telegram-d71b0a0d/result.json)、[stop-audit](evidence/chat-run-target/stage1-telegram-d71b0a0d/stop-audit.json)、[archive-summary](evidence/chat-run-target/stage1-telegram-d71b0a0d/archive-summary.json)。
+ 5. 偏离与停止：原协议指定文字短码，但保留的真实卡片同时提供原生批准按钮，harness 入口未覆盖用户选择按钮的正常路径。本批不放宽谓词、不代用户批准、不替换为文字回调、不再启动新 Run；下一步应先决定是否将验收脚本对齐原网关已有按钮校验，再做离线回归与新批授权。按用户失败即停约定停在此处，桌面 PASS、原失败及授权/Seatbelt 边界保持，不合、不部署。
++
++
++### 验收边界修复，2026-11-01
++
++1. 改了什么：只改验收脚本。`chat-run-target-telegram-inbound.mjs` 删除已配对控制的文字语法和任务消息白名单；按钮、旧文字短码、`/confirm`、外人控制交原网关裁决。`limitTelegramRuns` 只在宿主 `channelRun` 限定本批原任务和 1 Run；不参与审批。live 包装器透传 `answerCallback`，记录 callback 与原宿主 decision 关联、原网关 inputs 和持久 offset。观察器保留 `cbde809` 的非重入写法，原网关和产品文件零修改。查过旧约束的 Tool side-effect invariants、Thin TUI confirmation、Trusted desktop foreground autonomy 与 Telegram 信任条目。
++2. 逐条对照：原 d71b0a0d callback 在旧 inspector 下 `accepted=false`，失败谓词含 `message_present`；同一 payload 在新回归中进入原网关。最终 [原宿主整链证据](evidence/chat-run-target/stage1-telegram-boundary-949439cf/result.json) 使用两个真实 Herdr Pi、真实 DesktopRuntime、Store、Gateway，假 TG updates 队列和脚本模型。实际选择卡 → 选择第二项 → 同 Run 原操作卡 → callback → 一次真实 prompt → Pi 读写文件 → 宿主回读 Pi 和独立读文件，8/8。冻结目标、正文、版本、批准及 Pi 用户转录逐字核对；未选 Pi 零输入。原观察器及 callback 包装直接从 live 源码提取执行。跨批旧码、刷新旧卡、外人、复制卡片、重复 callback、文字、原任务消息及结束后旧码都进入原网关，零额外 Run 和控制。专项 11/11，含原 Thread 切换启动回归。[标准 Electron](evidence/chat-run-target/stage1-telegram-boundary-949439cf/baseline-electron-smoke/result.json) 在干净 `f34b9c4` 基线上 8/8，产品源码与本轮相同；不是 TG 网络验收。
++3. 数字：产品 `+0/-0`；验收和测试源码 `+345/-28`，含 262 行真 Herdr 整链门禁。测试多于修复，用于替换假 Herdr CLI 证据，覆盖原网关真实卡片、宿主观察器、真实 Pi 写入及负例。最终门禁 1 Run、5 次宿主脚本模型响应、3 次 Pi 本地脚本响应、1 次 prompt，真实模型/TG 请求 0、费用 0。guard 违规均 0，同时观测到日用进程并发元数据变化，不声称日用元数据未变。
++4. 命令与退出码：`pnpm typecheck` exit 0；带 test-home 的 `node --test apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs apps/desktop/scripts/chat-run-target-telegram-profile.test.mjs` exit 0；`node --import ./apps/desktop/node_modules/tsx/dist/loader.mjs apps/desktop/scripts/chat-run-target-telegram-gate.mjs --output /private/tmp/s197-boundary-work/gate-verified` exit 0；干净临时 checkout 的 `pnpm --filter @serika/desktop smoke` exit 0。首次全测 exit 1，WorkTask crash 的 unrecorded-write 子进程超时，原 [失败日志](evidence/chat-run-target/stage1-telegram-boundary-949439cf/first-full-test-failed.log) 保留；新隔离目录同一测试单独执行 4/4 exit 0，未改超时或断言。第二轮默认并发全测出现未改动的 `memory-context-scope` 15 秒超时取消，原日志保留；最终使用原测试集合、断言与超时，仅把运行并发降至 1，`node scripts/test-home.mjs --home /private/tmp/s197-boundary-work/full-serial-home -- /bin/sh .../full-serial.sh` exit 0：1910 项、1903 pass、7 skip、0 fail/cancelled。具体命令和统计见 [运行核查](evidence/chat-run-target/stage1-telegram-boundary-949439cf/verification.json)，完整脚本和日志同目录保留。未把两轮默认并发失败改写为通过，也未归因为已证明的产品故障或环境原因。
++5. 偏离与下一步：本轮离线门禁源树有未提交修复，`sourceWorktreeDirty=true` 如实保留，源文件 SHA-256 在运行时生成；未把它写成干净源码验收。采用 Boundary Discipline 把审批归回原网关，Laziness Protocol 删除重复规则，Prove It Works 执行真宿主/真 Pi 数据链。旧真实失败归档、费用账和 `/private/tmp/s197-tg` 保留现场未改动。上述离线门禁已通过；建议下一真 TG 批上限 1 宿主 Run、24 次总模型请求、$0.25，专用 Bot，原卡片按钮或原文字短码均可。等待用户明确“继续”后才推进新批；当前没有复用旧授权、消费旧 callback、确认旧游标或清理旧场景。不合并、不切日用。

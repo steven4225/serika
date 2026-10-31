@@ -1,0 +1,151 @@
+{
+  "verifiedAt": "2026-10-31T17:34:37.546169+00:00",
+  "acceptance": "failed-after-accepted-same-run-selection",
+  "batchId": "d4eb0665-4cd4-4fdf-9b01-f02056aa0266",
+  "runId": "678dd122-8943-4dae-9cf6-b2aec98380c8",
+  "checks": {
+    "original_failed_result_unchanged": true,
+    "three_returned_serika_calls_no_pi_calls": true,
+    "one_same_run_for_all_decisions": true,
+    "two_original_callback_approvals_accepted": true,
+    "one_original_selection_accepted": true,
+    "adopted_target_version_one_in_actual_system": true,
+    "discover_absent_from_request_tools": true,
+    "response_calls_removed_discover": true,
+    "failed_without_control_dispatch": true,
+    "removed_discover_not_started": true,
+    "no_unknown_tool_receipts": true,
+    "host_and_transport_stopped_lease_released": true,
+    "test_profile_disabled_binding_retained": true,
+    "cursor_confirmed_without_later_updates": true,
+    "zero_unresolved_reserve": true
+  },
+  "request3ToolNames": [
+    "read_file",
+    "list_directory",
+    "search_files",
+    "write_file",
+    "edit_file",
+    "terminal_exec",
+    "herdr_pi_read",
+    "herdr_pi_control",
+    "memory_read",
+    "history_search",
+    "history_read",
+    "capability_status"
+  ],
+  "request3AdoptedState": {
+    "configuredTarget": null,
+    "checkedCandidates": [
+      {
+        "target": {
+          "authorizedDirectory": "/private/tmp/s197-tg/herdr-fixture/workspace",
+          "session": "w-8932d277",
+          "paneId": "w1:p1",
+          "terminalId": "term_65f2638c119bb1"
+        },
+        "title": "π - workspace",
+        "status": "idle",
+        "stateChangeSeq": 1,
+        "candidateId": "7c7950b2-f156-4ef7-b2b7-ce9099c606f1"
+      },
+      {
+        "target": {
+          "authorizedDirectory": "/private/tmp/s197-tg/herdr-fixture/workspace",
+          "session": "w-8932d277",
+          "paneId": "w1:p2",
+          "terminalId": "term_65f2638fd0ebe2"
+        },
+        "title": "π - workspace",
+        "status": "idle",
+        "stateChangeSeq": 2,
+        "candidateId": "d29af957-fd15-49af-bb24-dd94362e9a8b"
+      }
+    ],
+    "adoptedTarget": {
+      "target": {
+        "authorizedDirectory": "/private/tmp/s197-tg/herdr-fixture/workspace",
+        "session": "w-8932d277",
+        "paneId": "w1:p1",
+        "terminalId": "term_65f2638c119bb1"
+      },
+      "title": "π - workspace",
+      "status": "idle",
+      "stateChangeSeq": 1,
+      "candidateId": "7c7950b2-f156-4ef7-b2b7-ce9099c606f1"
+    },
+    "selectionVersion": 1,
+    "halted": false,
+    "requestedTarget": null,
+    "failures": [
+      {
+        "session": "default",
+        "error": {
+          "code": "HERDR_SESSION_NOT_RUNNING",
+          "message": "会话未标为正在运行；未连接或发送输入",
+          "stage": "sessions"
+        }
+      }
+    ]
+  },
+  "response3Text": "这里有两个空闲的 Pi 会话。用户没有指定哪一个，因此交给宿主程序选择。",
+  "response3ToolCallDeltas": [
+    {
+      "index": 0,
+      "id": "call_00_rhuK4dRfO0mBdFC1sYLa7446",
+      "type": "function",
+      "function": {
+        "name": "herdr_pi_discover",
+        "arguments": ""
+      }
+    },
+    {
+      "index": 0,
+      "function": {
+        "arguments": "{}"
+      }
+    }
+  ],
+  "inputCaveat": "General host capability registration still lists discover, and historical tool result has adoptedTarget=null/version=0. Current system suffix has adoptedTarget/version=1 and effective tools exclude discover. No causal conclusion about model behavior.",
+  "receiptTools": [
+    {
+      "toolName": "list_directory",
+      "status": "completed"
+    },
+    {
+      "toolName": "read_file",
+      "status": "completed"
+    },
+    {
+      "toolName": "herdr_pi_discover",
+      "status": "completed"
+    },
+    {
+      "toolName": "herdr_pi_discover",
+      "status": "not_started"
+    }
+  ],
+  "amountUsd": 0.0028066,
+  "amountBasis": "Returned usage at frozen script rates, not invoice verified",
+  "usage": {
+    "input": 19990,
+    "output": 201,
+    "cacheRead": 13184
+  },
+  "noPostFailureHerdrInspectionOrCleanup": true,
+  "retainedScene": {
+    "root": "/private/tmp/s197-tg/herdr-fixture",
+    "phase": "ready",
+    "unknown": false,
+    "session": "w-8932d277",
+    "serverPid": 45518
+  },
+  "resultDeliveryAtShutdown": [
+    {
+      "key": "result:6349286154:11",
+      "state": "pending"
+    }
+  ],
+  "excludedFromArchive": "Scene snapshots, sockets, external env/profile credentials and unrelated daily data. Selected preparation result/script/log originals are included.",
+  "verificationScope": "Offline artifact audit only; no network, models, Herdr commands, tool replay, product changes or acceptance rerun."
+}

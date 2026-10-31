@@ -16,7 +16,7 @@ import { listDesktopThreads } from '../src/main/desktop-identity.ts';
 import { configureCliModel } from '@serika/assistant';
 import { setup, addPi, cleanup } from './chat-run-target-live-herdr.mjs';
 import { approvalChain } from './chat-run-target-approval.mjs';
-import { inspectTelegramInbound, redactTelegramEvidence, telegramHandoff } from './chat-run-target-telegram-inbound.mjs';
+import { inspectTelegramInbound, redactTelegramEvidence, telegramHandoff, limitTelegramRuns } from './chat-run-target-telegram-inbound.mjs';
 import { waitForTelegramPairReady } from './chat-run-target-telegram-pairing.mjs';
 import { defaultTelegramTestEnv, loadTelegramTestSettings, prepareTelegramTestProfile, writeTelegramTestConfig, inspectTelegramTestStore } from './chat-run-target-telegram-profile.mjs';
 import { writeTelegramStopAudit } from '../../../scripts/chat-run-target-telegram-stop-audit.mjs';
@@ -41,18 +41,23 @@ if (!process.argv.includes('--run')) {
     modelCalls: 0, telegramCalls: 0, scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))) }));
   process.exit(0);
 }
-assert.equal(git('status', '--porcelain'), '', 'Commit the harness before live evidence');
+const sourceStatus = git('status', '--porcelain');
+const sourcePatch = execFileSync('git', ['diff', 'HEAD', '--binary'], { cwd: repo, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+const sourceFiles = ['chat-run-target-telegram-live.mjs', 'chat-run-target-telegram-inbound.mjs', 'chat-run-target-telegram-profile.mjs', 'chat-run-target-telegram-pairing.mjs', 'chat-run-target-approval.mjs', 'chat-run-target-live-herdr.mjs'];
+const sourceHashes = Object.fromEntries(await Promise.all(sourceFiles.map(async file => [file, hash(await readFile(join(repo, 'apps/desktop/scripts', file)))])));
+assert.equal(git('diff', 'HEAD', '--name-only', '--', 'apps/desktop/src', 'packages/assistant/src', 'packages/core/src', 'packages/ai-sdk-adapter/src'), '', 'Product source must match the committed offline baseline');
 const output = resolve(arg('--output')); assert.ok(output.startsWith('/private/tmp/')); await mkdir(output);
+await writeFile(join(output, 'source.patch'), sourcePatch);
 const historical = JSON.parse(await readFile(join(repo, 'docs/v2-pilot/evidence/chat-run-target/stage1-telegram-2856460a/result.json'), 'utf8'));
 const settings = await loadTelegramTestSettings({ envFile, forbiddenBotId: historical.telegramIdentity.actualBotId });
 const { credentials } = settings, root = settings.runtimeRoot;
-const report = { batchId: randomUUID(), startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
+const report = { batchId: randomUUID(), startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: !!sourceStatus, sourceStatus, sourcePatchSha256: hash(sourcePatch), sourceHashes,
   verification: 'real-telegram-dedicated-test-bot-original-runtime-isolated-herdr-pi', channelStrategy: 'dedicated-test-bot', dailyAccess: 'none', platform: process.platform, node: process.version,
   scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))), model, capUsd, maxRequests, maxRuns, pricePerMillionUsd: price,
   priceBasis: 'Frozen desktop c9a16383 script rates; not invoice verified', credentialSource: envFile, credentialsWrittenToDisk: false,
   calls: [], cases: [], errors: [], approvalEvents: [], transport: [], inboundChecks: [], pairReadiness: [], costUsd: 0, status: 'running', isolatedRoot: root };
 let frozen = false, stage = 'preparation', fixture, secondPi, host, gateway, store, lease;
-let lastPollOffset = -1, activeInbound, expectedPairing, expectedPrompt, taskMessageId, runId;
+let lastPollOffset = -1, activeInbound, expectedPairing, expectedPrompt, runId;
 let saving = Promise.resolve();
 const save = () => { const value = JSON.stringify(redactTelegramEvidence(report, [credentials.key, credentials.telegram, credentials.proxy]), null, 2) + '\n'; saving = saving.then(() => writeFile(join(output, 'result.json'), value)); return saving; };
 const tell = value => console.log(JSON.stringify(value));
@@ -140,7 +145,8 @@ function observe(message) {
       report.cases[0]?.hostDecisions.push({ kind: selection ? 'selection' : 'approval', runId: message.runId, value: selection ? message.selection : message.approval,
         input: message.input, toolCallId: selection ? message.selection?.toolCallId : message.approval?.toolCallId, approvalId: message.approval?.approvalId,
         decision: message.input.decision, response: { accepted: message.accepted }, source: message.source, at: message.decidedAt,
-        telegramInbound: activeInbound && { updateId: activeInbound.update_id, messageId: activeInbound.message?.message_id, text: activeInbound.message?.text } });
+        telegramInbound: activeInbound && { updateId: activeInbound.update_id, messageId: activeInbound.message?.message_id, text: activeInbound.message?.text,
+          callback: activeInbound.callback_query && { id: activeInbound.callback_query.id, data: activeInbound.callback_query.data, messageId: activeInbound.callback_query.message?.message_id } } });
       if (!message.accepted || message.input.decision === 'deny' || selection && message.input.candidateId === null) stop('decision-rejected-denied-or-cancelled');
     }
     if (message.type === 'event' && (message.event.type === 'tool.call.failed' || message.event.type === 'tool.call.completed' && message.event.data.output?.ok === false)) {
@@ -172,6 +178,7 @@ try {
   await store.update(data => { data.enabled = false; });
   const nonce = report.batchId.slice(0, 8); await writeFile(join(fixture.work, 'blue.json'), JSON.stringify({ a: 5, b: 9, order: nonce + '-blue' }));
   expectedPrompt = `请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：${nonce}。`;
+  host.channelRun = limitTelegramRuns({ run: host.channelRun.bind(host), taskText: expectedPrompt, maxRuns, stop });
   report.cases.push({ name: 'telegram-multiple-pi', prompt: expectedPrompt, hostDecisions: [], status: 'waiting-for-user' });
   const realApi = createTelegramApi(credentials.telegram, fetch, credentials.proxy ? { proxyUrl: credentials.proxy } : {});
   const api = {
@@ -181,7 +188,8 @@ try {
       await save(); if (!report.telegramIdentity.matches) stop('telegram-bot-identity-mismatch');
       assert.ok(report.telegramIdentity.matches); return value;
     },
-    webhook: signal => realApi.webhook(signal), close: () => realApi.close(), answerCallback: () => { throw new Error('Use text shortcodes for this batch'); },
+    webhook: signal => realApi.webhook(signal), close: () => realApi.close(),
+    answerCallback: (id, signal) => realApi.answerCallback(id, signal),
     updates: async (offset, signal) => {
       assert.ok(!frozen);
       let updates;
@@ -195,12 +203,10 @@ try {
         throw new assert.AssertionError({ message: 'Inbound rejected: updates_response_array' });
       }
       lastPollOffset = offset; report.lastPollOffset = offset;
-      let projectedTaskMessageId = taskMessageId;
       const records = updates.map((update, indexInPoll) => {
         const record = inspectTelegramInbound({ update, context: { pollId, indexInPoll,
-          owner: settings.owner, pairingCode: expectedPairing, taskText: expectedPrompt, taskMessageId: projectedTaskMessageId }, binding: bindingSnapshot(),
+          owner: settings.owner, pairingCode: expectedPairing }, binding: bindingSnapshot(),
           secrets: [credentials.key, credentials.telegram, credentials.proxy] });
-        if (record.accepted && record.phase === 'task') projectedTaskMessageId ??= update.message.message_id;
         return record;
       });
       report.inboundChecks.push(...records);
@@ -211,7 +217,6 @@ try {
         throw new assert.AssertionError({ message: `Inbound rejected: ${rejected.failedPredicate}` });
       }
       for (const record of records) {
-        if (record.phase === 'task') taskMessageId ??= record.update.message.message_id;
         report.transport.push({ direction: 'inbound', at: record.at, offset, update: record.update });
       }
       await save(); return updates;
@@ -229,7 +234,12 @@ try {
     const record = report.inboundChecks.findLast(row => row.update?.update_id === update.update_id);
     assert.ok(record?.accepted); record.bindingBefore = bindingSnapshot(); record.forwarded = true; await save();
     try { return await receive(update); }
-    finally { record.bindingAfter = bindingSnapshot(); activeInbound = undefined; await save(); }
+    finally {
+      record.bindingAfter = bindingSnapshot();
+      record.gatewayInputs = store.snapshot().inputs.filter(input => input.updateId === update.update_id);
+      if (record.phase === 'control') record.safeToAcknowledge = record.bindingAfter.offset > update.update_id;
+      activeInbound = undefined; await save();
+    }
   };
   assert.equal(store.snapshot().enabled, false); assert.equal(gateway.status().connection, 'disabled');
   if (!store.snapshot().owner) {

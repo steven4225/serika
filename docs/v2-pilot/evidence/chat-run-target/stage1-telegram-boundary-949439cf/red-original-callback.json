@@ -1,0 +1,181 @@
+{
+  "at": "2026-10-31T16:54:26.069Z",
+  "pollId": "red-boundary",
+  "indexInPoll": 0,
+  "phase": "control",
+  "sourceOwner": {
+    "userId": 6349286154,
+    "chatId": 6349286154,
+    "threadId": null
+  },
+  "updateSha256": "13c4662d370c73e3e1a0c46e16f8df1464dee703ba571a983d534ac268c71158",
+  "update": {
+    "update_id": 819511888,
+    "callback_query": {
+      "id": "8823232310804114272",
+      "from": {
+        "id": 6349286154,
+        "is_bot": false,
+        "first_name": "All",
+        "last_name": "Mind",
+        "language_code": "zh-hans"
+      },
+      "message": {
+        "message_id": 8,
+        "from": {
+          "id": 9127642960,
+          "is_bot": true,
+          "first_name": "Serika PR197 Test",
+          "username": "serika197_test_4225_bot"
+        },
+        "chat": {
+          "id": 6349286154,
+          "first_name": "All",
+          "last_name": "Mind",
+          "type": "private"
+        },
+        "date": 1793464480,
+        "text": "需要你确认 · 使用工具 list_directory\n\n\nTool: list_directory\nInput: {\"path\":\"/private/tmp/s197-tg/herdr-fixture/workspace\"}\nAllow this call? [y/n] \n\n允许 98BCAF60A7\n拒绝 98BCAF60A7\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+        "reply_markup": {
+          "inline_keyboard": [
+            [
+              {
+                "text": "允许这次",
+                "callback_data": "allow:98BCAF60A7"
+              },
+              {
+                "text": "取消",
+                "callback_data": "deny:98BCAF60A7"
+              }
+            ]
+          ]
+        }
+      },
+      "chat_instance": "5191036256262212037",
+      "data": "allow:98BCAF60A7"
+    }
+  },
+  "normalizedText": null,
+  "predicates": [
+    {
+      "id": "update_object_valid",
+      "expected": "object",
+      "actual": "object",
+      "passed": true
+    },
+    {
+      "id": "update_id_valid",
+      "expected": "nonnegative safe integer",
+      "actual": 819511888,
+      "passed": true
+    },
+    {
+      "id": "message_present",
+      "expected": true,
+      "actual": false,
+      "passed": false
+    },
+    {
+      "id": "message_id_valid",
+      "expected": "positive safe integer",
+      "actual": null,
+      "passed": false
+    },
+    {
+      "id": "owner_user_matches",
+      "expected": 6349286154,
+      "actual": null,
+      "passed": false
+    },
+    {
+      "id": "owner_chat_matches",
+      "expected": 6349286154,
+      "actual": null,
+      "passed": false
+    },
+    {
+      "id": "chat_private",
+      "expected": "private",
+      "actual": null,
+      "passed": false
+    },
+    {
+      "id": "sender_is_human",
+      "expected": false,
+      "actual": null,
+      "passed": false
+    },
+    {
+      "id": "not_forwarded",
+      "expected": false,
+      "actual": false,
+      "passed": true
+    },
+    {
+      "id": "not_via_bot",
+      "expected": false,
+      "actual": false,
+      "passed": true
+    },
+    {
+      "id": "text_is_string",
+      "expected": "string",
+      "actual": "undefined",
+      "passed": false
+    },
+    {
+      "id": "text_matches_phase",
+      "expected": "selection/cancel/allow/deny shortcode",
+      "actual": null,
+      "passed": false
+    },
+    {
+      "id": "single_task_message",
+      "expected": "first task",
+      "actual": null,
+      "passed": true
+    }
+  ],
+  "accepted": false,
+  "failedPredicate": "message_present",
+  "failedPredicates": [
+    "message_present",
+    "message_id_valid",
+    "owner_user_matches",
+    "owner_chat_matches",
+    "chat_private",
+    "sender_is_human",
+    "text_is_string",
+    "text_matches_phase"
+  ],
+  "safeToAcknowledge": false,
+  "forwarded": false,
+  "bindingBefore": {
+    "owner": {
+      "userId": 6349286154,
+      "chatId": 6349286154,
+      "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+    },
+    "gatewayCreated": true,
+    "pairing": null,
+    "botId": 9127642960,
+    "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+    "offset": 819511888,
+    "state": "running",
+    "runId": "0adad13d-7ece-49d5-84f6-43d606c3e33d"
+  },
+  "bindingAfter": {
+    "owner": {
+      "userId": 6349286154,
+      "chatId": 6349286154,
+      "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+    },
+    "gatewayCreated": true,
+    "pairing": null,
+    "botId": 9127642960,
+    "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+    "offset": 819511888,
+    "state": "running",
+    "runId": "0adad13d-7ece-49d5-84f6-43d606c3e33d"
+  }
+}

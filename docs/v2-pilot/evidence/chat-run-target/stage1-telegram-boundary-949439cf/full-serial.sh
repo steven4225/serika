@@ -1,0 +1,4 @@
+set -e
+pnpm build:runtime && node --test --test-concurrency=1 packages/core/dist/*.test.js packages/ai-sdk-adapter/dist/*.test.js packages/assistant/dist/*.test.js packages/assistant/dist/acceptance/*.test.js packages/assistant/dist/modules/*.test.js apps/cli/dist/*.test.js packages/assistant/scripts/cm-step7-migrate.test.mjs packages/assistant/scripts/home-import.test.mjs packages/assistant/scripts/config-upgrade.test.mjs packages/assistant/scripts/memory-upgrade.test.mjs packages/assistant/scripts/project-rebind.test.mjs packages/assistant/scripts/daily-project-repair.test.mjs scripts/test-home.test.mjs
+cd apps/desktop
+pnpm exec tsx --test --test-concurrency=1 src/shared/*.test.ts src/main/*.test.ts src/renderer/src/*.test.ts src/renderer/src/personal/*.test.ts && node --test --test-concurrency=1 scripts/*.test.mjs

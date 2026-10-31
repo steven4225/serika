@@ -1,0 +1,222 @@
+{
+  "id": "6322cf31-74ae-4ef6-99f7-ca154661fd7e",
+  "root": "/private/tmp/s197-tg/herdr-fixture",
+  "parentRoot": "/private/tmp/s197-tg",
+  "createdAt": "2026-10-31T17:25:07.951Z",
+  "phase": "ready",
+  "unknown": false,
+  "home": "/private/tmp/s197-tg/herdr-fixture/H",
+  "piDirectory": "/private/tmp/s197-tg/herdr-fixture/pi",
+  "work": "/private/tmp/s197-tg/herdr-fixture/workspace",
+  "piSession": "/private/tmp/s197-tg/herdr-fixture/pi-session.jsonl",
+  "model": "deepseek/deepseek-v4.1-flash-fast",
+  "proxyURL": "http://127.0.0.1:62497/pi/v1",
+  "operations": [
+    {
+      "phase": "workspace-create",
+      "at": "2026-10-31T17:25:08.246Z",
+      "result": {
+        "id": "cli:workspace:create",
+        "result": {
+          "root_pane": {
+            "agent_status": "unknown",
+            "cwd": "/private/tmp/s197-tg/herdr-fixture/workspace",
+            "focused": true,
+            "foreground_cwd": "/private/tmp/s197-tg/herdr-fixture/workspace",
+            "pane_id": "w1:p1",
+            "revision": 0,
+            "scroll": {
+              "max_offset_from_bottom": 0,
+              "offset_from_bottom": 0,
+              "viewport_rows": 40
+            },
+            "tab_id": "w1:t1",
+            "terminal_id": "term_65f2631bebe801",
+            "workspace_id": "w1"
+          },
+          "tab": {
+            "agent_status": "unknown",
+            "focused": true,
+            "label": "1",
+            "number": 1,
+            "pane_count": 1,
+            "tab_id": "w1:t1",
+            "workspace_id": "w1"
+          },
+          "type": "workspace_created",
+          "workspace": {
+            "active_tab_id": "w1:t1",
+            "agent_status": "unknown",
+            "focused": true,
+            "label": "Serika isolated wiring",
+            "number": 1,
+            "pane_count": 1,
+            "tab_count": 1,
+            "workspace_id": "w1"
+          }
+        }
+      }
+    },
+    {
+      "phase": "pi-start",
+      "at": "2026-10-31T17:25:12.133Z",
+      "result": {
+        "id": "cli:agent:start",
+        "result": {
+          "agent": {
+            "agent": "pi",
+            "agent_status": "idle",
+            "cwd": "/private/tmp/s197-tg/herdr-fixture/workspace",
+            "focused": true,
+            "foreground_cwd": "/private/tmp/s197-tg/herdr-fixture/workspace",
+            "interactive_ready": true,
+            "name": "serika-wiring-pi",
+            "pane_id": "w1:p1",
+            "revision": 1,
+            "state_change_seq": 1,
+            "tab_id": "w1:t1",
+            "terminal_id": "term_65f2631bebe801",
+            "terminal_title": "π - workspace",
+            "terminal_title_stripped": "π - workspace",
+            "workspace_id": "w1"
+          },
+          "argv": [
+            "pi",
+            "--offline",
+            "--tools",
+            "read,write,edit",
+            "--no-extensions",
+            "--no-mcp",
+            "--no-skills",
+            "--no-prompt-templates",
+            "--no-context-files",
+            "--no-themes",
+            "--no-approve",
+            "--provider",
+            "serika-isolated-proxy",
+            "--model",
+            "deepseek/deepseek-v4.1-flash-fast",
+            "--thinking",
+            "off",
+            "--session",
+            "/private/tmp/s197-tg/herdr-fixture/pi-session.jsonl",
+            "--system-prompt",
+            "Work only inside /private/tmp/s197-tg/herdr-fixture/workspace. Use only read, write and edit tools. Do the requested small file task, read the result, then report exactly what changed. Never run commands, install software or access unrelated paths."
+          ],
+          "type": "agent_started"
+        }
+      }
+    },
+    {
+      "phase": "pane-split",
+      "at": "2026-10-31T17:25:12.185Z",
+      "result": {
+        "id": "cli:pane:split",
+        "result": {
+          "pane": {
+            "agent_status": "unknown",
+            "cwd": "/private/tmp/s197-tg/herdr-fixture/workspace",
+            "focused": false,
+            "foreground_cwd": "/private/tmp/s197-tg/herdr-fixture/workspace",
+            "pane_id": "w1:p2",
+            "revision": 0,
+            "scroll": {
+              "max_offset_from_bottom": 0,
+              "offset_from_bottom": 0,
+              "viewport_rows": 39
+            },
+            "tab_id": "w1:t1",
+            "terminal_id": "term_65f2631fade922",
+            "workspace_id": "w1"
+          },
+          "type": "pane_info"
+        }
+      }
+    },
+    {
+      "phase": "second-pi-start",
+      "at": "2026-10-31T17:25:16.071Z",
+      "result": {
+        "id": "cli:agent:start",
+        "result": {
+          "agent": {
+            "agent": "pi",
+            "agent_status": "idle",
+            "cwd": "/private/tmp/s197-tg/herdr-fixture/workspace",
+            "focused": false,
+            "foreground_cwd": "/private/tmp/s197-tg/herdr-fixture/workspace",
+            "interactive_ready": true,
+            "name": "blue-pi",
+            "pane_id": "w1:p2",
+            "revision": 1,
+            "state_change_seq": 2,
+            "tab_id": "w1:t1",
+            "terminal_id": "term_65f2631fade922",
+            "terminal_title": "π - workspace",
+            "terminal_title_stripped": "π - workspace",
+            "workspace_id": "w1"
+          },
+          "argv": [
+            "pi",
+            "--offline",
+            "--tools",
+            "read,write,edit",
+            "--no-extensions",
+            "--no-mcp",
+            "--no-skills",
+            "--no-prompt-templates",
+            "--no-context-files",
+            "--no-themes",
+            "--no-approve",
+            "--provider",
+            "serika-isolated-proxy",
+            "--model",
+            "deepseek/deepseek-v4.1-flash-fast",
+            "--thinking",
+            "off",
+            "--session",
+            "/private/tmp/s197-tg/herdr-fixture/pi-second.jsonl",
+            "--system-prompt",
+            "Work only inside /private/tmp/s197-tg/herdr-fixture/workspace. Use only read, write and edit tools. Complete the requested small file task. Never run commands, install software or access unrelated paths."
+          ],
+          "type": "agent_started"
+        }
+      }
+    }
+  ],
+  "session": "w-6322cf31",
+  "serverPid": 44890,
+  "target": {
+    "authorizedDirectory": "/private/tmp/s197-tg/herdr-fixture/workspace",
+    "session": "w-6322cf31",
+    "paneId": "w1:p1",
+    "terminalId": "term_65f2631bebe801"
+  },
+  "initialObservation": {
+    "ok": true,
+    "value": {
+      "terminalId": "term_65f2631bebe801",
+      "paneId": "w1:p1",
+      "status": "idle",
+      "stateChangeSeq": 1
+    }
+  },
+  "targets": [
+    {
+      "authorizedDirectory": "/private/tmp/s197-tg/herdr-fixture/workspace",
+      "session": "w-6322cf31",
+      "paneId": "w1:p1",
+      "terminalId": "term_65f2631bebe801"
+    },
+    {
+      "authorizedDirectory": "/private/tmp/s197-tg/herdr-fixture/workspace",
+      "session": "w-6322cf31",
+      "paneId": "w1:p2",
+      "terminalId": "term_65f2631fade922"
+    }
+  ],
+  "piSessions": [
+    "/private/tmp/s197-tg/herdr-fixture/pi-session.jsonl",
+    "/private/tmp/s197-tg/herdr-fixture/pi-second.jsonl"
+  ]
+}

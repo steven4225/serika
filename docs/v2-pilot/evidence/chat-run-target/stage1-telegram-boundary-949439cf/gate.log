@@ -1,0 +1,2 @@
+{"status":"passed","checks":8,"modelCalls":5,"piRequests":3,"output":"/private/tmp/s197-boundary-work/gate-verified"}
+{"testHomeGuard":"passed","evidence":"/private/tmp/s197-boundary-work/gate-home-verified/write-guard-j6tKCf/result.json","violations":0,"changes":6,"metadataUnchanged":false}

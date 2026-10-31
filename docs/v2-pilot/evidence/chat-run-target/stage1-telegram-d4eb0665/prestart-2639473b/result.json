@@ -1,0 +1,174 @@
+{
+  "batchId": "2639473b-c243-4f7d-9b59-3ea56054bb29",
+  "startedAt": "2026-10-31T17:25:07.908Z",
+  "sourceCommit": "f34b9c468f8fd52e07c7de84bcb3f46704008eca",
+  "sourceWorktreeDirty": true,
+  "sourceStatus": "M apps/desktop/scripts/chat-run-target-telegram-inbound.mjs\n M apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs\n M apps/desktop/scripts/chat-run-target-telegram-live.mjs\n M docs/v2-pilot/chat-run-target.md\n?? apps/desktop/scripts/chat-run-target-telegram-gate.mjs\n?? docs/v2-pilot/evidence/chat-run-target/stage1-telegram-boundary-949439cf/",
+  "sourcePatchSha256": "fc42b43213f1e1d7423dece62d91048722d30ea0560bc1e30ab5bdaf78c37532",
+  "sourceHashes": {
+    "chat-run-target-telegram-live.mjs": "f3d5ae56f6ec709c88ff8ecccd3f3dfa8b43412bd4e51e2a5302b4ab8579c99c",
+    "chat-run-target-telegram-inbound.mjs": "8380ce9560638ff7a769e465e45728f6b913d3ffd32cab8879288f2e91db082d",
+    "chat-run-target-telegram-profile.mjs": "a782642f1d4126d971cfe82a31396f9cfd3f6103f1f791f7ff8f84bd95ce38a4",
+    "chat-run-target-telegram-pairing.mjs": "a86aeb98544336a0deeb4a46615c202231d7d1a3054b6307629474eb6369951d",
+    "chat-run-target-approval.mjs": "66bc3c161d13fba302eddd009dd0829f73be635d810baf4dbf2bc27b28f220e4",
+    "chat-run-target-live-herdr.mjs": "8d429f2e2f7adf612f7c63d93c6b105a39d8c21dc16009f2b4c4acfa47ebdc3b"
+  },
+  "verification": "real-telegram-dedicated-test-bot-original-runtime-isolated-herdr-pi",
+  "channelStrategy": "dedicated-test-bot",
+  "dailyAccess": "none",
+  "platform": "darwin",
+  "node": "v26.4.0",
+  "scriptSha256": "f3d5ae56f6ec709c88ff8ecccd3f3dfa8b43412bd4e51e2a5302b4ab8579c99c",
+  "model": "deepseek/deepseek-v4.1-flash-fast",
+  "capUsd": 0.25,
+  "maxRequests": 24,
+  "maxRuns": 1,
+  "pricePerMillionUsd": {
+    "input": 0.32,
+    "output": 1.16,
+    "cacheRead": 0.03
+  },
+  "priceBasis": "Frozen desktop c9a16383 script rates; not invoice verified",
+  "credentialSource": "/Users/a1-6/.config/serika/chat-run-target-telegram-test.env",
+  "credentialsWrittenToDisk": false,
+  "calls": [],
+  "cases": [
+    {
+      "name": "telegram-multiple-pi",
+      "prompt": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：2639473b。",
+      "hostDecisions": [],
+      "status": "waiting-for-user"
+    }
+  ],
+  "errors": [],
+  "approvalEvents": [],
+  "transport": [],
+  "inboundChecks": [],
+  "pairReadiness": [
+    {
+      "status": "waiting",
+      "at": "2026-10-31T17:25:16.335Z"
+    },
+    {
+      "status": "failed",
+      "at": "2026-10-31T17:26:35.230Z",
+      "matched": false,
+      "reason": "wrong-readiness-command"
+    }
+  ],
+  "costUsd": 0,
+  "status": "failed",
+  "isolatedRoot": "/private/tmp/s197-tg",
+  "testProfile": {
+    "profileRoot": "/private/tmp/s197-tg-authorized-01nov-c/live-home/.serika-test/chat-run-target-telegram",
+    "runtimeRoot": "/private/tmp/s197-tg",
+    "applicationHome": "/private/tmp/s197-tg-authorized-01nov-c/live-home/.serika-test/chat-run-target-telegram/profile",
+    "configPath": "/private/tmp/s197-tg-authorized-01nov-c/live-home/.serika-test/chat-run-target-telegram/config.json",
+    "expectedBotId": 9127642960,
+    "expectedOwner": {
+      "userId": 6349286154,
+      "chatId": 6349286154
+    },
+    "leaseAcquiredAt": "2026-10-31T17:25:07.948Z",
+    "initial": {
+      "owner": null,
+      "offset": 0,
+      "inputKeys": [],
+      "deliveryKeys": []
+    },
+    "final": {
+      "owner": null,
+      "offset": 0,
+      "enabled": false
+    },
+    "leaseReleasedAt": "2026-10-31T17:26:35.259Z"
+  },
+  "fixture": {
+    "statePath": "/private/tmp/s197-tg/herdr-fixture/herdr-state.json",
+    "root": "/private/tmp/s197-tg/herdr-fixture",
+    "work": "/private/tmp/s197-tg/herdr-fixture/workspace",
+    "target": {
+      "authorizedDirectory": "/private/tmp/s197-tg/herdr-fixture/workspace",
+      "session": "w-6322cf31",
+      "paneId": "w1:p1",
+      "terminalId": "term_65f2631bebe801"
+    },
+    "env": {
+      "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+      "HOME": "/private/tmp/s197-tg/herdr-fixture/H",
+      "XDG_CONFIG_HOME": "/private/tmp/s197-tg/herdr-fixture/H/.config",
+      "XDG_CACHE_HOME": "/private/tmp/s197-tg/herdr-fixture/H/.cache",
+      "HERDR_CONFIG_PATH": "/private/tmp/s197-tg/herdr-fixture/H/.config/herdr/config.toml",
+      "SHELL": "/bin/sh",
+      "TERM": "xterm-256color",
+      "LANG": "en_US.UTF-8",
+      "PI_CODING_AGENT_DIR": "/private/tmp/s197-tg/herdr-fixture/pi",
+      "PI_CODING_AGENT_SESSION_DIR": "/private/tmp/s197-tg/herdr-fixture/pi/sessions",
+      "PI_OFFLINE": "1",
+      "PI_TELEMETRY": "0"
+    },
+    "piSession": "/private/tmp/s197-tg/herdr-fixture/pi-session.jsonl"
+  },
+  "secondPi": {
+    "target": {
+      "authorizedDirectory": "/private/tmp/s197-tg/herdr-fixture/workspace",
+      "session": "w-6322cf31",
+      "paneId": "w1:p2",
+      "terminalId": "term_65f2631fade922"
+    },
+    "piSession": "/private/tmp/s197-tg/herdr-fixture/pi-second.jsonl"
+  },
+  "stopReason": "verification-failure",
+  "failure": {
+    "name": "AssertionError",
+    "message": "Pair readiness failed: wrong-readiness-command"
+  },
+  "telegramStore": {
+    "version": 1,
+    "workspace": "/private/tmp/s197-tg-authorized-01nov-c/live-home/.serika-test/chat-run-target-telegram/profile",
+    "enabled": false,
+    "botId": null,
+    "offset": 0,
+    "owner": null,
+    "inputs": [],
+    "deliveries": [],
+    "routes": []
+  },
+  "lastPollOffset": -1,
+  "bindingBeforeShutdown": {
+    "owner": null,
+    "gatewayCreated": true,
+    "pairing": null,
+    "botId": null,
+    "threadId": "600ab555-5b87-4f5d-af13-93e5e80e3a6f",
+    "offset": 0,
+    "state": "idle",
+    "runId": null
+  },
+  "isolatedHostStoppedAt": "2026-10-31T17:26:35.242Z",
+  "isolatedTelegramStoppedAt": "2026-10-31T17:26:35.242Z",
+  "bindingAfterShutdown": {
+    "owner": null,
+    "gatewayCreated": true,
+    "pairing": null,
+    "botId": null,
+    "threadId": "600ab555-5b87-4f5d-af13-93e5e80e3a6f",
+    "offset": 0,
+    "state": "idle",
+    "runId": null
+  },
+  "telegramStoreAfterShutdown": {
+    "version": 1,
+    "workspace": "/private/tmp/s197-tg-authorized-01nov-c/live-home/.serika-test/chat-run-target-telegram/profile",
+    "enabled": false,
+    "botId": null,
+    "offset": 0,
+    "owner": null,
+    "inputs": [],
+    "deliveries": [],
+    "routes": []
+  },
+  "realModelCalls": 0,
+  "unresolvedReservedUsd": 0,
+  "finishedAt": "2026-10-31T17:26:35.259Z"
+}

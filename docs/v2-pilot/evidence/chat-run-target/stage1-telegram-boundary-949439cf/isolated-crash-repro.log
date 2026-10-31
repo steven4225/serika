@@ -1,0 +1,17 @@
+✔ before-dispatch gate waits for approval persistence and never gates a failed write (0.518333ms)
+✔ post-recovery absence check fails on a created file or dangling symlink (4.281583ms)
+✔ crash fixture never grants Shell, foreign paths or replayed write on continuation (0.140833ms)
+Crash evidence directory: /var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-work-task-crash-f1uyPK
+scripted: before-dispatch
+scripted: unrecorded-write
+scripted: recorded-write
+✔ real process kills preserve not_started/unknown/completed and never replay during recovery (scripted model) (7586.376875ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7765.373959
+{"testHomeGuard":"passed","evidence":"/private/tmp/s197-boundary-work/crash-home/write-guard-nq3hga/result.json","violations":0,"changes":3,"metadataUnchanged":false}

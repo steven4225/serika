@@ -1,0 +1,65 @@
+{
+  "auditId": "cd63be75-7bf1-497a-82e0-7cdc2e0db8fc",
+  "results": [
+    {
+      "reason": "wrong-readiness-command",
+      "rows": [
+        {
+          "status": "waiting",
+          "at": "2026-10-31T17:23:52.587Z"
+        },
+        {
+          "status": "failed",
+          "at": "2026-10-31T17:23:52.587Z",
+          "matched": false,
+          "reason": "wrong-readiness-command"
+        }
+      ]
+    },
+    {
+      "reason": "stdin-closed",
+      "rows": [
+        {
+          "status": "waiting",
+          "at": "2026-10-31T17:23:52.587Z"
+        },
+        {
+          "status": "failed",
+          "at": "2026-10-31T17:23:52.588Z",
+          "matched": false,
+          "reason": "stdin-closed"
+        }
+      ]
+    },
+    {
+      "reason": "stdin-error",
+      "rows": [
+        {
+          "status": "waiting",
+          "at": "2026-10-31T17:23:52.588Z"
+        },
+        {
+          "status": "failed",
+          "at": "2026-10-31T17:23:52.588Z",
+          "matched": false,
+          "reason": "stdin-error"
+        }
+      ]
+    },
+    {
+      "reason": "readiness-aborted",
+      "rows": [
+        {
+          "status": "waiting",
+          "at": "2026-10-31T17:23:52.588Z"
+        },
+        {
+          "status": "failed",
+          "at": "2026-10-31T17:23:52.588Z",
+          "matched": false,
+          "reason": "readiness-aborted"
+        }
+      ]
+    }
+  ]
+}
