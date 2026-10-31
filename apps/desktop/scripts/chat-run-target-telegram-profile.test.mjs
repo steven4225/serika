@@ -130,7 +130,13 @@ it('live observer permits the first paired Telegram task to start and records it
       const pairing=gateway.beginPairing().pairing;await gateway.receive(update(1,'/start '+pairing.code));await gateway.confirmPairing(pairing.code);
       await gateway.receive(update(2,'请处理本次离线任务。'));
       const deadline=Date.now()+10000;
-      while(!store.snapshot().inputs.some(row=>['finished','rejected','unknown'].includes(row.state))){assert.ok(Date.now()<deadline,'Task did not settle');await new Promise(done=>setTimeout(done,10));}
+      while(true){
+        const snapshot=store.snapshot(),input=snapshot.inputs[0];
+        if(input&&['rejected','unknown'].includes(input.state))break;
+        if(input?.state==='finished'&&report.approvalEvents.some(row=>row.type==='result'&&row.result.status==='completed')&&
+          sent.includes('offline-complete')&&snapshot.deliveries.some(row=>row.state==='submitted'&&row.text==='offline-complete'))break;
+        assert.ok(Date.now()<deadline,'Task result and reply submission did not settle');await new Promise(done=>setTimeout(done,10));
+      }
       const inputs=store.snapshot().inputs,diagnostic=JSON.stringify({inputs,modelCalls,exceptions,sent});
       assert.equal(inputs.length,1);assert.equal(inputs[0].state,'finished',diagnostic);assert.ok(inputs[0].runId);
       assert.equal(modelCalls,1);assert.equal(networkCalls,0);assert.deepEqual(exceptions,[]);
@@ -138,7 +144,8 @@ it('live observer permits the first paired Telegram task to start and records it
       assert.deepEqual([...new Set(report.approvalEvents.map(row=>row.runId))],[inputs[0].runId]);
       assert.ok(report.approvalEvents.some(row=>row.type==='result'&&row.result.status==='completed'));
       assert.ok(sent.includes('offline-complete'));
-      console.log(JSON.stringify({inputs,modelCalls,networkCalls,exceptions,observedRunId:report.cases[0].runId}));
+      const deliveries=store.snapshot().deliveries;assert.ok(deliveries.some(row=>row.state==='submitted'&&row.text==='offline-complete'));
+      console.log(JSON.stringify({inputs,deliveries,modelCalls,networkCalls,exceptions,observedRunId:report.cases[0].runId}));
     }finally{if(host)await host.shutdown();await rm(root,{recursive:true,force:true});}
   `;
   const child = spawnSync(process.execPath, ['--import', resolve(repo, 'apps/desktop/node_modules/tsx/dist/loader.mjs'), '--input-type=module'],

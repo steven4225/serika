@@ -1,6 +1,6 @@
 # 聊天发现 CLI 与当前 Run Pi 目标
 
-> 2026-11-01 最新结论：短 runtime 修复已提交为 `5c141ee`，真实 Herdr/离线门禁通过。随后真实专用 Bot 批 4ebdd9b2 已完成首次配对、任务正文正确接收，但任务在创建 Run 前启动失败，0 Run／0 模型请求／$0。已人工停止本批，无重试，测试 profile 已禁用且保留绑定，Herdr 现场保留；游标交接未确认，不能自动续跑。原 result 未走最终化，保留 running 原字段，独立 operator-stop-audit 判为失败。桌面 c9a16383 PASS、采用后契约和专用 Bot 方向沿用；74ccfd3f 仍为原失败，未合并或部署。
+> 2026-11-01 最新结论：已离线复现并修复 4ebdd9b2 的验收观察器异常：切换 Thread 时不再读取 host.current，任务 rejected 时立即停止等待。真实宿主/假模型回归、真实 Herdr 启动/连接/租约、typecheck 与全测 1901 pass／7 skip／0 fail 通过。真实 TG 的 4ebdd9b2 仍是配对成功后启动失败、0 Run／0 模型请求／$0，原件不改绿；测试 profile disabled 且绑定保留，旧 Herdr 现场和未确认游标待明确处置，尚未开新批。桌面 c9a16383 PASS、采用后契约、专用 Bot 方向和 74ccfd3f 原失败保持，未合并或部署。
 
 ## 1. 改了什么
 
@@ -479,3 +479,11 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 ### 任务启动失败续作协议，2026-11-01
 
 用户要求继续推进，不先合桌面。零网络真实 DesktopRuntime/Gateway/Store 复现已定位到 live harness 的 observe：Thread 切换期间为没有 runId 的 state 消息读取 host.current，触发“正在切换会话，请稍候”；原异常栈与 rejected/null runId/0 请求对应。临时唯一变量删除该 getter fallback 后，同路径完成一个假模型请求并 finished。后续只删除这次读取，沿用事件自带 runId 和已观察的本批 runId；再让等任务的谓词遇到 rejected 立即失败，走原 finally，避免再次一直等待到人工停止。产品宿主切换保护、TG 配对/绑定、选择/审批/采用后工具集和停止/unknown 契约不改。先提交红回归，再最小修复和离线复验；失败原件不回写、不重发真任务，不触碰保留的 `/private/tmp/s197-tg` 现场或日用。
+
+### 观察器修复离线结果，2026-11-01
+
+1. 改了什么：只改验收脚本 `chat-run-target-telegram-live.mjs`，observe 使用事件/消息自身或本 Run 已捕获的 runId，删除同步读取切换中 host.current；等任务时发现 rejected 立即抛错并走原失败 finally。产品 getter 的切换保护、配对、选择/审批、采用后无 discover、停止与 unknown 规则不改。先提交红回归 `5e93651`，再最小修复；永久测试从实际 harness 提取 observe 执行，没有复制/替换观察器实现。
+2. 逐条对照：原真实 DesktopRuntime/Gateway/Store 在 thread-switch 同步回调中抛“正在切换会话，请稍候”，入站 rejected/null runId/0 请求，与上批现象一致；仅删除 getter fallback 的临时对照完成任务。最终回归完成首次配对→普通任务→唯一 Run→一次假模型→相同 Run 的 completed result→假 TG API 实收及 Store submitted。新停止谓词直接用原 4ebdd9b2 rejected 输入验证，一次只读即抛错；这证明谓词，不冒充新真实 TG finally 验收。另在新短隔离根实启 Herdr、两个 Pi、workspace list、互斥租约与释放重取，0 代理请求，成功后只清理新测试目标；旧 `/private/tmp/s197-tg` 没有读取/控制或清理。证据见 [verification](evidence/chat-run-target/stage1-telegram-start-a261be02/verification.json)、[原错误与单变量对照](evidence/chat-run-target/stage1-telegram-start-a261be02/diagnosis/result.json)、[最终回归](evidence/chat-run-target/stage1-telegram-start-a261be02/green-2-evidence/dedicated-observer-first-task.json)、[真实 Herdr](evidence/chat-run-target/stage1-telegram-start-a261be02/native/result.json)。63 个桌面/74ccfd3f/4ebdd9b2 归档文件 hash 不变，原失败不改绿。
+3. 数字：产品 `+0/-0`，live harness `+6/-2`，永久回归 `+62/-0`；测试多于修复是为执行真实配对/Thread 切换回调和结果投递链。全测 1908 tests、1901 pass、7 skip、0 fail/cancelled；macOS/Node 26.4.0，本轮新增真实模型、真实 TG 请求和费用均 0。原上批 0 费用条目未重复入账。
+4. 命令和退出码：带 test-home 的 observer 专项先红 exit 1，rejected≠finished、modelCalls=0 的有效红测保存在 red-2.log；修复后 green-2 exit 0。`node /private/tmp/s197-start-fix/native.mjs`、`node /private/tmp/s197-start-fix/checks.mjs` exit 0，后者的 pnpm typecheck/pnpm test 均 exit 0。原 rejected 谓词检查、归档/hash、凭据前缀扫描 0 命中、node --check 和 git diff --check 均 exit 0。首次 red.log 取消无效，首次 green.log 因测试在 input finished 后过早断言异步回复失败，均保留；测试改为等待输入、result、实收回复和 submitted 同时到达，原成功断言未放宽。
+5. 偏离与下一步：本轮是 Node 原宿主/假模型与真实 Herdr 离线验证，未重做桌面 Electron 整链或真 TG，不以离线替代验收。write guard 违规为 0，部分运行观察到并发元数据变化，不声称日用元数据不变。按 Fix Root Causes/Prove It Works 执行原观察器单变量复现和实际数据链，按 Laziness Protocol 删除 getter fallback，未改宿主保护。待用户明确授权处理旧测试现场及未确认游标后，再以新批运行 ≤1 宿主 Run／24 总模型请求／$0.25；不能覆盖旧现场或重发旧任务。不合并、不部署、不扩授权/Seatbelt。

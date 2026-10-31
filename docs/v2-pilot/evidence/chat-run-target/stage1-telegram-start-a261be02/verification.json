@@ -1,0 +1,425 @@
+{
+  "auditId": "4c07b348-ec4a-4984-bb39-f7554043e662",
+  "at": "2026-10-31T16:31:00.718Z",
+  "verification": "real-host-observer-startup-regression-and-real-herdr-offline",
+  "status": "passed",
+  "sourceCommit": "5e93651bc5041a7542b674c92ea44c706e71375f",
+  "sourceWorktreeDirty": true,
+  "realModelCalls": 0,
+  "telegramCalls": 0,
+  "costUsd": 0,
+  "checks": [
+    {
+      "name": "typecheck",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "startedAt": "2026-10-31T16:24:22.227Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "counts": {
+        "tests": 0,
+        "pass": 0,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "finishedAt": "2026-10-31T16:24:23.140Z"
+    },
+    {
+      "name": "full-test",
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "startedAt": "2026-10-31T16:24:23.141Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "567c6d12439969df174947ccad3950a2097f55f6ca9f68276a01bdb8c315afb5",
+      "counts": {
+        "tests": 1908,
+        "pass": 1901,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 7
+      },
+      "finishedAt": "2026-10-31T16:30:33.674Z"
+    }
+  ],
+  "native": {
+    "id": "5aabe3c7-5631-4abf-9c0d-29019649c7dc",
+    "status": "passed",
+    "modelProxyRequests": 0,
+    "leaseReleasedAndReacquired": true
+  },
+  "regression": {
+    "auditId": "a261be02-0b31-44b6-8bd2-f6e15753153d",
+    "observedRunId": "7883a94e-04cd-4a60-a545-74d7e09bccd4",
+    "fakeModelCalls": 1,
+    "networkCalls": 0
+  },
+  "guards": [
+    {
+      "folder": "red-home",
+      "status": "failed",
+      "exitCode": 1,
+      "violations": 0,
+      "changes": 3,
+      "metadataUnchanged": false
+    },
+    {
+      "folder": "red-home-2",
+      "status": "failed",
+      "exitCode": 1,
+      "violations": 0,
+      "changes": 0,
+      "metadataUnchanged": true
+    },
+    {
+      "folder": "green-home",
+      "status": "failed",
+      "exitCode": 1,
+      "violations": 0,
+      "changes": 3,
+      "metadataUnchanged": false
+    },
+    {
+      "folder": "green-2-home",
+      "status": "passed",
+      "exitCode": 0,
+      "violations": 0,
+      "changes": 3,
+      "metadataUnchanged": false
+    }
+  ],
+  "sourceFiles": [
+    {
+      "path": "apps/desktop/scripts/chat-run-target-telegram-live.mjs",
+      "sha256": "cc5c6caab722fbc6996f2d4eefd759d3030fc0fbac3fafe9884d95abba764256"
+    },
+    {
+      "path": "apps/desktop/scripts/chat-run-target-telegram-profile.test.mjs",
+      "sha256": "b8e1e1827a4054ccc5a39ecf07a79882b195953afb03d1d4ffed8d0dace345ef"
+    }
+  ],
+  "historicalFiles": [
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/approval-review.json",
+      "sha256": "2acc13abb04c19889bd3d4cf5c5e35f03c085c8c9f4922d06d2c1fdc0386d864",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/archive-summary.json",
+      "sha256": "d84d42151841fd7337eaca35e409e424f8cbf5578393f6653d6f291ca7446cca",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/build-result.json",
+      "sha256": "4c5eb1b945fe9c95fff01e2df1c1143e00994d18c73c7726e49954eafc2f4a3f",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/build.log",
+      "sha256": "4b4a41423fe718e51d4172c87dd3893d1656d2422cd96d21232b0880c676f5f7",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/contract-audit.json",
+      "sha256": "9b8b710267e3221988752b30dcb148075e796bd3368e4b2e066053a2f093361e",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/decision-c46ee452-4605-45f7-88d4-9803a732c71d.json",
+      "sha256": "486cf1ba25723a894d04a19654df3dffc3d23a0d260d47fa040620b141a29a80",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/decision-dfa65ece-cc45-4e64-9f52-d6dc832556d3.json",
+      "sha256": "9caf1f672d20295b64f5671e7ac13b5ce4788a1758a88aa35e7f52e6f547fbe0",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/herdr-state.json",
+      "sha256": "07df08f16c76e08ec4a2f6df0a327c66fa9f832e5588d8d4346b532facb7ffd3",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/launch.json",
+      "sha256": "0a59adf4d5e03a188c57492eebab62ca9510b34763575fd84dd7a12b8d1d6794",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/live.log",
+      "sha256": "59f9ed630227b6b64e464ba9379e472b7970ce97c63270eae9c8fec6dfd9b5f6",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/multiple-pi-approval-1.png",
+      "sha256": "00168cdaebf0c7f685c3cfeedefc82b01401e5d26eac73ac26fd33933a7664dd",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/multiple-pi-selection-0.png",
+      "sha256": "56dfcb574cd8beefd4d7d708a804dd2bfc5f6d5164daa026a2bc2ce57f9767fd",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/multiple-pi-settled.png",
+      "sha256": "a15d8ad494926b5d613443b80c8e38c4a03115ef7cb326f78fc057e55cd8615c",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/pending.json",
+      "sha256": "fa81f3754a6cfad7877f816408889f3454c9b7675b8a36cf40ba213679a998b9",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/pi-2.jsonl",
+      "sha256": "e6926b4692b44658fc3feb9767b88ffa901f39ce219beb77d4c750db96c9e12c",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/request-1.json",
+      "sha256": "4865a388280cfe335923b834e50183f4363c30566aa208de39950405508947c2",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/request-10.json",
+      "sha256": "ae887808cfec5dd5bdbbf2118078790242262dc632dfe90074cf2d28997dc108",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/request-11.json",
+      "sha256": "ead3084f31de1dc2e83950c76a197fecf9609b0f769455c7d36b80591dfc7daf",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/request-12.json",
+      "sha256": "d709d08406ee01e00b12862bb36d2197becf34e4b0735099dd61ec6708bd0719",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/request-13.json",
+      "sha256": "6fa716a286a85bae7febfd1ba693f170dbbffe9c6a663852e250ce5917e9e3a5",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/request-14.json",
+      "sha256": "64206323dcee21b70e4b0dc78244131b4ed6f4c15ed13b0393750553f021ad69",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/request-2.json",
+      "sha256": "0c1358a975ad2a1ea35218fd0dfb1d63bd0b98abeb6a042d0c9f42b969c7852a",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/request-3.json",
+      "sha256": "0e765e1b1c8b988e963d7cfbca4199c55d3d6ece71529eca88c3a29848318c92",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/request-4.json",
+      "sha256": "2e8c9519e73261cce41c0e80acd1ea73d6bf6089bfc58882579ce5f05a842dc4",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/request-5.json",
+      "sha256": "ed195bb9eff8ebaa38ec9a4ef4d64ed28346e832118ed73768ffdee0d39c5792",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/request-6.json",
+      "sha256": "d6cf849b01a4f062bf3a5cf62471beca42e479ce561b8c6725143c4e1a8c5fa1",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/request-7.json",
+      "sha256": "66d5373a84313dde1e6698f05e1d91e0d14763a78d5fa4d8a685da853007baab",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/request-8.json",
+      "sha256": "fd57f4ece47739b156bcd38eb4a99c5acf3dd69354999af2974ca0e5fcc7ffc6",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/request-9.json",
+      "sha256": "e20d7c3523ce11dea43ec4a3c4e3fe5e98bf2e926b3b5d64405b4d783b6149a2",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/response-1.txt",
+      "sha256": "8c8a682e4823bd24e25b7b1b8242d8a9067c36d5f4d4528748363d37ac84e6c6",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/response-10.txt",
+      "sha256": "1ba1786e1797d44c394b13c7a6058717f4399b07b1356ac3d6f6df49325d3389",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/response-11.txt",
+      "sha256": "704b412b686e9179bdbb4493e61ea4ea2bde0c4d6d6a89e81cac4dd22740c102",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/response-12.txt",
+      "sha256": "30e2ab3173baebc92a01c74612d5355b6f3fcdedbcc9eed892837a49870fb76d",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/response-13.txt",
+      "sha256": "d8afc0e41fba4742e40f1c39477d26c282e5283c88a3c76d93a894283c0e00a1",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/response-14.txt",
+      "sha256": "9a031fa5442532b3379952faaf5d719d3c943822ea82090712974e1522f8ee24",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/response-2.txt",
+      "sha256": "d11162eeec00802da3a40d2725a31e3e4a21d5830e560b6277cb5fa0c4a3894e",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/response-3.txt",
+      "sha256": "03c5c86d4f974087b31aaaa258d2fa67a59d741e46f981a6f99d178d3a891df4",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/response-4.txt",
+      "sha256": "2b95f695b709550f25cae47b47b5410b7ca0139f0da8bea5454651d332aa93c5",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/response-5.txt",
+      "sha256": "87e3b3c9d072bd155dae8dbd1b0cb38b418f2c95abfb2a1dcf03892ca940807c",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/response-6.txt",
+      "sha256": "7130f941f86623207e51d9972a04ff62748e21b0c22caa23153430e6c69e1165",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/response-7.txt",
+      "sha256": "90e0fbfaa00194454f92e00d9e9f6996c1253c32340cd312cedf46710104adad",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/response-8.txt",
+      "sha256": "679d0e4dcc35bbc76538a9a8f3c76d747c21ae787be14da5589447f53bc43ff5",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/response-9.txt",
+      "sha256": "2c68a6786831ba7362dd48f0e378dd831b15ab48d556b8923c2eae8f09ff4391",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/result.json",
+      "sha256": "797e3e198e40ae479b7cdbcdb653233ee84b7726bdca59b34fe99456a50b1812",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/selection-hold.json",
+      "sha256": "f24ac64db1da4f7bc8b269388c7ce2b5ce73239ea7d2a6e8fb9731ac19d3efbb",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-4ebdd9b2/archive-initial.mjs",
+      "sha256": "72a0cc1a36618445eeaa3e430e2d97f60f79c3cd5cc104f6ea45d22a946cb5c2",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-4ebdd9b2/archive-summary.json",
+      "sha256": "509be690d7b62b156d2debc062406b3e35cb4b112d19416c4063ec825c65c6ac",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-4ebdd9b2/archive.mjs",
+      "sha256": "f319f6c4793da45c68dc84a5ee3dd3874db77ff4cbaca2ea30fe3881ff729bbb",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-4ebdd9b2/decisions.tsv",
+      "sha256": "6206fe9d841248d76be5943c427517122bd4a9110789e0a97397497c30b99ddb",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-4ebdd9b2/herdr-state.json",
+      "sha256": "55ddd29747bada3272013c4b5f51495977d70a7ee6a5a1b910decade8aab894d",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-4ebdd9b2/operator-stop-audit.json",
+      "sha256": "5a4c542c91ee594f25746d55bdfac89354c841dd04278795ebee8f260e321afb",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-4ebdd9b2/preserve-stop.mjs",
+      "sha256": "56294ac7bee1ebb78f422382832d97bf5dbe901179daa76c536f166d850d6d8e",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-4ebdd9b2/result.json",
+      "sha256": "de5e14eab0b78343af358b0f999e641ab8a4837f2cacb230332e4d879b923744",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-4ebdd9b2/server.log",
+      "sha256": "c01dc86c9b65dc5565a4237a25dc434a2180bb9bf0eda4e815fa2531d2a32350",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-4ebdd9b2/telegram-store-after-disable.json",
+      "sha256": "1341e61159e25e37de9c7668e15e1e245adc53c3cf52a30d0ff9c6629def6a3e",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-4ebdd9b2/telegram-store-before-disable.json",
+      "sha256": "f1297dcb60c19c578e2257e8a10a65609ff664605f5c901f0f96f33442911e5a",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-74ccfd3f/archive-summary.json",
+      "sha256": "0dbf76d5a2a360ec6751e77a98ae82e2658926fb426e61b09bf2f93351b53789",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-74ccfd3f/connection-and-owner-setup.json",
+      "sha256": "48a354cef270564fed7259ac3c5c76b4e29abf46e13e3d8d096e3cc0fe6dd00d",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-74ccfd3f/herdr-state.json",
+      "sha256": "71635c7a0f691dbb10d5cd40456ecf8fc17ad6016723cb50d609cf1e0c2682cb",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-74ccfd3f/result.json",
+      "sha256": "36c6692c43c02a521cae95c6cad9b82614010b4c083fd58f425ffd3328f61593",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-74ccfd3f/server.log",
+      "sha256": "e93b25f266acd368d05fd5d12f7d7b76467f2831552913a1d77edd67851ef4ef",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-74ccfd3f/stop-audit-check.log",
+      "sha256": "a47ae31208573f1431913a8cddcf787ad647b2a9d9fa3c81e504747612fc5b57",
+      "unchanged": true
+    },
+    {
+      "path": "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-74ccfd3f/stop-audit.json",
+      "sha256": "52f797689244a7d08676fd22b276bfa7318e9f973a4dc73febef02ff974d5396",
+      "unchanged": true
+    }
+  ],
+  "credentialPrefixHits": 0
+}

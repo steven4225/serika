@@ -1,0 +1,51 @@
+{
+  "id": "74e5c585-c835-4b4b-9bfa-95f4ba3546c4",
+  "startedAt": "2026-10-31T16:24:22.219Z",
+  "sourceCommit": "5e93651bc5041a7542b674c92ea44c706e71375f",
+  "sourceWorktreeDirty": true,
+  "realModelCalls": 0,
+  "telegramCalls": 0,
+  "costUsd": 0,
+  "status": "passed",
+  "phases": [
+    {
+      "name": "typecheck",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "startedAt": "2026-10-31T16:24:22.227Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "counts": {
+        "tests": 0,
+        "pass": 0,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "finishedAt": "2026-10-31T16:24:23.140Z"
+    },
+    {
+      "name": "full-test",
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "startedAt": "2026-10-31T16:24:23.141Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "567c6d12439969df174947ccad3950a2097f55f6ca9f68276a01bdb8c315afb5",
+      "counts": {
+        "tests": 1908,
+        "pass": 1901,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 7
+      },
+      "finishedAt": "2026-10-31T16:30:33.674Z"
+    }
+  ],
+  "finishedAt": "2026-10-31T16:30:33.674Z"
+}

@@ -1,0 +1,11 @@
+{
+  "auditId": "e26faf41-56d4-44e1-bff6-35b48da1b6c8",
+  "at": "2026-10-31T16:24:08.491Z",
+  "verification": "actual-live-wait-predicate-against-original-rejected-input",
+  "status": "passed",
+  "thrown": "Telegram task rejected before Run startup; stop without retry",
+  "storeReads": 1,
+  "realModelCalls": 0,
+  "telegramCalls": 0,
+  "source": "stage1-telegram-4ebdd9b2/operator-stop-audit.json"
+}

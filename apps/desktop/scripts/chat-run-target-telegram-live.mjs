@@ -128,7 +128,7 @@ function bindingSnapshot() {
     offset: data.offset, state: state.kind, runId: state.kind === 'running' ? state.runId : null };
 }
 function observe(message) {
-  const currentId = message.type === 'event' ? message.event.runId : message.runId ?? host?.current.snapshot().state.runId ?? runId;
+  const currentId = message.type === 'event' ? message.event.runId : message.runId ?? runId;
   if (message.type === 'state' && message.state.kind === 'running' && message.state.runId) {
     if (runId && runId !== message.state.runId) stop('unexpected-additional-run'); runId ??= message.state.runId;
     if (report.cases[0]) report.cases[0].runId ??= runId;
@@ -255,7 +255,11 @@ try {
     assert.equal(gateway.status().pairing, null);
   }
   stage = 'telegram-multiple-pi'; await save(); tell({ pending: 'telegram-task', prompt: expectedPrompt, botUsername: gateway.status().botUsername, output });
-  await waitFor(() => !!store.snapshot().inputs.find(input => input.text === expectedPrompt)?.runId, 'one real Telegram task');
+  await waitFor(() => {
+    const input = store.snapshot().inputs.find(input => input.text === expectedPrompt);
+    assert.ok(input?.state !== 'rejected', 'Telegram task rejected before Run startup; stop without retry');
+    return !!input?.runId;
+  }, 'one real Telegram task');
   const task = store.snapshot().inputs.find(input => input.text === expectedPrompt); runId = task.runId; report.cases[0].runId = runId; report.cases[0].status = 'running'; await save();
   await waitFor(() => store.snapshot().deliveries.find(item => item.key === `result:${task.key}`)?.state === 'submitted', 'TG result delivery', 600000);
   await waitFor(() => lastPollOffset >= store.snapshot().offset, 'transport cursor acknowledgement');
