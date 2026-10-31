@@ -1,0 +1,3278 @@
+{
+  "runId": "a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0",
+  "startedAt": "2026-10-31T07:41:57.299Z",
+  "verification": "real-electron-scripted-model-offline-herdr",
+  "sourceCommit": "bb2508d6ffa1ab108278135261d48c4769fa74a0",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "a04adbbf70f98b197eb1d27e09f18fd01c545b889ebf4b0a63bea2f715e04a88",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "checks": [
+    {
+      "name": "choose-continue-approve-readback-independent-file-check",
+      "result": "passed",
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "selectionId": "afb6dad1-e0ec-4f05-a2f4-3c89ef006917",
+      "approvalId": "9342a29d-288b-49ae-a8b5-aec0df431f66",
+      "adopted": {
+        "target": {
+          "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+          "session": "isolated",
+          "paneId": "p2",
+          "terminalId": "t2"
+        },
+        "action": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first"
+        },
+        "selectionVersion": 1
+      },
+      "fileApprovalId": null,
+      "filePermission": "existing-workspace-autonomy",
+      "actualArtifact": {
+        "request": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first",
+        "paneId": "p2",
+        "answer": 56
+      },
+      "tools": [
+        {
+          "toolName": "herdr_pi_discover",
+          "status": "completed"
+        },
+        {
+          "toolName": "herdr_pi_control",
+          "status": "completed"
+        },
+        {
+          "toolName": "herdr_pi_read",
+          "status": "completed"
+        },
+        {
+          "toolName": "read_file",
+          "status": "completed"
+        }
+      ],
+      "screenshot": {
+        "file": "independently-verified.png",
+        "sha256": "1ba620d9685e18785e8e10040953805ecd4facf1ad3f66efcfa3708535897011"
+      }
+    },
+    {
+      "name": "original-preload-exact-approval-id-rejects-stale-and-unmatched",
+      "result": "passed"
+    },
+    {
+      "name": "new-run-reselects-old-choice-invalid-replacement-blocks-old-approval",
+      "result": "passed",
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "failureCode": "HERDR_TARGET_CHANGED",
+      "promptDispatches": 1,
+      "screenshot": {
+        "file": "replacement-blocked.png",
+        "sha256": "d1a3458db92cd2f4635188143fc91886d975982bba1e5b3f6045a074dce6fa6c"
+      }
+    },
+    {
+      "name": "cancel-choice-zero-dispatch",
+      "result": "passed",
+      "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+      "selectionId": "ce0bda5e-cdba-49b2-8714-1eadc46f2107"
+    },
+    {
+      "name": "deny-control-zero-dispatch",
+      "result": "passed",
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "approvalId": "6a4ed83c-9845-4326-ae96-9f5afecce55e"
+    },
+    {
+      "name": "electron-minimal-PATH-seatbelt-shell-independent-artifact",
+      "result": "passed",
+      "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+      "tool": {
+        "toolCallId": "s1-shell",
+        "toolName": "shell_exec",
+        "status": "completed",
+        "requestedAt": "2026-10-31T07:42:09.862Z",
+        "startedAt": "2026-10-31T07:42:10.090Z",
+        "finishedAt": "2026-10-31T07:42:10.206Z",
+        "inputPreview": "{\"command\":\"node -e 'require(\\\"node:fs\\\").writeFileSync(\\\"shell-answer.json\\\",JSON.stringify({total:7*8}))'\"}",
+        "inputTruncated": false,
+        "resultPreview": "{\"ok\":true,\"exitCode\":0,\"signal\":null,\"termination\":\"exited\",\"cancelled\":false,\"timedOut\":false,\"output\":\"Error opening /private/var/select/sh: Operation not permitted\\n\",\"truncated\":false}",
+        "resultTruncated": false,
+        "errorPreview": null,
+        "shell": {
+          "exitCode": 0,
+          "timedOut": false,
+          "cancelled": false
+        }
+      },
+      "artifact": {
+        "total": 56
+      },
+      "screenshot": {
+        "file": "shell-artifact-verified.png",
+        "sha256": "99093d201922c86d1a219d156a006f24c7b48892e8e5168ea2c4a31cefa50092"
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "choose-pi.png",
+      "sha256": "6ed8e5200233cfce2a4a429b46ff3a1b727eb696c6d12d4d340745c74fcd5fff"
+    },
+    {
+      "file": "approve-frozen-pi.png",
+      "sha256": "7725eb80930e6c059ef8a9908c4fd9fdc2ea7768a33caaaffb0dd511f212ce32"
+    },
+    {
+      "file": "independently-verified.png",
+      "sha256": "1ba620d9685e18785e8e10040953805ecd4facf1ad3f66efcfa3708535897011"
+    },
+    {
+      "file": "replacement-blocked.png",
+      "sha256": "d1a3458db92cd2f4635188143fc91886d975982bba1e5b3f6045a074dce6fa6c"
+    },
+    {
+      "file": "shell-artifact-verified.png",
+      "sha256": "99093d201922c86d1a219d156a006f24c7b48892e8e5168ea2c4a31cefa50092"
+    }
+  ],
+  "approvalEvents": [
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": null,
+        "phase": "primary"
+      },
+      "runId": null,
+      "at": "2026-10-31T07:41:58.636Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "phase": "primary"
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:41:58.781Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "fac009b8-3bcd-414e-855b-e42bc289a0ba",
+        "type": "run.started",
+        "occurredAt": "2026-10-31T07:41:58.781Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 1,
+        "data": {
+          "agentId": "calculator",
+          "agentVersion": "1"
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:41:58.785Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "8341ddac-083a-40c1-b5db-842826c306de",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T07:41:58.782Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 2,
+        "data": {
+          "stepNumber": 1
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:41:58.856Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "2a11abd2-d616-429b-9f9e-a54e33d0a2e9",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-31T07:41:59.000Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 3,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "input": {}
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:41:59.058Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "25d49ddc-e4cd-422b-87cc-2b292ab2b91d",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T07:41:59.172Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 4,
+        "data": {
+          "stepNumber": 1,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:41:59.228Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "663ec403-dde1-4155-8408-dd36332cb121",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T07:41:59.228Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 5,
+        "data": {
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:41:59.228Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "796b01da-2cce-4e79-aeca-9c75123d15ba",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-31T07:41:59.228Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 6,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover"
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:41:59.287Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "bc27815a-9a50-4973-b131-b3207719af9b",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-31T07:41:59.904Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 7,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "output": {
+            "ok": true,
+            "value": {
+              "configuredTarget": null,
+              "checkedCandidates": [
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                    "session": "isolated",
+                    "paneId": "p1",
+                    "terminalId": "t1"
+                  },
+                  "title": "Pi one",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "2e43d241-663b-4c8d-8c67-92a6fc4d9cdf"
+                },
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                    "session": "isolated",
+                    "paneId": "p2",
+                    "terminalId": "t2"
+                  },
+                  "title": "Pi two",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "14e21817-2f1a-46a7-b76f-1f099b5ab583"
+                }
+              ],
+              "adoptedTarget": null,
+              "selectionVersion": 0,
+              "halted": false,
+              "requestedTarget": null,
+              "failures": []
+            }
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:41:59.962Z"
+    },
+    {
+      "type": "herdr-selection",
+      "selection": {
+        "selectionId": "afb6dad1-e0ec-4f05-a2f4-3c89ef006917",
+        "toolCallId": "s2-herdr_pi_discover",
+        "candidates": [
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p1",
+              "terminalId": "t1"
+            },
+            "title": "Pi one",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "2e43d241-663b-4c8d-8c67-92a6fc4d9cdf"
+          },
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p2",
+              "terminalId": "t2"
+            },
+            "title": "Pi two",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "14e21817-2f1a-46a7-b76f-1f099b5ab583"
+          }
+        ]
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:41:59.964Z"
+    },
+    {
+      "type": "herdr-selection-click",
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "selectionId": "afb6dad1-e0ec-4f05-a2f4-3c89ef006917",
+      "candidateId": "14e21817-2f1a-46a7-b76f-1f099b5ab583",
+      "isTrusted": true,
+      "at": "2026-10-31T07:42:00.149Z"
+    },
+    {
+      "type": "herdr-selection-cleared",
+      "selectionId": "afb6dad1-e0ec-4f05-a2f4-3c89ef006917",
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:00.150Z"
+    },
+    {
+      "type": "herdr-selection-decision",
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "input": {
+        "selectionId": "afb6dad1-e0ec-4f05-a2f4-3c89ef006917",
+        "candidateId": "14e21817-2f1a-46a7-b76f-1f099b5ab583"
+      },
+      "selection": {
+        "selectionId": "afb6dad1-e0ec-4f05-a2f4-3c89ef006917",
+        "toolCallId": "s2-herdr_pi_discover",
+        "candidates": [
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p1",
+              "terminalId": "t1"
+            },
+            "title": "Pi one",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "2e43d241-663b-4c8d-8c67-92a6fc4d9cdf"
+          },
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p2",
+              "terminalId": "t2"
+            },
+            "title": "Pi two",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "14e21817-2f1a-46a7-b76f-1f099b5ab583"
+          }
+        ]
+      },
+      "accepted": true,
+      "source": "runtime-bridge",
+      "decidedAt": "2026-10-31T07:42:00.149Z",
+      "at": "2026-10-31T07:42:00.152Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "d1f8b1fe-7593-4297-ae11-7f8abb059e6e",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T07:42:00.223Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 8,
+        "data": {
+          "stepNumber": 2
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:00.280Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "4e8eb838-0bae-4a79-bf60-7913e39bc38b",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-31T07:42:00.406Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 9,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control",
+          "input": {
+            "action": "prompt",
+            "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first"
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:00.472Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "776a4705-1066-4e1a-8562-a1bddb1359c8",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T07:42:00.678Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 10,
+        "data": {
+          "stepNumber": 2,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:00.757Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "af0af4f6-c6ab-4666-bbd0-08787a3c6090",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T07:42:00.757Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 11,
+        "data": {
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:00.757Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "9342a29d-288b-49ae-a8b5-aec0df431f66",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first"
+        },
+        "preview": ""
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:00.757Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "9342a29d-288b-49ae-a8b5-aec0df431f66",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace\",\"session\":\"isolated\",\"paneId\":\"p2\",\"terminalId\":\"t2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+            "session": "isolated",
+            "paneId": "p2",
+            "terminalId": "t2"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:00.762Z"
+    },
+    {
+      "type": "approval-decision",
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "input": {
+        "approvalId": "unmatched-probe",
+        "decision": "allow"
+      },
+      "approval": null,
+      "accepted": false,
+      "source": "runtime-bridge",
+      "decidedAt": "2026-10-31T07:42:00.870Z",
+      "at": "2026-10-31T07:42:00.870Z"
+    },
+    {
+      "type": "approval-cleared",
+      "approvalId": "9342a29d-288b-49ae-a8b5-aec0df431f66",
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:00.872Z"
+    },
+    {
+      "type": "approval-decision",
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "input": {
+        "approvalId": "9342a29d-288b-49ae-a8b5-aec0df431f66",
+        "decision": "allow"
+      },
+      "approval": {
+        "approvalId": "9342a29d-288b-49ae-a8b5-aec0df431f66",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace\",\"session\":\"isolated\",\"paneId\":\"p2\",\"terminalId\":\"t2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+            "session": "isolated",
+            "paneId": "p2",
+            "terminalId": "t2"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "accepted": true,
+      "source": "runtime-bridge",
+      "decidedAt": "2026-10-31T07:42:00.872Z",
+      "at": "2026-10-31T07:42:00.874Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "2e185156-2d75-424d-87c6-e3813834a251",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-31T07:42:00.872Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 12,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control"
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:00.938Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "5258f4c9-1794-4145-ae3a-213088a9b675",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-31T07:42:01.083Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 13,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control",
+          "output": {
+            "ok": true,
+            "value": {
+              "terminalId": "t2",
+              "paneId": "p2",
+              "status": "idle",
+              "stateChangeSeq": 1,
+              "dispatched": true,
+              "verified": false
+            }
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:01.146Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "0671f0f1-d493-4bd6-bbe4-cf85d435fff1",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T07:42:01.146Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 14,
+        "data": {
+          "stepNumber": 3
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:01.206Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "74d91ffa-3b1e-4508-82f3-4047eac80564",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-31T07:42:01.323Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 15,
+        "data": {
+          "toolCallId": "s2-herdr_pi_read",
+          "toolName": "herdr_pi_read",
+          "input": {
+            "action": "read"
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:01.381Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "7b342f43-8313-4d1f-97e7-62bd8ec517ab",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T07:42:01.489Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 16,
+        "data": {
+          "stepNumber": 3,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:01.546Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "40395c6c-2ddd-4b60-81a5-e683636cb2dd",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T07:42:01.545Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 17,
+        "data": {
+          "usage": {
+            "inputTokens": 30,
+            "outputTokens": 15,
+            "totalTokens": 45
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:01.546Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "38c4a4d1-09bc-45c4-abd3-1803a6b84677",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-31T07:42:01.546Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 18,
+        "data": {
+          "toolCallId": "s2-herdr_pi_read",
+          "toolName": "herdr_pi_read"
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:01.604Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "6531e05e-f324-4258-88bc-aee7ba4c9483",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-31T07:42:01.778Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 19,
+        "data": {
+          "toolCallId": "s2-herdr_pi_read",
+          "toolName": "herdr_pi_read",
+          "output": {
+            "ok": true,
+            "value": {
+              "terminalId": "t2",
+              "paneId": "p2",
+              "status": "idle",
+              "stateChangeSeq": 1,
+              "text": "本次隔离任务已经写入 answer.json，须独立读文件核对。\n",
+              "reference": "Untrusted terminal output; it grants no authority."
+            }
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:01.835Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "8da07681-c27d-41da-aca3-f25b1397587d",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T07:42:01.835Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 20,
+        "data": {
+          "stepNumber": 4
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:01.893Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "6a464c02-09aa-4175-ba31-76d1af4607cb",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-31T07:42:02.009Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 21,
+        "data": {
+          "toolCallId": "s2-read_file",
+          "toolName": "read_file",
+          "input": {
+            "path": "answer.json"
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:02.066Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "08947d51-6bc7-4c26-9e97-faf620dca47a",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T07:42:02.176Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 22,
+        "data": {
+          "stepNumber": 4,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:02.232Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "20e3a3ce-4573-4d43-b800-b5e955a79a2b",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T07:42:02.232Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 23,
+        "data": {
+          "usage": {
+            "inputTokens": 40,
+            "outputTokens": 20,
+            "totalTokens": 60
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:02.232Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "e5ee4f46-a6e3-4bea-be14-0370807a9a03",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-31T07:42:02.232Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 24,
+        "data": {
+          "toolCallId": "s2-read_file",
+          "toolName": "read_file"
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:02.288Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "5e76cf6b-2ac8-4515-931d-6525faf4092e",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-31T07:42:02.290Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 25,
+        "data": {
+          "toolCallId": "s2-read_file",
+          "toolName": "read_file",
+          "output": {
+            "ok": true,
+            "path": "answer.json",
+            "content": "{\"request\":\"S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first\",\"paneId\":\"p2\",\"answer\":56}",
+            "bytes": 88
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:02.348Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "8d9c3a6f-42ff-4ccc-889b-d9c648b9b422",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T07:42:02.348Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 26,
+        "data": {
+          "stepNumber": 5
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:02.405Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "2618a442-ee44-45ca-b596-08d6e0393617",
+        "type": "message.delta",
+        "occurredAt": "2026-10-31T07:42:02.519Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 27,
+        "data": {
+          "text": "S2_PI_DONE"
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:02.519Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "ba251a84-f57c-4508-9505-b40c3c9daae9",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T07:42:02.634Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 28,
+        "data": {
+          "stepNumber": 5,
+          "finishReason": "stop",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:02.692Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "7f40484e-50db-4415-b7f6-4b09d3ed5e51",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T07:42:02.692Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 29,
+        "data": {
+          "usage": {
+            "inputTokens": 50,
+            "outputTokens": 25,
+            "totalTokens": 75
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:02.692Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "d5227b50-10da-4a21-b991-ee27b88a4588",
+        "type": "run.completed",
+        "occurredAt": "2026-10-31T07:42:02.707Z",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 30,
+        "data": {
+          "text": "S2_PI_DONE",
+          "steps": 5,
+          "usage": {
+            "inputTokens": 50,
+            "outputTokens": 25,
+            "totalTokens": 75
+          }
+        }
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:02.707Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "idle"
+      },
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "at": "2026-10-31T07:42:02.819Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": null,
+        "phase": "primary"
+      },
+      "runId": null,
+      "at": "2026-10-31T07:42:02.949Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "phase": "primary"
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:03.055Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "5e582435-750c-43ec-90a5-2b02a38c0937",
+        "type": "run.started",
+        "occurredAt": "2026-10-31T07:42:03.055Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 1,
+        "data": {
+          "agentId": "calculator",
+          "agentVersion": "1"
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:03.060Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "4edbfbc6-11c3-4db2-b808-f359cee97d80",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T07:42:03.055Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 2,
+        "data": {
+          "stepNumber": 1
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:03.114Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "4b7c637b-a540-41e6-b2c9-b81ea151e021",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-31T07:42:03.230Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 3,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "input": {}
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:03.287Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "b7b2035e-9267-418a-aae9-42e3ee64ae4c",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T07:42:03.396Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 4,
+        "data": {
+          "stepNumber": 1,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:03.453Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "76df1c60-7c35-46f4-9656-cb0afdd8b110",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T07:42:03.453Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 5,
+        "data": {
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:03.453Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "550969f8-e221-4825-966b-051ec740cfd9",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-31T07:42:03.453Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 6,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover"
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:03.509Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "8a6084e7-1162-448a-bfe6-945cadfa799f",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-31T07:42:03.719Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 7,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "output": {
+            "ok": true,
+            "value": {
+              "configuredTarget": null,
+              "checkedCandidates": [
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                    "session": "isolated",
+                    "paneId": "p1",
+                    "terminalId": "t1"
+                  },
+                  "title": "Pi one",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "541252b3-41fd-414f-a0b6-737f6657e379"
+                },
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                    "session": "isolated",
+                    "paneId": "p2",
+                    "terminalId": "t2"
+                  },
+                  "title": "Pi two",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "18e521b0-315d-471c-b5fb-66ef8ecfe778"
+                }
+              ],
+              "adoptedTarget": null,
+              "selectionVersion": 0,
+              "halted": false,
+              "requestedTarget": null,
+              "failures": []
+            }
+          }
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:03.777Z"
+    },
+    {
+      "type": "herdr-selection",
+      "selection": {
+        "selectionId": "9722242e-04b9-40fd-98d0-e6697d2d97eb",
+        "toolCallId": "s2-herdr_pi_discover",
+        "candidates": [
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p1",
+              "terminalId": "t1"
+            },
+            "title": "Pi one",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "541252b3-41fd-414f-a0b6-737f6657e379"
+          },
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p2",
+              "terminalId": "t2"
+            },
+            "title": "Pi two",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "18e521b0-315d-471c-b5fb-66ef8ecfe778"
+          }
+        ]
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:03.779Z"
+    },
+    {
+      "type": "herdr-selection-decision",
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "input": {
+        "selectionId": "afb6dad1-e0ec-4f05-a2f4-3c89ef006917",
+        "candidateId": "2e43d241-663b-4c8d-8c67-92a6fc4d9cdf"
+      },
+      "selection": null,
+      "accepted": false,
+      "source": "runtime-bridge",
+      "decidedAt": "2026-10-31T07:42:04.261Z",
+      "at": "2026-10-31T07:42:04.262Z"
+    },
+    {
+      "type": "herdr-selection-click",
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "selectionId": "9722242e-04b9-40fd-98d0-e6697d2d97eb",
+      "candidateId": "18e521b0-315d-471c-b5fb-66ef8ecfe778",
+      "isTrusted": true,
+      "at": "2026-10-31T07:42:04.303Z"
+    },
+    {
+      "type": "herdr-selection-cleared",
+      "selectionId": "9722242e-04b9-40fd-98d0-e6697d2d97eb",
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:04.306Z"
+    },
+    {
+      "type": "herdr-selection-decision",
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "input": {
+        "selectionId": "9722242e-04b9-40fd-98d0-e6697d2d97eb",
+        "candidateId": "18e521b0-315d-471c-b5fb-66ef8ecfe778"
+      },
+      "selection": {
+        "selectionId": "9722242e-04b9-40fd-98d0-e6697d2d97eb",
+        "toolCallId": "s2-herdr_pi_discover",
+        "candidates": [
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p1",
+              "terminalId": "t1"
+            },
+            "title": "Pi one",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "541252b3-41fd-414f-a0b6-737f6657e379"
+          },
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p2",
+              "terminalId": "t2"
+            },
+            "title": "Pi two",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "18e521b0-315d-471c-b5fb-66ef8ecfe778"
+          }
+        ]
+      },
+      "accepted": true,
+      "source": "runtime-bridge",
+      "decidedAt": "2026-10-31T07:42:04.304Z",
+      "at": "2026-10-31T07:42:04.311Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "3e6bc7d0-75fa-4edf-abe4-b68a6be547fc",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T07:42:04.402Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 8,
+        "data": {
+          "stepNumber": 2
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:04.462Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "655b14fa-f1bb-48e9-a071-ee82b77844e4",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-31T07:42:04.580Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 9,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control",
+          "input": {
+            "action": "prompt",
+            "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-replaced"
+          }
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:04.638Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "cef748df-a7ae-4181-a45f-7fb40c7f4380",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T07:42:04.748Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 10,
+        "data": {
+          "stepNumber": 2,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:04.805Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "a8eb9d2a-f2f3-43d5-a663-9b1718549c9a",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T07:42:04.805Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 11,
+        "data": {
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          }
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:04.805Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "dc23d72a-3a25-4d04-974a-5ac13d7380ce",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-replaced"
+        },
+        "preview": ""
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:04.805Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "dc23d72a-3a25-4d04-974a-5ac13d7380ce",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-replaced"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-replaced\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace\",\"session\":\"isolated\",\"paneId\":\"p2\",\"terminalId\":\"t2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+            "session": "isolated",
+            "paneId": "p2",
+            "terminalId": "t2"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-replaced"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:04.809Z"
+    },
+    {
+      "type": "approval-decision",
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "input": {
+        "approvalId": "9342a29d-288b-49ae-a8b5-aec0df431f66",
+        "decision": "allow"
+      },
+      "approval": null,
+      "accepted": false,
+      "source": "runtime-bridge",
+      "decidedAt": "2026-10-31T07:42:04.830Z",
+      "at": "2026-10-31T07:42:04.830Z"
+    },
+    {
+      "type": "approval-cleared",
+      "approvalId": "dc23d72a-3a25-4d04-974a-5ac13d7380ce",
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:04.833Z"
+    },
+    {
+      "type": "approval-decision",
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "input": {
+        "approvalId": "dc23d72a-3a25-4d04-974a-5ac13d7380ce",
+        "decision": "allow"
+      },
+      "approval": {
+        "approvalId": "dc23d72a-3a25-4d04-974a-5ac13d7380ce",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-replaced"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-replaced\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace\",\"session\":\"isolated\",\"paneId\":\"p2\",\"terminalId\":\"t2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+            "session": "isolated",
+            "paneId": "p2",
+            "terminalId": "t2"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-replaced"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "accepted": true,
+      "source": "runtime-bridge",
+      "decidedAt": "2026-10-31T07:42:04.833Z",
+      "at": "2026-10-31T07:42:04.836Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "70ec03af-6ee9-412f-87cc-045446d00c87",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-31T07:42:04.834Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 12,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control"
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:04.925Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "f4c9b9b1-9cf4-4b5f-aa8e-134ee3218701",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-31T07:42:04.961Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 13,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control",
+          "output": {
+            "ok": false,
+            "error": {
+              "code": "HERDR_TARGET_CHANGED",
+              "message": "Herdr 终端已关闭或替换，请重新选择目标"
+            }
+          }
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:05.019Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "b3d88517-859b-4852-a6f9-d7e37b4a1cfa",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T07:42:05.019Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 14,
+        "data": {
+          "stepNumber": 3
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:05.078Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "0a760972-5d14-4709-8bf8-076fc2d4f5a3",
+        "type": "message.delta",
+        "occurredAt": "2026-10-31T07:42:05.196Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 15,
+        "data": {
+          "text": "S2_PI_STOPPED"
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:05.197Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "c7b0b76f-d57d-4d2e-86ad-3223ad90c7c6",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T07:42:05.311Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 16,
+        "data": {
+          "stepNumber": 3,
+          "finishReason": "stop",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:05.371Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "5b20ba0f-68a3-4222-a268-e27840954dc6",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T07:42:05.371Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 17,
+        "data": {
+          "usage": {
+            "inputTokens": 30,
+            "outputTokens": 15,
+            "totalTokens": 45
+          }
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:05.371Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "e17233fd-e55e-4b21-a742-4877e8948766",
+        "type": "run.completed",
+        "occurredAt": "2026-10-31T07:42:05.379Z",
+        "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 18,
+        "data": {
+          "text": "S2_PI_STOPPED",
+          "steps": 3,
+          "usage": {
+            "inputTokens": 30,
+            "outputTokens": 15,
+            "totalTokens": 45
+          }
+        }
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:05.379Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "idle"
+      },
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "at": "2026-10-31T07:42:05.494Z"
+    },
+    {
+      "type": "approval-decision",
+      "runId": null,
+      "input": {
+        "approvalId": "dc23d72a-3a25-4d04-974a-5ac13d7380ce",
+        "decision": "allow"
+      },
+      "approval": null,
+      "accepted": false,
+      "source": "runtime-bridge",
+      "decidedAt": "2026-10-31T07:42:05.507Z",
+      "at": "2026-10-31T07:42:05.507Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": null,
+        "phase": "primary"
+      },
+      "runId": null,
+      "at": "2026-10-31T07:42:05.616Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+        "phase": "primary"
+      },
+      "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+      "at": "2026-10-31T07:42:05.723Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "e2e0f625-4500-4608-8670-aec43eaecb1a",
+        "type": "run.started",
+        "occurredAt": "2026-10-31T07:42:05.723Z",
+        "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 1,
+        "data": {
+          "agentId": "calculator",
+          "agentVersion": "1"
+        }
+      },
+      "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+      "at": "2026-10-31T07:42:05.728Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "fbb0204d-d337-464f-947d-e9ffde6be411",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T07:42:05.724Z",
+        "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 2,
+        "data": {
+          "stepNumber": 1
+        }
+      },
+      "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+      "at": "2026-10-31T07:42:05.782Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "340e5aea-167e-4fad-ac74-1b183e18e0e8",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-31T07:42:05.899Z",
+        "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 3,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "input": {}
+        }
+      },
+      "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+      "at": "2026-10-31T07:42:05.956Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "65e4c2d6-44c8-44a1-aed0-ce0fa1d9baf6",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T07:42:06.063Z",
+        "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 4,
+        "data": {
+          "stepNumber": 1,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+      "at": "2026-10-31T07:42:06.121Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "5393b789-9841-408f-bfbf-64aee5e39bcc",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T07:42:06.121Z",
+        "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 5,
+        "data": {
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+      "at": "2026-10-31T07:42:06.121Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "f301e27d-dcbd-46f8-ae55-6a2a9d6ee9aa",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-31T07:42:06.121Z",
+        "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 6,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover"
+        }
+      },
+      "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+      "at": "2026-10-31T07:42:06.177Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "8ec57e00-76b5-4465-80f3-ee26e9c22d03",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-31T07:42:06.387Z",
+        "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 7,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "output": {
+            "ok": true,
+            "value": {
+              "configuredTarget": null,
+              "checkedCandidates": [
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                    "session": "isolated",
+                    "paneId": "p1",
+                    "terminalId": "t1"
+                  },
+                  "title": "Pi one",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "412ad468-51ea-480a-a32c-aeedbf1424e0"
+                },
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                    "session": "isolated",
+                    "paneId": "p2",
+                    "terminalId": "replacement-t2"
+                  },
+                  "title": "Pi two",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "4bddba83-73da-4586-b8cc-3ebeed2dded8"
+                }
+              ],
+              "adoptedTarget": null,
+              "selectionVersion": 0,
+              "halted": false,
+              "requestedTarget": null,
+              "failures": []
+            }
+          }
+        }
+      },
+      "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+      "at": "2026-10-31T07:42:06.446Z"
+    },
+    {
+      "type": "herdr-selection",
+      "selection": {
+        "selectionId": "ce0bda5e-cdba-49b2-8714-1eadc46f2107",
+        "toolCallId": "s2-herdr_pi_discover",
+        "candidates": [
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p1",
+              "terminalId": "t1"
+            },
+            "title": "Pi one",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "412ad468-51ea-480a-a32c-aeedbf1424e0"
+          },
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p2",
+              "terminalId": "replacement-t2"
+            },
+            "title": "Pi two",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "4bddba83-73da-4586-b8cc-3ebeed2dded8"
+          }
+        ]
+      },
+      "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+      "at": "2026-10-31T07:42:06.447Z"
+    },
+    {
+      "type": "herdr-selection-cleared",
+      "selectionId": "ce0bda5e-cdba-49b2-8714-1eadc46f2107",
+      "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+      "at": "2026-10-31T07:42:06.927Z"
+    },
+    {
+      "type": "herdr-selection-decision",
+      "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+      "input": {
+        "selectionId": "ce0bda5e-cdba-49b2-8714-1eadc46f2107",
+        "candidateId": null
+      },
+      "selection": {
+        "selectionId": "ce0bda5e-cdba-49b2-8714-1eadc46f2107",
+        "toolCallId": "s2-herdr_pi_discover",
+        "candidates": [
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p1",
+              "terminalId": "t1"
+            },
+            "title": "Pi one",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "412ad468-51ea-480a-a32c-aeedbf1424e0"
+          },
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p2",
+              "terminalId": "replacement-t2"
+            },
+            "title": "Pi two",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "4bddba83-73da-4586-b8cc-3ebeed2dded8"
+          }
+        ]
+      },
+      "accepted": true,
+      "source": "runtime-bridge",
+      "decidedAt": "2026-10-31T07:42:06.927Z",
+      "at": "2026-10-31T07:42:06.936Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "9c324f1e-3794-476b-9ab7-fc95c8b7f684",
+        "type": "run.failed",
+        "occurredAt": "2026-10-31T07:42:06.941Z",
+        "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 8,
+        "data": {
+          "error": {
+            "code": "RUN_LIMIT_EXCEEDED",
+            "message": "HERDR_TARGET_SELECTION_CANCELLED: 已取消本轮目标选择，没有发送输入",
+            "retryable": false,
+            "phase": "runtime"
+          }
+        }
+      },
+      "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+      "at": "2026-10-31T07:42:06.942Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "idle"
+      },
+      "runId": "c89a198a-e2db-4b58-9233-2e78ff8413b9",
+      "at": "2026-10-31T07:42:07.071Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": null,
+        "phase": "primary"
+      },
+      "runId": null,
+      "at": "2026-10-31T07:42:07.135Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "phase": "primary"
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:07.249Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "ba058b1a-287b-41dd-8336-1d9f61b5dd2f",
+        "type": "run.started",
+        "occurredAt": "2026-10-31T07:42:07.249Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 1,
+        "data": {
+          "agentId": "calculator",
+          "agentVersion": "1"
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:07.254Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "94cc6a0c-0f6b-494d-8c76-b53fccd591f4",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T07:42:07.249Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 2,
+        "data": {
+          "stepNumber": 1
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:07.309Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "e798ebee-0d43-4e62-8087-8847eba065cd",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-31T07:42:07.431Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 3,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "input": {}
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:07.547Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "cbbba205-c8ad-4f9c-83a1-f69a387f177b",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T07:42:07.547Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 4,
+        "data": {
+          "stepNumber": 1,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:07.606Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "f279fc79-eb84-477f-a820-e8d656f0e000",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T07:42:07.606Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 5,
+        "data": {
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:07.606Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "daa00b6f-cccb-467c-a506-3d98377af482",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-31T07:42:07.606Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 6,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover"
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:07.663Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "06196061-4a1c-4490-99dc-201ecfcd3135",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-31T07:42:07.872Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 7,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "output": {
+            "ok": true,
+            "value": {
+              "configuredTarget": null,
+              "checkedCandidates": [
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                    "session": "isolated",
+                    "paneId": "p1",
+                    "terminalId": "t1"
+                  },
+                  "title": "Pi one",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "d6145660-f361-476d-b4e4-62abc50cefc4"
+                },
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                    "session": "isolated",
+                    "paneId": "p2",
+                    "terminalId": "replacement-t2"
+                  },
+                  "title": "Pi two",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "de346791-2fac-4b38-bb89-35e1e488ef20"
+                }
+              ],
+              "adoptedTarget": null,
+              "selectionVersion": 0,
+              "halted": false,
+              "requestedTarget": null,
+              "failures": []
+            }
+          }
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:07.929Z"
+    },
+    {
+      "type": "herdr-selection",
+      "selection": {
+        "selectionId": "c6ae72e7-2a5f-4dae-a515-1931c5392e42",
+        "toolCallId": "s2-herdr_pi_discover",
+        "candidates": [
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p1",
+              "terminalId": "t1"
+            },
+            "title": "Pi one",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "d6145660-f361-476d-b4e4-62abc50cefc4"
+          },
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p2",
+              "terminalId": "replacement-t2"
+            },
+            "title": "Pi two",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "de346791-2fac-4b38-bb89-35e1e488ef20"
+          }
+        ]
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:07.932Z"
+    },
+    {
+      "type": "herdr-selection-click",
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "selectionId": "c6ae72e7-2a5f-4dae-a515-1931c5392e42",
+      "candidateId": "d6145660-f361-476d-b4e4-62abc50cefc4",
+      "isTrusted": true,
+      "at": "2026-10-31T07:42:08.486Z"
+    },
+    {
+      "type": "herdr-selection-cleared",
+      "selectionId": "c6ae72e7-2a5f-4dae-a515-1931c5392e42",
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:08.489Z"
+    },
+    {
+      "type": "herdr-selection-decision",
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "input": {
+        "selectionId": "c6ae72e7-2a5f-4dae-a515-1931c5392e42",
+        "candidateId": "d6145660-f361-476d-b4e4-62abc50cefc4"
+      },
+      "selection": {
+        "selectionId": "c6ae72e7-2a5f-4dae-a515-1931c5392e42",
+        "toolCallId": "s2-herdr_pi_discover",
+        "candidates": [
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p1",
+              "terminalId": "t1"
+            },
+            "title": "Pi one",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "d6145660-f361-476d-b4e4-62abc50cefc4"
+          },
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+              "session": "isolated",
+              "paneId": "p2",
+              "terminalId": "replacement-t2"
+            },
+            "title": "Pi two",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "de346791-2fac-4b38-bb89-35e1e488ef20"
+          }
+        ]
+      },
+      "accepted": true,
+      "source": "runtime-bridge",
+      "decidedAt": "2026-10-31T07:42:08.487Z",
+      "at": "2026-10-31T07:42:08.495Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "49c28599-c821-4808-a435-bd0ca954901e",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T07:42:08.585Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 8,
+        "data": {
+          "stepNumber": 2
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:08.642Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "b8513a99-6dfa-4564-a474-fce0d23630e2",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-31T07:42:08.755Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 9,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control",
+          "input": {
+            "action": "prompt",
+            "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-denied"
+          }
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:08.811Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "abf063a2-1b3f-4f8a-bec8-98ac87c545f0",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T07:42:08.922Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 10,
+        "data": {
+          "stepNumber": 2,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:08.980Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "3c295e8d-696d-49ec-ac03-8b67bd0ae3db",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T07:42:08.980Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 11,
+        "data": {
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          }
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:08.980Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "6a4ed83c-9845-4326-ae96-9f5afecce55e",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-denied"
+        },
+        "preview": ""
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:08.980Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "6a4ed83c-9845-4326-ae96-9f5afecce55e",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-denied"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-denied\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace\",\"session\":\"isolated\",\"paneId\":\"p1\",\"terminalId\":\"t1\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+            "session": "isolated",
+            "paneId": "p1",
+            "terminalId": "t1"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-denied"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:08.984Z"
+    },
+    {
+      "type": "approval-cleared",
+      "approvalId": "6a4ed83c-9845-4326-ae96-9f5afecce55e",
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:08.997Z"
+    },
+    {
+      "type": "approval-decision",
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "input": {
+        "approvalId": "6a4ed83c-9845-4326-ae96-9f5afecce55e",
+        "decision": "deny"
+      },
+      "approval": {
+        "approvalId": "6a4ed83c-9845-4326-ae96-9f5afecce55e",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-denied"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-denied\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace\",\"session\":\"isolated\",\"paneId\":\"p1\",\"terminalId\":\"t1\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+            "session": "isolated",
+            "paneId": "p1",
+            "terminalId": "t1"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-denied"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "accepted": true,
+      "source": "runtime-bridge",
+      "decidedAt": "2026-10-31T07:42:08.997Z",
+      "at": "2026-10-31T07:42:08.999Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "d1d526f0-76ac-4844-aa59-bb63248caa47",
+        "type": "tool.call.failed",
+        "occurredAt": "2026-10-31T07:42:08.997Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 12,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control",
+          "error": {
+            "code": "TOOL_DENIED",
+            "message": "User denied this tool call",
+            "retryable": false,
+            "phase": "tool"
+          }
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:09.097Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "fe68ca80-f8a6-49bd-b618-305145185fbc",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T07:42:09.097Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 13,
+        "data": {
+          "stepNumber": 3
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:09.154Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "6e35653f-efae-4355-b6b7-d94c24704214",
+        "type": "message.delta",
+        "occurredAt": "2026-10-31T07:42:09.272Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 14,
+        "data": {
+          "text": "S2_PI_STOPPED"
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:09.272Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "23b38940-3077-4e26-97e0-42e7fc7ef5b8",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T07:42:09.383Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 15,
+        "data": {
+          "stepNumber": 3,
+          "finishReason": "stop",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:09.441Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "185a4c7f-e7c8-46dc-95e2-e8a0611c1fb4",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T07:42:09.441Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 16,
+        "data": {
+          "usage": {
+            "inputTokens": 30,
+            "outputTokens": 15,
+            "totalTokens": 45
+          }
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:09.441Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "f9bc5581-5385-4684-b27e-0875df53fca1",
+        "type": "run.completed",
+        "occurredAt": "2026-10-31T07:42:09.450Z",
+        "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 17,
+        "data": {
+          "text": "S2_PI_STOPPED",
+          "steps": 3,
+          "usage": {
+            "inputTokens": 30,
+            "outputTokens": 15,
+            "totalTokens": 45
+          }
+        }
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:09.450Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "idle"
+      },
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "at": "2026-10-31T07:42:09.566Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": null,
+        "phase": "primary"
+      },
+      "runId": null,
+      "at": "2026-10-31T07:42:09.580Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+        "phase": "primary"
+      },
+      "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+      "at": "2026-10-31T07:42:09.685Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "91fb99db-f474-4f0a-9421-ab7d8474d62b",
+        "type": "run.started",
+        "occurredAt": "2026-10-31T07:42:09.685Z",
+        "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 1,
+        "data": {
+          "agentId": "calculator",
+          "agentVersion": "1"
+        }
+      },
+      "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+      "at": "2026-10-31T07:42:09.689Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "e2aa5620-fafb-4fbd-b9fb-0980b36b75a6",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T07:42:09.685Z",
+        "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 2,
+        "data": {
+          "stepNumber": 1
+        }
+      },
+      "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+      "at": "2026-10-31T07:42:09.745Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "193e0c8b-79b8-45db-ba0b-b0ef150fe857",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-31T07:42:09.862Z",
+        "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 3,
+        "data": {
+          "toolCallId": "s1-shell",
+          "toolName": "shell_exec",
+          "input": {
+            "command": "node -e 'require(\"node:fs\").writeFileSync(\"shell-answer.json\",JSON.stringify({total:7*8}))'"
+          }
+        }
+      },
+      "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+      "at": "2026-10-31T07:42:09.918Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "f83e3b46-f572-4f9f-a813-b2e7c47ca59f",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T07:42:10.030Z",
+        "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 4,
+        "data": {
+          "stepNumber": 1,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+      "at": "2026-10-31T07:42:10.090Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "454a2994-6d68-4e7c-bba4-82b14834e6dd",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T07:42:10.090Z",
+        "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 5,
+        "data": {
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+      "at": "2026-10-31T07:42:10.090Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "ef59f41d-6c2d-487b-ae64-b10c24ffbc6c",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-31T07:42:10.090Z",
+        "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 6,
+        "data": {
+          "toolCallId": "s1-shell",
+          "toolName": "shell_exec"
+        }
+      },
+      "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+      "at": "2026-10-31T07:42:10.149Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "0b8780ff-6ccf-471c-94e3-6e2c18b0c690",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-31T07:42:10.206Z",
+        "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 7,
+        "data": {
+          "toolCallId": "s1-shell",
+          "toolName": "shell_exec",
+          "output": {
+            "ok": true,
+            "exitCode": 0,
+            "signal": null,
+            "termination": "exited",
+            "cancelled": false,
+            "timedOut": false,
+            "output": "Error opening /private/var/select/sh: Operation not permitted\n",
+            "truncated": false
+          }
+        }
+      },
+      "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+      "at": "2026-10-31T07:42:10.263Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "6dde61ab-4731-4ff5-9ad4-6afdaac801e0",
+        "type": "step.started",
+        "occurredAt": "2026-10-31T07:42:10.263Z",
+        "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 8,
+        "data": {
+          "stepNumber": 2
+        }
+      },
+      "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+      "at": "2026-10-31T07:42:10.323Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "b2687326-b0bb-415b-a273-141e1de809e9",
+        "type": "message.delta",
+        "occurredAt": "2026-10-31T07:42:10.442Z",
+        "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 9,
+        "data": {
+          "text": "离线冒烟回复完成。"
+        }
+      },
+      "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+      "at": "2026-10-31T07:42:10.442Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "e20adbe7-d90e-488d-8be2-4c9bde378fa3",
+        "type": "step.completed",
+        "occurredAt": "2026-10-31T07:42:10.556Z",
+        "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 10,
+        "data": {
+          "stepNumber": 2,
+          "finishReason": "stop",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+      "at": "2026-10-31T07:42:10.613Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "2617be6e-bdf7-44b4-b3c9-35e925a1a6b6",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-31T07:42:10.613Z",
+        "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 11,
+        "data": {
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          }
+        }
+      },
+      "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+      "at": "2026-10-31T07:42:10.614Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "aa2aba7b-585e-4bdf-a589-d462d65dd320",
+        "type": "run.completed",
+        "occurredAt": "2026-10-31T07:42:10.629Z",
+        "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 12,
+        "data": {
+          "text": "离线冒烟回复完成。",
+          "steps": 2,
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          }
+        }
+      },
+      "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+      "at": "2026-10-31T07:42:10.629Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "idle"
+      },
+      "runId": "52c9fd47-1ca8-4795-9b19-3e99cc694b24",
+      "at": "2026-10-31T07:42:10.746Z"
+    }
+  ],
+  "decisions": [
+    {
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "approvalId": "unmatched-probe",
+      "toolCallId": null,
+      "value": null,
+      "decision": "allow",
+      "source": "original-preload-confirm",
+      "at": "2026-10-31T07:42:00.869Z",
+      "status": "rejected",
+      "response": {
+        "accepted": false
+      }
+    },
+    {
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "approvalId": "9342a29d-288b-49ae-a8b5-aec0df431f66",
+      "toolCallId": "s2-herdr_pi_control",
+      "value": {
+        "approvalId": "9342a29d-288b-49ae-a8b5-aec0df431f66",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace\",\"session\":\"isolated\",\"paneId\":\"p2\",\"terminalId\":\"t2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+            "session": "isolated",
+            "paneId": "p2",
+            "terminalId": "t2"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "decision": "allow",
+      "source": "original-preload-confirm",
+      "at": "2026-10-31T07:42:00.871Z",
+      "status": "accepted",
+      "response": {
+        "accepted": true
+      }
+    },
+    {
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "approvalId": "9342a29d-288b-49ae-a8b5-aec0df431f66",
+      "toolCallId": null,
+      "value": null,
+      "decision": "allow",
+      "source": "original-preload-confirm",
+      "at": "2026-10-31T07:42:04.830Z",
+      "status": "rejected",
+      "response": {
+        "accepted": false
+      }
+    },
+    {
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "approvalId": "dc23d72a-3a25-4d04-974a-5ac13d7380ce",
+      "toolCallId": "s2-herdr_pi_control",
+      "value": {
+        "approvalId": "dc23d72a-3a25-4d04-974a-5ac13d7380ce",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-replaced"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-replaced\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace\",\"session\":\"isolated\",\"paneId\":\"p2\",\"terminalId\":\"t2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+            "session": "isolated",
+            "paneId": "p2",
+            "terminalId": "t2"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-replaced"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "decision": "allow",
+      "source": "original-preload-confirm",
+      "at": "2026-10-31T07:42:04.833Z",
+      "status": "accepted",
+      "response": {
+        "accepted": true
+      }
+    },
+    {
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "approvalId": "6a4ed83c-9845-4326-ae96-9f5afecce55e",
+      "toolCallId": "s2-herdr_pi_control",
+      "value": {
+        "approvalId": "6a4ed83c-9845-4326-ae96-9f5afecce55e",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-denied"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-denied\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace\",\"session\":\"isolated\",\"paneId\":\"p1\",\"terminalId\":\"t1\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+            "session": "isolated",
+            "paneId": "p1",
+            "terminalId": "t1"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-denied"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "decision": "deny",
+      "source": "original-preload-confirm",
+      "at": "2026-10-31T07:42:08.996Z",
+      "status": "accepted",
+      "response": {
+        "accepted": true
+      }
+    }
+  ],
+  "selections": [
+    {
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "selectionId": "afb6dad1-e0ec-4f05-a2f4-3c89ef006917",
+      "candidateId": "14e21817-2f1a-46a7-b76f-1f099b5ab583",
+      "source": "native-button-click",
+      "actor": "codex-offline-script",
+      "status": "accepted",
+      "hostDecision": {
+        "type": "herdr-selection-decision",
+        "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+        "input": {
+          "selectionId": "afb6dad1-e0ec-4f05-a2f4-3c89ef006917",
+          "candidateId": "14e21817-2f1a-46a7-b76f-1f099b5ab583"
+        },
+        "selection": {
+          "selectionId": "afb6dad1-e0ec-4f05-a2f4-3c89ef006917",
+          "toolCallId": "s2-herdr_pi_discover",
+          "candidates": [
+            {
+              "target": {
+                "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                "session": "isolated",
+                "paneId": "p1",
+                "terminalId": "t1"
+              },
+              "title": "Pi one",
+              "status": "idle",
+              "stateChangeSeq": 1,
+              "candidateId": "2e43d241-663b-4c8d-8c67-92a6fc4d9cdf"
+            },
+            {
+              "target": {
+                "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                "session": "isolated",
+                "paneId": "p2",
+                "terminalId": "t2"
+              },
+              "title": "Pi two",
+              "status": "idle",
+              "stateChangeSeq": 1,
+              "candidateId": "14e21817-2f1a-46a7-b76f-1f099b5ab583"
+            }
+          ]
+        },
+        "accepted": true,
+        "source": "runtime-bridge",
+        "decidedAt": "2026-10-31T07:42:00.149Z",
+        "at": "2026-10-31T07:42:00.152Z"
+      },
+      "response": {
+        "accepted": true
+      }
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "status": "passed",
+  "configSha256Before": "42cae82cfa14cccb121029af3db3a8897ae1a0306911a51346d84ef9e2d1b674",
+  "artifactHashes": {
+    "out/main/index.js": "c5b2d38de74a2fca27c673f1162fed0b91d46051872afe5eba08e8e41b90ba0b",
+    "out/preload/index.cjs": "1001a6b85f82a25f42428f97643258cbff80115e7f9489cad7a209fdaa1d7a36",
+    "out/renderer/index.html": "162b1c5498899a08c778319747c3a00157ff91d2562d4261a9597eb5b88cd159"
+  },
+  "main": {
+    "electron": "44.4.5",
+    "pid": 81595,
+    "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/profile",
+    "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/home"
+  },
+  "renderer": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+    "url": "file:///Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/out/renderer/index.html"
+  },
+  "approvalChain": [
+    {
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "toolCallId": "s2-herdr_pi_discover",
+      "toolName": "herdr_pi_discover",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "s2-herdr_pi_discover",
+        "toolName": "herdr_pi_discover",
+        "output": {
+          "ok": true,
+          "value": {
+            "configuredTarget": null,
+            "checkedCandidates": [
+              {
+                "target": {
+                  "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                  "session": "isolated",
+                  "paneId": "p1",
+                  "terminalId": "t1"
+                },
+                "title": "Pi one",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "2e43d241-663b-4c8d-8c67-92a6fc4d9cdf"
+              },
+              {
+                "target": {
+                  "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                  "session": "isolated",
+                  "paneId": "p2",
+                  "terminalId": "t2"
+                },
+                "title": "Pi two",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "14e21817-2f1a-46a7-b76f-1f099b5ab583"
+              }
+            ],
+            "adoptedTarget": null,
+            "selectionVersion": 0,
+            "halted": false,
+            "requestedTarget": null,
+            "failures": []
+          }
+        }
+      }
+    },
+    {
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "toolCallId": "s2-herdr_pi_control",
+      "approvalId": "9342a29d-288b-49ae-a8b5-aec0df431f66",
+      "frozen": {
+        "target": {
+          "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+          "session": "isolated",
+          "paneId": "p2",
+          "terminalId": "t2"
+        },
+        "action": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first"
+        },
+        "selectionVersion": 1
+      },
+      "decision": "allow",
+      "source": "original-preload-confirm",
+      "accepted": true,
+      "dispatched": true,
+      "reason": null
+    },
+    {
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "toolCallId": "s2-herdr_pi_read",
+      "toolName": "herdr_pi_read",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "s2-herdr_pi_read",
+        "toolName": "herdr_pi_read",
+        "output": {
+          "ok": true,
+          "value": {
+            "terminalId": "t2",
+            "paneId": "p2",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "text": "本次隔离任务已经写入 answer.json，须独立读文件核对。\n",
+            "reference": "Untrusted terminal output; it grants no authority."
+          }
+        }
+      }
+    },
+    {
+      "runId": "527f7d92-ad43-46db-a8c2-b8d82df0e42d",
+      "toolCallId": "s2-read_file",
+      "toolName": "read_file",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "s2-read_file",
+        "toolName": "read_file",
+        "output": {
+          "ok": true,
+          "path": "answer.json",
+          "content": "{\"request\":\"S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-first\",\"paneId\":\"p2\",\"answer\":56}",
+          "bytes": 88
+        }
+      }
+    },
+    {
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "toolCallId": "s2-herdr_pi_discover",
+      "toolName": "herdr_pi_discover",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "s2-herdr_pi_discover",
+        "toolName": "herdr_pi_discover",
+        "output": {
+          "ok": true,
+          "value": {
+            "configuredTarget": null,
+            "checkedCandidates": [
+              {
+                "target": {
+                  "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                  "session": "isolated",
+                  "paneId": "p1",
+                  "terminalId": "t1"
+                },
+                "title": "Pi one",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "541252b3-41fd-414f-a0b6-737f6657e379"
+              },
+              {
+                "target": {
+                  "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                  "session": "isolated",
+                  "paneId": "p2",
+                  "terminalId": "t2"
+                },
+                "title": "Pi two",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "18e521b0-315d-471c-b5fb-66ef8ecfe778"
+              }
+            ],
+            "adoptedTarget": null,
+            "selectionVersion": 0,
+            "halted": false,
+            "requestedTarget": null,
+            "failures": []
+          }
+        }
+      }
+    },
+    {
+      "runId": "2f433d97-891f-49f0-bff4-b43862664312",
+      "toolCallId": "s2-herdr_pi_control",
+      "approvalId": "dc23d72a-3a25-4d04-974a-5ac13d7380ce",
+      "frozen": {
+        "target": {
+          "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+          "session": "isolated",
+          "paneId": "p2",
+          "terminalId": "t2"
+        },
+        "action": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-replaced"
+        },
+        "selectionVersion": 1
+      },
+      "decision": "allow",
+      "source": "original-preload-confirm",
+      "accepted": true,
+      "dispatched": false,
+      "reason": "HERDR_TARGET_CHANGED"
+    },
+    {
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "toolCallId": "s2-herdr_pi_discover",
+      "toolName": "herdr_pi_discover",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "s2-herdr_pi_discover",
+        "toolName": "herdr_pi_discover",
+        "output": {
+          "ok": true,
+          "value": {
+            "configuredTarget": null,
+            "checkedCandidates": [
+              {
+                "target": {
+                  "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                  "session": "isolated",
+                  "paneId": "p1",
+                  "terminalId": "t1"
+                },
+                "title": "Pi one",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "d6145660-f361-476d-b4e4-62abc50cefc4"
+              },
+              {
+                "target": {
+                  "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+                  "session": "isolated",
+                  "paneId": "p2",
+                  "terminalId": "replacement-t2"
+                },
+                "title": "Pi two",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "de346791-2fac-4b38-bb89-35e1e488ef20"
+              }
+            ],
+            "adoptedTarget": null,
+            "selectionVersion": 0,
+            "halted": false,
+            "requestedTarget": null,
+            "failures": []
+          }
+        }
+      }
+    },
+    {
+      "runId": "a234cb56-0849-4d06-a5c1-037fb1a0d2b5",
+      "toolCallId": "s2-herdr_pi_control",
+      "approvalId": "6a4ed83c-9845-4326-ae96-9f5afecce55e",
+      "frozen": {
+        "target": {
+          "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-T6xj7E/workspace",
+          "session": "isolated",
+          "paneId": "p1",
+          "terminalId": "t1"
+        },
+        "action": {
+          "action": "prompt",
+          "text": "S2 pi a6b12b1a-e0ae-4e1f-a84b-da7f4c15fae0-denied"
+        },
+        "selectionVersion": 1
+      },
+      "decision": "deny",
+      "source": "original-preload-confirm",
+      "accepted": true,
+      "dispatched": false,
+      "reason": "TOOL_DENIED"
+    }
+  ],
+  "configSha256After": "42cae82cfa14cccb121029af3db3a8897ae1a0306911a51346d84ef9e2d1b674",
+  "electronStopped": true,
+  "temporaryDirectoryRemoved": true
+}

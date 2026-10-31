@@ -277,16 +277,24 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 - [x] Ground / Sketch / Agree：写明上述两案、工具契约、数据流与已授权范围。
 - [x] Implement：按 Run 状态收窄工具及入口；相关单测与完整假模型链。
 - [x] 核查原失败路径、差异与注释；typecheck、全测、桌面及 TG 离线回归。
-- [ ] 干净源码构建隔离 Electron，假模型 read/control 及原审批观察链；任一关口失败即停。
+- [x] 干净源码构建隔离 Electron，假模型 read/control 及原审批观察链；任一关口失败即停。
 - [ ] 报新真批 Run/请求/费用/渠道/成功断言/停止条件，等用户“继续”。本轮未授权新真调用。
 - [ ] 获准后隔离真实整链；缺回执不报阶段完成；更新原 #197 后停止。
 
 查过旧约束的 Tool side-effect invariants、TUI 单次确认和 Trusted desktop foreground autonomy 条目；本轮不改这些审批/授权规则、Seatbelt 或日用服务。Scrap 仅在当前结构无法表达协议时使用，本轮不预设重构。
 
-#### 契约候选离线结果，Electron 待运行
+#### 契约候选离线与隔离 Electron 结果
 
 1. 改了什么：`ForegroundHerdrTargets.availableTools` 按当前采用/halted 状态删工具，`app` 沿用 definition getter，`AgentLoop` 把模型定义与执行表同步移至每步准备之后。采用后的 discover 入口明确拒绝并删除旧 refresh/重新指定采用目标分支，sourceQuote 验证逐字保留。Electron 假模型检查实际收到的工具名，原生选择脚本关联 click、宿主 accepted、候选完整身份与 selectionVersion=1。真批脚本新增 `--pi-only`，省去已过的真实 Shell 实验。
-2. 逐条对照：同 Run 多候选选择、采用后不暴露 discover、read/control、单独批准、一次发送、本次回读与独立文件解析由 `foreground-herdr.test` 完整假模型链通过；身份失效恢复发现、旧批准不可用、拒绝/取消零派发及 unknown 停止也通过。TG 离线链新增工具集合与 read 回执断言，85/85 通过。原生 Electron、真实模型整链、真实 TG 尚未验证。阶段 1 未完成。
+2. 逐条对照：同 Run 多候选选择、采用后不暴露 discover、read/control、单独批准、一次发送、本次回读与独立文件解析由 `foreground-herdr.test` 完整假模型链通过；身份失效恢复发现、旧批准不可用、拒绝/取消零派发及 unknown 停止也通过。TG 离线链新增工具集合与 read 回执断言，85/85 通过。原生 Electron 44.4.5 / macOS / 原 preload/IPC 假模型 6/6，标准 smoke 8/8，均绑定干净 `bb2508d`。首个成功 Run `527f7d92-ad43-46db-a8c2-b8d82df0e42d` 有 2 候选、原生可信 click、宿主 accepted 恰好 1、selectionVersion=1，工具链严格为 discover/control/read/read_file；控制链关联 runId/toolCallId/approvalId、完整冻结目标/正文、决定来源/接受及恰好 1 次派发。替换和拒绝另有零派发结论，选择取消没有控制调用。真实模型整链、真实 TG 尚未验证。阶段 1 未完成。
 3. 相对 `57cb173`，产品代码 `+15/-20`，测试/验证 `+77/-33`，不计本报告与证据。验证增量大于产品，用于跨 step 工具契约、来源拒绝、身份失效恢复及原生选择/审批回执的独立核查。未删测试文件或新增 skip。三项旧预期有意收窄：`discovery blocks … refresh keeps …` 改为采用后 read/get 且每步无 discover；`a new explicit selector revokes …` 改为采用后残留 selector 明确失败、保持原采用；`cached exact pane … on refresh` 改为 read/get 证明身份失效后才能重新发现，保留零派发断言。
-4. 实际命令：`pnpm typecheck` 退出 0；隔离 `node --test` 的 runtime/Herdr/权限/loop 相关测试 91/91；隔离 `tsx --test` 的 TG gateway/selection 85/85；隔离 `pnpm test` 1891 pass、7 skip、0 fail/cancelled，均退出 0。`node --check` 两个改动的 Electron 验证脚本退出 0；`node …/chat-run-target-live.mjs --pi-only` 零请求预检退出 0，上限为 1 宿主任务 Run / 24 总请求 / $0.25，默认测试 env 不存在，未读取其内容。运行日志、随机验证 ID、退出码与 SHA-256 见 [offline-summary](evidence/chat-run-target/stage1-contract-2929bb10/offline-summary.json) 及同目录 commands/log。这些测试在改动工作树上运行，后续干净提交的 Electron 证据单独绑定源码。
-5. 偏离与限制：按用户工序先离线、后隔离 Electron、再等待真批授权；本轮真实请求/费用均为 0。六份写保护记录均 passed、零违规，启用了既有并发元数据记录，metadataUnchanged=false，不声称日用元数据未变。只读审核没有具体 correctness 发现；没有新增注释，注释检查内联完成。Electron 假模型若在提供工具前失败，现有 adapter 会隐藏具体 provider 异常，脚本可能只留等待超时；这不会误报绿，失败时须依原始事件判断，不臆断为选择未推进。本地提交仅为干净源码冒烟，远端 #197 依工序待真实验收后更新。
+4. 实际命令：`pnpm typecheck` 退出 0；隔离 `node --test` 的 runtime/Herdr/权限/loop 相关测试 91/91；隔离 `tsx --test` 的 TG gateway/selection 85/85；隔离 `pnpm test` 1891 pass、7 skip、0 fail/cancelled，均退出 0。`node --check` 两个改动的 Electron 验证脚本、`pnpm build`、`node …/chat-run-target-smoke.mjs --output …`、`pnpm --filter @serika/desktop smoke` 均退出 0；`node …/chat-run-target-live.mjs --pi-only` 零请求预检退出 0。运行日志、随机验证 ID、退出码与 SHA-256 见 [offline-summary](evidence/chat-run-target/stage1-contract-2929bb10/offline-summary.json)、[Electron 原件核对](evidence/chat-run-target/stage1-contract-2929bb10/electron-audit.json) 及同目录 commands/log。单测/全测在改动工作树上运行，Electron 单独绑定干净提交。标准 smoke 原件保存在本批子目录，再还原其既有“最新结果”路径，不覆盖历史批次。
+5. 偏离与限制：按用户工序先离线、后隔离 Electron、再等待真批授权；本轮真实请求/费用均为 0。十份写保护记录均 passed、零违规，启用了既有并发元数据记录，metadataUnchanged=false，不声称日用元数据未变。只读审核没有具体 correctness 发现；没有新增注释，注释检查内联完成。Electron 假模型若在提供工具前失败，现有 adapter 会隐藏具体 provider 异常，脚本可能只留等待超时；这不会误报绿，失败时须依原始事件判断，不臆断为选择未推进。保留的 Shell 基线脚本 exit 0 且产物正确，输出另含 `/private/var/select/sh` 的 OS 权限提示；本轮未据此修改 Seatbelt，也不重判已过的真实 Shell。标准 smoke 使用仓库 retired-config fixture。隔离进程已退出、临时 fixture 已清理。密钥前缀扫描零命中，旧 fc56f36f 失败原件未改。本地提交仅为干净源码冒烟及证据检查点，远端 #197 依工序待真实验收后更新。
+
+#### 待授权的真实桌面批次
+
+最多 **1 个宿主任务 Run、24 次总模型请求、$0.25 本地预算**。请求数包括 Serika 和选中 Pi，沿用脚本费率预留与核算，费用不是账单核验。模型为 `deepseek/deepseek-v4.1-flash-fast`；只运行 `chat-run-target-live.mjs --pi-only` 的 multiple-pi 桌面链，原 preload/IPC、隔离目录、两个现有测试 Pi，省去已经通过的 ordinary-cli 真实实验。真实 TG、压缩与日用不在本批范围。通过本批也不能报告真实 TG 通过。
+
+授权“继续”后，仅从上一批已用外部 `/Users/a1-6/.config/serika/v2-daily.env` 在进程内读取模型连接字段，不打印或写入凭据；允许 Codex 原生选卡一次，并独立批准该任务冻结的单次 Pi 操作。成功须核对同 runId 的全部完成定义，包括采用后请求工具定义无 discover、没有无效 requested、选中目标外零输入、操作正文/目标冻结一致、一次派发、本次回读和外部精确核对 `sum=14` 及本批随机 order。缺少任一回执即失败。
+
+任何验证失败、宿主拒绝、工具非成功结果、unknown、目标/适用环境变化、请求/费用上限或未结算调用均停止本批；unknown 立即冻结，不自动回读、重发、换目标或清理现场。真实失败保留原 result/request/response，不追加 Run、不改绿。该预算尚未获准，本轮真调用为 0；按工序等待用户“继续”，再运行真实隔离验收，最后更新原 #197 后停下。
