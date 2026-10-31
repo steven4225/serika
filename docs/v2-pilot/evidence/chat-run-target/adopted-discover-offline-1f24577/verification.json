@@ -1,6 +1,6 @@
 {
-  "auditId": "fe5ea5c8-3a4b-4c72-a1e4-4991b7db2c4c",
-  "auditedAt": "2026-10-31T18:39:49.382541+00:00",
+  "auditId": "7e9400ad-f798-4fed-b71a-3a84ee219778",
+  "auditedAt": "2026-10-31T18:41:41.668602+00:00",
   "verification": "offline-artifact-audit",
   "status": "passed",
   "sourceCommit": "1f2457769587d4d6648e5a37e95c78d6dbb224f7",
@@ -157,22 +157,10 @@
       "bytes": 91821
     },
     {
-      "path": "standard-electron/cm-step4-original-result.json",
-      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/cm-step4-original-result.json",
-      "sha256": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9",
-      "bytes": 9592
-    },
-    {
       "path": "standard-electron/result.json",
       "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/result.json",
       "sha256": "1f10b14d36e1f4a3f01db0c4247486704ad2aa59a422e984268df2f072f159c3",
       "bytes": 9515
-    },
-    {
-      "path": "standard-electron/cm-step6-run.json",
-      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json",
-      "sha256": "428511d1d8841b781de79607d0ee2d8bf21b44cdfe85b2b8892c71ba9a4617f9",
-      "bytes": 2397
     },
     {
       "path": "standard-electron/chat-reply.png",
@@ -199,18 +187,6 @@
       "bytes": 101753
     },
     {
-      "path": "standard-electron/README.md",
-      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/README.md",
-      "sha256": "1ec7dad9eb4e8e9edf8c5b1452c28544550fca2e24e861c28e26ae92d1b8e14e",
-      "bytes": 2178
-    },
-    {
-      "path": "standard-electron/cleanup.json",
-      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/cleanup.json",
-      "sha256": "c62da29d9d3f7b865db18d50028c9750559bc2f569a6e8d730086ec1a6cfaf04",
-      "bytes": 1849
-    },
-    {
       "path": "standard-electron/remember-on-memory-page.png",
       "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png",
       "sha256": "04166a5c69fbc284fe1724b445dd9f5d9bf6bed4241b9add7ba5386c6f709806",
@@ -229,28 +205,10 @@
       "bytes": 118559
     },
     {
-      "path": "standard-electron/verification.json",
-      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/verification.json",
-      "sha256": "830bdc6e00782763fcca10f68f0cb7fc43da28d74725109bbdb894de72b233c2",
-      "bytes": 4146
-    },
-    {
-      "path": "standard-electron/issue191-closeout.json",
-      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/issue191-closeout.json",
-      "sha256": "c400cf1b95adfc139fd1c4df27cb3b4b61eb749efa5b088594ddf28fc0f93e42",
-      "bytes": 1001
-    },
-    {
       "path": "standard-electron/restart-persistence.png",
       "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/restart-persistence.png",
       "sha256": "9d10405bd1bf74f859062e7a72137b0863b70b80924a7e44e6dcb23471070980",
       "bytes": 104447
-    },
-    {
-      "path": "standard-electron/cm-step5-run.json",
-      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/cm-step5-run.json",
-      "sha256": "b56c7d1cfcdfc0126d3ffb7ab90956296c6f941a699eb0352c3374b578c2760c",
-      "bytes": 2397
     },
     {
       "path": "real-herdr-fake-telegram/pi-2.jsonl",
@@ -345,8 +303,8 @@
     {
       "path": "archive.py",
       "source": "/private/tmp/s197-followup-archive.py",
-      "sha256": "3a8392f25ef7b4fff46dd905ea074b86868a799fc72d01590cf433aa582ee3f0",
-      "bytes": 5804
+      "sha256": "e5f4738dc5719ed203a821be62cf4b1e7e91fbff1dd6d5d7928c71b57234f3aa",
+      "bytes": 5866
     },
     {
       "path": "preparation/s197-followup-electron-runtime.json",
@@ -360,5 +318,19 @@
       "sha256": "6c7f51dab6a1034008ad13082bd357bbf5b5f5ccb7b59ab9b5e43cad1ea9e95d",
       "bytes": 1039
     }
-  ]
+  ],
+  "archiveScopeCorrection": {
+    "supersededIndexSha256": "5c17b5626711f170cf530802bcd4ffa37a0f3c2c3312e8812a29d908c8854491",
+    "supersededIndexCommit": "eeceada",
+    "excludedHistoricalSmokeFiles": [
+      "standard-electron/cm-step4-original-result.json",
+      "standard-electron/cm-step6-run.json",
+      "standard-electron/README.md",
+      "standard-electron/cleanup.json",
+      "standard-electron/verification.json",
+      "standard-electron/issue191-closeout.json",
+      "standard-electron/cm-step5-run.json"
+    ],
+    "reason": "Only this run result, home fixture and hash-bound screenshots belong to the standard smoke archive; prior directory material excluded. Original test results unchanged."
+  }
 }

@@ -32,8 +32,8 @@ def copy(src, path):
     digest=hashlib.sha256(src.read_bytes()).hexdigest()
     assert digest == hashlib.sha256(path.read_bytes()).hexdigest()
     manifest.append({'path':str(path.relative_to(dest)),'source':str(src),'sha256':digest,'bytes':src.stat().st_size})
-for f in smoke.iterdir():
-    if f.is_file():copy(f,dest/'standard-electron'/f.name)
+for name in ['result.json','home-fixture.json',*[image['file'] for image in s['screenshots']]]:
+    copy(smoke/name,dest/'standard-electron'/name)
 for f in gate.iterdir():
     if f.is_file():copy(f,dest/'real-herdr-fake-telegram'/f.name)
 log_names=['host-red','host-red-2','host-red-3','host-red-4','green','green-2','status','full','smoke','smoke-download-failed','gate','final-gate']
