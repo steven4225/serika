@@ -302,7 +302,11 @@ try {
   assert.ok(chosen, 'Selected target is outside this isolated fixture');
   await verifyPi(third, candidate.target, chosen.piSession, 0, join(fixture.work, 'blue-answer.json'), { sum: 14, order: nonce + '-blue' });
   const unchosen = [fixture, other].find(row => row !== chosen);
-  third.unchosenPiUserMessages = (await messages(unchosen.piSession)).length;
+  try { third.unchosenPiUserMessages = (await messages(unchosen.piSession)).length; third.unchosenPiTranscriptPresent = true; }
+  catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    third.unchosenPiUserMessages = 0; third.unchosenPiTranscriptPresent = false;
+  }
   assert.equal(third.unchosenPiUserMessages, 0, 'Unselected Pi received input');
   assert.equal(hash(await readFile(current.configPath)), report.launches.at(-1).configSha256Before); await stop();
 
