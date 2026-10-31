@@ -91,3 +91,58 @@ it('original gateway persists its first pairing and reuses owner Thread and offs
   const value = JSON.parse(child.stdout.trim()); assert.equal(value.forbiddenAccesses, 0); assert.equal(value.networkCalls, 0); assert.equal(value.modelCalls, 0);
   await keep('dedicated-original-gateway-reuse.json', { auditId: randomUUID(), ...value });
 });
+
+it('live observer permits the first paired Telegram task to start and records its unique Run', async () => {
+  const repo = fileURLToPath(new URL('../../..', import.meta.url)), require = createRequire(new URL('../package.json', import.meta.url));
+  const code = `
+    import assert from 'node:assert/strict';
+    import {mkdtemp,mkdir,readFile,writeFile,rm} from 'node:fs/promises';
+    import {join} from 'node:path';
+    import vm from 'node:vm';
+    import {DesktopRuntime} from './apps/desktop/src/main/desktop-runtime.ts';
+    import {TelegramGateway} from './apps/desktop/src/main/telegram-gateway.ts';
+    import {TelegramStore} from './apps/desktop/src/main/telegram-store.ts';
+    import {MockLanguageModelV3} from 'AI_TEST_PATH';
+    const live=await readFile('./apps/desktop/scripts/chat-run-target-telegram-live.mjs','utf8');
+    const start=live.indexOf('function observe(message) {'),end=live.indexOf('\\ntry {',start);
+    assert.ok(start>=0&&end>start);
+    let modelCalls=0,networkCalls=0,host;
+    globalThis.fetch=async()=>{networkCalls++;throw new Error('Network forbidden');};
+    const root=await mkdtemp('/private/tmp/s197-observer-'),workspace=join(root,'workspace'),applicationHome=join(root,'profile'),configPath=join(root,'config.json');
+    const report={cases:[{hostDecisions:[]}],approvalEvents:[]},exceptions=[],sent=[];
+    const context=vm.createContext({host:undefined,runId:undefined,report,activeInbound:undefined,Date,save:async()=>{},stop:reason=>{throw new Error(reason);}});
+    vm.runInContext(live.slice(start,end),context);
+    try{
+      await mkdir(workspace);
+      await writeFile(configPath,JSON.stringify({version:2,projectDirectory:workspace,authorizedDirectories:[{path:workspace,access:'readwrite'}],modules:{'read-file':{enabled:true},shell:{enabled:false},terminal:{enabled:true},memory:{enabled:false}}}));
+      host=await DesktopRuntime.create({applicationHome,cwd:workspace,env:{HOME:root,RUNLOOM_CONFIG:configPath},modelAlias:'mock',
+        model:new MockLanguageModelV3({doStream:async()=>{modelCalls++;return {stream:new ReadableStream({start(controller){
+          for(const chunk of [{type:'stream-start',warnings:[]},{type:'text-start',id:'text'},{type:'text-delta',id:'text',delta:'offline-complete'},{type:'text-end',id:'text'},
+            {type:'finish',finishReason:{unified:'stop',raw:undefined},usage:{inputTokens:{total:1,noCache:1,cacheRead:undefined,cacheWrite:undefined},outputTokens:{total:1,text:1,reasoning:undefined}}}])controller.enqueue(chunk);controller.close();
+        }})};}}),send:message=>{try{context.observe(message);}catch(error){exceptions.push({type:message.type,message:error.message});throw error;}}});
+      context.host=host;
+      const store=new TelegramStore(join(applicationHome,'resident/telegram.json'),applicationHome);await store.load();
+      const api={identity:async()=>({id:123456,username:'offline_only'}),webhook:async()=>({url:''}),
+        updates:async(_offset,signal)=>new Promise(done=>{if(signal.aborted)done([]);else signal.addEventListener('abort',()=>done([]),{once:true});}),
+        send:async(_chat,text)=>{sent.push(text);return sent.length;},close:async()=>{},answerCallback:async()=>{}};
+      const gateway=new TelegramGateway(host,store,api);host.attachTelegram(gateway);await gateway.initialize();await gateway.setEnabled(true);
+      const update=(id,text)=>({update_id:id,message:{message_id:id,date:1,text,from:{id:42,is_bot:false,first_name:'Offline'},chat:{id:42,type:'private'}}});
+      const pairing=gateway.beginPairing().pairing;await gateway.receive(update(1,'/start '+pairing.code));await gateway.confirmPairing(pairing.code);
+      await gateway.receive(update(2,'请处理本次离线任务。'));
+      const deadline=Date.now()+10000;
+      while(!store.snapshot().inputs.some(row=>['finished','rejected','unknown'].includes(row.state))){assert.ok(Date.now()<deadline,'Task did not settle');await new Promise(done=>setTimeout(done,10));}
+      const inputs=store.snapshot().inputs,diagnostic=JSON.stringify({inputs,modelCalls,exceptions,sent});
+      assert.equal(inputs.length,1);assert.equal(inputs[0].state,'finished',diagnostic);assert.ok(inputs[0].runId);
+      assert.equal(modelCalls,1);assert.equal(networkCalls,0);assert.deepEqual(exceptions,[]);
+      assert.equal(report.cases[0].runId,inputs[0].runId);
+      assert.deepEqual([...new Set(report.approvalEvents.map(row=>row.runId))],[inputs[0].runId]);
+      assert.ok(report.approvalEvents.some(row=>row.type==='result'&&row.result.status==='completed'));
+      assert.ok(sent.includes('offline-complete'));
+      console.log(JSON.stringify({inputs,modelCalls,networkCalls,exceptions,observedRunId:report.cases[0].runId}));
+    }finally{if(host)await host.shutdown();await rm(root,{recursive:true,force:true});}
+  `;
+  const child = spawnSync(process.execPath, ['--import', resolve(repo, 'apps/desktop/node_modules/tsx/dist/loader.mjs'), '--input-type=module'],
+    { cwd: repo, input: code.replace('AI_TEST_PATH', pathToFileURL(require.resolve('ai/test')).href), encoding: 'utf8', timeout: 30000 });
+  assert.equal(child.status, 0, child.stderr); assert.equal(child.signal, null);
+  await keep('dedicated-observer-first-task.json', { auditId: randomUUID(), ...JSON.parse(child.stdout.trim()) });
+});
