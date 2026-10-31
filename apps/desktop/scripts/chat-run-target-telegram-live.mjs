@@ -17,6 +17,7 @@ import { configureCliModel } from '@serika/assistant';
 import { setup, addPi, cleanup } from './chat-run-target-live-herdr.mjs';
 import { approvalChain } from './chat-run-target-approval.mjs';
 import { inspectTelegramInbound, redactTelegramEvidence, telegramHandoff } from './chat-run-target-telegram-inbound.mjs';
+import { waitForTelegramPairReady } from './chat-run-target-telegram-pairing.mjs';
 import { writeTelegramStopAudit } from '../../../scripts/chat-run-target-telegram-stop-audit.mjs';
 
 const repo = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
@@ -45,7 +46,7 @@ const report = { batchId: randomUUID(), startedAt: new Date().toISOString(), sou
   verification: 'real-telegram-original-node-desktop-runtime-real-model-isolated-herdr-pi', platform: process.platform, node: process.version,
   scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))), model, capUsd, maxRequests, maxRuns, pricePerMillionUsd: price,
   priceBasis: 'Frozen desktop c9a16383 script rates; not invoice verified', credentialSource: envFile, credentialsWrittenToDisk: false,
-  calls: [], cases: [], errors: [], approvalEvents: [], transport: [], inboundChecks: [], costUsd: 0, status: 'running', isolatedRoot: root };
+  calls: [], cases: [], errors: [], approvalEvents: [], transport: [], inboundChecks: [], pairReadiness: [], costUsd: 0, status: 'running', isolatedRoot: root };
 let frozen = false, stage = 'preparation', fixture, secondPi, host, gateway, store, daily, dailyBefore, dailyData, dailyPaused = false;
 let lastPollOffset = -1, activeInbound, expectedPairing, expectedPrompt, taskMessageId, runId;
 let saving = Promise.resolve();
@@ -226,8 +227,22 @@ try {
     try { return await receive(update); }
     finally { record.bindingAfter = bindingSnapshot(); activeInbound = undefined; await save(); }
   };
+  assert.equal(store.snapshot().enabled, false); assert.equal(store.snapshot().owner, null); assert.equal(gateway.status().connection, 'disabled');
+  stage = 'waiting-for-pair-ready';
+  await waitForTelegramPairReady({ input: process.stdin, batchId: report.batchId, signal: AbortSignal.timeout(300000), record: async row => {
+    report.pairReadiness.push(row); await save();
+    if (row.status === 'waiting') tell({ pending: 'pair-ready', batchId: report.batchId, command: `pair ${report.batchId}`, dailyTelegramPaused: false, output });
+  } });
+  assert.equal(daily.snapshot().state.kind, 'idle');
+  const readyDaily = await daily.telegramStatus();
+  assert.ok(readyDaily.enabled && readyDaily.connection === 'online'); assert.deepEqual(readyDaily.owner, dailyBefore.owner);
+  assert.equal(readyDaily.pendingDeliveries, 0); assert.equal(readyDaily.awaitingReview, 0);
+  assert.equal(hash(await readFile(identity.env.RUNLOOM_CONFIG)), configBefore);
+  const currentArgs = execFileSync('ps', ['-p', String(dailyPid), '-o', 'args='], { encoding: 'utf8' }).trim().split(/\s+/);
+  assert.deepEqual(currentArgs, args);
   report.daily.pauseAttemptedAt = new Date().toISOString(); dailyPaused = true; await save();
   const paused = await daily.setTelegramEnabled(false); assert.equal(paused.enabled, false); assert.equal(paused.connection, 'disabled');
+  assert.equal(daily.snapshot().state.kind, 'idle');
   dailyData = JSON.parse(await readFile(join(identity.applicationHome, 'resident/telegram.json'), 'utf8'));
   assert.deepEqual(dailyData.owner, dailyBefore.owner); await store.update(data => { data.offset = dailyData.offset; });
   report.daily.offsetAtPause = dailyData.offset; report.daily.pausedAt = new Date().toISOString(); await save();

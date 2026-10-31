@@ -24,6 +24,7 @@ export async function writeTelegramStopAudit({ directory }) {
     modelRequests: report.calls.length, taskRuns: new Set(report.cases.flatMap(row => [row.runId, row.receipt?.runId]).filter(Boolean)).size,
     amount: report.costUsd, unresolvedReservedUsd: report.unresolvedReservedUsd,
     inboundChecks: report.inboundChecks, telegramIdentity: report.telegramIdentity ?? null, pollFailure: report.pollFailure ?? null,
+    pairReadiness: report.pairReadiness ?? [],
     bindingAtPairingStart: report.bindingAtPairingStart ?? null, pairingConfirmation: report.pairingConfirmation ?? null,
     bindingBeforeShutdown: report.bindingBeforeShutdown ?? null, bindingAfterShutdown: report.bindingAfterShutdown ?? null,
     telegramStore: report.telegramStore ?? null, transportCursorHandoff: report.transportCursorHandoff ?? null,
@@ -44,6 +45,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   assert.equal(report.status, 'failed');
   assert.equal(sha(original), audit.sourceResultSha256);
   assert.deepEqual(audit.inboundChecks, report.inboundChecks);
+  assert.deepEqual(audit.pairReadiness ?? [], report.pairReadiness ?? []);
   assert.deepEqual(audit.bindingBeforeShutdown, report.bindingBeforeShutdown ?? null);
   assert.deepEqual(audit.bindingAfterShutdown, report.bindingAfterShutdown ?? null);
   console.log(JSON.stringify({ acceptance: audit.acceptance, resultUnmodified: true, rejectedUpdates: audit.inboundChecks.filter(row => !row.accepted).length }));

@@ -1,0 +1,75 @@
+{
+  "archiveId": "f1fadb81-dcc1-42a4-879b-11d645b8f0ca",
+  "at": "2026-10-31T11:53:09.867Z",
+  "files": {
+    "home-guard.json": {
+      "sha256": "931178d2932011126f56b60e949c905dc17d3849df9f03333aec271a9488a7e0",
+      "bytes": 173347
+    },
+    "late-start-recovery.json": {
+      "sha256": "15bec9365c4b15694c4bbf858181e3009782a15b18c53bd64373d1cbecfa7fe8",
+      "bytes": 740
+    },
+    "offline/early-run/result.json": {
+      "sha256": "378cdbc84abbc87a28be46970f090e3fb8ac25ad85856abc59a22a4dc1402e89",
+      "bytes": 275
+    },
+    "offline/early-run/stop-audit.json": {
+      "sha256": "17fd7e7dbfcdb996873ced5d10ad3f04680f8c0e93d70d137fd348bab74b6b2d",
+      "bytes": 1137
+    },
+    "offline/early-run-accounting.json": {
+      "sha256": "17fd7e7dbfcdb996873ced5d10ad3f04680f8c0e93d70d137fd348bab74b6b2d",
+      "bytes": 1137
+    },
+    "offline/handoff.json": {
+      "sha256": "6c40528f296843470a83b3b960797e97f741359312ae135953df96fb92242988",
+      "bytes": 4138
+    },
+    "offline/original-gateway-lifecycle.json": {
+      "sha256": "bd9349c0df63d1f7e0ff585828e35d2db9d41dd929d62bc7218dc3e63ff09137",
+      "bytes": 64072
+    },
+    "offline/pair-readiness-failures.json": {
+      "sha256": "8136a00cab1c4072cabedf9f78f87bddaeff7a33f36d1c78f619c98e13372eb7",
+      "bytes": 1389
+    },
+    "offline/predicate-boundaries.json": {
+      "sha256": "69f4691cd84ceae2b989dc9e756e9c940e44da4dc2467bda9e4ecca2c12417e3",
+      "bytes": 15307
+    },
+    "offline/rejection/result.json": {
+      "sha256": "af86003d3324bc05281ae8d170cd7b69659398dad0a1b46f82220a0c21f8d3b6",
+      "bytes": 4750
+    },
+    "offline/rejection/stop-audit.json": {
+      "sha256": "1c5cf62c0579e9a01ac82b0ee0778a8a526629192a26bca3fc657b551af9de16",
+      "bytes": 8454
+    },
+    "offline/rejection-stop-audit.json": {
+      "sha256": "1c5cf62c0579e9a01ac82b0ee0778a8a526629192a26bca3fc657b551af9de16",
+      "bytes": 8454
+    },
+    "pty-result.json": {
+      "sha256": "f076e1bb43ba095c2451d581e1d8c9a1b358dc68d791a3823d7aff5cf9d1440f",
+      "bytes": 276
+    },
+    "pty.mjs": {
+      "sha256": "26cb61258f6a4797c6a38f91afdb82111686a26d631e71a3153f3e0cc24a22d8",
+      "bytes": 622
+    },
+    "tests.log": {
+      "sha256": "fc6e16c8a82f62db39a77e2a686a733355178ce886d261f2a6e40d7a13697b65",
+      "bytes": 1142
+    },
+    "typecheck.log": {
+      "sha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "bytes": 141
+    },
+    "verification.json": {
+      "sha256": "5f384e6c2611b2c950d6d996be9000cca30f65f3d136793879b5e3384d3d67bd",
+      "bytes": 4462
+    }
+  },
+  "credentialPrefixMatches": 0
+}

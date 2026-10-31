@@ -1,6 +1,6 @@
 # 聊天发现 CLI 与当前 Run Pi 目标
 
-> 2026-10-31 最新结论：桌面 c9a16383 整链 PASS 沿用；TG harness 离线修复通过后，真实批次 2856460a 在配对窗口超时，收到 0 条入站更新，0 Run／0 请求／$0。隔离宿主正常退出，日用 TG 已恢复并复核 online，未追加真批。真实 TG 完成定义仍未通过。历史 d5a887cd 恢复日用后重放的 1 Run／1 请求、估算 $0.009668 已单独补账，旧失败原件保留。
+> 2026-10-31 最新结论：桌面 c9a16383 整链 PASS 沿用；真实 TG 批次 2856460a 配对超时后已恢复日用，0 Run／0 请求／$0。随后查明失效 `/start` 在恢复后进入日用并被拒，已加配对前“手机就绪”握手，离线 8/8 通过；本轮未重开真批。真实 TG 完成定义仍未通过。历史 d5a887cd 恢复日用后重放的 1 Run／1 请求、估算 $0.009668 已单独补账，旧失败原件保留。
 
 ## 1. 改了什么
 
@@ -391,3 +391,21 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 3. 前后数字：本批 0 宿主 Run／0 模型请求／$0，未结算 0，账目只追加零支出失败条目；产品/脚本/测试 +0/-0。沿用桌面 PASS、离线 7/7 和 TG 回归 85/85，不重做桌面整链。
 4. 实际命令与退出码：`node --import ./apps/desktop/node_modules/tsx/dist/loader.mjs apps/desktop/scripts/chat-run-target-telegram-live.mjs --run --daily-pid 36769 --output /private/tmp/serika-197-tg-live-20261031-b` exit 1，按失败正常收尾，无强制终止；`node scripts/chat-run-target-telegram-stop-audit.mjs /private/tmp/serika-197-tg-live-20261031-b` exit 0 仅核对失败原件。只读恢复核查与归档 hash/凭据前缀扫描 exit 0，四份原件逐字复制，result SHA 不变。
 5. 偏离与限制：配对窗口内无入站更新，无法从现有证据判断消息是否发送或为何未到达，不能归因用户、网络或产品缺陷。失效配对码已明确撤回使用提示。按失败即停保留 `/private/tmp/tg-VpxiGx` 与 Herdr `w-d6ec34ab` 现场，不自动重跑、清理目标或烧额度。按 Prove It Works 只报告实际恢复与零输入；按 Sequence Work into Verifiable Units 停在配对关口。本批未通过，不更新 #197 为通过状态，不合并、不部署、不扩授权或修改 Seatbelt。
+
+### 配对时机修复协议，2026-10-31
+
+补充只读核对发现：日用 journal 中 `/start E5DC0CF764` 于 19:44 +08:00 收到，晚于本批 19:38 恢复日用。该消息 rejected、runId=null，关联投递正是“未识别的控制指令”。原网关仅在未绑定且当前配对码有效时接受带码 `/start`；日用已绑定时落入未知 slash 指令拒绝分支。这证明该回复来自恢复后的日用路径，不证明隔离配对本身失效。只读取指定配对码，不查其他聊天或发起网络请求。
+
+本轮先改 harness，不启动真批。任务为：已读 pstack/Karpathy、复核时间线与原入口 → 比较方案 → 写协议/接口 → 最小改动 → 离线原网关验证 → 留本地检查点并等手机就绪及新批授权。两种方案中，延长等待不能延长产品五分钟码且仍会提前停日用；采用本批 stdin 一次性就绪握手，无文件残留或新网络入口。
+
+接口为 `waitForTelegramPairReady({input, batchId, signal, record})`：读取唯一精确行 `pair <batchId>`，记录 waiting/accepted/failed 时间与匹配；错误批次、EOF、取消/原等待上限到期均失败。该信号只协调当前已授权批次，不能授予模型/工具/日用接管权限。主线程须先收到当前对话手机就绪确认，再写入，用户不向 TG 发此信号。
+
+数据流为本地 host/gateway 准备好且隔离 disabled、owner=null → 等就绪，日用继续 online → 重查同 PID/identity、idle、online、owner/Thread、pending/review、配置 hash → 临停日用并确认 disabled/idle → 读最新 cursor → 启隔离并生成原五分钟码 → 原配对与任务流程。等待超时沿用原 300000ms，不新增产品期限；不自动续码、不复制日用绑定或放宽审批。等待失败时 dailyPaused=false，宿主只关闭自身；readiness 状态同样进入失败 stop-audit。
+
+### 配对时机修复结果，2026-10-31
+
+1. 改了什么：新增 `chat-run-target-telegram-pairing.mjs` 的本批精确 stdin 握手，live 在临停日用前等待并重查日用；两个 auditor 保留/核对握手时序。产品配对、五分钟有效期、绑定和工具授权不变。按 Laziness Protocol 选择 stdin，不增加控制文件或网络服务；按 Prove It Works 用原网关与真实本地 PTY 分别核对。
+2. 逐条对照：已做 `pair readiness rejects...`，错批次/EOF/输入错误/取消均记录失败；已做原网关 lifecycle，等待前 disabled/无绑定/无配对/零发送，假时钟推进 11 分钟仍无配对码，握手后才生成且 TTL=300000ms、原配对成功、host 唯一 close、模型/网络均 0。11 分钟是假时钟证明，不表示真实 readiness 可等待 11 分钟，真实 readiness 超时仍为原五分钟。真实 PTY 的 waiting→本批 stdin→accepted→进程 exit 0 另存证据。未做真实 TG 重试或日用临停，既有桌面 PASS 与 TG 回归 85/85 沿用。新增 [离线证据](evidence/chat-run-target/telegram-pair-ready-333576e2/verification.json)、[迟到消息定点记录](evidence/chat-run-target/telegram-pair-ready-333576e2/late-start-recovery.json)、[PTY 握手](evidence/chat-run-target/telegram-pair-ready-333576e2/pty-result.json)，旧失败 result/stop-audit 未改。
+3. 数字：产品 +0/-0、harness +49/-1、测试 +36/-3，不含报告和证据。测试行数超过产品，因为只改验证协调路径。局部 8/8，写入守卫 passed、违规/变化均 0、metadataUnchanged=true；新真实模型/TG 调用及费用均 0，未追加费用条目。
+4. 命令：守卫下 `node --test apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs apps/desktop/scripts/chat-run-target-approval.test.mjs` exit 0；`pnpm typecheck` exit 0；五个改动脚本 `node --check`、live 零请求 import preflight、两个 stop-audit 原件对检查、`git diff --check` 均 exit 0。本地 `node /private/tmp/serika-197-tg-pair-ready/pty.mjs` 经真实 PTY 写入精确本批命令后 exit 0，全程无 TG API。日志、各源码 SHA 和归档 hash 可复核。
+5. 偏离与下一步：用户问如何解决接入，当前只修可证明的窗口错位，不将离线握手宣称为真实接入成功，不扩到产品配对改造。下一真批必须先在本对话确认手机已打开 Bot 且就绪，再按既定新批授权启动 `tty=true` 的 harness，看到 pair-ready 后才写本批协调命令。随后给用户新 `/start`，配对接受后才给真实任务正文；授权句/协调命令不发往 TG。仍为 ≤1 Run／24 总请求／$0.25，失败即停，不重做桌面链、不合、不部署、不扩授权。当前保留本地检查点，等待手机就绪及真批授权。

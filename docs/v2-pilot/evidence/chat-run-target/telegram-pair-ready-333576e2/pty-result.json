@@ -1,0 +1,15 @@
+{
+  "batchId": "070d43dc-f42b-427b-aab3-faadde06eaf7",
+  "rows": [
+    {
+      "status": "waiting",
+      "at": "2026-10-31T11:52:26.231Z"
+    },
+    {
+      "status": "accepted",
+      "at": "2026-10-31T11:52:31.220Z",
+      "matched": true,
+      "reason": null
+    }
+  ]
+}

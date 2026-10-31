@@ -9,6 +9,8 @@ import { randomUUID } from 'node:crypto';
 import { inspectTelegramInbound, redactTelegramEvidence, telegramHandoff } from './chat-run-target-telegram-inbound.mjs';
 import { writeTelegramStopAudit } from '../../../scripts/chat-run-target-telegram-stop-audit.mjs';
 import { assertTelegramDelivery } from './chat-run-target-telegram-delivery.mjs';
+import { PassThrough } from 'node:stream';
+import { waitForTelegramPairReady } from './chat-run-target-telegram-pairing.mjs';
 
 const owner = { userId: 42, chatId: 42, threadId: 'daily-thread' };
 const binding = { owner: null, pairing: { code: '3935B76A82', proposed: null }, botId: 100, threadId: 'isolated-thread', offset: 414513485, runId: null };
@@ -38,13 +40,14 @@ it('recovered non-pairing text persists full redacted rejection and exact predic
     assert.equal(sensitive.update.message.text, '完整前文 [REDACTED_TELEGRAM_TOKEN]\n[REDACTED_CREDENTIAL] 完整后文');
     assert.equal(sensitive.update.message.caption, '附加字段完整保留');
     assert.deepEqual(sensitive.bindingBefore, binding); assert.deepEqual(sensitive.bindingAfter, binding);
-    const report = { status: 'failed', batchId: randomUUID(), sourceCommit: 'offline-only', inboundChecks: [actual, sensitive], calls: [], cases: [],
+    const report = { status: 'failed', batchId: randomUUID(), sourceCommit: 'offline-only', pairReadiness: [{ status: 'accepted', at: actual.at, matched: true }], inboundChecks: [actual, sensitive], calls: [], cases: [],
       stopReason: 'unexpected-telegram-inbound', costUsd: 0, unresolvedReservedUsd: 0, errors: [], bindingBeforeShutdown: binding, bindingAfterShutdown: { ...binding, pairing: null } };
     await writeFile(join(root, 'result.json'), JSON.stringify(report));
     await writeTelegramStopAudit({ directory: root });
     const auditText = await readFile(join(root, 'stop-audit.json'), 'utf8'), audit = JSON.parse(auditText);
     assert.ok(!auditText.includes(token) && !auditText.includes(secret));
     assert.deepEqual(audit.inboundChecks, report.inboundChecks);
+    assert.deepEqual(audit.pairReadiness, report.pairReadiness);
     assert.deepEqual(audit.bindingBeforeShutdown, binding); assert.equal(audit.bindingAfterShutdown.pairing, null);
     assert.equal(audit.acceptance, 'failed-telegram-batch');
     await keep('rejection-stop-audit.json', audit);
@@ -97,6 +100,24 @@ it('early failed Run receipt is counted even before the waiting case receives it
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+it('pair readiness rejects wrong batch, EOF, stream error and cancellation before any handoff', async () => {
+  const results = [];
+  for (const reason of ['wrong-readiness-command', 'stdin-closed', 'stdin-error', 'readiness-aborted']) {
+    const input = new PassThrough(), controller = new AbortController(), rows = [];
+    const pending = waitForTelegramPairReady({ input, batchId: 'current-batch', signal: controller.signal, record: row => { rows.push(row); } });
+    const rejected = assert.rejects(pending, new RegExp(reason));
+    if (reason === 'stdin-closed') input.end();
+    else if (reason === 'stdin-error') input.destroy(new Error('Private stdin detail'));
+    else if (reason === 'readiness-aborted') controller.abort();
+    else input.write('pair old-batch\n');
+    await rejected;
+    assert.equal(rows[0].status, 'waiting'); assert.equal(rows.at(-1).status, 'failed');
+    assert.equal(rows.at(-1).matched, false); assert.equal(rows.at(-1).reason, reason);
+    input.destroy(); results.push({ reason, rows });
+  }
+  await keep('pair-readiness-failures.json', { auditId: randomUUID(), results });
+});
+
 it('original gateway pairs trimmed command and host shutdown closes real proxy dispatcher once without network', async () => {
   const repo = fileURLToPath(new URL('../../..', import.meta.url));
   const require = createRequire(new URL('../package.json', import.meta.url));
@@ -110,6 +131,8 @@ it('original gateway pairs trimmed command and host shutdown closes real proxy d
     import {createTelegramApi} from './apps/desktop/src/main/telegram-api.ts';
     import {telegramParts} from './apps/desktop/src/main/telegram-format.ts';
     import {assertTelegramDelivery} from './apps/desktop/scripts/chat-run-target-telegram-delivery.mjs';
+    import {PassThrough} from 'node:stream';
+    import {waitForTelegramPairReady} from './apps/desktop/scripts/chat-run-target-telegram-pairing.mjs';
     import {inspectTelegramInbound} from './apps/desktop/scripts/chat-run-target-telegram-inbound.mjs';
     import {MockLanguageModelV3} from 'ai/test';
     const root=await mkdtemp('/private/tmp/serika-tg-lifecycle-');
@@ -123,8 +146,18 @@ it('original gateway pairs trimmed command and host shutdown closes real proxy d
       const api={...actual,identity:async()=>({id:100,username:'offline'}),webhook:async()=>({url:''}),
         updates:async(_offset,signal)=>new Promise(done=>{if(signal.aborted)done([]);else signal.addEventListener('abort',()=>done([]),{once:true});}),
         send:async(chatId,text,_signal,format)=>{const messageId=transport.length+1;transport.push({direction:'outbound',chatId,text,format,messageId,status:'submitted'});return messageId;},close:async()=>{closeCalls++;await actual.close();}};
-      const gateway=new TelegramGateway(host,store,api);host.attachTelegram(gateway);await gateway.initialize();await gateway.setEnabled(true);
+      let clock=Date.now();
+      const gateway=new TelegramGateway(host,store,api,()=>clock);host.attachTelegram(gateway);await gateway.initialize();
+      const input=new PassThrough(),readiness=[];
+      const pendingReady=waitForTelegramPairReady({input,batchId:'offline-batch',signal:new AbortController().signal,record:row=>{readiness.push(row);}});
+      await new Promise(setImmediate);
+      const waiting={enabled:store.snapshot().enabled,connection:gateway.status().connection,pairing:gateway.status().pairing,owner:store.snapshot().owner};
+      assert.deepEqual(waiting,{enabled:false,connection:'disabled',pairing:null,owner:null});assert.equal(transport.length,0);
+      clock+=11*60*1000;assert.equal(gateway.status().pairing,null);
+      input.write('pair offline-batch\\n');await pendingReady;input.destroy();assert.equal(readiness.at(-1).status,'accepted');
+      await gateway.setEnabled(true);
       const pairing=gateway.beginPairing().pairing;
+      assert.equal(Date.parse(pairing.expiresAt)-clock,300000);
       const before={owner:store.snapshot().owner,pairing,runId:null,offset:store.snapshot().offset};
       const message={update_id:1,message:{message_id:1,date:1,chat:{id:42,type:'private'},from:{id:42,is_bot:false,first_name:'Owner'},text:'  /start '+pairing.code+'\\n'}};
       const row=inspectTelegramInbound({update:message,context:{owner:{userId:42,chatId:42},pairingCode:pairing.code,pollId:'offline',indexInPoll:0},binding:before});
@@ -143,7 +176,7 @@ it('original gateway pairs trimmed command and host shutdown closes real proxy d
         formatting.push({text,delivery,transport:sent,oldComparison});
       }
       await host.shutdown();host=undefined;assert.equal(closeCalls,1);assert.equal(gateway.status().connection,'disabled');assert.equal(networkCalls,0);
-      console.log(JSON.stringify({before,proposed,after,deliveries,transport,formatting,closeCalls,networkCalls,modelCalls:calls,closed:true}));
+      console.log(JSON.stringify({waiting,simulatedWaitMs:11*60*1000,pairingTtlMs:Date.parse(pairing.expiresAt)-clock,readiness,before,proposed,after,deliveries,transport,formatting,closeCalls,networkCalls,modelCalls:calls,closed:true}));
     } finally {if(host)await host.shutdown();await rm(root,{recursive:true,force:true});}
   `;
   const child = spawnSync(process.execPath, ['--import', resolve(repo, 'apps/desktop/node_modules/tsx/dist/loader.mjs'), '--input-type=module'],

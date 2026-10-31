@@ -1,0 +1,686 @@
+{
+  "wrongOwner": {
+    "at": "2026-10-31T11:51:19.239Z",
+    "pollId": "offline-poll",
+    "indexInPoll": 0,
+    "phase": "pairing",
+    "sourceOwner": {
+      "userId": 42,
+      "chatId": 42,
+      "threadId": "daily-thread"
+    },
+    "updateSha256": "e194a6cb73617728471379ed9b29a5652b5839f23bb55797d0bd6c3e05617f45",
+    "update": {
+      "update_id": 414513485,
+      "message": {
+        "message_id": 656,
+        "date": 1,
+        "chat": {
+          "id": 42,
+          "type": "private"
+        },
+        "from": {
+          "id": 99,
+          "is_bot": false
+        },
+        "text": "/start 3935B76A82"
+      }
+    },
+    "normalizedText": "/start 3935B76A82",
+    "predicates": [
+      {
+        "id": "update_object_valid",
+        "expected": "object",
+        "actual": "object",
+        "passed": true
+      },
+      {
+        "id": "update_id_valid",
+        "expected": "nonnegative safe integer",
+        "actual": 414513485,
+        "passed": true
+      },
+      {
+        "id": "message_present",
+        "expected": true,
+        "actual": true,
+        "passed": true
+      },
+      {
+        "id": "message_id_valid",
+        "expected": "positive safe integer",
+        "actual": 656,
+        "passed": true
+      },
+      {
+        "id": "owner_user_matches",
+        "expected": 42,
+        "actual": 99,
+        "passed": false
+      },
+      {
+        "id": "owner_chat_matches",
+        "expected": 42,
+        "actual": 42,
+        "passed": true
+      },
+      {
+        "id": "chat_private",
+        "expected": "private",
+        "actual": "private",
+        "passed": true
+      },
+      {
+        "id": "sender_is_human",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "not_forwarded",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "not_via_bot",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "text_is_string",
+        "expected": "string",
+        "actual": "string",
+        "passed": true
+      },
+      {
+        "id": "text_matches_phase",
+        "expected": "/start 3935B76A82",
+        "actual": "/start 3935B76A82",
+        "passed": true
+      },
+      {
+        "id": "single_task_message",
+        "expected": "first task",
+        "actual": 656,
+        "passed": true
+      }
+    ],
+    "accepted": false,
+    "failedPredicate": "owner_user_matches",
+    "failedPredicates": [
+      "owner_user_matches"
+    ],
+    "safeToAcknowledge": false,
+    "forwarded": false,
+    "bindingBefore": {
+      "owner": null,
+      "pairing": {
+        "code": "3935B76A82",
+        "proposed": null
+      },
+      "botId": 100,
+      "threadId": "isolated-thread",
+      "offset": 414513485,
+      "runId": null
+    },
+    "bindingAfter": {
+      "owner": null,
+      "pairing": {
+        "code": "3935B76A82",
+        "proposed": null
+      },
+      "botId": 100,
+      "threadId": "isolated-thread",
+      "offset": 414513485,
+      "runId": null
+    }
+  },
+  "nonText": {
+    "at": "2026-10-31T11:51:19.239Z",
+    "pollId": "offline-poll",
+    "indexInPoll": 0,
+    "phase": "pairing",
+    "sourceOwner": {
+      "userId": 42,
+      "chatId": 42,
+      "threadId": "daily-thread"
+    },
+    "updateSha256": "83060ff9024c1045c0212033698d12bad9a96f50a1f05c0ef6b0a15d3fa24f2b",
+    "update": {
+      "update_id": 414513485,
+      "message": {
+        "message_id": 656,
+        "date": 1,
+        "chat": {
+          "id": 42,
+          "type": "private"
+        },
+        "from": {
+          "id": 42,
+          "is_bot": false
+        }
+      }
+    },
+    "normalizedText": null,
+    "predicates": [
+      {
+        "id": "update_object_valid",
+        "expected": "object",
+        "actual": "object",
+        "passed": true
+      },
+      {
+        "id": "update_id_valid",
+        "expected": "nonnegative safe integer",
+        "actual": 414513485,
+        "passed": true
+      },
+      {
+        "id": "message_present",
+        "expected": true,
+        "actual": true,
+        "passed": true
+      },
+      {
+        "id": "message_id_valid",
+        "expected": "positive safe integer",
+        "actual": 656,
+        "passed": true
+      },
+      {
+        "id": "owner_user_matches",
+        "expected": 42,
+        "actual": 42,
+        "passed": true
+      },
+      {
+        "id": "owner_chat_matches",
+        "expected": 42,
+        "actual": 42,
+        "passed": true
+      },
+      {
+        "id": "chat_private",
+        "expected": "private",
+        "actual": "private",
+        "passed": true
+      },
+      {
+        "id": "sender_is_human",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "not_forwarded",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "not_via_bot",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "text_is_string",
+        "expected": "string",
+        "actual": "undefined",
+        "passed": false
+      },
+      {
+        "id": "text_matches_phase",
+        "expected": "/start 3935B76A82",
+        "actual": null,
+        "passed": false
+      },
+      {
+        "id": "single_task_message",
+        "expected": "first task",
+        "actual": 656,
+        "passed": true
+      }
+    ],
+    "accepted": false,
+    "failedPredicate": "text_is_string",
+    "failedPredicates": [
+      "text_is_string",
+      "text_matches_phase"
+    ],
+    "safeToAcknowledge": false,
+    "forwarded": false,
+    "bindingBefore": {
+      "owner": null,
+      "pairing": {
+        "code": "3935B76A82",
+        "proposed": null
+      },
+      "botId": 100,
+      "threadId": "isolated-thread",
+      "offset": 414513485,
+      "runId": null
+    },
+    "bindingAfter": {
+      "owner": null,
+      "pairing": {
+        "code": "3935B76A82",
+        "proposed": null
+      },
+      "botId": 100,
+      "threadId": "isolated-thread",
+      "offset": 414513485,
+      "runId": null
+    }
+  },
+  "valid": {
+    "at": "2026-10-31T11:51:19.239Z",
+    "pollId": "offline-poll",
+    "indexInPoll": 0,
+    "phase": "pairing",
+    "sourceOwner": {
+      "userId": 42,
+      "chatId": 42,
+      "threadId": "daily-thread"
+    },
+    "updateSha256": "edc0ed7487b68c19cddb03b6ea54d695d6d3cdbe92c157edc2fef70a6c28816c",
+    "update": {
+      "update_id": 414513485,
+      "message": {
+        "message_id": 656,
+        "date": 1,
+        "chat": {
+          "id": 42,
+          "type": "private"
+        },
+        "from": {
+          "id": 42,
+          "is_bot": false
+        },
+        "text": "  /start 3935B76A82\n"
+      }
+    },
+    "normalizedText": "/start 3935B76A82",
+    "predicates": [
+      {
+        "id": "update_object_valid",
+        "expected": "object",
+        "actual": "object",
+        "passed": true
+      },
+      {
+        "id": "update_id_valid",
+        "expected": "nonnegative safe integer",
+        "actual": 414513485,
+        "passed": true
+      },
+      {
+        "id": "message_present",
+        "expected": true,
+        "actual": true,
+        "passed": true
+      },
+      {
+        "id": "message_id_valid",
+        "expected": "positive safe integer",
+        "actual": 656,
+        "passed": true
+      },
+      {
+        "id": "owner_user_matches",
+        "expected": 42,
+        "actual": 42,
+        "passed": true
+      },
+      {
+        "id": "owner_chat_matches",
+        "expected": 42,
+        "actual": 42,
+        "passed": true
+      },
+      {
+        "id": "chat_private",
+        "expected": "private",
+        "actual": "private",
+        "passed": true
+      },
+      {
+        "id": "sender_is_human",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "not_forwarded",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "not_via_bot",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "text_is_string",
+        "expected": "string",
+        "actual": "string",
+        "passed": true
+      },
+      {
+        "id": "text_matches_phase",
+        "expected": "/start 3935B76A82",
+        "actual": "/start 3935B76A82",
+        "passed": true
+      },
+      {
+        "id": "single_task_message",
+        "expected": "first task",
+        "actual": 656,
+        "passed": true
+      }
+    ],
+    "accepted": true,
+    "failedPredicate": null,
+    "failedPredicates": [],
+    "safeToAcknowledge": true,
+    "forwarded": false,
+    "bindingBefore": {
+      "owner": null,
+      "pairing": {
+        "code": "3935B76A82",
+        "proposed": null
+      },
+      "botId": 100,
+      "threadId": "isolated-thread",
+      "offset": 414513485,
+      "runId": null
+    },
+    "bindingAfter": {
+      "owner": null,
+      "pairing": {
+        "code": "3935B76A82",
+        "proposed": null
+      },
+      "botId": 100,
+      "threadId": "isolated-thread",
+      "offset": 414513485,
+      "runId": null
+    }
+  },
+  "malformed": {
+    "at": "2026-10-31T11:51:19.239Z",
+    "pollId": "offline-poll",
+    "indexInPoll": 0,
+    "phase": "pairing",
+    "sourceOwner": {
+      "userId": 42,
+      "chatId": 42,
+      "threadId": "daily-thread"
+    },
+    "updateSha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+    "update": null,
+    "normalizedText": null,
+    "predicates": [
+      {
+        "id": "update_object_valid",
+        "expected": "object",
+        "actual": "null",
+        "passed": false
+      },
+      {
+        "id": "update_id_valid",
+        "expected": "nonnegative safe integer",
+        "actual": null,
+        "passed": false
+      },
+      {
+        "id": "message_present",
+        "expected": true,
+        "actual": false,
+        "passed": false
+      },
+      {
+        "id": "message_id_valid",
+        "expected": "positive safe integer",
+        "actual": null,
+        "passed": false
+      },
+      {
+        "id": "owner_user_matches",
+        "expected": 42,
+        "actual": null,
+        "passed": false
+      },
+      {
+        "id": "owner_chat_matches",
+        "expected": 42,
+        "actual": null,
+        "passed": false
+      },
+      {
+        "id": "chat_private",
+        "expected": "private",
+        "actual": null,
+        "passed": false
+      },
+      {
+        "id": "sender_is_human",
+        "expected": false,
+        "actual": null,
+        "passed": false
+      },
+      {
+        "id": "not_forwarded",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "not_via_bot",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "text_is_string",
+        "expected": "string",
+        "actual": "undefined",
+        "passed": false
+      },
+      {
+        "id": "text_matches_phase",
+        "expected": "/start 3935B76A82",
+        "actual": null,
+        "passed": false
+      },
+      {
+        "id": "single_task_message",
+        "expected": "first task",
+        "actual": null,
+        "passed": true
+      }
+    ],
+    "accepted": false,
+    "failedPredicate": "update_object_valid",
+    "failedPredicates": [
+      "update_object_valid",
+      "update_id_valid",
+      "message_present",
+      "message_id_valid",
+      "owner_user_matches",
+      "owner_chat_matches",
+      "chat_private",
+      "sender_is_human",
+      "text_is_string",
+      "text_matches_phase"
+    ],
+    "safeToAcknowledge": false,
+    "forwarded": false,
+    "bindingBefore": {
+      "owner": null,
+      "pairing": {
+        "code": "3935B76A82",
+        "proposed": null
+      },
+      "botId": 100,
+      "threadId": "isolated-thread",
+      "offset": 414513485,
+      "runId": null
+    },
+    "bindingAfter": {
+      "owner": null,
+      "pairing": {
+        "code": "3935B76A82",
+        "proposed": null
+      },
+      "botId": 100,
+      "threadId": "isolated-thread",
+      "offset": 414513485,
+      "runId": null
+    }
+  },
+  "wrongResponse": {
+    "at": "2026-10-31T11:51:19.239Z",
+    "pollId": "offline-poll",
+    "indexInPoll": 0,
+    "phase": "pairing",
+    "sourceOwner": {
+      "userId": 42,
+      "chatId": 42,
+      "threadId": "daily-thread"
+    },
+    "updateSha256": "28ff6a74ba318dac15e75f1bf60195409e2af6f6e269a85f797cc03292058c9f",
+    "update": {
+      "error": "bad response"
+    },
+    "normalizedText": null,
+    "predicates": [
+      {
+        "id": "update_object_valid",
+        "expected": "object",
+        "actual": "object",
+        "passed": true
+      },
+      {
+        "id": "update_id_valid",
+        "expected": "nonnegative safe integer",
+        "actual": null,
+        "passed": false
+      },
+      {
+        "id": "message_present",
+        "expected": true,
+        "actual": false,
+        "passed": false
+      },
+      {
+        "id": "message_id_valid",
+        "expected": "positive safe integer",
+        "actual": null,
+        "passed": false
+      },
+      {
+        "id": "owner_user_matches",
+        "expected": 42,
+        "actual": null,
+        "passed": false
+      },
+      {
+        "id": "owner_chat_matches",
+        "expected": 42,
+        "actual": null,
+        "passed": false
+      },
+      {
+        "id": "chat_private",
+        "expected": "private",
+        "actual": null,
+        "passed": false
+      },
+      {
+        "id": "sender_is_human",
+        "expected": false,
+        "actual": null,
+        "passed": false
+      },
+      {
+        "id": "not_forwarded",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "not_via_bot",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "text_is_string",
+        "expected": "string",
+        "actual": "undefined",
+        "passed": false
+      },
+      {
+        "id": "text_matches_phase",
+        "expected": "/start 3935B76A82",
+        "actual": null,
+        "passed": false
+      },
+      {
+        "id": "single_task_message",
+        "expected": "first task",
+        "actual": null,
+        "passed": true
+      },
+      {
+        "id": "updates_response_array",
+        "expected": true,
+        "actual": false,
+        "passed": false
+      }
+    ],
+    "accepted": false,
+    "failedPredicate": "update_id_valid",
+    "failedPredicates": [
+      "update_id_valid",
+      "message_present",
+      "message_id_valid",
+      "owner_user_matches",
+      "owner_chat_matches",
+      "chat_private",
+      "sender_is_human",
+      "text_is_string",
+      "text_matches_phase",
+      "updates_response_array"
+    ],
+    "safeToAcknowledge": false,
+    "forwarded": false,
+    "bindingBefore": {
+      "owner": null,
+      "pairing": {
+        "code": "3935B76A82",
+        "proposed": null
+      },
+      "botId": 100,
+      "threadId": "isolated-thread",
+      "offset": 414513485,
+      "runId": null
+    },
+    "bindingAfter": {
+      "owner": null,
+      "pairing": {
+        "code": "3935B76A82",
+        "proposed": null
+      },
+      "botId": 100,
+      "threadId": "isolated-thread",
+      "offset": 414513485,
+      "runId": null
+    }
+  }
+}
