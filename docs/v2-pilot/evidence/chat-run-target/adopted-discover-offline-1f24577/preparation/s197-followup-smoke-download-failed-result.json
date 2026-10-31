@@ -1,0 +1,26 @@
+{
+  "verification": "real-electron-with-fake-model",
+  "platform": "darwin",
+  "sourceCommit": "1f2457769587d4d6648e5a37e95c78d6dbb224f7",
+  "scriptSha256": "dc93b146f85165710071944d59108a36898c7a60aac37605950aa2264dcbb994",
+  "sourceWorktreeDirty": false,
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "checks": [],
+  "launches": [],
+  "screenshots": [],
+  "status": "failed",
+  "sourceHashes": {
+    "pnpm-lock.yaml": "1cc34e21d41247254a23b1f298486a30e993694eef39fd2de217194081059605"
+  },
+  "artifactHashes": {
+    "out/main/index.js": "fb7a096b0d0d0e54cebe688d1d428e1c8bec41e8a50d2bbd7a77964a4dfd1588",
+    "out/preload/index.cjs": "1001a6b85f82a25f42428f97643258cbff80115e7f9489cad7a209fdaa1d7a36",
+    "out/renderer/index.html": "fd4ee35eaf2c9a29aef2c35c3c6145009cdd5be8c7d17c8df3d4514f25edff20"
+  },
+  "failure": {
+    "name": "Error",
+    "message": "electron.launch: Electron failed to install correctly. Please delete `node_modules/electron` and run \"npx install-electron --no\" manually."
+  },
+  "temporaryDirectoryRemoved": true
+}

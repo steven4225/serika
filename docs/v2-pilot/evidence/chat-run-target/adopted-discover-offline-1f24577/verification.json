@@ -1,0 +1,364 @@
+{
+  "auditId": "fe5ea5c8-3a4b-4c72-a1e4-4991b7db2c4c",
+  "auditedAt": "2026-10-31T18:39:49.382541+00:00",
+  "verification": "offline-artifact-audit",
+  "status": "passed",
+  "sourceCommit": "1f2457769587d4d6648e5a37e95c78d6dbb224f7",
+  "sourceHashes": {
+    "packages/ai-sdk-adapter/src/loop.test.ts": "56a5f3fd39e67b14f14849b9825f0445996d927b112e7a3626f4fd333f6510ca",
+    "packages/ai-sdk-adapter/src/loop.ts": "6ae2b378f70a6dfbd46cc23808dd67213d4a39911b2765f210667e39f835f0e7",
+    "packages/assistant/src/app.ts": "16ead9d7e5c894d19b8dfd10705409cb4c116fd8646c27c3dc3dde85a2c67ede",
+    "packages/assistant/src/capability-status.ts": "68a3d4826fb8dd6ee25de66adddded7a12987d859d6c7526d636ffe051f346ac",
+    "packages/assistant/src/foreground-herdr.test.ts": "bb408c96db5ebafd50dcf061ecb6ea3d178a26b935f021f880f129d0d89bdbd3",
+    "packages/assistant/src/foreground-herdr.ts": "55c497ff2fbdf8b65ee1ac2545690b48f6cf8cccbd82344839a161c7c5bbf513",
+    "packages/core/src/types.ts": "e81baf5dee802313556800fc94a5bda7ae5b301c368b81dda5b3d447141c60b8"
+  },
+  "scope": "Separate adopted-discover follow-up; PR197 already merged as desktop-only acceptance. Real Telegram remains unverified.",
+  "fullTests": {
+    "command": "SERIKA_B2_RECORD_CONCURRENT_HOME=1 SERIKA_TEST_HOME=/private/tmp/s197-followup-full-home pnpm test",
+    "exitCode": 0,
+    "suiteMetrics": {
+      "tests": [
+        1228,
+        660,
+        25
+      ],
+      "pass": [
+        1221,
+        660,
+        25
+      ],
+      "fail": [
+        0,
+        0,
+        0
+      ],
+      "cancelled": [
+        0,
+        0,
+        0
+      ],
+      "skipped": [
+        7,
+        0,
+        0
+      ]
+    },
+    "totals": {
+      "tests": 1913,
+      "pass": 1906,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 7
+    }
+  },
+  "standardElectron": {
+    "exitCode": 0,
+    "checks": 8,
+    "sourceWorktreeDirty": false,
+    "scriptSha256": "dc93b146f85165710071944d59108a36898c7a60aac37605950aa2264dcbb994"
+  },
+  "realHerdrFakeTelegram": {
+    "exitCode": 0,
+    "checks": 8,
+    "sourceWorktreeDirty": false
+  },
+  "redRegression": {
+    "adapterCommit": "f6e4635",
+    "hostCommit": "905b59c",
+    "validHostLog": "logs/s197-followup-host-red-4.log",
+    "hostFailure": "'failed' != 'completed' at both desktop and telegram host fixtures",
+    "fixedStatusLog": "logs/s197-followup-status.log",
+    "fixedCases": 2
+  },
+  "earlierAttempts": "host-red and host-red-2 cancelled on an unreferenced mock-host event loop; host-red-3 has one valid failure and one cancellation. Test fixture now keeps the embedding host alive until its original result. green log stopped when the default guard reacted to concurrent daily metadata; subsequent runs use the existing concurrent-record mode, retaining filesystem write protection. First smoke stopped during a dependency binary download before app launch; original script then reran with the existing locked Electron 44.4.5 runtime, read-only. Original logs retained.",
+  "guards": [
+    {
+      "log": "green-2",
+      "runId": "e6caff7c-86a4-410c-867b-fa8cd6a53ab1",
+      "status": "passed",
+      "exitCode": 0,
+      "violations": 0,
+      "changes": 36,
+      "recordConcurrentChanges": true,
+      "metadataUnchanged": false
+    },
+    {
+      "log": "status",
+      "runId": "cb999d4c-03d0-40df-babd-50721cf600a1",
+      "status": "passed",
+      "exitCode": 0,
+      "violations": 0,
+      "changes": 7,
+      "recordConcurrentChanges": true,
+      "metadataUnchanged": false
+    },
+    {
+      "log": "full",
+      "runId": "a7e93d10-6351-4f4b-8e67-00b5c833d138",
+      "status": "passed",
+      "exitCode": 0,
+      "violations": 0,
+      "changes": 90,
+      "recordConcurrentChanges": true,
+      "metadataUnchanged": false
+    },
+    {
+      "log": "full",
+      "runId": "07663b57-be66-4beb-86e6-816506ff47ac",
+      "status": "passed",
+      "exitCode": 0,
+      "violations": 0,
+      "changes": 139,
+      "recordConcurrentChanges": true,
+      "metadataUnchanged": false
+    },
+    {
+      "log": "full",
+      "runId": "74db5ed5-3cc7-481e-bbf6-9cc8bf346619",
+      "status": "passed",
+      "exitCode": 0,
+      "violations": 0,
+      "changes": 232,
+      "recordConcurrentChanges": true,
+      "metadataUnchanged": false
+    },
+    {
+      "log": "smoke",
+      "runId": "741ed223-454e-4558-b454-a0bac107d112",
+      "status": "passed",
+      "exitCode": 0,
+      "violations": 0,
+      "changes": 6,
+      "recordConcurrentChanges": true,
+      "metadataUnchanged": false
+    },
+    {
+      "log": "final-gate",
+      "runId": "700feb38-49e7-469f-9395-00e1d976f58c",
+      "status": "passed",
+      "exitCode": 0,
+      "violations": 0,
+      "changes": 10,
+      "recordConcurrentChanges": true,
+      "metadataUnchanged": false
+    }
+  ],
+  "realModelRequests": 0,
+  "realTelegramRequests": 0,
+  "amountUsd": 0,
+  "dailyOperation": "No stop, restart, Bot takeover, deployment or day-use switch. Concurrent metadata changes are recorded, never claimed unchanged.",
+  "credentialPrefixMatches": [],
+  "originalFiles": [
+    {
+      "path": "standard-electron/undo-disappears.png",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/undo-disappears.png",
+      "sha256": "65fd0686e10bf89fd47a912bfdd99b5fb10d45b3fd951bde7343bbd308b9f3a0",
+      "bytes": 91821
+    },
+    {
+      "path": "standard-electron/cm-step4-original-result.json",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/cm-step4-original-result.json",
+      "sha256": "f4ca3de799438b69c423f04f38a5f2ed0b02632c57785a3e8f1842adf5dabfe9",
+      "bytes": 9592
+    },
+    {
+      "path": "standard-electron/result.json",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/result.json",
+      "sha256": "1f10b14d36e1f4a3f01db0c4247486704ad2aa59a422e984268df2f072f159c3",
+      "bytes": 9515
+    },
+    {
+      "path": "standard-electron/cm-step6-run.json",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/cm-step6-run.json",
+      "sha256": "428511d1d8841b781de79607d0ee2d8bf21b44cdfe85b2b8892c71ba9a4617f9",
+      "bytes": 2397
+    },
+    {
+      "path": "standard-electron/chat-reply.png",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/chat-reply.png",
+      "sha256": "360c61e27a55c5641f2d9bd0bfd8dd18a05d1c3c62e341347bd2fef1b07832ca",
+      "bytes": 112888
+    },
+    {
+      "path": "standard-electron/remember-success-receipt.png",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/remember-success-receipt.png",
+      "sha256": "daf174d96fab5a97284310b3eced9186e4ca2515bebd49483b29b7f6516c8207",
+      "bytes": 132817
+    },
+    {
+      "path": "standard-electron/home-fixture.json",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/home-fixture.json",
+      "sha256": "f22be62ce9d18dbc119e124cc5259dfdf5e49a18510877a749e765d9960e95fd",
+      "bytes": 662
+    },
+    {
+      "path": "standard-electron/daily-path-refuses-writes.png",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/daily-path-refuses-writes.png",
+      "sha256": "22e7ca92ddbf1a28f72f4d77768282399779d80500deccc190e277d4e377e384",
+      "bytes": 101753
+    },
+    {
+      "path": "standard-electron/README.md",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/README.md",
+      "sha256": "1ec7dad9eb4e8e9edf8c5b1452c28544550fca2e24e861c28e26ae92d1b8e14e",
+      "bytes": 2178
+    },
+    {
+      "path": "standard-electron/cleanup.json",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/cleanup.json",
+      "sha256": "c62da29d9d3f7b865db18d50028c9750559bc2f569a6e8d730086ec1a6cfaf04",
+      "bytes": 1849
+    },
+    {
+      "path": "standard-electron/remember-on-memory-page.png",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/remember-on-memory-page.png",
+      "sha256": "04166a5c69fbc284fe1724b445dd9f5d9bf6bed4241b9add7ba5386c6f709806",
+      "bytes": 102440
+    },
+    {
+      "path": "standard-electron/daily-config-retired-fields.png",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/daily-config-retired-fields.png",
+      "sha256": "7562c08d251b319c7a697e6179d8502d7c3f881182aa43b65f9c867c187b6ca9",
+      "bytes": 96471
+    },
+    {
+      "path": "standard-electron/startup.png",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/startup.png",
+      "sha256": "c102b044e831d626e216154fc1577f29d0f20a1f2c5d058ef9fb2a8242a879dc",
+      "bytes": 118559
+    },
+    {
+      "path": "standard-electron/verification.json",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/verification.json",
+      "sha256": "830bdc6e00782763fcca10f68f0cb7fc43da28d74725109bbdb894de72b233c2",
+      "bytes": 4146
+    },
+    {
+      "path": "standard-electron/issue191-closeout.json",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/issue191-closeout.json",
+      "sha256": "c400cf1b95adfc139fd1c4df27cb3b4b61eb749efa5b088594ddf28fc0f93e42",
+      "bytes": 1001
+    },
+    {
+      "path": "standard-electron/restart-persistence.png",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/restart-persistence.png",
+      "sha256": "9d10405bd1bf74f859062e7a72137b0863b70b80924a7e44e6dcb23471070980",
+      "bytes": 104447
+    },
+    {
+      "path": "standard-electron/cm-step5-run.json",
+      "source": "/Users/a1-6/Code/agents/serika-pi-adopted-discover/docs/v2-pilot/evidence/electron-smoke/cm-step5-run.json",
+      "sha256": "b56c7d1cfcdfc0126d3ffb7ab90956296c6f941a699eb0352c3374b578c2760c",
+      "bytes": 2397
+    },
+    {
+      "path": "real-herdr-fake-telegram/pi-2.jsonl",
+      "source": "/private/tmp/s197-followup-final-gate/pi-2.jsonl",
+      "sha256": "89be24de62d91a2ca456caf6de349c044b384b4c56d74960e80646be3fd1aa8a",
+      "bytes": 6278
+    },
+    {
+      "path": "real-herdr-fake-telegram/result.json",
+      "source": "/private/tmp/s197-followup-final-gate/result.json",
+      "sha256": "cee358b08ac273475fd6c60d16291b8cbcfcea679e77a6cba7aa509fb56f66e5",
+      "bytes": 162631
+    },
+    {
+      "path": "real-herdr-fake-telegram/pi-1.jsonl",
+      "source": "/private/tmp/s197-followup-final-gate/pi-1.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "logs/s197-followup-host-red.log",
+      "source": "/private/tmp/s197-followup-host-red.log",
+      "sha256": "130a74a4e78cbf87b3edb2a46c99afcffade07913e2e08fe4989c6563b663a8c",
+      "bytes": 774
+    },
+    {
+      "path": "logs/s197-followup-host-red-2.log",
+      "source": "/private/tmp/s197-followup-host-red-2.log",
+      "sha256": "f78531a07257718ce2eb096e06f49f9c5861b87ebb7d65961bc155c0d074295c",
+      "bytes": 782
+    },
+    {
+      "path": "logs/s197-followup-host-red-3.log",
+      "source": "/private/tmp/s197-followup-host-red-3.log",
+      "sha256": "00e0b507e073453cda29955f753cbfcd2e971ebdac9d4077907b14836a7fd032",
+      "bytes": 1706
+    },
+    {
+      "path": "logs/s197-followup-host-red-4.log",
+      "source": "/private/tmp/s197-followup-host-red-4.log",
+      "sha256": "16644443b70ee5e32b1fe158d73e72876b399afee3e56c0d53d9b303a367ffe1",
+      "bytes": 2348
+    },
+    {
+      "path": "logs/s197-followup-green.log",
+      "source": "/private/tmp/s197-followup-green.log",
+      "sha256": "507527b91125f0c0cb4fa51e33bb6814cea150dd05cbec667d8607e945d1f09e",
+      "bytes": 580
+    },
+    {
+      "path": "logs/s197-followup-green-2.log",
+      "source": "/private/tmp/s197-followup-green-2.log",
+      "sha256": "cb4984e034e28c8e17599c1136f670c8569e1e6fbc5fd3647fcb4093f7ce61a3",
+      "bytes": 51228
+    },
+    {
+      "path": "logs/s197-followup-status.log",
+      "source": "/private/tmp/s197-followup-status.log",
+      "sha256": "7470d619ccce977fe2902b6c6d115d836bca1ddab73a6a916fe380c4aa188400",
+      "bytes": 679
+    },
+    {
+      "path": "logs/s197-followup-full.log",
+      "source": "/private/tmp/s197-followup-full.log",
+      "sha256": "a3f167f84c5d78e48fd8a8568dde888460c43451819db874ca82156b31e2d350",
+      "bytes": 251487
+    },
+    {
+      "path": "logs/s197-followup-smoke.log",
+      "source": "/private/tmp/s197-followup-smoke.log",
+      "sha256": "5bafada605666f3fcebfcf0a1623f9d95e42472646f37a5210eb8ec2eb173d3a",
+      "bytes": 3322
+    },
+    {
+      "path": "logs/s197-followup-smoke-download-failed.log",
+      "source": "/private/tmp/s197-followup-smoke-download-failed.log",
+      "sha256": "64017f54f478fc9344778c2465ce7c398caa12a19608808d7ccf001218d6d15c",
+      "bytes": 3612
+    },
+    {
+      "path": "logs/s197-followup-gate.log",
+      "source": "/private/tmp/s197-followup-gate.log",
+      "sha256": "3c8fd6003769b651801420e8cbe42419c164bc94d229b723e5ad6f471b3fc5e4",
+      "bytes": 266
+    },
+    {
+      "path": "logs/s197-followup-final-gate.log",
+      "source": "/private/tmp/s197-followup-final-gate.log",
+      "sha256": "f1d9702f5aabcf3aec06a4b564c0e85f836187d93cc21497c6f2c21b60574e6e",
+      "bytes": 278
+    },
+    {
+      "path": "archive.py",
+      "source": "/private/tmp/s197-followup-archive.py",
+      "sha256": "3a8392f25ef7b4fff46dd905ea074b86868a799fc72d01590cf433aa582ee3f0",
+      "bytes": 5804
+    },
+    {
+      "path": "preparation/s197-followup-electron-runtime.json",
+      "source": "/private/tmp/s197-followup-electron-runtime.json",
+      "sha256": "319fd0d9ebc8182dedd0d8eb6c4eb960b8ba75f0e80dc6370001f9125f0f5e94",
+      "bytes": 274
+    },
+    {
+      "path": "preparation/s197-followup-smoke-download-failed-result.json",
+      "source": "/private/tmp/s197-followup-smoke-download-failed-result.json",
+      "sha256": "6c7f51dab6a1034008ad13082bd357bbf5b5f5ccb7b59ab9b5e43cad1ea9e95d",
+      "bytes": 1039
+    }
+  ]
+}

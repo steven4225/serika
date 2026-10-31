@@ -1,0 +1,2 @@
+{"status":"passed","checks":8,"modelCalls":5,"piRequests":3,"output":"/private/tmp/s197-followup-gate"}
+{"testHomeGuard":"passed","evidence":"/private/tmp/s197-followup-gate-home/write-guard-oZxkk8/result.json","violations":0,"changes":12,"metadataUnchanged":false}

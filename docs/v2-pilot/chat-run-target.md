@@ -1,6 +1,6 @@
 # 聊天发现 CLI 与当前 Run Pi 目标
 
-> 2026-11-01 用户执行 A：#197 只上车桌面；TG 真模型纪律另开。桌面 c9a16383 真实整链 PASS，采用后摘除 discover 的契约保持。真 TG d4eb0665 已通过原网关按钮与同 Run 采用，随后误调已摘 discover，以 TOOL_NOT_FOUND 停止、Pi 未派发。桌面＋真 TG 整案未完成。本轮只审合代码，不烧真 TG、不临停日用抢 Bot、不部署或切日用，不使用“TG 已验”话术；soft-reject／scrub discover 在独立小 PR 处理。
+> 2026-11-01 #197 已按“只上车桌面；TG 真模型纪律另开”合入，merge 5ac33b6。桌面 c9a16383 真实整链 PASS 保持；真 TG d4eb0665 误调已摘 discover、TOOL_NOT_FOUND 的原失败保持，桌面＋真 TG 整案未完成。采用后 soft-reject／scrub 已在独立分支做离线验证，另开小 PR 待审，本轮不合入该后续修复。不烧真 TG、不临停日用抢 Bot、不部署或切日用，不使用“TG 已验”话术。
 
 ## 本次审合范围，2026-11-01
 
@@ -9,6 +9,14 @@
 3. 数字：本次新增真实模型／TG 请求 0、费用 0；扫描两个新增证据目录 71 文件，凭据前缀 0 命中。原完整串行全测 1903 pass／7 skip／0 fail，标准 Electron 8/8，真 Herdr 门禁 8/8 沿用同源证据，不伪称本次重跑。
 4. 命令与退出码：本次 pnpm typecheck exit 0、git diff --check exit 0；两个 TG 入站/profile 离线专项 11/11 断言通过，但 test-home 外层因 metadataUnchanged=false exit 1，violations=0、changes=0，未把整条命令记成绿。桌面原件 SHA／产品同源／凭据扫描核查 exit 0。GitHub 无 review 线程、无 checks；CI workflow 为 disabled_manually，不作远端 CI 已通过的声明。
 5. 偏离与后续：此次只合入代码，不安装、部署、切换日用，不临停日用抢 Bot，不补真 TG。按 Prove It Works 核对原始桌面产物与当前源码，按 Laziness Protocol 把采用后误调处理留给独立小 PR；TG 真模型验收仍须另批，禁止“TG 已验”日用话术。
+
+### 独立小 PR：采用后 discover 幻调与模型能力菜单，2026-11-01
+
+1. 改了什么：从已合 #197 的 5ac33b6 新建 codex/pi-adopted-discover，不阻塞桌面合入。AgentDefinition 增加可选的宿主 unavailableToolFeedback 表；仅当前前台 Run 已采用且未 halted 时，宿主给 discover 一条“本次未执行、沿用当前目标、控制仍需独立批准”的理由。原 AgentLoop 在调用未注册工具且该表自有键命中时记录 TOOL_NOT_FOUND 工具错误并继续原循环；不调用审批 hook、工具或 afterToolCall，不重加工具、不补发、不延长原步数/时间/费用预算。其它未知名称仍硬失败；自有键核对避免把对象原型误作可执行工具。模型能力摘要只列当前有效工具，原 getCapabilities 注册事实保留；请求副本中的旧 discover/capability_status 成功结果明确标为历史/已被当前采用状态取代，原输入、调用配对、失败结果、持久转录及执行回执不改。
+2. 逐条对照：红回归先提交 f6e4635、905b59c，原桌面和 Telegram 宿主入口均复现采用后幻调导致 Run failed；有效红日志为 host-red-4，2 fail／0 cancelled。最小实现 1f24577 后，两入口在原 Run 中收到未派发错误，后续 read/control、单独批准、一次 prompt 和文件核查完成。实际下一请求 tools 和能力菜单无 discover，capability_status 后也不重新泄露旧菜单；原保存结果仍含原始注册和 adoptedTarget=null。适配器回归经过真实 convertToModelMessages，确认错误进入下一请求，零 precheck/started/execute/afterToolCall；重复幻调在原 maxSteps=2 停止，missing 与 __proto__ 仍硬失败。原目标替换、Steer、unknown 停止及两档压缩回归通过。最终真实 Herdr/真实宿主/假 TG 传输门禁 8/8 保留原卡片、callback 一次消费、同 Run 选择与独立批准。以上均为离线/脚本模型，不是新真 TG 验收。
+3. 数字：相对合并后的 main，产品 5 文件 +38/-8，测试 2 文件 +113/-4。测试多于修复是为了执行模型转换、原宿主两入口、持久历史对照、调用零派发及原预算的完整路径。完整默认 pnpm test 为 1913 项、1906 pass／7 原有 skip／0 fail/cancelled；标准 Electron 8/8，sourceWorktreeDirty=false，Electron 44.4.5。真实模型/TG 请求与费用均 0，未新增付费账目。证据见 [离线核查](evidence/chat-run-target/adopted-discover-offline-1f24577/verification.json)。
+4. 命令与退出码：最终 pnpm typecheck exit 0；两入口新增专项 2/2 exit 0；SERIKA_B2_RECORD_CONCURRENT_HOME=1、独立临时 HOME 下的 pnpm test exit 0、pnpm --filter @serika/desktop smoke exit 0、原 chat-run-target-telegram-gate.mjs exit 0，git diff --check exit 0。完整日志、原 smoke 产物/截图及 SHA、真实 Herdr 门禁原件共 35 份复制 hash 核对，凭据前缀扫描 0 命中。保护器违规均 0，日用进程并发元数据变化如实记录，不声称 metadataUnchanged。最初红测受 mock 宿主无保活句柄取消，保留日志后仅在测试 fixture 等原 Run 结果期间保持进程引用；没有改产品定时器、断言或超时。一次默认保护器遇并发元数据变化停止的日志保留；后续使用仓库既有并发记录模式，文件写入保护仍启用。首次 smoke 停在缺少本地二进制的下载阶段、尚未启动 app；只终止本次下载，随后复用已有且版本/可执行 SHA 已核对的锁定 Electron 44.4.5，再运行原脚本通过，未改锁文件或下载其它版本。
+5. 偏离与边界：这是对原失败触发条件的离线结构修复，未证明真实模型今后遵守契约或真 TG 整链通过。按 Laziness Protocol 选择声明式 map，省去新异步 runtime hook；按 Prove It Works 核对实际请求、原转录、真实 Herdr 卡片数据链和干净 Electron 产物。#197 仅桌面已合；本后续 PR 不自动合并，不部署、不切日用，不临停/重启日用或抢 Bot，不重放 d4eb0665，不修改原失败与桌面 PASS。
 
 ## 1. 改了什么
 

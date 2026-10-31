@@ -1,0 +1,54 @@
+$ tsc -b && node packages/assistant/scripts/write-node-runtime.mjs
+✖ desktop adopted discover hallucination is unexecuted feedback in the same Run with current-only model context (1867.290833ms)
+✖ telegram adopted discover hallucination is unexecuted feedback in the same Run with current-only model context (1972.32025ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4006.034375
+
+✖ failing tests:
+
+test at packages/assistant/dist/foreground-herdr.test.js:172:5
+✖ desktop adopted discover hallucination is unexecuted feedback in the same Run with current-only model context (1867.290833ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'failed'
+  - 'completed'
+  
+      at TestContext.<anonymous> (file:///Users/a1-6/Code/agents/serika-pi-adopted-discover/packages/assistant/dist/foreground-herdr.test.js:190:20)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'failed',
+    expected: 'completed',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at packages/assistant/dist/foreground-herdr.test.js:172:5
+✖ telegram adopted discover hallucination is unexecuted feedback in the same Run with current-only model context (1972.32025ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'failed'
+  - 'completed'
+  
+      at TestContext.<anonymous> (file:///Users/a1-6/Code/agents/serika-pi-adopted-discover/packages/assistant/dist/foreground-herdr.test.js:190:20)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'failed',
+    expected: 'completed',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+{"testHomeGuard":"failed","evidence":"/private/tmp/s197-followup-red-home-4/write-guard-aLy6Zn/result.json","violations":0,"changes":0,"metadataUnchanged":true}

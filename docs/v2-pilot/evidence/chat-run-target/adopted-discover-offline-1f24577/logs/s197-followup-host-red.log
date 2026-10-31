@@ -1,0 +1,21 @@
+$ tsc -b && node packages/assistant/scripts/write-node-runtime.mjs
+
+Interrupted while running:
+
+⚠ packages/assistant/dist/foreground-herdr.test.js (packages/assistant/dist/foreground-herdr.test.js:1:1)
+✖ packages/assistant/dist/foreground-herdr.test.js (191.947417ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 0
+ℹ cancelled 1
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 194.768
+
+✖ failing tests:
+
+test at packages/assistant/dist/foreground-herdr.test.js:1:1
+✖ packages/assistant/dist/foreground-herdr.test.js (191.947417ms)
+  'Promise resolution is still pending but the event loop has already resolved'
+{"testHomeGuard":"failed","evidence":"/private/tmp/s197-followup-red-home/write-guard-YvyWWJ/result.json","violations":0,"changes":1,"metadataUnchanged":false}
