@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {readFile,writeFile,copyFile,appendFile} from 'node:fs/promises';
+import {createHash,randomUUID} from 'node:crypto';
+import {join} from 'node:path';
+import {tryAcquireFlock} from '/Users/a1-6/Code/agents/serika-chat-run-target/packages/assistant/dist/flock.js';
+import {TelegramStore} from '/Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/src/main/telegram-store.ts';
+const output='/private/tmp/s197-tg-live-01nov-a', profile='/Users/a1-6/.serika-test/chat-run-target-telegram', home=join(profile,'profile');
+const bytes=await readFile(join(output,'result.json')),r=JSON.parse(bytes),sha=b=>createHash('sha256').update(b).digest('hex');
+assert.equal(r.batchId,'4ebdd9b2-7cea-4e51-81c8-2a2e7108def8');assert.equal(r.pairing.originalGatewayAccepted,true);assert.equal(r.calls.length,0);
+const audit={auditId:randomUUID(),at:new Date().toISOString(),batchId:r.batchId,sourceCommit:r.sourceCommit,verification:'operator-stop-after-real-telegram-task-start-rejection',acceptance:'failed-task-start-after-successful-pairing',originalResultStatus:r.status,originalResultSha256:sha(bytes),originalResultUnmodified:true,harnessFinalizationCompleted:false,operatorStop:{method:'SIGINT through owned PTY',exitCode:1,reason:'User screenshot and persisted rejected input prove startup failure; stop without retry'},taskRuns:0,modelRequests:0,costUsd:r.costUsd,unresolvedReservedUsd:r.calls.reduce((s,c)=>s+(c.status==='returned'?0:c.reservedUsd),0),dailyAccess:r.dailyAccess,errors:[]};
+const lease=await tryAcquireFlock(join(profile,'harness.lock'));
+assert.ok(lease,'Stopped test host still owns profile; preserve without writing');
+try{
+ const store=new TelegramStore(join(home,'resident/telegram.json'),home);await store.load();
+ const before=store.snapshot();audit.storeBefore=before;
+ const task=before.inputs.find(x=>x.text===r.cases[0].prompt);assert.ok(task);assert.equal(task.state,'rejected');assert.equal(task.runId,null);assert.ok(before.inputs.every(x=>x.runId===null));
+ assert.equal(before.owner.threadId,r.pairing.threadId);
+ const rejection=before.deliveries.find(d=>d.key==='input:'+task.key);assert.ok(rejection);assert.equal(rejection.state,'submitted');assert.equal(rejection.text,'本条启动未成功。未自动重试，请查看桌面连接状态。');
+ await copyFile(join(home,'resident/telegram.json'),join(output,'telegram-store-before-disable.json'));
+ await store.update(data=>{data.enabled=false;});audit.storeAfter=store.snapshot();assert.equal(audit.storeAfter.enabled,false);assert.deepEqual(audit.storeAfter.owner,before.owner);assert.equal(audit.storeAfter.offset,before.offset);
+ await copyFile(join(home,'resident/telegram.json'),join(output,'telegram-store-after-disable.json'));audit.testProfileDisabled=true;
+}finally{await lease.release();audit.profileLeaseReleased=true;}
+const statePath=join(r.isolatedRoot,'herdr-fixture/herdr-state.json');
+await copyFile(statePath,join(output,'herdr-state.json'));await copyFile(join(r.isolatedRoot,'herdr-fixture/server.log'),join(output,'server.log'));
+const state=JSON.parse(await readFile(statePath));audit.fixture={statePath,phase:state.phase,unknown:state.unknown,serverPid:state.serverPid,retained:true,noNewHerdrCallsAfterFailure:true};
+audit.transportCursorAcknowledgement={confirmed:r.lastPollOffset!==undefined&&r.lastPollOffset>=audit.storeAfter.offset,reason:'Harness was stopped before its cursor finalization; no extra API request or cursor write was made'};
+assert.equal(sha(await readFile(join(output,'result.json'))),audit.originalResultSha256);
+await writeFile(join(output,'operator-stop-audit.json'),JSON.stringify(audit,null,2)+'\n',{flag:'wx'});
+await appendFile(join(output,'decisions.tsv'),new Date().toISOString()+'\tstop\tStop the owned harness after task startup was rejected\tPairing succeeded but no Run was created; failure must not retry\toperator-stop-audit.json\tFailed; zero model requests; test channel disabled; fixture retained\n');
+console.log(JSON.stringify({acceptance:audit.acceptance,pairing:true,taskState:'rejected',taskRuns:0,modelRequests:0,costUsd:0,testProfileDisabled:audit.testProfileDisabled,profileLeaseReleased:audit.profileLeaseReleased,originalResultUnmodified:true,cursorAcknowledgement:audit.transportCursorAcknowledgement.confirmed,fixtureRetained:true}));

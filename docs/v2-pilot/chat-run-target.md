@@ -1,6 +1,6 @@
 # 聊天发现 CLI 与当前 Run Pi 目标
 
-> 2026-11-01 最新结论：专用 TG 默认 runtime 已缩短为 `/private/tmp/s197-tg`；真实 Herdr 启动、连接、两个 offline Pi 就绪及 profile 租约取得/互斥/释放后重取均通过，typecheck 与全测 1900 pass／7 skip／0 fail。桌面 c9a16383 整链 PASS、采用后契约收窄与专用测试 Bot 方向沿用。74ccfd3f 仍为 socket 启动失败、0 Run／0 请求／$0，原现场和归档 hash 不变。真实 TG 完成定义仍未通过，新批等待“继续”；未临停日用、未合并或部署。
+> 2026-11-01 最新结论：短 runtime 修复已提交为 `5c141ee`，真实 Herdr/离线门禁通过。随后真实专用 Bot 批 4ebdd9b2 已完成首次配对、任务正文正确接收，但任务在创建 Run 前启动失败，0 Run／0 模型请求／$0。已人工停止本批，无重试，测试 profile 已禁用且保留绑定，Herdr 现场保留；游标交接未确认，不能自动续跑。原 result 未走最终化，保留 running 原字段，独立 operator-stop-audit 判为失败。桌面 c9a16383 PASS、采用后契约和专用 Bot 方向沿用；74ccfd3f 仍为原失败，未合并或部署。
 
 ## 1. 改了什么
 
@@ -467,3 +467,11 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 ### 新 TG 批次启动授权，2026-11-01
 
 用户“继续”批准上述 ≤1 宿主 Run／24 总请求／$0.25 批次，并在本对话明确确认手机已打开专用 Bot、已就绪。先将 socket 修复和离线证据提交为真实验收的干净源码，再运行原 dedicated-test-bot harness；不重跑桌面、不接管日用、不合并或部署。离线证据中的 sourceWorktreeDirty=true 保留，不回写为干净；新真实批独立记录实际提交、随机编号和费用。
+
+### 真 TG 配对成功后任务启动失败，4ebdd9b2，2026-11-01
+
+1. 改了什么：在用户预算授权和手机就绪确认后，以干净提交 `5c141ee` 启动原 dedicated-test-bot harness。真实 Herdr 和两个隔离 Pi 就绪，专用 Bot 身份匹配，原配对网关接受 `/start` 并保存 owner/Thread；用户原样发送本批任务。没有改产品代码、审批/选择/来源契约或费用上限。
+2. 逐条对照：真实首次配对成功、两条入站的宿主检查均 accepted/forwarded。随后任务输入为 rejected、runId=null，Bot 的启动失败提示已 submitted；选择、独立操作审批、工具派发、Pi 输入和产物核查均未到达，真实 TG 整链不通过。对应边界为 `telegram-gateway.ts:550-567`：channelRun 抛错且尚未绑定 Run 时只返回通用消息，原始异常未被保留，具体根因未证明。没有注入工具输出、重发任务或重试。用户截图询问失败后，主线程从本批本地日志确认启动失败，向自有 PTY 发送 SIGINT 停止等待进程，而非等“任务 Run”超时。原 result.json 停留 running，未伪造 finally/failed 字段；独立 [operator-stop-audit](evidence/chat-run-target/stage1-telegram-4ebdd9b2/operator-stop-audit.json) 明确 failure acceptance 与未完成最终化，[原 result](evidence/chat-run-target/stage1-telegram-4ebdd9b2/result.json) hash 不变。
+3. 数字：0 宿主 Run／0 模型请求／$0／未结算 0；0 次选择、批准、控制或 Pi 任务输入。失败后通过既有 profile 租约和 TelegramStore 仅将隔离通道 enabled=false，owner/offset 不变，租约释放；未调用额外 TG API，游标交接未确认，后续不得自动接着启动或重放。Herdr 只复制本地 state/log，没有追加 get/read/control/cleanup，现场保留在 `/private/tmp/s197-tg`。本批产品/harness/测试代码 `+0/-0`，只记录证据、零费用账目和报告。
+4. 命令与退出码：零请求 `--check-settings` exit 0；`node --import ./apps/desktop/node_modules/tsx/dist/loader.mjs apps/desktop/scripts/chat-run-target-telegram-live.mjs --run --env-file /Users/a1-6/.config/serika/chat-run-target-telegram-test.env --output /private/tmp/s197-tg-live-01nov-a` 经人工 SIGINT exit 1。本地 preserve-stop 最初因不存在的 index.js 入口而在模块加载时失败，未执行写入；改为既有 flock.js 后仅运行本地封存/通道禁用，exit 0。归档扫描初次把普通 acceptance 文本 task-start 的内部 sk- 当成凭据，加入词边界后确认 0 命中；初版归档脚本保留。最终归档/hash 核对 exit 0，费用只记一次，见 [archive-summary](evidence/chat-run-target/stage1-telegram-4ebdd9b2/archive-summary.json)。没有把封存工具成功当作业务通过。
+5. 偏离与停止：现有 live harness 没有识别“输入 rejected 且无 Run”的即时停止分支，仍停在等 task.runId；主线程人工停止，未修改 harness 后继续跑。这次没有证明具体抛错原因，也没有补造正常 shutdown/游标确认。按失败即停约定，本轮不修下一问题、不启动新批，等待用户决定是否先合桌面。桌面 PASS、原 74ccfd3f 失败、采用后工具收窄、专用 Bot 和权限边界保持；未临停日用、未合并、未部署。

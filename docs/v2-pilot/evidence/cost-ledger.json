@@ -301,6 +301,23 @@
       "evidenceSha256": "36c6692c43c02a521cae95c6cad9b82614010b4c083fd58f425ffd3328f61593",
       "acceptance": "failed-before-telegram-gateway-herdr-socket-path",
       "audit": "chat-run-target/stage1-telegram-74ccfd3f/stop-audit.json"
+    },
+    {
+      "step": "chat-run-target-stage1-telegram",
+      "runId": "4ebdd9b2-7cea-4e51-81c8-2a2e7108def8",
+      "realModelRequests": 0,
+      "taskRuns": 0,
+      "amount": 0,
+      "amountBasis": "Successful dedicated Bot pairing, then task startup rejected before any model dispatch; operator stopped without retry",
+      "authorizedBatchCapUsd": 0.25,
+      "authorizedBatchMaxRequests": 24,
+      "authorizedBatchMaxRuns": 1,
+      "unresolvedCalls": 0,
+      "unresolvedReservedUsd": 0,
+      "evidence": "chat-run-target/stage1-telegram-4ebdd9b2/result.json",
+      "evidenceSha256": "de5e14eab0b78343af358b0f999e641ab8a4837f2cacb230332e4d879b923744",
+      "acceptance": "failed-task-start-after-successful-pairing",
+      "audit": "chat-run-target/stage1-telegram-4ebdd9b2/operator-stop-audit.json"
     }
   ],
   "total": 2.168346239999999,
