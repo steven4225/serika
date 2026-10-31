@@ -1,6 +1,6 @@
 # 聊天发现 CLI 与当前 Run Pi 目标
 
-> 2026-10-31 最新结论：桌面 c9a16383 整链 PASS 沿用；真实 TG 批次 2856460a 配对超时后已恢复日用，0 Run／0 请求／$0。随后查明失效 `/start` 在恢复后进入日用并被拒，已加配对前“手机就绪”握手，离线 8/8 通过；本轮未重开真批。真实 TG 完成定义仍未通过。历史 d5a887cd 恢复日用后重放的 1 Run／1 请求、估算 $0.009668 已单独补账，旧失败原件保留。
+> 2026-10-31 最新结论：桌面 c9a16383 整链 PASS 沿用；TG 验收已改为专用测试 Bot、固定隔离 profile，删除日用临停/接管/恢复路径。原网关离线首次配对与重建复用通过，相关 10/10、typecheck 通过，新真实请求/费用为 0。测试 Bot 为 `@serika197_test_4225_bot`，固定 env 尚缺 owner user/chat ID 和测试模型 key，未启动真 TG。历史 d5a887cd/2856460a 失败原件未改，真实 TG 完成定义仍未通过；待补配置并获“继续”后按 1 Run／24 请求／$0.25 验收。
 
 ## 1. 改了什么
 
@@ -409,3 +409,33 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 3. 数字：产品 +0/-0、harness +49/-1、测试 +36/-3，不含报告和证据。测试行数超过产品，因为只改验证协调路径。局部 8/8，写入守卫 passed、违规/变化均 0、metadataUnchanged=true；新真实模型/TG 调用及费用均 0，未追加费用条目。
 4. 命令：守卫下 `node --test apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs apps/desktop/scripts/chat-run-target-approval.test.mjs` exit 0；`pnpm typecheck` exit 0；五个改动脚本 `node --check`、live 零请求 import preflight、两个 stop-audit 原件对检查、`git diff --check` 均 exit 0。本地 `node /private/tmp/serika-197-tg-pair-ready/pty.mjs` 经真实 PTY 写入精确本批命令后 exit 0，全程无 TG API。日志、各源码 SHA 和归档 hash 可复核。
 5. 偏离与下一步：用户问如何解决接入，当前只修可证明的窗口错位，不将离线握手宣称为真实接入成功，不扩到产品配对改造。下一真批必须先在本对话确认手机已打开 Bot 且就绪，再按既定新批授权启动 `tty=true` 的 harness，看到 pair-ready 后才写本批协调命令。随后给用户新 `/start`，配对接受后才给真实任务正文；授权句/协调命令不发往 TG。仍为 ≤1 Run／24 总请求／$0.25，失败即停，不重做桌面链、不合、不部署、不扩授权。当前保留本地检查点，等待手机就绪及真批授权。
+
+### 专用测试 Bot 通道协议，2026-10-31
+
+本节先于代码。用户已批准替换验收通道策略：专用测试 Bot、独立固定外部 env、首次配对后复用测试绑定；验收期间不临停、不接管、不连接日用 Bot。本地三提交已先推送。当前只做离线适配，完成后报 ≤1 Run／24 总请求／$0.25 并等“继续”才真跑。
+
+任务清单：已读 AGENTS、pstack/Karpathy、相关原则与现有网关/存储/fixture 数据流 → 写协议及接口 → 单一代码 owner 修改耦合 harness/验证 → 主线程核对实际 diff → 离线原网关配对/重启复用及日用零访问证明 → 预算报告并推送。阻塞先处理：先 push 旧提交，再修改；独立工作流：主线程维护协议/证据，代码 owner 独占 harness/测试/auditor；共享状态：测试 profile/env 与日用分离，单一测试宿主持有本批租约；最小拆分：只调整验证脚本，不改产品、桌面入口或沙箱。
+
+调用草图：`loadTelegramTestSettings({envFile, forbiddenBotId}) -> {credentials, botId, owner, profileRoot, runtimeRoot}`，外部默认 env 为 `/Users/a1-6/.config/serika/chat-run-target-telegram-test.env`；`prepareTelegramTestProfile(settings) -> {applicationHome, configPath, workspace, lease}`。配置包含显式 test-only 标识、预期 Bot ID、私聊 user/chat ID、测试模型连接字段；凭据只在内存，模板可入库，真实 env/profile 不入库。token 的 ID 与预期 Bot ID 必须本地一致，且不得等于仓库旧批 2856460a 原件中的共用 Bot ID；实际 getMe 再核对预期身份。只读仓库旧证据作拒绝依据，不读取日用 env、resident、journal 或配置。
+
+比较两种持久化方案：每批复制绑定会伪造/迁移信任；采用固定隔离 applicationHome/config/工作目录，原 TelegramStore 保存首次真实配对的 owner/Thread/offset。Pi fixture 使用固定 `/private/tmp/` runtime 路径，每批全新建立，成功后清理 fixture，profile 在其外保留；失败现场保留并阻断下一批覆盖。只复用渠道绑定，不保存跨 Run Pi 目标或批准。第二次启动必须核对 Bot/owner/Thread 注册及空闲、无待处理/unknown，不自动恢复执行；测试 profile 单宿主租约避免双重轮询。
+
+首次 `pair-ready` 后原 beginPairing→真实用户私聊→原 confirmPairing；复用时跳过配对，断言 owner/Thread 不变。每批预先设置唯一带 batch 随机标识的任务正文，再开启测试 Bot 轮询，按 store 初始 inputs/deliveries 快照计算本批增量，避免旧记录影响“一次任务/一次选择”断言。保留原全文脱敏拒因/绑定 before-after、host 唯一 close、所有已观察 update_id+1 的交接确认；交接只作用测试 Bot，未知或未确认阻断后续测试，不恢复任何日用接入。report/auditor 明确标记 dedicated-test-bot、首次/复用、持久绑定与本批快照，不再要求 daily restore 字段。
+
+离线证明须经过原 DesktopRuntime/TelegramGateway/TelegramStore：首次消息进入原配对并持久化，关闭/重建后原绑定与 Thread/offset 复用且无需新码、无 Run 目标配置；被拒消息及确切谓词仍可落盘；所有 transport 都是显式假 transport，真实 fetch 禁止，测试全过程日用路径零读写、零 resident 连接。桌面 PASS 与采用后 discover 收窄不动。真实 TG 是否完整成功仍由下一批原件证明。
+
+失败收尾保留关闭前的完整 store/Run 回执，关闭后再次读取完整 store/本 Run 回执并分别写入 stop-audit。最终读取失败记录独立阶段，不以关闭前 running 状态冒充最终结论；不触发重放、自动回读目标或第二次派发。
+
+### 专用测试 Bot 离线结果，665b6966，2026-10-31
+
+1. 改了什么：`telegram-live` 删除日用 resident/env/暂停/恢复装配，新增 `telegram-profile` 校验独立固定路径、历史日用 Bot 拒绝和原 flock 租约，复用原 TelegramStore 绑定与注册 Thread。每批随机任务先装配再启轮询，input 增量排除历史，确认 cursor 后持久化。两个 auditor 改验专用通道，失败保留关闭前后完整 store/Run 回执。只改验收脚本和模板，产品、桌面 PASS、sourceQuote、采用后 discover 收窄、审批与 Seatbelt 均未改。查过旧约束 Tool side-effect invariants 和 Trusted desktop foreground autonomy，未将桌面权限传给 TG。
+2. 逐条对照：已做 `original gateway persists its first pairing...`，原 DesktopRuntime/Gateway/Store 首次配对→关闭→新宿主复用同一 owner/Thread/offset=2，无第二次配对、无跨 Run 目标配置；两个宿主 close 各一次。已做 `dedicated settings reject...`，拒绝日用 Bot、并发宿主、残留 runtime 和写入前的 symlink；拒因/脱敏全文/绑定前后落盘及游标确认沿用本轮重跑 inbound 测试。已做关闭前 running／关闭后 cancelled 的 stop-audit 字段 fixture，属于审计落盘验证。子进程模型/真实网络/日用路径访问均 0，守卫零违规且元数据未变。真实 TG 发现≥2→短码选一次→采用后无 discover→单独操作批→发一次→本次回读＋独立核查、完整审批链及未选目标零输入均**未做**，等下一真批。证据见 [verification](evidence/chat-run-target/telegram-dedicated-665b6966/verification.json)、[原网关重建复用](evidence/chat-run-target/telegram-dedicated-665b6966/offline/dedicated-original-gateway-reuse.json)、[拒因 result/stop-audit 对](evidence/chat-run-target/telegram-dedicated-665b6966/offline/rejection/stop-audit.json)。
+3. 数字：相对 `231dae1` 产品 +0/-0；harness/模板 `+230/-111`，测试 `+97/-1`，不含报告/证据。测试增量超过产品，因为本轮专门修验收隔离与持久化证据，不新增产品能力。相关单测 10 pass、0 fail/skip；typecheck 通过。全测 1891 pass/7 skip、TG 回归 85/85、隔离 Electron 假模型 6/6 与标准 smoke 8/8 沿用已接受候选，未重跑桌面整链。新真实 Run/模型请求/TG API/费用均 0，未追加已花费账目；三份历史真实批 result hash 与 HEAD 相同。
+4. 实际命令：`pnpm typecheck` exit 0；守卫下 `node --test apps/desktop/scripts/chat-run-target-telegram-profile.test.mjs apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs apps/desktop/scripts/chat-run-target-approval.test.mjs` exit 0。六脚本 `node --check`、live 零请求 import preflight、新旧失败原件 stop-audit 只读核对、`git diff --check` 最终均 exit 0。`--check-settings` exit 1 是外部配置缺失前置条件，0 TG/模型调用；Bot ID、固定模型地址/型号已在外部 env 本地补入，仍缺 `SERIKA_TG_TEST_OWNER_USER_ID`、`SERIKA_TG_TEST_OWNER_CHAT_ID`、`COMMAND_CODE_API_KEY`，见 [配置预检](evidence/chat-run-target/telegram-dedicated-665b6966/settings-after-local-fill.json)。真实 env、token、key、profile 不入库。
+5. 偏离与限制：独立复核发现失败关闭后缺完整最终快照，已先补协议再补写入及 fixture。复核旧 d5a887cd 原件时，旧 audit 无 binding/receipts/inbound 字段导致 CLI 检查依次报错；三次失败输出保留在本目录 `legacy-audit-*.json`，只修审计可选字段读取，缺失拒因数输出 null，不补造原件或改绿。最终只读检查通过仅表示原件/hash 一致，旧批仍为失败。按 Separate Before Serializing Shared State 拆开 Bot/profile，按 Laziness Protocol 删除接管路径，按 Prove It Works 实跑原网关重建。固定 env 已由用户提供路径，真实身份/连接尚未核验。下一真批仍需配置预检通过及用户“继续”，本轮不合并、不部署、不临停日用。
+
+#### 下一真实 TG 批次预算，待“继续”
+
+最多 **1 宿主任务 Run／24 次总模型请求／$0.25 本地核算上限**，含 Serika、Pi 和辅助请求，沿用已冻结脚本费率，非账单核验。渠道仅 `@serika197_test_4225_bot`＋固定测试 env/profile＋两个隔离 Pi；首次真实配对保留渠道绑定，后续只复用该绑定，Pi 选择/操作批准每 Run 重新产生。用户在 TG 发真实任务正文、选择短码及独立批准，当前对话授权句不作入站任务。
+
+成功必须同 runId 发现≥2、有效选择恰好一次、selectionVersion=1、采用后请求无 discover、独立操作批准/派发各一次、冻结目标/正文一致、未选 Pi 零输入、本次回读和独立产物核查完整，审批链贯穿 runId/toolCallId→approvalId→冻结→决定/宿主接受→派发或明确未派发。拒绝、取消、目标/环境变化、任何验证红、unknown、运输/用量不确定、预算上限立即冻结；unknown 不自动目标回读、重发或换目标，失败保留现场，不追加 Run。真实 TG 通过后更新 #197 并停下，合并另等用户决定。

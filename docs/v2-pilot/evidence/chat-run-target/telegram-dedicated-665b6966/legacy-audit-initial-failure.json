@@ -1,0 +1,11 @@
+{
+  "auditId": "2a4accf9-249a-4a91-a313-da7727926857",
+  "command": [
+    "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+    "scripts/chat-run-target-telegram-stop-audit.mjs",
+    "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-d5a887cd"
+  ],
+  "exitCode": 1,
+  "stdout": "",
+  "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ undefined\n- null\n\n    at file:///Users/a1-6/Code/agents/serika-chat-run-target/scripts/chat-run-target-telegram-stop-audit.mjs:51:10 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: undefined,\n  expected: null,\n  operator: 'deepStrictEqual',\n  diff: 'simple'\n}\n\nNode.js v26.4.0\n"
+}

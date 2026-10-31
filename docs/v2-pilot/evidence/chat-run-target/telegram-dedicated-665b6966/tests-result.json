@@ -1,0 +1,17 @@
+{
+  "auditId": "8f6d896e-6f25-4a59-b1ca-edb06aced0e2",
+  "at": "2026-10-31T15:00:06.727Z",
+  "command": [
+    "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+    "scripts/test-home.mjs",
+    "--home",
+    "/private/tmp/serika-197-dedicated-final-koP0aK/final-home",
+    "--",
+    "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+    "--test",
+    "apps/desktop/scripts/chat-run-target-telegram-profile.test.mjs",
+    "apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs",
+    "apps/desktop/scripts/chat-run-target-approval.test.mjs"
+  ],
+  "exitCode": 0
+}

@@ -1,0 +1,188 @@
+{
+  "auditId": "665b6966-2e58-439d-826a-32a458d7ee26",
+  "verifiedAt": "2026-10-31T15:00:52.868Z",
+  "verification": "offline-original-gateway-dedicated-profile-restart-and-rejection-evidence",
+  "sourceCommit": "231dae1a7d9abc89d2fd81fa47594580c75b3e09",
+  "sourceWorktreeDirty": true,
+  "sourceHashes": {
+    "apps/desktop/scripts/chat-run-target-telegram-live.mjs": "2ded837cd0bd206023b108d908a58875293610d300562ec0f7fe2ee5f1160b93",
+    "apps/desktop/scripts/chat-run-target-telegram-profile.mjs": "f14312afae5d6ff0ac8f80373d64687e32c28169d8c32504e8ae3c8130f5fe0e",
+    "apps/desktop/scripts/chat-run-target-telegram-profile.test.mjs": "ded56247ac918a39e6ec25c3a902d02be88869a05e7a2dfdd5651221ef095bb7",
+    "apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs": "3af599b6b5d33bf0783ae4f82332aeff3a299cf30b1353364679e2b8193c436d",
+    "scripts/chat-run-target-telegram-audit.mjs": "1024ce89d674ed5ac9775c9fdcfde507a0d674398329dd74fea92861048a21a0",
+    "scripts/chat-run-target-telegram-stop-audit.mjs": "d5894a9865a302a7daafdf99992997bf8bbd6b9efccccffebab419bc29253cc8",
+    "apps/desktop/scripts/chat-run-target-telegram-test.env.example": "1a79cb70d0d466505df04ab822e2a91e77bb9f4177668e3cf13ba7641cb42a99"
+  },
+  "commands": [
+    {
+      "name": "syntax apps/desktop/scripts/chat-run-target-telegram-live.mjs",
+      "command": [
+        "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "--check",
+        "apps/desktop/scripts/chat-run-target-telegram-live.mjs"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0
+    },
+    {
+      "name": "syntax apps/desktop/scripts/chat-run-target-telegram-profile.mjs",
+      "command": [
+        "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "--check",
+        "apps/desktop/scripts/chat-run-target-telegram-profile.mjs"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0
+    },
+    {
+      "name": "syntax apps/desktop/scripts/chat-run-target-telegram-profile.test.mjs",
+      "command": [
+        "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "--check",
+        "apps/desktop/scripts/chat-run-target-telegram-profile.test.mjs"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0
+    },
+    {
+      "name": "syntax apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs",
+      "command": [
+        "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "--check",
+        "apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0
+    },
+    {
+      "name": "syntax scripts/chat-run-target-telegram-audit.mjs",
+      "command": [
+        "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "--check",
+        "scripts/chat-run-target-telegram-audit.mjs"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0
+    },
+    {
+      "name": "syntax scripts/chat-run-target-telegram-stop-audit.mjs",
+      "command": [
+        "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "--check",
+        "scripts/chat-run-target-telegram-stop-audit.mjs"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0
+    },
+    {
+      "name": "import preflight",
+      "command": [
+        "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "--import",
+        "./apps/desktop/node_modules/tsx/dist/loader.mjs",
+        "apps/desktop/scripts/chat-run-target-telegram-live.mjs"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0
+    },
+    {
+      "name": "settings precondition",
+      "command": [
+        "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "--import",
+        "./apps/desktop/node_modules/tsx/dist/loader.mjs",
+        "apps/desktop/scripts/chat-run-target-telegram-live.mjs",
+        "--check-settings"
+      ],
+      "exitCode": 1,
+      "expectedExitCode": 1
+    },
+    {
+      "name": "offline audit rejection",
+      "command": [
+        "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "scripts/chat-run-target-telegram-stop-audit.mjs",
+        "/private/tmp/serika-197-dedicated-final-koP0aK/offline/rejection"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0
+    },
+    {
+      "name": "offline audit early-run",
+      "command": [
+        "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "scripts/chat-run-target-telegram-stop-audit.mjs",
+        "/private/tmp/serika-197-dedicated-final-koP0aK/offline/early-run"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0
+    },
+    {
+      "name": "unchanged failed original audit stage1-telegram-d5a887cd",
+      "command": [
+        "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "scripts/chat-run-target-telegram-stop-audit.mjs",
+        "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-d5a887cd"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0
+    },
+    {
+      "name": "unchanged failed original audit stage1-telegram-2856460a",
+      "command": [
+        "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "scripts/chat-run-target-telegram-stop-audit.mjs",
+        "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-2856460a"
+      ],
+      "exitCode": 0,
+      "expectedExitCode": 0
+    }
+  ],
+  "tests": {
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0
+  },
+  "modelRequests": 0,
+  "telegramRequests": 0,
+  "amountUsd": 0,
+  "childDailyPathAccesses": 0,
+  "guard": {
+    "status": "passed",
+    "violations": 0,
+    "metadataUnchanged": true,
+    "events": 0
+  },
+  "actualConfigurationReady": false,
+  "missingFields": "Missing test env fields: SERIKA_TG_TEST_BOT_ID, SERIKA_TG_TEST_OWNER_USER_ID, SERIKA_TG_TEST_OWNER_CHAT_ID, COMMAND_CODE_BASE_URL, COMMAND_CODE_MODEL_ID, COMMAND_CODE_API_KEY",
+  "unchangedOriginalEvidence": {
+    "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/result.json": "797e3e198e40ae479b7cdbcdb653233ee84b7726bdca59b34fe99456a50b1812",
+    "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-d5a887cd/result.json": "d6d2856f4fd10b4f331b99084cdbd9790dc55ddf3c974e6d09ac4a8802a6528d",
+    "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-2856460a/result.json": "b9096411f47e68fec25ca9ca27bdb94379bdcaaba8a180786803e8cae951b713"
+  },
+  "credentialPatternMatches": 0,
+  "evidenceFiles": {
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/legacy-audit-initial-failure.json": "17e716447e653dc0456a9f4311af35ce70b1204c88d133879cc682cf3ad10f0c",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/legacy-audit-missing-inbound.json": "2eeddebd03d8d2dbf1c65dc8a00ecdd18daeaa3b28b9a666d7880665eee5f8dd",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/legacy-audit-missing-receipts.json": "f09ccbbca996501f2e0a4b3ca15baa45571da09e069198f1d10b271485fef696",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/offline/dedicated-original-gateway-reuse.json": "77d5c26d9516971df72611626a8d7fe8bfc4cdc8d68fe0847e4b1df98c5523b5",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/offline/dedicated-settings-boundaries.json": "ea1feb584e883deda800750c25b2ccb7abe78f83fc992e24f744f218cc7bafc5",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/offline/early-run/result.json": "b6a5e540510ee2a8e371d01866b4e6598218e0b2a6a6fea7c8fc84f9b953128b",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/offline/early-run/stop-audit.json": "de0a8d8062f913f2e1b3e4cf8cfcb91e55c673689cb410dd20ac3f60066cd14f",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/offline/early-run-accounting.json": "de0a8d8062f913f2e1b3e4cf8cfcb91e55c673689cb410dd20ac3f60066cd14f",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/offline/handoff.json": "fe8ffa2b065c7c0b1583127441a29c607068feecf66eb4481e60c8190e7eaf21",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/offline/original-gateway-lifecycle.json": "f13ff4780e449521870489cdb617cad053e7e5e24280cbefe4b82b362c5b459e",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/offline/pair-readiness-failures.json": "2a90ab1cf28a9ac93336bc28ea89e206dc96c9080da3f2a7adb8bd9fed77c066",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/offline/predicate-boundaries.json": "06df0262df5234103b44595b83106f04b3bf07c53f903779af72de249054255e",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/offline/rejection/result.json": "76499060f4b86f51e034aab0bd7d6ba3e5073b9ef19dc2aa81e20247ddc3698c",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/offline/rejection/stop-audit.json": "364833102dca7288fb777531392d1ac1dc11c101269f4f2bd1c31ed75e5a4e4d",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/offline/rejection-stop-audit.json": "364833102dca7288fb777531392d1ac1dc11c101269f4f2bd1c31ed75e5a4e4d",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/preflight.json": "99a686d35ffeffa2f33aecc21bc9aff15edb2199b28a33ae0a8191b09ccf6598",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/settings-precondition.json": "771cee2e06cbb6975f08946fc93f49d083e98cff3368e635c94de20c82c675e8",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/tests-result.json": "91302a9751007dc0bf7806417f40df24e767226df87ff30db22d84befec593b9",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/tests.log": "a786d518e09760c3de4049e1bd24075834d8d429edd0f76ad4cd5dfc077f1770",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/typecheck-result.json": "205ef624f617af7d5eff43844666379b548220d50b3573d928fdf3c0f71655cb",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/typecheck.log": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+    "docs/v2-pilot/evidence/chat-run-target/telegram-dedicated-665b6966/write-guard.json": "1b22d89f37b5cff8eb41e85bd4597042cc898dc1499dba79c9a662c2f01b7f9b"
+  }
+}

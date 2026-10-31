@@ -1,0 +1,7 @@
+{
+  "mode": "zero-request-settings-check",
+  "valid": false,
+  "error": "Missing test env fields: SERIKA_TG_TEST_BOT_ID, SERIKA_TG_TEST_OWNER_USER_ID, SERIKA_TG_TEST_OWNER_CHAT_ID, COMMAND_CODE_BASE_URL, COMMAND_CODE_MODEL_ID, COMMAND_CODE_API_KEY",
+  "modelCalls": 0,
+  "telegramCalls": 0
+}

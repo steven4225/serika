@@ -1,0 +1,8 @@
+{
+  "auditId": "88b49de3-8d4d-45f0-b469-b403e72847e8",
+  "command": [
+    "pnpm",
+    "typecheck"
+  ],
+  "exitCode": 0
+}

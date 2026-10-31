@@ -1,0 +1,59 @@
+{
+  "auditId": "4023eadd-899e-4f68-80c7-5ed1750c4294",
+  "auditedAt": "2026-10-31T15:00:05.549Z",
+  "verification": "failed-telegram-batch-diagnostics-from-original-result",
+  "acceptance": "failed-telegram-batch",
+  "batchId": "bd296e28-2a04-4094-b514-2c6e178de7bc",
+  "sourceCommit": "offline-accounting-fixture",
+  "sourceResultSha256": "b6a5e540510ee2a8e371d01866b4e6598218e0b2a6a6fea7c8fc84f9b953128b",
+  "sourceResultUnmodified": true,
+  "modelRequests": 0,
+  "taskRuns": 1,
+  "amount": 0,
+  "unresolvedReservedUsd": 0,
+  "inboundChecks": [],
+  "telegramIdentity": null,
+  "pollFailure": null,
+  "pairReadiness": [],
+  "channelStrategy": null,
+  "dailyAccess": null,
+  "testProfile": null,
+  "testChannelStartedAt": null,
+  "bindingAtPairingStart": null,
+  "pairingConfirmation": null,
+  "bindingBeforeShutdown": null,
+  "bindingAfterShutdown": null,
+  "telegramStore": {
+    "inputs": [
+      {
+        "state": "running"
+      }
+    ]
+  },
+  "telegramStoreAfterShutdown": {
+    "inputs": [
+      {
+        "state": "finished"
+      }
+    ]
+  },
+  "transportCursorHandoff": null,
+  "shutdownErrors": [],
+  "isolatedHostStoppedAt": null,
+  "isolatedTelegramStoppedAt": null,
+  "daily": null,
+  "receipts": [
+    {
+      "runId": "observed-before-wait-completed",
+      "receipt": {
+        "runId": "observed-before-wait-completed",
+        "status": "running"
+      },
+      "receiptAfterShutdown": {
+        "runId": "observed-before-wait-completed",
+        "status": "cancelled"
+      }
+    }
+  ],
+  "fixtureRetained": null
+}

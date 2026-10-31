@@ -91,10 +91,13 @@ it('early failed Run receipt is counted even before the waiting case receives it
   const root = await mkdtemp('/private/tmp/serika-tg-early-run-');
   try {
     const report = { status: 'failed', batchId: randomUUID(), sourceCommit: 'offline-accounting-fixture', inboundChecks: [], calls: [],
-      cases: [{ receipt: { runId: 'observed-before-wait-completed', status: 'failed' } }], costUsd: 0, unresolvedReservedUsd: 0, errors: [] };
+      cases: [{ receipt: { runId: 'observed-before-wait-completed', status: 'running' }, receiptAfterShutdown: { runId: 'observed-before-wait-completed', status: 'cancelled' } }],
+      telegramStore: { inputs: [{ state: 'running' }] }, telegramStoreAfterShutdown: { inputs: [{ state: 'finished' }] }, costUsd: 0, unresolvedReservedUsd: 0, errors: [] };
     await writeFile(join(root, 'result.json'), JSON.stringify(report));
     const audit = await writeTelegramStopAudit({ directory: root });
     assert.equal(audit.taskRuns, 1); assert.equal(audit.receipts[0].runId, 'observed-before-wait-completed');
+    assert.equal(audit.receipts[0].receipt.status, 'running'); assert.equal(audit.receipts[0].receiptAfterShutdown.status, 'cancelled');
+    assert.deepEqual(audit.telegramStore, report.telegramStore); assert.deepEqual(audit.telegramStoreAfterShutdown, report.telegramStoreAfterShutdown);
     await keep('early-run-accounting.json', audit);
     await keepPair('early-run', root);
   } finally { await rm(root, { recursive: true, force: true }); }

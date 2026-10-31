@@ -24,13 +24,15 @@ export async function writeTelegramStopAudit({ directory }) {
     modelRequests: report.calls.length, taskRuns: new Set(report.cases.flatMap(row => [row.runId, row.receipt?.runId]).filter(Boolean)).size,
     amount: report.costUsd, unresolvedReservedUsd: report.unresolvedReservedUsd,
     inboundChecks: report.inboundChecks, telegramIdentity: report.telegramIdentity ?? null, pollFailure: report.pollFailure ?? null,
-    pairReadiness: report.pairReadiness ?? [],
+    pairReadiness: report.pairReadiness ?? [], channelStrategy: report.channelStrategy ?? null, dailyAccess: report.dailyAccess ?? null,
+    testProfile: report.testProfile ?? null, testChannelStartedAt: report.testChannelStartedAt ?? null,
     bindingAtPairingStart: report.bindingAtPairingStart ?? null, pairingConfirmation: report.pairingConfirmation ?? null,
     bindingBeforeShutdown: report.bindingBeforeShutdown ?? null, bindingAfterShutdown: report.bindingAfterShutdown ?? null,
-    telegramStore: report.telegramStore ?? null, transportCursorHandoff: report.transportCursorHandoff ?? null,
+    telegramStore: report.telegramStore ?? null, telegramStoreAfterShutdown: report.telegramStoreAfterShutdown ?? null,
+    transportCursorHandoff: report.transportCursorHandoff ?? null,
     shutdownErrors: report.errors, isolatedHostStoppedAt: report.isolatedHostStoppedAt ?? null,
     isolatedTelegramStoppedAt: report.isolatedTelegramStoppedAt ?? null, daily: report.daily ?? null,
-    receipts: report.cases.map(row => ({ runId: row.runId ?? row.receipt?.runId ?? null, receipt: row.receipt ?? null })),
+    receipts: report.cases.map(row => ({ runId: row.runId ?? row.receipt?.runId ?? null, receipt: row.receipt ?? null, receiptAfterShutdown: row.receiptAfterShutdown ?? null })),
     fixtureRetained: report.fixture?.statePath ?? null };
   assert.equal(sha(await readFile(join(directory, 'result.json'))), audit.sourceResultSha256);
   await writeFile(join(directory, 'stop-audit.json'), JSON.stringify(audit, null, 2) + '\n', { flag: 'wx' });
@@ -46,7 +48,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   assert.equal(sha(original), audit.sourceResultSha256);
   assert.deepEqual(audit.inboundChecks, report.inboundChecks);
   assert.deepEqual(audit.pairReadiness ?? [], report.pairReadiness ?? []);
-  assert.deepEqual(audit.bindingBeforeShutdown, report.bindingBeforeShutdown ?? null);
-  assert.deepEqual(audit.bindingAfterShutdown, report.bindingAfterShutdown ?? null);
-  console.log(JSON.stringify({ acceptance: audit.acceptance, resultUnmodified: true, rejectedUpdates: audit.inboundChecks.filter(row => !row.accepted).length }));
+  assert.deepEqual(audit.bindingBeforeShutdown ?? null, report.bindingBeforeShutdown ?? null);
+  assert.deepEqual(audit.bindingAfterShutdown ?? null, report.bindingAfterShutdown ?? null);
+  assert.deepEqual(audit.telegramStoreAfterShutdown ?? null, report.telegramStoreAfterShutdown ?? null);
+  for (const row of audit.receipts ?? []) assert.deepEqual(row.receiptAfterShutdown ?? null,
+    report.cases.find(item => (item.runId ?? item.receipt?.runId ?? null) === row.runId)?.receiptAfterShutdown ?? null);
+  console.log(JSON.stringify({ acceptance: audit.acceptance, resultUnmodified: true,
+    rejectedUpdates: Array.isArray(audit.inboundChecks) ? audit.inboundChecks.filter(row => !row.accepted).length : null }));
 }
