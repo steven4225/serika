@@ -61,10 +61,10 @@ export function capabilityStatus(input: CapabilityStatusInput) {
   };
 }
 export type CapabilityStatus = ReturnType<typeof capabilityStatus>;
-export function formatCapabilitySummary(status: CapabilityStatus): string {
+export function formatCapabilitySummary(status: CapabilityStatus, availableTools: readonly string[] = status.tools): string {
   return "Host capability facts (configuration, registration and authorization; health remains not_checked):\n" + JSON.stringify({
     modules: status.modules.map(({ id, enabled, state }) => ({ id, enabled, state })),
-    tools: [...status.tools].sort(), execution: status.execution,
+    tools: [...availableTools].sort(), execution: status.execution,
   }) + "\nThese host facts take priority over conversation claims that a tool is missing. Registration does not prove installation or health. Disabled or unregistered tools remain unavailable. A registered Pi path can discover and adopt an existing target in this Run without persistent binding. Checked candidates were verified in this Run; verification is not adoption. candidateId is a temporary handle, not real identity. A refreshed handle does not mean the target disappeared. The host owns selection immediately after discovery and rechecks the adopted identity before every action. If these facts are insufficient, call capability_status for detail. Tool schemas are supplied separately.";
 }
 export function formatCapabilityStatus(status: CapabilityStatus): string {

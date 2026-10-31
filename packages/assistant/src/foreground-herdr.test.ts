@@ -155,7 +155,8 @@ it("unbound multi-target choice keeps the original Run, freezes approval, sends 
 
 for (const source of ["desktop", "telegram"] as const) it(`${source} adopted discover hallucination is unexecuted feedback in the same Run with current-only model context`, async () => {
   const f = await fixture({ source, calls: [{ name: "herdr_pi_discover", input: {} },
-    { name: "herdr_pi_discover", input: { refresh: true } }, { name: "herdr_pi_read", input: { action: "get" } },
+    { name: "herdr_pi_discover", input: { refresh: true } }, { name: "capability_status", input: {} },
+    { name: "herdr_pi_read", input: { action: "get" } },
     prompt, { name: "herdr_pi_read", input: { action: "read" } }, { name: "read_file", input: { path: "answer.json" } }] });
   let choices = 0, approvals = 0;
   const off = f.controller.subscribe(event => {
@@ -183,11 +184,21 @@ for (const source of ["desktop", "telegram"] as const) it(`${source} adopted dis
     assert.ok(!JSON.parse(capabilityLine).tools.includes("herdr_pi_discover"));
     assert.match(f.requests[1]!, /Historical discovery; superseded by host adoption/);
     assert.match(f.requests[2]!, /HERDR_TARGET_ALREADY_ADOPTED/);
+    const afterStatus: { role: string; content: unknown }[] = JSON.parse(f.requests[3]!);
+    const statusResult = afterStatus.flatMap(message => Array.isArray(message.content) ? message.content : [])
+      .find(part => part.type === "tool-result" && part.toolName === "capability_status");
+    assert.ok(statusResult);
+    const projectedStatus = statusResult.output.value;
+    assert.match(projectedStatus.reference, /Current capability menu/);
+    assert.ok(!JSON.parse(projectedStatus.currentCapabilities.split("\n")[1]).tools.includes("herdr_pi_discover"));
     const saved = await f.app.store.getMessages("thread");
     const discovery = saved.flatMap(message => message.parts).find(part => part.type === "dynamic-tool" && part.toolCallId === "call-1");
     assert.ok(discovery?.type === "dynamic-tool" && discovery.state === "output-available");
     assert.match(JSON.stringify(discovery.output), /"adoptedTarget":null/);
     assert.ok(!JSON.stringify(saved).includes("Historical discovery; superseded by host adoption"));
+    const status = saved.flatMap(message => message.parts).find(part => part.type === "dynamic-tool" && part.toolName === "capability_status");
+    assert.ok(status?.type === "dynamic-tool" && status.state === "output-available");
+    assert.match(JSON.stringify(status.output), /"herdr_pi_discover"/);
     const calls = await f.calls();
     assert.equal(calls.filter(args => args[0] === "session").length, 1);
     assert.equal(calls.filter(args => args[3] === "prompt").length, 1);

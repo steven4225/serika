@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { UIMessage } from "ai";
 import { AgentError, hashCanonicalJson, type AfterToolCall, type AfterToolCallInput, type BeforeToolExecute, type BeforeToolExecuteInput, type ToolExecutionDecision } from "@serika/core";
 import { HerdrClient, herdrControlSchema, herdrReadSchema, type HerdrAction, type HerdrCandidate, type HerdrDiscovery, type HerdrTarget } from "./herdr.js";
+import { formatCapabilitySummary, type CapabilityStatus } from "./capability-status.js";
 
 export interface HerdrSelectionCandidate extends HerdrCandidate { candidateId: string }
 export interface PendingHerdrSelection {
@@ -90,6 +91,25 @@ export class ForegroundHerdrTargets {
     const run = this.#run;
     return names.filter(name => !(run?.halted && ["herdr_pi_discover", "herdr_pi_read", "herdr_pi_control"].includes(name)) &&
       !(run?.adopted && name === "herdr_pi_discover"));
+  }
+  unavailableToolFeedback(): Readonly<Record<string, string>> | undefined {
+    return this.#run?.adopted && !this.#run.halted ? {
+      herdr_pi_discover: "HERDR_TARGET_ALREADY_ADOPTED: This Run already has a host-adopted Pi. No discovery or input was dispatched. Continue with herdr_pi_read or herdr_pi_control using the adopted target; control still requires its own approval.",
+    } : undefined;
+  }
+  projectModelContext(messages: UIMessage[], capabilities: CapabilityStatus): UIMessage[] {
+    if (!this.#run?.adopted || this.#run.halted) return messages;
+    const currentRun = this.snapshot();
+    return messages.map(message => ({ ...message, parts: message.parts.map(part => {
+      if (part.type !== "dynamic-tool" || part.state !== "output-available") return part;
+      if (part.toolName === "herdr_pi_discover") return { ...part,
+        output: { reference: "Historical discovery; superseded by host adoption. Use the current Run target; discover is unavailable.", currentRun } };
+      if (part.toolName === "capability_status") return { ...part, output: {
+        reference: "Current capability menu after host adoption; the stored registration receipt is historical.",
+        currentCapabilities: formatCapabilitySummary(capabilities, this.availableTools(capabilities.tools)),
+      } };
+      return part;
+    }) }));
   }
   async discover(input: { refresh?: boolean | undefined; requested?: { session?: string | undefined; paneId?: string | undefined; terminalId?: string | undefined; sourceQuote: string } | undefined }, signal?: AbortSignal) {
     const run = this.#run;
