@@ -7,6 +7,7 @@
 - [架构 v2：现状、边界与路线](architecture-v2.md)
 - [上下文与记忆重构计划](context-memory-refactor-plan.md)：执行依据，含后续架构第 6／7 步前提和完成状态。
 - [架构第 4.5 步计划](architecture-v2-step4.5-plan.md)：home、项目、目录授权和导入边界。
+- [架构第 6 步任务重做草案](architecture-v2-step6-task-draft.md)：待确认的四状态、定时合并和创建／校验方案，尚未实施。
 - [待处理事项与暂停项](v2-pilot/pending.md)
 - [ADR 0001：移除 durable orchestrator 与 PostgreSQL](adr/0001-remove-durable-orchestrator-and-postgres.md)
 
