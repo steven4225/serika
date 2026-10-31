@@ -1,0 +1,22 @@
+{
+  "id": "cf60101c-c400-4892-879a-6dd568bbd12b",
+  "verifiedAt": "2026-10-31T02:59:00.307Z",
+  "verification": "submission-integrity-and-credential-scan",
+  "status": "passed",
+  "acceptance": "failed-pi-task-incomplete",
+  "rawFilesVerified": 32,
+  "stagedFilesScanned": 36,
+  "credentialValueMatches": 0,
+  "credentialPrefixMatches": 0,
+  "counts": {
+    "product": {
+      "added": 47,
+      "deleted": 25
+    },
+    "test": {
+      "added": 603,
+      "deleted": 88
+    }
+  },
+  "archiveSummarySha256": "69f6db870e22164659bf48e4036e67a270905b6a3681fcc2c8db76c7d886da3d"
+}

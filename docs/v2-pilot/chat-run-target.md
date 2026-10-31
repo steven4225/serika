@@ -1,6 +1,6 @@
 # 聊天发现 CLI 与当前 Run Pi 目标
 
-> 2026-10-31 阶段 1 未完成。最新隔离真实批的业务证据链断言通过，但运行中一次 discover 参数拒绝未触发立即停止；原脚本 `passed` 保留，事后审计为 `incomplete-failure-stop-not-enforced`。本批已停止，不补真实 Run。详见文末。
+> 2026-10-31 阶段 1 未完成。新批按用户要求直接真实验收，Shell 通过，Pi 的额外 discover 因缺少原话身份依据被拒绝；本次拒绝后 0 个上游请求、0 次控制派发，原结果为 failed。该次宿主采用第一项的决定来源未被观察器记录，不能据此认定宿主绕过选择。已停止，详见文末。
 
 ## 1. 改了什么
 
@@ -191,3 +191,20 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 后续用户要求跳过离线测试，直接真实验收。按此收窄流程，仅补验收脚本的非成功工具结果停止：原事件观察器立即冻结，并在模型代理入口检查上一工具的顶层 `ok=false`，防止 renderer 事件传播延迟导致下一请求已出网。原失败及审计不变；新批仍需单独批准预算，不复用已用完的两个 Run。当前未新增真实请求。
 
 用户已另批新预算：最多 2 Run / 24 次上游请求 / $0.25，明确跳过离线测试，直接隔离真实验收。以下脚本改动仅为验收停止条件，不改产品逻辑；新批独立记录，不复用旧额度。
+
+
+### 新批直接真实验收，78ca59ba，2026-10-31
+
+**阶段 1 未完成，本批 failed，已经停止。** 用户另批 2 Run / 24 请求 / $0.25，并要求跳过离线测试。没有跑离线测试、增加新功能或切日用；保留上一批及本批原件。
+
+1. 改了什么：只给真批观察器补上非成功工具结果冻结，并在模型代理入口拒绝携带顶层 `ok=false` 工具结果的新请求，阻止其继续出网。产品逻辑不变。运行后新增 `chat-run-target-stop-audit.mjs` 核对本批实际证据，没有使用假模型重跑。
+2. 逐项结果：真实模型在最小启动 PATH、原 Seatbelt 下写入、读取并独立核查 `total=56`，Shell 场景通过。Pi 首次发现 2 个 idle 候选，选择卡出现；约 5 秒后卡被清除，下一请求的宿主上下文显示第一项已采用、selectionVersion=1。脚本没有发出选择决定，无法从现有记录确定 actor 或 accepted 回应，不能把卡消失当成完整选择证据，也不能认定宿主绕过了等待。随后模型再次提交带 session/pane/terminal 的 discover，但引用的用户原话不含这些标识，被 `HERDR_REQUEST_EVIDENCE_INVALID` 拒绝。停止门立即冻结，拒绝后 0 个上游请求、0 次控制派发、0 个 Pi 模型请求。独立操作批准、发送、回读及产物核查未到达，阶段 1 不报完成。
+3. 本批实际 2 Run / 11 次上游请求，全部 Serika，全部 returned，费用按原保守峰时费率估算 `$0.01077680`，非账单核验，已记入费用账本。没有 unknown、未结算请求、补 Run 或重发。上一批 19 次/$0.01422140 与本批分开记录，不改绿、不抵扣或刷新额度。
+4. 命令为 `SERIKA_B2_RECORD_CONCURRENT_HOME=1 node scripts/test-home.mjs --home /private/tmp/serika-197-stage1-live-guard-b -- node apps/desktop/scripts/chat-run-target-live.mjs --env-file /Users/a1-6/.config/serika/v2-daily.env --run --output /private/tmp/serika-197-stage1-live-b`，退出 1。事后 `node scripts/chat-run-target-stop-audit.mjs /private/tmp/serika-197-stage1-live-b` 退出 0，只表示原件 hash、费用和拒绝后零请求等证据核对成功，业务结论仍为 `failed-pi-task-incomplete`。没有执行 typecheck、单元/离线回归或标准 smoke。
+5. 与预期不符：本批尚未证明一次有完整决定来源的有效选择。脚本准备提交第二项选择时，先检查到整批已 failed，断言拒绝继续，没有写选择文件、没有调用选择 IPC。后处理核对第一项已采用，说明最初“无脚本决定即宿主绕过选择”的推断证据不足，已撤回该归因。已向用户核对是否手动点击过第一项；答复前保持来源未归因。确定需要处理的行为是模型把宿主采用的身份误作用户精确指定而再次 discover。本批不继续修复或复验。
+
+运行于 macOS、真实 Electron 44.4.5、原 preload/IPC，源码 `8388137`、`sourceWorktreeDirty=false`。guard 为 failed / violations=0 / changes=28 / metadataUnchanged=false，失败原件完整保留。两个测试 Electron 进程均已退出。脚本在 frozen 后保留独占 Herdr 现场，没有追加目标回读或控制清理；测试服务 `w-bf1bb63b` 的 server pid 76530 仍在，目录 `/private/tmp/c-RD0jp2` 保留，代理已退出。该服务属于本批隔离现场，无日用替换或绑定变更。
+
+[原始 failed](evidence/chat-run-target/stage1-live-78ca59ba/result.json) · [拒绝后停止审计](evidence/chat-run-target/stage1-live-78ca59ba/stop-audit.json) · [归档与 hash](evidence/chat-run-target/stage1-live-78ca59ba/archive-summary.json) · [保留现场及进程观察](evidence/chat-run-target/stage1-live-78ca59ba/retained-processes.json)。真实 TG、真实压缩及日用 Shell 恢复仍未验收。本轮更新原 #197 后停止，不合并、不部署。
+
+本批归档后，相对 `71f9c3d` 的累计产品变更仍为 `+47 / -25`，测试与验证为 `+603 / -88`，文档和原始证据不计。增加部分用于真批停止观察及原件审计，不增加产品功能面。归档完整性、真实密钥值与常见前缀扫描均通过，见本批 submission-verification；这些提交核查不是真实业务通过结论。
