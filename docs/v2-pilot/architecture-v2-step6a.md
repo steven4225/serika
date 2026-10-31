@@ -53,6 +53,10 @@ Linux，Node 测试进程，不是 Electron，不是常驻进程，未在 32,768
 
 `telegram-gateway.test.ts` 的 “independent TG authorization…” 在 `run.tools[1].shell.exitCode` 失败（实际没有 shell 回执，10 个工具都是 `completed`）。“TG grant survives…” 报 `Telegram state did not settle`。失败点不在本次改过的 `workTaskPhase` 断言；`app.ts` 只改了任务存储接线，shell 回执写入器不在 diff 里。没有在 `main` 上复跑这两条，所以不把它们写成已证明的既有失败，也不把它们算进 6a 通过项。
 
+## bot1 复验（d438803）
+
+相对 main，三处回归已改：交付草稿与崩溃夹具改为读 `.runloom/tasks.json`；`arrangementDisplayStatus` 改从 `@serika/assistant/browser` 导出，收件箱不再从宿主入口做运行时导入。`pnpm typecheck` 退出码 0。`work-task-artifacts.test.js` 与 `work-task-crash-acceptance.test.js` 共 7 项通过。桌面 `package-boundary.test.ts` 与 `task-inbox.test.ts` 通过。未做 6b／6c，未升级真实日用。
+
 ## 与计划不符的地方及理由
 
 没有做 6b／6c，也没有升级真实日用。Home 行仍用英文 `failed`／`interrupted` 表示保留下来的 attempt 事实，存储状态是 `pending`。`scheduleStatusLabel` 仍把已退休的单词 `scheduled` 显示成等待，避免旧文案变成“状态待核对”；存储和工具枚举不再产出这个词。dreaming 不在 6a 范围，但交办记录多了字段，所以回执哈希显式丢掉这些字段，避免已有来源对不上。

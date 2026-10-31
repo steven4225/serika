@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { arrangementDisplayStatus, type TaskListV3, type TaskNotification, type TaskRecordV4 } from "@serika/assistant";
+import type { TaskListV3, TaskNotification, TaskRecordV4 } from "@serika/assistant";
+import { arrangementDisplayStatus } from "@serika/assistant/browser";
 import { MessageContent } from "./markdown.js";
 import { automationArrangementLabel } from "./automation-schedule.js";
 import { humanFacingTitle } from "../../shared/human-title.js";

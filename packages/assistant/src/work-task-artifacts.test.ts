@@ -120,7 +120,7 @@ it("Controller display queries are read-only, version-bound, survive restart and
     assert.ok(paused.ok);
     assert.equal(workTaskPhase(paused.value), "awaiting_acceptance");
     const input = { id: paused.value.id, expectedRevision: paused.value.revision };
-    const beforeTasks = await readFile(join(workspace, ".runloom/work-tasks.json"));
+    const beforeTasks = await readFile(join(workspace, ".runloom/tasks.json"));
     const beforeJournal = await readFile(join(root, "transcripts/execution-records.json"));
     const draft = await current.workTasks.getDeliveryDraft(input);
     assert.ok(draft.ok);
@@ -140,7 +140,7 @@ it("Controller display queries are read-only, version-bound, survive restart and
     const stale = await current.workTasks.getArtifact({ ...input, expectedRevision: 1, path: "notes/plan.md" });
     assert.ok(!stale.ok);
     assert.equal(stale.error.code, "WORK_TASK_REVISION_CONFLICT");
-    assert.deepEqual(await readFile(join(workspace, ".runloom/work-tasks.json")), beforeTasks);
+    assert.deepEqual(await readFile(join(workspace, ".runloom/tasks.json")), beforeTasks);
     assert.deepEqual(await readFile(join(root, "transcripts/execution-records.json")), beforeJournal);
     assert.equal(calls, 2);
     await writeFile(join(root, "transcripts/execution-records.json"), "broken receipt file");

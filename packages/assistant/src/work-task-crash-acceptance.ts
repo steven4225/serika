@@ -288,11 +288,11 @@ async function scenario(root: string, fault: Scenario, mode: ModelMode) {
           modelAlias: "mock-never-run", model: contenderModel, env: {}, output, cwd: root });
         const contender = createAssistantController(app);
         try {
-          const tasks = JSON.parse(await readFile(join(root, "workspace/.runloom/work-tasks.json"), "utf8"));
+          const tasks = JSON.parse(await readFile(join(root, "workspace/.runloom/tasks.json"), "utf8"));
           const journal = await readFile(join(root, "transcripts/execution-records.json"));
           const blocked = await contender.workTasks.get(tasks.tasks[0].id); assert.equal(blocked.ok, false);
           assert.ok(!blocked.ok && blocked.error.message.includes("already controlled"));
-          const stillRunning = JSON.parse(await readFile(join(root, "workspace/.runloom/work-tasks.json"), "utf8"));
+          const stillRunning = JSON.parse(await readFile(join(root, "workspace/.runloom/tasks.json"), "utf8"));
           assert.deepEqual(stillRunning, tasks);
           assert.deepEqual(await readFile(join(root, "transcripts/execution-records.json")), journal);
           assert.equal(contenderRequests, 0);
