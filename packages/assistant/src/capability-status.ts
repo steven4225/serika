@@ -61,6 +61,20 @@ export function capabilityStatus(input: CapabilityStatusInput) {
   };
 }
 export type CapabilityStatus = ReturnType<typeof capabilityStatus>;
+
+/** Model-facing copy. Projection can be skipped, so the tool result itself omits tools the host removed from this Run's request. */
+export function scrubCapabilityTools(status: CapabilityStatus, availableTools: readonly string[]): CapabilityStatus {
+  if (availableTools.length === status.tools.length && availableTools.every((name, index) => name === status.tools[index])) return status;
+  const allowed = new Set(availableTools);
+  return {
+    ...status,
+    tools: [...availableTools],
+    modules: status.modules.map(module => {
+      const registeredTools = module.registeredTools.filter(name => allowed.has(name));
+      return registeredTools.length === module.registeredTools.length ? module : { ...module, registeredTools };
+    }),
+  };
+}
 export function formatCapabilitySummary(status: CapabilityStatus, availableTools: readonly string[] = status.tools): string {
   return "Host capability facts (configuration, registration and authorization; health remains not_checked):\n" + JSON.stringify({
     modules: status.modules.map(({ id, enabled, state }) => ({ id, enabled, state })),

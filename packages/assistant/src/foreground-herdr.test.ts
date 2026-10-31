@@ -175,6 +175,10 @@ for (const source of ["desktop", "telegram"] as const) it(`${source} adopted dis
     const receipt = await f.controller.runs.get(id);
     assert.equal(receipt?.tools[1]?.startedAt, null);
     assert.match(receipt?.tools[1]?.errorPreview ?? "", /HERDR_TARGET_ALREADY_ADOPTED/);
+    const rejected = f.controller.getSnapshot().toolActivity.find(item => item.toolName === "herdr_pi_discover" && item.status === "failed");
+    assert.equal(rejected?.errorCode, "TOOL_SOFT_REJECTED");
+    assert.match(rejected?.summary ?? "", /^TOOL_SOFT_REJECTED: HERDR_TARGET_ALREADY_ADOPTED:/);
+    assert.equal(f.controller.getSnapshot().lastPrimaryResult?.error, undefined);
     assert.equal(choices, 1); assert.equal(approvals, 1);
     assert.ok(f.contracts.slice(1).every(names => !names.includes("herdr_pi_discover")));
     const afterChoice: { role: string; content: unknown }[] = JSON.parse(f.requests[1]!);
@@ -198,7 +202,11 @@ for (const source of ["desktop", "telegram"] as const) it(`${source} adopted dis
     assert.ok(!JSON.stringify(saved).includes("Historical discovery; superseded by host adoption"));
     const status = saved.flatMap(message => message.parts).find(part => part.type === "dynamic-tool" && part.toolName === "capability_status");
     assert.ok(status?.type === "dynamic-tool" && status.state === "output-available");
-    assert.match(JSON.stringify(status.output), /"herdr_pi_discover"/);
+    const statusOutput = status.output as { tools: string[] };
+    assert.equal(statusOutput.tools.includes("herdr_pi_discover"), false);
+    assert.equal(statusOutput.tools.includes("herdr_pi_read"), true);
+    assert.equal(statusOutput.tools.includes("herdr_pi_control"), true);
+    assert.equal(JSON.stringify(status.output).includes("herdr_pi_discover"), false);
     const calls = await f.calls();
     assert.equal(calls.filter(args => args[0] === "session").length, 1);
     assert.equal(calls.filter(args => args[3] === "prompt").length, 1);

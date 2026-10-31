@@ -2009,9 +2009,16 @@ describe("AiSdkAgentLoop", () => {
         assert.equal(result.stopReason, "completed");
         assert.equal(result.steps, 2);
         assert.equal(result.text, "Continued without dispatch.");
+        assert.equal(JSON.stringify(result.messages).includes("TOOL_NOT_FOUND"), false);
       } else {
         await assert.rejects(run, (error: unknown) => error instanceof AgentError &&
           error.data.code === (scenario === "budget" ? "RUN_LIMIT_EXCEEDED" : "TOOL_NOT_FOUND"));
+      }
+      if (scenario === "continue" || scenario === "budget") {
+        const failed = events.filter(event => event.type === "tool.call.failed");
+        assert.ok(failed.length > 0);
+        assert.ok(failed.every(event => event.type === "tool.call.failed" && event.data.error.code === "TOOL_SOFT_REJECTED" &&
+          event.data.error.message === feedback));
       }
       assert.equal(modelCalls, scenario === "continue" || scenario === "budget" ? 2 : 1);
       assert.equal(prechecks, 0); assert.equal(executions, 0); assert.equal(afterCalls, 0);

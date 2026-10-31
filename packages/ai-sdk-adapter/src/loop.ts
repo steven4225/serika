@@ -185,7 +185,8 @@ export class AiSdkAgentLoop implements AgentLoop {
         if (!registered) {
           const feedback = definition.unavailableToolFeedback;
           if (feedback && Object.hasOwn(feedback, call.toolName)) {
-            await failCall(call, new AgentError({ code: "TOOL_NOT_FOUND", message: feedback[call.toolName]!, retryable: false, phase: "tool" }));
+            // Monitors treat TOOL_NOT_FOUND as a hard kill. Declared feedback stays in this Run.
+            await failCall(call, new AgentError({ code: "TOOL_SOFT_REJECTED", message: feedback[call.toolName]!, retryable: false, phase: "tool" }));
             continue;
           }
           throw new AgentError({ code: "TOOL_NOT_FOUND", message: `Tool is not registered: ${call.toolName}`, retryable: false, phase: "tool" });
