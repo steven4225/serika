@@ -1,0 +1,27 @@
+{
+  "kind": "approval",
+  "stage": "multiple-pi",
+  "value": {
+    "approvalId": "c46ee452-4605-45f7-88d4-9803a732c71d",
+    "toolCallId": "call_00_FVRdo5zZ5TTL8n8aovH46779",
+    "toolName": "herdr_pi_control",
+    "input": {
+      "action": "prompt",
+      "text": "请在工作目录 /private/tmp/c-N9iRdH/herdr-fixture/workspace 中完成：读取 blue.json，把字段 a 与 b 的和以及原来的 order 值写入新文件 blue-answer.json，格式为 {\"sum\": <a+b>, \"order\": <blue.json 中的 order>}。只需创建该文件，不要修改 blue.json，也不要增加其他字段。"
+    },
+    "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"请在工作目录 /private/tmp/c-N9iRdH/herdr-fixture/workspace 中完成：读取 blue.json，把字段 a 与 b 的和以及原来的 order 值写入新文件 blue-answer.json，格式为 {\\\"sum\\\": <a+b>, \\\"order\\\": <blue.json 中的 order>}。只需创建该文件，不要修改 blue.json，也不要增加其他字段。\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/tmp/c-N9iRdH/herdr-fixture/workspace\",\"session\":\"w-604fe4ab\",\"paneId\":\"w1:p2\",\"terminalId\":\"term_65f1e60f076e92\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+    "herdr": {
+      "target": {
+        "authorizedDirectory": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+        "session": "w-604fe4ab",
+        "paneId": "w1:p2",
+        "terminalId": "term_65f1e60f076e92"
+      },
+      "action": {
+        "action": "prompt",
+        "text": "请在工作目录 /private/tmp/c-N9iRdH/herdr-fixture/workspace 中完成：读取 blue.json，把字段 a 与 b 的和以及原来的 order 值写入新文件 blue-answer.json，格式为 {\"sum\": <a+b>, \"order\": <blue.json 中的 order>}。只需创建该文件，不要修改 blue.json，也不要增加其他字段。"
+      },
+      "selectionVersion": 1
+    }
+  }
+}

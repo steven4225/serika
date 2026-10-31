@@ -1,0 +1,9 @@
+{
+  "auditId": "60b04d69-0f25-4f0b-bd85-2bb444267bdf",
+  "observedAt": "2026-10-31T08:06:20.400032+00:00",
+  "runId": "5c18bfbd-93d6-425e-8dac-2aaf672c5002",
+  "selectionId": "dfa65ece-cc45-4e64-9f52-d6dc832556d3",
+  "modelRequests": 1,
+  "candidateId": "2dd73417-e92f-44f0-ac34-e9df89e491c7",
+  "decision": "choose-second-isolated-idle-Pi-under-current-authorization"
+}

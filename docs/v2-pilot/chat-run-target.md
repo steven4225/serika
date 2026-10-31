@@ -278,8 +278,8 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 - [x] Implement：按 Run 状态收窄工具及入口；相关单测与完整假模型链。
 - [x] 核查原失败路径、差异与注释；typecheck、全测、桌面及 TG 离线回归。
 - [x] 干净源码构建隔离 Electron，假模型 read/control 及原审批观察链；任一关口失败即停。
-- [ ] 报新真批 Run/请求/费用/渠道/成功断言/停止条件，等用户“继续”。本轮未授权新真调用。
-- [ ] 获准后隔离真实整链；缺回执不报阶段完成；更新原 #197 后停止。
+- [x] 报新真批 Run/请求/费用/渠道/成功断言/停止条件；用户随后“继续”批准本批。
+- [x] 获准后隔离真实整链；缺回执不报阶段完成。原 #197 更新为最后工序，完成后停止。
 
 查过旧约束的 Tool side-effect invariants、TUI 单次确认和 Trusted desktop foreground autonomy 条目；本轮不改这些审批/授权规则、Seatbelt 或日用服务。Scrap 仅在当前结构无法表达协议时使用，本轮不预设重构。
 
@@ -298,3 +298,23 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 授权“继续”后，仅从上一批已用外部 `/Users/a1-6/.config/serika/v2-daily.env` 在进程内读取模型连接字段，不打印或写入凭据；允许 Codex 原生选卡一次，并独立批准该任务冻结的单次 Pi 操作。成功须核对同 runId 的全部完成定义，包括采用后请求工具定义无 discover、没有无效 requested、选中目标外零输入、操作正文/目标冻结一致、一次派发、本次回读和外部精确核对 `sum=14` 及本批随机 order。缺少任一回执即失败。
 
 任何验证失败、宿主拒绝、工具非成功结果、unknown、目标/适用环境变化、请求/费用上限或未结算调用均停止本批；unknown 立即冻结，不自动回读、重发、换目标或清理现场。真实失败保留原 result/request/response，不追加 Run、不改绿。该预算尚未获准，本轮真调用为 0；按工序等待用户“继续”，再运行真实隔离验收，最后更新原 #197 后停下。
+
+### 真实桌面契约验收，c9a16383，2026-10-31
+
+**阶段 1 的真实桌面整链通过；TG 仅离线回归通过。** 用户“继续”批准前节的 1 Run / 24 总请求 / $0.25 批次，原预算提案保留为历史记录。
+
+1. 改了什么：从干净 `d19be49` 构建真实 Electron 44.4.5，使用原 preload/IPC、隔离 Herdr 与两个 idle Pi，只运行 `--pi-only`。真实执行期间未改产品或验证脚本。结束后新增只读 `scripts/chat-run-target-contract-audit.mjs`，从原请求/响应、宿主事件、回执、Pi JSONL 和产物记录独立核查。本批原始 result 未改，旧失败批次保持原样。
+2. 逐项对照如下，完整原件见 [result](evidence/chat-run-target/stage1-live-c9a16383/result.json)、[原件独立审计](evidence/chat-run-target/stage1-live-c9a16383/contract-audit.json) 与 [归档 hash / 写保护](evidence/chat-run-target/stage1-live-c9a16383/archive-summary.json)。
+
+| 完成定义 | 本批真实桌面证据 |
+| --- | --- |
+| ≥2 idle → 宿主选择 → 接受一次 → 核对采用 → 同 Run | Run `5c18bfbd-93d6-425e-8dac-2aaf672c5002`，两个 idle；Codex 根据本批授权原生点击第二项，可信 click 和 runtime-bridge accepted 各 1；等待期间 0 新模型请求；后续 8 个主请求均带所选完整目标及 selectionVersion=1。 |
+| 采用后工具/参数收窄 | 首个主请求有 discover，后续 8 个主请求全部无 discover、保留 read/control；实际 discover 共 1 次，无 requested 冒充原话，无无效调用。未改 sourceQuote 规则。 |
+| 单独操作审批、冻结与派发一致 | `call_00_FVRdo5zZ5TTL8n8aovH46779` → approval `c46ee452-4605-45f7-88d4-9803a732c71d` → 完整冻结目标/正文 → 原决定输入与宿主 accepted → dispatched=true。一次控制批准、一次控制调用，Pi JSONL 中唯一输入逐字匹配冻结正文，未选 Pi 零输入。 |
+| 本次回读与独立核查 | control 的 verified=false 保留，不将发送 ack 当完成。之后 herdr_pi_read/read 包含本批 order；read_file 原回执与脚本外部解析均得 `{sum:14,order:"c9a16383-blue"}`。回执完整，trace 无缺失/截断。 |
+| 拒绝/取消/目标变化与 unknown | 本批正常路径无拒绝、失败或 unknown；零派发负例沿用本候选 6/6 隔离假模型及 runtime 相关测试，不伪称真实负例通过。未追加真实负例或第二 Run。 |
+| 渠道与停止范围 | 只测真实桌面；TG 离线 85/85，真实 TG 未测。真实 Shell 不重跑，日用、压缩专项未验收。隔离 Electron 已退出，Herdr cleaned、临时目录删除。 |
+
+3. 数字：实际 1 宿主任务 Run、14 次上游请求，其中主模型 9、Pi 4、compactor 1，均 returned。按原批准的脚本峰时费率估算 `$0.01076272`，非账单核验；未结算调用和预留费用均为 0。费用仅追加一次到 cost-ledger。相对候选 `d19be49`，本次产品改动 0，新增审计脚本 137 行，测试/验收内容未因真实运行结果修改。
+4. 实际命令与退出码：隔离 guard 下 `pnpm build` 退出 0；`node …/chat-run-target-live.mjs --pi-only --env-file /Users/a1-6/.config/serika/v2-daily.env --run --output /private/tmp/serika-197-contract-live-c6009e35/live` 退出 0；`node scripts/chat-run-target-contract-audit.mjs …/live` 退出 0。两份 guard passed、零违规，metadataUnchanged=false，不声称日用元数据未变。14 对原始请求/响应、截图、result 的 SHA-256 和累计费用均独立核对，密钥常见前缀扫描零命中。产品与先前全测/假模型候选相同，本次未重复全测或追加真调用。
+5. 偏离与观察限制：一次最初只读提取器误把第 14 个 compactor 请求当主请求，访问必填 tools 报 KeyError，已暂停结论并只读确认用途；正式审计明确要求每个主请求含 tools，仅识别到的 compactor 可无 tools，其费用仍计入总额。独立复核的附加严格毫秒先后断言也不适用，宿主决定与 tool.startedAt 均为 `08:06:53.207Z`；Pi 唯一实际输入为 `08:06:53.605Z`，晚于批准。未改原始时间，未臆造审批 AgentEvent sequence，未追加 Run。只读复核最终未发现桌面完成定义缺口。按最小改动/实物核查原则保留上述原件和 verified=false，以完整链条作结论；本轮只更新原 #197，不合并、不部署日用。
