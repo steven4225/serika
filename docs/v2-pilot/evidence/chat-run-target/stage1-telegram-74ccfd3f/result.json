@@ -1,0 +1,57 @@
+{
+  "batchId": "74ccfd3f-fcb6-4a3a-b917-37c6ae32948f",
+  "startedAt": "2026-10-31T15:38:12.263Z",
+  "sourceCommit": "e75e0de82e5eac23932a807c087a8fdad597479b",
+  "sourceWorktreeDirty": false,
+  "verification": "real-telegram-dedicated-test-bot-original-runtime-isolated-herdr-pi",
+  "channelStrategy": "dedicated-test-bot",
+  "dailyAccess": "none",
+  "platform": "darwin",
+  "node": "v26.4.0",
+  "scriptSha256": "2ded837cd0bd206023b108d908a58875293610d300562ec0f7fe2ee5f1160b93",
+  "model": "deepseek/deepseek-v4.1-flash-fast",
+  "capUsd": 0.25,
+  "maxRequests": 24,
+  "maxRuns": 1,
+  "pricePerMillionUsd": {
+    "input": 0.32,
+    "output": 1.16,
+    "cacheRead": 0.03
+  },
+  "priceBasis": "Frozen desktop c9a16383 script rates; not invoice verified",
+  "credentialSource": "/Users/a1-6/.config/serika/chat-run-target-telegram-test.env",
+  "credentialsWrittenToDisk": false,
+  "calls": [],
+  "cases": [],
+  "errors": [],
+  "approvalEvents": [],
+  "transport": [],
+  "inboundChecks": [],
+  "pairReadiness": [],
+  "costUsd": 0,
+  "status": "failed",
+  "isolatedRoot": "/private/tmp/serika-chat-run-target-telegram-test-runtime",
+  "testProfile": {
+    "profileRoot": "/Users/a1-6/.serika-test/chat-run-target-telegram",
+    "runtimeRoot": "/private/tmp/serika-chat-run-target-telegram-test-runtime",
+    "applicationHome": "/Users/a1-6/.serika-test/chat-run-target-telegram/profile",
+    "configPath": "/Users/a1-6/.serika-test/chat-run-target-telegram/config.json",
+    "expectedBotId": 9127642960,
+    "expectedOwner": {
+      "userId": 6349286154,
+      "chatId": 6349286154
+    },
+    "leaseAcquiredAt": "2026-10-31T15:38:12.305Z",
+    "leaseReleasedAt": "2026-10-31T15:38:28.076Z"
+  },
+  "stopReason": "verification-failure",
+  "failure": {
+    "name": "AssertionError",
+    "message": "new isolated server did not become ready; preserve target for inspection"
+  },
+  "bindingBeforeShutdown": null,
+  "bindingAfterShutdown": null,
+  "realModelCalls": 0,
+  "unresolvedReservedUsd": 0,
+  "finishedAt": "2026-10-31T15:38:28.076Z"
+}

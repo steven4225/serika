@@ -1,0 +1,54 @@
+{
+  "auditId": "39c8249b-7467-4842-ae0c-0764be7c84cb",
+  "at": "2026-10-31T16:15:17.642Z",
+  "batchId": "4ebdd9b2-7cea-4e51-81c8-2a2e7108def8",
+  "acceptance": "failed-task-start-after-successful-pairing",
+  "originalResultStatus": "running",
+  "harnessFinalizationCompleted": false,
+  "originalResultSha256": "de5e14eab0b78343af358b0f999e641ab8a4837f2cacb230332e4d879b923744",
+  "originalResultUnmodified": true,
+  "credentialPrefixHits": 0,
+  "files": [
+    {
+      "name": "archive-initial.mjs",
+      "sha256": "72a0cc1a36618445eeaa3e430e2d97f60f79c3cd5cc104f6ea45d22a946cb5c2"
+    },
+    {
+      "name": "archive.mjs",
+      "sha256": "f319f6c4793da45c68dc84a5ee3dd3874db77ff4cbaca2ea30fe3881ff729bbb"
+    },
+    {
+      "name": "decisions.tsv",
+      "sha256": "6206fe9d841248d76be5943c427517122bd4a9110789e0a97397497c30b99ddb"
+    },
+    {
+      "name": "herdr-state.json",
+      "sha256": "55ddd29747bada3272013c4b5f51495977d70a7ee6a5a1b910decade8aab894d"
+    },
+    {
+      "name": "operator-stop-audit.json",
+      "sha256": "5a4c542c91ee594f25746d55bdfac89354c841dd04278795ebee8f260e321afb"
+    },
+    {
+      "name": "preserve-stop.mjs",
+      "sha256": "56294ac7bee1ebb78f422382832d97bf5dbe901179daa76c536f166d850d6d8e"
+    },
+    {
+      "name": "result.json",
+      "sha256": "de5e14eab0b78343af358b0f999e641ab8a4837f2cacb230332e4d879b923744"
+    },
+    {
+      "name": "server.log",
+      "sha256": "c01dc86c9b65dc5565a4237a25dc434a2180bb9bf0eda4e815fa2531d2a32350"
+    },
+    {
+      "name": "telegram-store-after-disable.json",
+      "sha256": "1341e61159e25e37de9c7668e15e1e245adc53c3cf52a30d0ff9c6629def6a3e"
+    },
+    {
+      "name": "telegram-store-before-disable.json",
+      "sha256": "f1297dcb60c19c578e2257e8a10a65609ff664605f5c901f0f96f33442911e5a"
+    }
+  ],
+  "ledgerRecordedExactlyOnce": true
+}

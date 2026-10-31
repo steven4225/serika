@@ -1,0 +1,79 @@
+{
+  "archiveId": "20669735-2bd6-43ca-9466-c58eaf7ec4e7",
+  "at": "2026-10-31T09:48:32.815Z",
+  "files": {
+    "affected-tests.log": {
+      "sha256": "7fe418a839892286b898fcf9bddadef54ad867f4d56672413a079441ef068730",
+      "bytes": 10312
+    },
+    "archive.mjs": {
+      "sha256": "98b516b3134f4d950167eea373a6b47584898c93a4d1f5f89debf8e7a66bf160",
+      "bytes": 6479
+    },
+    "before.json": {
+      "sha256": "1dec9cdb9be67dbc97d11bf58cba1174f170665f6c013730f7fc458d6db017ed",
+      "bytes": 1077
+    },
+    "daily-replay-recovery.json": {
+      "sha256": "1d5f45c10fafb1629b64e1ad856b99d27a8d98db0348ab9ed4f895c6f0823d21",
+      "bytes": 1252
+    },
+    "journal-recovery.json": {
+      "sha256": "f2611d09986d124b4768ae3240cb93dca009d9dc17e308f88a9cb7530f01e6db",
+      "bytes": 648
+    },
+    "offline-reviewed/early-run/result.json": {
+      "sha256": "7a6116e34495c94b0b868c4d4a23732a912bca0875ca2128565ffba1ffa0ef53",
+      "bytes": 275
+    },
+    "offline-reviewed/early-run/stop-audit.json": {
+      "sha256": "fd717326b2c43f5bba2cd34cb9afa98cc3e36ad8c09d3e777683fd6328d7598a",
+      "bytes": 1114
+    },
+    "offline-reviewed/early-run-accounting.json": {
+      "sha256": "fd717326b2c43f5bba2cd34cb9afa98cc3e36ad8c09d3e777683fd6328d7598a",
+      "bytes": 1114
+    },
+    "offline-reviewed/handoff.json": {
+      "sha256": "933733f02fdad5570fd3f435f17116c69c14f3c5aa0500b221105118009bdcfa",
+      "bytes": 4138
+    },
+    "offline-reviewed/original-gateway-lifecycle.json": {
+      "sha256": "07c946494254f0dd6616fc9df3368110a459832ead8dce93b48c6a3903c836da",
+      "bytes": 63681
+    },
+    "offline-reviewed/predicate-boundaries.json": {
+      "sha256": "a88b2ede5bbebcf18b38d8ff7f4758cfd7336acfd1ba6ead921c3aa4b7a69245",
+      "bytes": 15307
+    },
+    "offline-reviewed/rejection/result.json": {
+      "sha256": "cec8687368e7d2676d96c6863f15be8669748134c8a518d82c0ca866bd0d8d0a",
+      "bytes": 4663
+    },
+    "offline-reviewed/rejection/stop-audit.json": {
+      "sha256": "192590e7e370b648bbb69ad4da09e9160b127706e51ada6a7cf136dbbdb7a25b",
+      "bytes": 8326
+    },
+    "offline-reviewed/rejection-stop-audit.json": {
+      "sha256": "192590e7e370b648bbb69ad4da09e9160b127706e51ada6a7cf136dbbdb7a25b",
+      "bytes": 8326
+    },
+    "offline-reviewed.log": {
+      "sha256": "7c925127cc73f1e252a6fbb5b5167dbd5ecfbd2fff593a9fe01f86e9d80e2bc0",
+      "bytes": 1037
+    },
+    "supplemental-cost.json": {
+      "sha256": "fa84df599ad4d993b77fd9c92ad77995bfd5228d491af91c7315419fcbd5c830",
+      "bytes": 587
+    },
+    "typecheck-final.log": {
+      "sha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "bytes": 141
+    },
+    "verification.json": {
+      "sha256": "9457b71023037ce6e9aa7e9aa83a0dd921902ca420439af5f8f2da4390b064ce",
+      "bytes": 5484
+    }
+  },
+  "credentialPrefixMatches": 0
+}

@@ -1,0 +1,38 @@
+{
+  "auditId": "be114798-9f9e-46eb-9ac5-33fc37f91251",
+  "auditedAt": "2026-10-31T11:51:19.242Z",
+  "verification": "failed-telegram-batch-diagnostics-from-original-result",
+  "acceptance": "failed-telegram-batch",
+  "batchId": "42a7c072-609d-4047-a1e8-895397cadc52",
+  "sourceCommit": "offline-accounting-fixture",
+  "sourceResultSha256": "378cdbc84abbc87a28be46970f090e3fb8ac25ad85856abc59a22a4dc1402e89",
+  "sourceResultUnmodified": true,
+  "modelRequests": 0,
+  "taskRuns": 1,
+  "amount": 0,
+  "unresolvedReservedUsd": 0,
+  "inboundChecks": [],
+  "telegramIdentity": null,
+  "pollFailure": null,
+  "pairReadiness": [],
+  "bindingAtPairingStart": null,
+  "pairingConfirmation": null,
+  "bindingBeforeShutdown": null,
+  "bindingAfterShutdown": null,
+  "telegramStore": null,
+  "transportCursorHandoff": null,
+  "shutdownErrors": [],
+  "isolatedHostStoppedAt": null,
+  "isolatedTelegramStoppedAt": null,
+  "daily": null,
+  "receipts": [
+    {
+      "runId": "observed-before-wait-completed",
+      "receipt": {
+        "runId": "observed-before-wait-completed",
+        "status": "failed"
+      }
+    }
+  ],
+  "fixtureRetained": null
+}

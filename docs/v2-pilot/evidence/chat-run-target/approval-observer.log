@@ -1,0 +1,2 @@
+{"output":"/private/tmp/serika-run-choice-observer","status":"passed","checks":["choose-continue-approve-readback-independent-file-check","original-preload-exact-approval-id-rejects-stale-and-unmatched","new-run-reselects-old-choice-invalid-replacement-blocks-old-approval"]}
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-run-choice-observer-guard/write-guard-nobc5Q/result.json","violations":0,"changes":4,"metadataUnchanged":false}

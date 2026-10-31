@@ -1,0 +1,259 @@
+{
+  "status": "passed",
+  "originalFiles": [
+    {
+      "path": "herdr-state.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/real-live/herdr-state.json",
+      "bytes": 7146,
+      "sha256": "a238683758473def1c8ca5e25cb964ee331ad914d9e31ff31d406a73243505fc"
+    },
+    {
+      "path": "request-1.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/real-live/request-1.json",
+      "bytes": 33758,
+      "sha256": "013fbdb56c4ccd168d4684ea6c6c7d950414709513964ffff9520679081ffb07"
+    },
+    {
+      "path": "request-2.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/real-live/request-2.json",
+      "bytes": 34395,
+      "sha256": "d00cb548107b7d18be43ef3fd64ca6f697c28c79f255d5b477b17d7277dcebef"
+    },
+    {
+      "path": "request-3.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/real-live/request-3.json",
+      "bytes": 37589,
+      "sha256": "c534adb0f82e11cf9f0646b52e504358a995baeddcb7eca91f46dfdb4491b669"
+    },
+    {
+      "path": "response-1.txt",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/real-live/response-1.txt",
+      "bytes": 12030,
+      "sha256": "fc8b7abd89d253397dabefe9085925da2fdad88502b5659316416514d5544e04"
+    },
+    {
+      "path": "response-2.txt",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/real-live/response-2.txt",
+      "bytes": 10605,
+      "sha256": "d2c558b4a22e27d62e754406f96c8bed1777d70d3ecedc4b1522176970493b28"
+    },
+    {
+      "path": "response-3.txt",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/real-live/response-3.txt",
+      "bytes": 6660,
+      "sha256": "ef516b2b322dd4544dfc20934b454d73518cfa5255eca66773cb10989495e7b4"
+    },
+    {
+      "path": "result.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/real-live/result.json",
+      "bytes": 115158,
+      "sha256": "528e0819110c35f4d2c47ae280d42736e861889f956913dad76dad21a379763f"
+    },
+    {
+      "path": "source.patch",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/real-live/source.patch",
+      "bytes": 27507,
+      "sha256": "fc42b43213f1e1d7423dece62d91048722d30ea0560bc1e30ab5bdaf78c37532"
+    },
+    {
+      "path": "stop-audit.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/real-live/stop-audit.json",
+      "bytes": 58156,
+      "sha256": "ba0b1cbb968e6815bd2da36c59c21a617a043723167f1f3a67ff68dc9314378d"
+    },
+    {
+      "path": "prestart-2639473b/herdr-state.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/live/herdr-state.json",
+      "bytes": 7146,
+      "sha256": "db5e3046d9a21d5de716f7d9f89b3d0f0b9001bfa745abf9a3a1721ce169558f"
+    },
+    {
+      "path": "prestart-2639473b/result.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/live/result.json",
+      "bytes": 6526,
+      "sha256": "21ed7fd231030d36d2c3a61f9344ae7ca0d46c05affb223dbcd411f60e89cf3f"
+    },
+    {
+      "path": "prestart-2639473b/source.patch",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/live/source.patch",
+      "bytes": 27507,
+      "sha256": "fc42b43213f1e1d7423dece62d91048722d30ea0560bc1e30ab5bdaf78c37532"
+    },
+    {
+      "path": "prestart-2639473b/stop-audit.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/live/stop-audit.json",
+      "bytes": 3461,
+      "sha256": "44e9f003b5a1db9159a026cee77750f5d5fbb7082577cca179903ae1e414e28b"
+    },
+    {
+      "path": "reconciliation/reconcile.mjs",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/reconciliation/reconcile.mjs",
+      "bytes": 6925,
+      "sha256": "454b0bd88519bff5e856e5f396e92f8d2e1a1f39bb779e794f5625c0ae594cde"
+    },
+    {
+      "path": "reconciliation/result.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/reconciliation/result.json",
+      "bytes": 668,
+      "sha256": "555a539456a7832df3906059676a272b45da51659c977744f2d9734ae92d95de"
+    },
+    {
+      "path": "reconciliation/run.log",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/reconciliation/run.log",
+      "bytes": 224,
+      "sha256": "6a3cc40474e10659bfa7f3030f4dfc5b68efb6f7f975f8c151cce969a69bc6fe"
+    },
+    {
+      "path": "reconciliation-2/reconcile.mjs",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/reconciliation-2/reconcile.mjs",
+      "bytes": 9075,
+      "sha256": "cc6b39fcb71137a9ca6a4e5c04fb2408484d9c675fe88ada00c8f7b5cdb93abd"
+    },
+    {
+      "path": "reconciliation-2/result.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/reconciliation-2/result.json",
+      "bytes": 8875,
+      "sha256": "fd67915bc82731822f383a01a74f31812d4ed14fb31f3351a03c4a1e11375ce5"
+    },
+    {
+      "path": "reconciliation-2/run.log",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/reconciliation-2/run.log",
+      "bytes": 261,
+      "sha256": "2d4c41f5770df30d456e5f4f40e6f19416138f3b9b6b085b5afb33ff002afb81"
+    },
+    {
+      "path": "reconciliation-3/reconcile.mjs",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/reconciliation-3/reconcile.mjs",
+      "bytes": 7635,
+      "sha256": "27157a550cba20abc4d55d7ed6374af892d4c87922f2df48c99b9cac6c8ff887"
+    },
+    {
+      "path": "reconciliation-3/result.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/reconciliation-3/result.json",
+      "bytes": 11929,
+      "sha256": "41fe6a9d948c7b0c0d1ca4f3af6591d607956f6f581d241a4499b709702d1b7e"
+    },
+    {
+      "path": "reconciliation-3/run.log",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/reconciliation-3/run.log",
+      "bytes": 206,
+      "sha256": "9b7e080179087236dc6de2677fb4a1a06b105a816ce1e1c3f6c206ae79cc09cb"
+    },
+    {
+      "path": "offline-gate/pi-1.jsonl",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/offline-gate/pi-1.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "offline-gate/pi-2.jsonl",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/offline-gate/pi-2.jsonl",
+      "bytes": 6276,
+      "sha256": "9a888bdf88e4b5f637feba64ad9da288b1815e792fe2fb325a08b1147a5fc00f"
+    },
+    {
+      "path": "offline-gate/result.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/offline-gate/result.json",
+      "bytes": 162630,
+      "sha256": "654f7989e8d88c204fd30b6452bf47885194c27a4ef164024fe3141a46a650cb"
+    },
+    {
+      "path": "inbound-evidence/dedicated-observer-first-task.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/inbound-evidence/dedicated-observer-first-task.json",
+      "bytes": 1902,
+      "sha256": "89c9a3aee3273d950513b5bc180a2e43ef439c4e960c983d731a69cee3451179"
+    },
+    {
+      "path": "inbound-evidence/dedicated-original-gateway-reuse.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/inbound-evidence/dedicated-original-gateway-reuse.json",
+      "bytes": 650,
+      "sha256": "8b199d92eb11932f508adf9381bc0aeb0aafeb83bb33fb491355383e780a52c9"
+    },
+    {
+      "path": "inbound-evidence/dedicated-settings-boundaries.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/inbound-evidence/dedicated-settings-boundaries.json",
+      "bytes": 259,
+      "sha256": "164094cdf61520f93d4f8b7af5d0c9ddb1e0b728c4f18d5f023ad0fe4f6ee43b"
+    },
+    {
+      "path": "inbound-evidence/early-run-accounting.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/inbound-evidence/early-run-accounting.json",
+      "bytes": 1536,
+      "sha256": "9f8082d4828080522db419350ff4da47aaee6dad89c5a57321b05f44d93693e5"
+    },
+    {
+      "path": "inbound-evidence/gateway-control-boundary.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/inbound-evidence/gateway-control-boundary.json",
+      "bytes": 6272,
+      "sha256": "3d8dbd737d018a730dd4d14ba982c3ca04abacf7b5ef4a9de9a471b820d983e3"
+    },
+    {
+      "path": "inbound-evidence/handoff.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/inbound-evidence/handoff.json",
+      "bytes": 4034,
+      "sha256": "645d26ee29f0c3bc5557f6041d249013d73725db58406811a4e927edd08462b9"
+    },
+    {
+      "path": "inbound-evidence/original-gateway-lifecycle.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/inbound-evidence/original-gateway-lifecycle.json",
+      "bytes": 64072,
+      "sha256": "c911da8ca942b6f3f05978c4857cb3068bd65e3c6cfc38fb9298faff03d90273"
+    },
+    {
+      "path": "inbound-evidence/pair-readiness-failures.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/inbound-evidence/pair-readiness-failures.json",
+      "bytes": 1389,
+      "sha256": "79e2d4b3cdd5452de83e0caa4d21f25878db6731c52291a135e941ce36e8b0bb"
+    },
+    {
+      "path": "inbound-evidence/predicate-boundaries.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/inbound-evidence/predicate-boundaries.json",
+      "bytes": 14785,
+      "sha256": "c6672032bb36a94799213442f21fd93ae079a0a953940c60679a6d4dec4b6d97"
+    },
+    {
+      "path": "inbound-evidence/rejection-stop-audit.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/inbound-evidence/rejection-stop-audit.json",
+      "bytes": 8369,
+      "sha256": "de0faff1dbb1e4e9764b01d70b3573657112a3ca2ecfde11a1d036f6b25d49eb"
+    },
+    {
+      "path": "preparation/inbound.log",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/inbound.log",
+      "bytes": 1559,
+      "sha256": "dea9f27ae4dd12e25c3f2f8f597f0a3ecad885de3f36aaf19d8b3038026b3f0a"
+    },
+    {
+      "path": "preparation/offline-gate.log",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/offline-gate.log",
+      "bytes": 302,
+      "sha256": "2c2ddfc642fa089eeee4497689483fd5f4d5b17490732f35a320b4a3b704e287"
+    },
+    {
+      "path": "preparation/unused-scene-cleanup.json",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/unused-scene-cleanup.json",
+      "bytes": 391,
+      "sha256": "1f7c487b13fc6e84807321fba8b1a4ab3f645a1ec0f2d161077d6f9dcae33990"
+    },
+    {
+      "path": "preparation/tasks.md",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/tasks.md",
+      "bytes": 1280,
+      "sha256": "10d3c988907dc0eb7a488e0c6cbc4d70f9cd94dede99b6b160f82486d466f7b1"
+    },
+    {
+      "path": "preparation/archive.py",
+      "source": "/private/tmp/s197-tg-authorized-01nov-c/archive.py",
+      "bytes": 8518,
+      "sha256": "04217e4f6dbe05d456f94d9e4e5d24c8537e39919d5bca3d52f0b7900c638148"
+    }
+  ],
+  "originalFilesHashMatched": true,
+  "credentialPatternMatches": [],
+  "credentialScanScope": [
+    "telegram_token",
+    "api_key_prefix",
+    "authorization_bearer"
+  ],
+  "verificationSha256": "dfc4144ec48828fc0ea5ca6b98be02900bd79f31dda1f78919183387d1f980ef"
+}

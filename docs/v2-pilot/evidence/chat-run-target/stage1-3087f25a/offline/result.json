@@ -1,0 +1,55 @@
+{
+  "runId": "46ca999a-265b-4cfd-92a6-dffabfe5bef3",
+  "startedAt": "2026-10-30T18:23:25.149Z",
+  "verification": "offline-build-and-repository-tests",
+  "platform": "darwin",
+  "sourceCommit": "f203924f620d651d12bc9c866cbf56d4b75ef65e",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "94456bca6326cd2892d2ae193c7306a473f49e4c1f84c01e8c76915f73aa633d",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "phases": [
+    {
+      "name": "typecheck",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "startedAt": "2026-10-30T18:23:25.165Z",
+      "log": "typecheck.log",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "finishedAt": "2026-10-30T18:23:25.815Z",
+      "counts": {
+        "tests": 0,
+        "pass": 0,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "name": "full-test",
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "startedAt": "2026-10-30T18:23:25.815Z",
+      "log": "full-test.log",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "88774139495c8bf60067204c5eb528f09516087b3d3c39c46a034f0b9d075b1d",
+      "finishedAt": "2026-10-30T18:28:42.715Z",
+      "counts": {
+        "tests": 1898,
+        "pass": 1891,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 7
+      }
+    }
+  ],
+  "status": "passed",
+  "finishedAt": "2026-10-30T18:28:42.716Z"
+}

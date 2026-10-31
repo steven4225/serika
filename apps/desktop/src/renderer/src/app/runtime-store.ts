@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { UIMessage } from "ai";
 import type { HomeSnapshot } from "@serika/assistant/browser";
-import type { AppInfo, AssistantSteerRecord, ExecutionRunRecord, MainToRenderer, PendingApproval, RendererApi, ThreadSummary, UiSnapshot, UiState } from "../../../shared/ui-contract.js";
+import type { AppInfo, AssistantSteerRecord, ExecutionRunRecord, MainToRenderer, PendingApproval, PendingHerdrSelection, RendererApi, ThreadSummary, UiSnapshot, UiState } from "../../../shared/ui-contract.js";
 import { draftScope, type ConversationDraftState, type UncertainSteer } from "../../../shared/conversation-drafts.js";
 import type { RecordDetailState, RecordsState } from "../records.js";
 import { mergeSteerRecords } from "../../../shared/steer.js";
@@ -73,6 +73,7 @@ export interface RuntimeState {
   readonly state: UiState;
   readonly output: string;
   readonly approval: PendingApproval | null;
+  readonly herdrSelection: PendingHerdrSelection | null;
   readonly homeSnapshot: HomeSnapshot | null;
   readonly memoryRefresh: number;
   readonly contextRefresh: number;
@@ -194,6 +195,7 @@ export const initialRuntimeState: RuntimeState = {
   state: { kind: "idle" },
   output: "",
   approval: null,
+  herdrSelection: null,
   homeSnapshot: null,
   memoryRefresh: 0,
   contextRefresh: 0,
@@ -233,6 +235,10 @@ export function receiveMessage(current: RuntimeState, message: MainToRenderer): 
       return { ...current, approval: message.approval };
     case "approval-cleared":
       return current.approval?.approvalId === message.approvalId ? { ...current, approval: null } : current;
+    case "herdr-selection":
+      return { ...current, herdrSelection: message.selection };
+    case "herdr-selection-cleared":
+      return current.herdrSelection?.selectionId === message.selectionId ? { ...current, herdrSelection: null } : current;
     case "result": // Every result, before the current-primary check in App.
     case "memory-references-changed":
       return { ...current, contextRefresh: current.contextRefresh + 1 };
@@ -243,6 +249,8 @@ export function receiveMessage(current: RuntimeState, message: MainToRenderer): 
     case "task-result-available":
     case "identity-changed":
     case "module-notification":
+    case "approval-decision":
+    case "herdr-selection-decision":
     case "steer":
     case "event":
     case "shell-progress":
@@ -383,6 +391,7 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
       patch({
         state: snapshot.state,
         approval: snapshot.pendingApproval,
+        herdrSelection: snapshot.pendingHerdrSelection ?? null,
         output: snapshot.recentOutput,
         canSteer: snapshot.canSteer,
         steers: snapshot.steers,
@@ -582,6 +591,10 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
             store.refreshOpenTrace();
             return;
           case "approval-cleared":
+          case "approval-decision":
+          case "herdr-selection-decision":
+          case "herdr-selection":
+          case "herdr-selection-cleared":
             return;
           case "steer":
             store.onRunSteer(message.steer);

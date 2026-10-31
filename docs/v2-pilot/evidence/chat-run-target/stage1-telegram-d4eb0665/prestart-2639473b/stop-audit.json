@@ -1,0 +1,118 @@
+{
+  "auditId": "d71fb5b3-aabd-4754-b057-71cad7035383",
+  "auditedAt": "2026-10-31T17:26:35.260Z",
+  "verification": "failed-telegram-batch-diagnostics-from-original-result",
+  "acceptance": "failed-telegram-batch",
+  "batchId": "2639473b-c243-4f7d-9b59-3ea56054bb29",
+  "sourceCommit": "f34b9c468f8fd52e07c7de84bcb3f46704008eca",
+  "sourceResultSha256": "21ed7fd231030d36d2c3a61f9344ae7ca0d46c05affb223dbcd411f60e89cf3f",
+  "sourceResultUnmodified": true,
+  "stopReason": "verification-failure",
+  "failure": {
+    "name": "AssertionError",
+    "message": "Pair readiness failed: wrong-readiness-command"
+  },
+  "modelRequests": 0,
+  "taskRuns": 0,
+  "amount": 0,
+  "unresolvedReservedUsd": 0,
+  "inboundChecks": [],
+  "telegramIdentity": null,
+  "pollFailure": null,
+  "pairReadiness": [
+    {
+      "status": "waiting",
+      "at": "2026-10-31T17:25:16.335Z"
+    },
+    {
+      "status": "failed",
+      "at": "2026-10-31T17:26:35.230Z",
+      "matched": false,
+      "reason": "wrong-readiness-command"
+    }
+  ],
+  "channelStrategy": "dedicated-test-bot",
+  "dailyAccess": "none",
+  "testProfile": {
+    "profileRoot": "/private/tmp/s197-tg-authorized-01nov-c/live-home/.serika-test/chat-run-target-telegram",
+    "runtimeRoot": "/private/tmp/s197-tg",
+    "applicationHome": "/private/tmp/s197-tg-authorized-01nov-c/live-home/.serika-test/chat-run-target-telegram/profile",
+    "configPath": "/private/tmp/s197-tg-authorized-01nov-c/live-home/.serika-test/chat-run-target-telegram/config.json",
+    "expectedBotId": 9127642960,
+    "expectedOwner": {
+      "userId": 6349286154,
+      "chatId": 6349286154
+    },
+    "leaseAcquiredAt": "2026-10-31T17:25:07.948Z",
+    "initial": {
+      "owner": null,
+      "offset": 0,
+      "inputKeys": [],
+      "deliveryKeys": []
+    },
+    "final": {
+      "owner": null,
+      "offset": 0,
+      "enabled": false
+    },
+    "leaseReleasedAt": "2026-10-31T17:26:35.259Z"
+  },
+  "testChannelStartedAt": null,
+  "bindingAtPairingStart": null,
+  "pairingConfirmation": null,
+  "bindingBeforeShutdown": {
+    "owner": null,
+    "gatewayCreated": true,
+    "pairing": null,
+    "botId": null,
+    "threadId": "600ab555-5b87-4f5d-af13-93e5e80e3a6f",
+    "offset": 0,
+    "state": "idle",
+    "runId": null
+  },
+  "bindingAfterShutdown": {
+    "owner": null,
+    "gatewayCreated": true,
+    "pairing": null,
+    "botId": null,
+    "threadId": "600ab555-5b87-4f5d-af13-93e5e80e3a6f",
+    "offset": 0,
+    "state": "idle",
+    "runId": null
+  },
+  "telegramStore": {
+    "version": 1,
+    "workspace": "/private/tmp/s197-tg-authorized-01nov-c/live-home/.serika-test/chat-run-target-telegram/profile",
+    "enabled": false,
+    "botId": null,
+    "offset": 0,
+    "owner": null,
+    "inputs": [],
+    "deliveries": [],
+    "routes": []
+  },
+  "telegramStoreAfterShutdown": {
+    "version": 1,
+    "workspace": "/private/tmp/s197-tg-authorized-01nov-c/live-home/.serika-test/chat-run-target-telegram/profile",
+    "enabled": false,
+    "botId": null,
+    "offset": 0,
+    "owner": null,
+    "inputs": [],
+    "deliveries": [],
+    "routes": []
+  },
+  "transportCursorHandoff": null,
+  "shutdownErrors": [],
+  "isolatedHostStoppedAt": "2026-10-31T17:26:35.242Z",
+  "isolatedTelegramStoppedAt": "2026-10-31T17:26:35.242Z",
+  "daily": null,
+  "receipts": [
+    {
+      "runId": null,
+      "receipt": null,
+      "receiptAfterShutdown": null
+    }
+  ],
+  "fixtureRetained": "/private/tmp/s197-tg/herdr-fixture/herdr-state.json"
+}

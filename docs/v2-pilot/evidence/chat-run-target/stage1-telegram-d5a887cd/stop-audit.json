@@ -1,0 +1,74 @@
+{
+  "auditId": "11f0056b-70dc-4bf1-bfe9-a373c8d7b07e",
+  "auditedAt": "2026-10-31T08:35:55.292Z",
+  "verification": "read-only-failed-telegram-batch-stop-audit",
+  "acceptance": "failed-before-telegram-pairing",
+  "batchId": "d5a887cd-6976-41e1-ad2a-ed41c83e44f7",
+  "sourceCommit": "935294e7004176645448882a8179bf142030e854",
+  "sourceResultSha256": "d6d2856f4fd10b4f331b99084cdbd9790dc55ddf3c974e6d09ac4a8802a6528d",
+  "sourceResultUnmodified": true,
+  "modelRequests": 0,
+  "taskRuns": 0,
+  "amount": 0,
+  "piMessages": [
+    {
+      "file": "/private/tmp/tg-quC2af/herdr-fixture/pi-session.jsonl",
+      "transcriptPresent": false,
+      "userInputs": 0,
+      "sha256": null
+    },
+    {
+      "file": "/private/tmp/tg-quC2af/herdr-fixture/pi-second.jsonl",
+      "transcriptPresent": false,
+      "userInputs": 0,
+      "sha256": null
+    }
+  ],
+  "inboundEnvelope": {
+    "direction": "inbound-envelope",
+    "at": "2026-10-31T08:32:37.503Z",
+    "updateId": 414513485,
+    "messageId": 656
+  },
+  "bindingAccepted": false,
+  "limitation": "Rejected inbound payload and the exact failed predicate were not archived. Envelope alone cannot establish why pairing failed.",
+  "shutdownError": [
+    {
+      "stage": "isolated-host-stop",
+      "name": "ClientDestroyedError"
+    }
+  ],
+  "isolatedHarness": {
+    "pid": 96438,
+    "alive": false,
+    "termination": "SIGTERM after failed result and confirmed daily restoration; exec exit 143"
+  },
+  "dailyRestored": {
+    "auditId": "198bf9a3-2e1d-4186-92f9-ecdc9b99cf63",
+    "at": "2026-10-31T08:34:54.688Z",
+    "verification": "post-failure-read-only-live-resident-status",
+    "pid": 36769,
+    "enabled": true,
+    "connection": "online",
+    "ownerBound": true,
+    "pendingDeliveries": 0,
+    "unknownDeliveries": 3,
+    "awaitingReview": 0,
+    "configSha256": "0d38545bd21c11381e8cc91444511df07135a4bfc6cc2349c510769aea833292"
+  },
+  "fixtureRetained": {
+    "root": "/private/tmp/tg-quC2af/herdr-fixture",
+    "session": "w-83ae148e",
+    "serverPid": 96476,
+    "phase": "ready"
+  },
+  "uncovered": [
+    "telegram-pairing",
+    "same-run-selection",
+    "adopted-tool-contract",
+    "operation-approval",
+    "single-dispatch",
+    "readback",
+    "artifact-verification"
+  ]
+}

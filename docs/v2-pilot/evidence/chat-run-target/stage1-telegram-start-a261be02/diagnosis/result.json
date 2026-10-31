@@ -1,0 +1,147 @@
+{
+  "status": "passed-reproduced-and-isolated",
+  "variants": [
+    {
+      "variant": "original",
+      "root": "/private/tmp/s197obs-T1FovX",
+      "owner": {
+        "userId": 42,
+        "chatId": 42,
+        "name": "Offline",
+        "threadId": "03496e50-3caa-411a-b513-5aa1c2dcf592"
+      },
+      "inputs": [
+        {
+          "key": "42:2",
+          "updateId": 2,
+          "text": "请找一个现有 Pi，根据 blue.json 完成文件任务。本批标识：offline-diagnostic。",
+          "receivedAt": "2026-11-01T00:19+08:00",
+          "state": "rejected",
+          "runId": null,
+          "taskId": null
+        }
+      ],
+      "sent": [
+        "已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。工具仍逐次确认。例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。",
+        "本条启动未成功。未自动重试，请查看桌面连接状态。"
+      ],
+      "modelCalls": 0,
+      "networkCalls": 0,
+      "thrown": [
+        {
+          "type": "state",
+          "state": {
+            "kind": "command",
+            "name": "thread-switch"
+          },
+          "message": "正在切换会话，请稍候",
+          "stack": "Error: 正在切换会话，请稍候\n    at DesktopRuntime.get current (/Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/src/main/desktop-runtime.ts:71:31)\n    at observe (evalmachine.<anonymous>:2:91)\n    at Object.send (/private/tmp/s197-observe-repro-1101/repro.mjs:25:90)\n    at DesktopRuntime.#replace (/Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/src/main/desktop-runtime.ts:233:19)\n    at DesktopRuntime.channelRun (/Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/src/main/desktop-runtime.ts:120:16)\n    at TelegramGateway.#process (/Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/src/main/telegram-gateway.ts:550:38)\n    at async TelegramGateway.receive (/Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/src/main/telegram-gateway.ts:415:16)\n    at async <anonymous> (/private/tmp/s197-observe-repro-1101/repro.mjs:34:3)"
+        }
+      ],
+      "observed": [
+        {
+          "type": "state",
+          "state": {
+            "kind": "command",
+            "name": "thread-switch"
+          }
+        }
+      ],
+      "hostSnapshot": {
+        "kind": "idle"
+      }
+    },
+    {
+      "variant": "without-host-current-fallback",
+      "root": "/private/tmp/s197obs-L0WQ9i",
+      "owner": {
+        "userId": 42,
+        "chatId": 42,
+        "name": "Offline",
+        "threadId": "3f1b9530-a995-4f19-9bc4-a0d53ff762f7"
+      },
+      "inputs": [
+        {
+          "key": "42:2",
+          "updateId": 2,
+          "text": "请找一个现有 Pi，根据 blue.json 完成文件任务。本批标识：offline-diagnostic。",
+          "receivedAt": "2026-11-01T00:19+08:00",
+          "state": "finished",
+          "runId": "aecef9e7-58d4-4fb9-9327-4bcd0b0a6d36",
+          "taskId": null
+        }
+      ],
+      "sent": [
+        "已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。工具仍逐次确认。例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。",
+        "offline-complete"
+      ],
+      "modelCalls": 1,
+      "networkCalls": 0,
+      "thrown": [],
+      "observed": [
+        {
+          "type": "state",
+          "state": {
+            "kind": "command",
+            "name": "thread-switch"
+          }
+        },
+        {
+          "type": "state",
+          "state": {
+            "kind": "running",
+            "runId": null,
+            "phase": "primary",
+            "source": "telegram"
+          }
+        },
+        {
+          "type": "state",
+          "state": {
+            "kind": "running",
+            "runId": "aecef9e7-58d4-4fb9-9327-4bcd0b0a6d36",
+            "phase": "primary",
+            "source": "telegram"
+          }
+        },
+        {
+          "type": "identity-changed"
+        },
+        {
+          "type": "event"
+        },
+        {
+          "type": "event"
+        },
+        {
+          "type": "memory-references-changed"
+        },
+        {
+          "type": "event"
+        },
+        {
+          "type": "event"
+        },
+        {
+          "type": "event"
+        },
+        {
+          "type": "event"
+        },
+        {
+          "type": "result"
+        },
+        {
+          "type": "state",
+          "state": {
+            "kind": "idle"
+          }
+        }
+      ],
+      "hostSnapshot": {
+        "kind": "idle"
+      }
+    }
+  ],
+  "networkCalls": 0
+}

@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "originalArchiveHashesVerified": 41,
+  "historicalLedgerEntriesUnchanged": 24,
+  "sourceHashesVerified": 6,
+  "productDiffFiles": 0,
+  "ledgerTotal": 2.1731413999999996,
+  "knownTotal": 2.1594341999999997,
+  "ledgerSumToleranceUsd": 1e-12,
+  "batchAcceptance": "failed",
+  "gitDiffCheck": "passed",
+  "auditOnly": true
+}

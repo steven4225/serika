@@ -9,7 +9,7 @@ export const MAX_RESIDENT_PENDING = 32;
 // Deliberately excludes shutdown, threadActivity, and arbitrary property access.
 export const RESIDENT_HOST_METHODS = ["pomodoro", "exportBackup", "listThreads", "createThread", "selectThread", "enableMemory", "setModuleEnabled", "setAuthorizedDirectories", "selectProject", "setAutonomyEnabled", "getComputerConnection", "findComputerDrivers", "checkComputerConnection", "saveComputerConnection", "listHerdrSessions", "listHerdrPanes", "setHerdrTarget", "getLifecycleStatus", "retryConnection", "telegramStatus", "setTelegramEnabled", "setTelegramAutonomyEnabled", "beginTelegramPairing", "confirmTelegramPairing", "reviewTelegramInput", "setTelegramTaskRoute", "retryTelegramDelivery", "resolveTelegramDelivery"] as const satisfies readonly (keyof DesktopRuntime)[];
 export const RESIDENT_BRIDGE_METHODS = [
-  "history", "historyPage", "home", "run", "steer", "cancel", "confirm", "command", "listRuns", "getRun",
+  "history", "historyPage", "home", "run", "steer", "cancel", "confirm", "selectHerdrTarget", "command", "listRuns", "getRun",
   "getContextDiagnostics", "getAutomationDiagnostics", "getAutomationOverview", "scheduleSkill", "changeAutomationSchedule",
   "getDreamingOverview", "dream", "changeLearnedSkill", "getLearnedSkillReferences", "runSkill",
   "listRecipes", "changeRecipe",

@@ -1,0 +1,19 @@
+{
+  "auditId": "9f6593c8-62ae-4b68-9c57-b65fda6d68d2",
+  "at": "2026-10-31T11:39:20.614Z",
+  "verification": "read-only-original-resident-status-after-failed-batch",
+  "sourceResultSha256": "b9096411f47e68fec25ca9ca27bdb94379bdcaaba8a180786803e8cae951b713",
+  "pid": 36769,
+  "processAlive": true,
+  "enabled": true,
+  "connection": "online",
+  "configSha256": "0d38545bd21c11381e8cc91444511df07135a4bfc6cc2349c510769aea833292",
+  "configUnchanged": true,
+  "dailyOwnerPreservedByHarness": true,
+  "isolatedOwner": null,
+  "runState": "idle",
+  "pendingDeliveries": 0,
+  "awaitingReview": 0,
+  "unknownDeliveries": 3,
+  "transportOffsetAcknowledged": true
+}

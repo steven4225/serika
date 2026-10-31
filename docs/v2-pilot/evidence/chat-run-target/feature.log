@@ -1,0 +1,2 @@
+{"output":"/private/tmp/serika-chat-target-electron-local","status":"passed","checks":["choose-continue-approve-readback-independent-file-check","new-run-reselects-old-choice-invalid-replacement-blocks-old-approval"]}
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-chat-target-feature-guard-local/write-guard-LdMHQZ/result.json","violations":0,"changes":6,"metadataUnchanged":false}

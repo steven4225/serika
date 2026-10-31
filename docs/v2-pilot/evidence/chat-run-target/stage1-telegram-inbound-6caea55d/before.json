@@ -1,0 +1,24 @@
+{
+  "auditId": "753984e7-9e0d-460c-9391-c0b5c4add841",
+  "at": "2026-10-31T09:30:04.192Z",
+  "sourceCommit": "e6804b5196d34eaac72e1acbbfa9f03e540df5b0",
+  "sourceSha256": "3c9fdea5ed8b748f721eee79612bb67c8a671715a0fb5d71eec5f4c4ed555a13",
+  "verification": "zero-network-execution-of-exact-original-harness-text-predicate",
+  "predicate": "assert.ok(m.text === `/start ${expectedPairing}` || m.text === expectedPrompt || /^(?:选择\\s+[A-F0-9]{10}\\s+[1-9][0-9]*|取消选择\\s+[A-F0-9]{10}|(?:允许|拒绝)\\s+[A-F0-9]{10})$/i.test(m.text), 'Unexpected text; no additional Run permitted');",
+  "failures": [
+    {
+      "text": "继续，允许临时停用并恢复日用 TG 接入。",
+      "accepted": false,
+      "error": "Unexpected text; no additional Run permitted",
+      "diagnosticsPersistedByOldPredicate": false
+    },
+    {
+      "text": "  /start 3935B76A82\n",
+      "accepted": false,
+      "error": "Unexpected text; no additional Run permitted",
+      "diagnosticsPersistedByOldPredicate": false
+    }
+  ],
+  "networkRequests": 0,
+  "modelRequests": 0
+}

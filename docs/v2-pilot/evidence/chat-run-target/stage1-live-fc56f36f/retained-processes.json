@@ -1,0 +1,30 @@
+{
+  "id": "1058a235-8d7e-4f88-9f7f-f630a6284633",
+  "observedAt": "2026-10-31T05:52:04.342595+00:00",
+  "sourceRunId": "fc56f36f-c74c-42b4-9e5b-d6298db4f05a",
+  "observation": "local-process-liveness-only-no-target-read-or-control",
+  "processes": [
+    {
+      "kind": "electron-orders",
+      "pid": 18749,
+      "alive": false,
+      "command": null
+    },
+    {
+      "kind": "electron-pi",
+      "pid": 19071,
+      "alive": false,
+      "command": null
+    },
+    {
+      "kind": "isolated-herdr-server",
+      "pid": 19027,
+      "alive": true,
+      "command": "/opt/homebrew/bin/herdr"
+    }
+  ],
+  "retainedRoot": "/private/tmp/c-krWXBl",
+  "session": "w-dd9d296c",
+  "phaseFromSavedFixtureState": "ready",
+  "unknownFromSavedFixtureState": false
+}

@@ -1,0 +1,143 @@
+[
+  {
+    "verificationId": "164e0f21-3e5e-4378-8090-c1ca9f721faa",
+    "phase": "targeted-runtime",
+    "command": [
+      "node",
+      "scripts/test-home.mjs",
+      "--home",
+      "/private/tmp/serika-197-contract-2929bb10/home",
+      "--",
+      "node",
+      "--test",
+      "--test-concurrency=4",
+      "packages/assistant/dist/foreground-herdr.test.js",
+      "packages/assistant/dist/herdr-control.test.js",
+      "packages/assistant/dist/permission-boundary.test.js",
+      "packages/ai-sdk-adapter/dist/loop.test.js"
+    ],
+    "startedAt": "2026-10-31T07:29:30.444880+00:00",
+    "realModelRequests": 0,
+    "costUsd": 0,
+    "sourceCommit": "57cb173792088992a56c74f33734c5282d248c39",
+    "exitCode": 0,
+    "finishedAt": "2026-10-31T07:30:54.219648+00:00",
+    "log": "targeted-runtime.log",
+    "logSha256": "227500b8babc9ab96df85be8c8d6fac8f4d7ab75a1d2594d8c2d1bb9b1dc638e"
+  },
+  {
+    "verificationId": "bb07ab9b-ea6a-4bf7-a30b-5d642363d3c9",
+    "phase": "targeted-desktop-tg",
+    "command": [
+      "node",
+      "scripts/test-home.mjs",
+      "--home",
+      "/private/tmp/serika-197-contract-2929bb10/home",
+      "--",
+      "pnpm",
+      "--filter",
+      "@serika/desktop",
+      "exec",
+      "tsx",
+      "--test",
+      "src/main/telegram-gateway.test.ts",
+      "src/main/telegram-herdr-selection.test.ts"
+    ],
+    "startedAt": "2026-10-31T07:31:01.224356+00:00",
+    "realModelRequests": 0,
+    "costUsd": 0,
+    "sourceCommit": "57cb173792088992a56c74f33734c5282d248c39",
+    "exitCode": 0,
+    "finishedAt": "2026-10-31T07:33:38.496621+00:00",
+    "log": "targeted-desktop-tg.log",
+    "logSha256": "1d4cc15b18b6fe7d2c2936c8bb75e175902fbae60cb79723f83f0944608b3d6c"
+  },
+  {
+    "verificationId": "cbfae313-ecf4-4b27-88b3-874d43b9d40d",
+    "phase": "full-test",
+    "command": [
+      "node",
+      "scripts/test-home.mjs",
+      "--home",
+      "/private/tmp/serika-197-contract-2929bb10/home",
+      "--",
+      "pnpm",
+      "test"
+    ],
+    "startedAt": "2026-10-31T07:34:24.022583+00:00",
+    "realModelRequests": 0,
+    "costUsd": 0,
+    "sourceCommit": "57cb173792088992a56c74f33734c5282d248c39",
+    "exitCode": 0,
+    "finishedAt": "2026-10-31T07:39:58.811541+00:00",
+    "log": "full-test.log",
+    "logSha256": "0be74273d2cf0d406d9f4d744a39b8393f70b021cf337de6374e5dc745be7e2b"
+  },
+  {
+    "verificationId": "b8b8642b-6871-4e47-8ce6-7e57f008f215",
+    "phase": "build",
+    "command": [
+      "node",
+      "scripts/test-home.mjs",
+      "--home",
+      "/private/tmp/serika-197-contract-2929bb10/home",
+      "--",
+      "pnpm",
+      "build"
+    ],
+    "startedAt": "2026-10-31T07:41:19.688628+00:00",
+    "realModelRequests": 0,
+    "costUsd": 0,
+    "sourceCommit": "bb2508d6ffa1ab108278135261d48c4769fa74a0",
+    "exitCode": 0,
+    "finishedAt": "2026-10-31T07:41:22.808024+00:00",
+    "log": "build.log",
+    "logSha256": "c442fe88964c33cc039ef6bafd34a9ab433c36321173c4e52d4a3091114cfb6b"
+  },
+  {
+    "verificationId": "2c30323d-fe79-49ff-8811-c008b0438cef",
+    "phase": "feature-electron",
+    "command": [
+      "node",
+      "scripts/test-home.mjs",
+      "--home",
+      "/private/tmp/serika-197-contract-2929bb10/home",
+      "--",
+      "node",
+      "apps/desktop/scripts/chat-run-target-smoke.mjs",
+      "--output",
+      "/private/tmp/serika-197-contract-2929bb10/feature-electron"
+    ],
+    "startedAt": "2026-10-31T07:41:57.074083+00:00",
+    "realModelRequests": 0,
+    "costUsd": 0,
+    "sourceCommit": "bb2508d6ffa1ab108278135261d48c4769fa74a0",
+    "exitCode": 0,
+    "finishedAt": "2026-10-31T07:42:11.053125+00:00",
+    "log": "feature-electron.log",
+    "logSha256": "f5f532965fa638626c28003b298122b2767cde14a701125e0db2665e05501b4c"
+  },
+  {
+    "verificationId": "119b9b83-5133-48ce-940d-84a777344240",
+    "phase": "standard-electron",
+    "command": [
+      "node",
+      "scripts/test-home.mjs",
+      "--home",
+      "/private/tmp/serika-197-contract-2929bb10/home",
+      "--",
+      "pnpm",
+      "--filter",
+      "@serika/desktop",
+      "smoke"
+    ],
+    "startedAt": "2026-10-31T07:42:21.753704+00:00",
+    "realModelRequests": 0,
+    "costUsd": 0,
+    "sourceCommit": "bb2508d6ffa1ab108278135261d48c4769fa74a0",
+    "exitCode": 0,
+    "finishedAt": "2026-10-31T07:42:31.828658+00:00",
+    "log": "standard-electron.log",
+    "logSha256": "1845c678dee427cbd08b4ddb1cb007f96b7a59a1cd0b59c9ea5ca30e42cc96c2"
+  }
+]

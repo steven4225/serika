@@ -1,6 +1,7 @@
 import type { DirectoryAccess, DirectoryAuthorization } from "../directory-access.js";
 import { spawn } from "node:child_process";
-import { constants } from "node:fs";
+import { constants, readFileSync } from "node:fs";
+import { z } from "zod";
 import { access, lstat, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { homedir, release, tmpdir, userInfo } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
@@ -29,7 +30,11 @@ export class SeatbeltShellRunner {
   readonly #runtime: Promise<SeatbeltRuntime | null>;
   constructor(readonly scope: SeatbeltShellScope) {
     this.#runtime = process.platform === "darwin" && process.arch === "arm64" && release() === "27.0.0"
-      ? resolveSeatbeltRuntime({ ...scope, protectedPaths: [...scope.protectedPaths, serikaCodeRoot] }).catch(() => null)
+      ? Promise.resolve().then(() => {
+        const nodeExecutable = process.versions.electron
+          ? z.object({ nodeExecutable: z.string() }).parse(JSON.parse(readFileSync(new URL("../node-runtime.json", import.meta.url), "utf8"))).nodeExecutable : process.execPath;
+        return resolveSeatbeltRuntime({ ...scope, nodeExecutable, protectedPaths: [...scope.protectedPaths, serikaCodeRoot] });
+      }).catch(() => null)
       : Promise.resolve(null);
   }
   execute(options: Omit<Parameters<typeof executeSeatbeltShellCommand>[0], "scope" | "runtime">): Promise<ShellExecResult> {

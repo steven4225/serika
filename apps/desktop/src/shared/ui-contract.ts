@@ -1,4 +1,4 @@
-import type { HerdrTarget } from "@serika/assistant";
+import type { HerdrTarget, AssistantSnapshot, PendingHerdrSelection, SelectHerdrTargetInput } from "@serika/assistant";
 import type { MemoryLibraryAction, MemoryLibraryView, MemoryLibraryDocument } from "@serika/assistant";
 import type { RecipeEntry, RecipeChange } from "@serika/assistant";
 import type { UIMessage } from "ai";
@@ -52,6 +52,7 @@ export interface PendingApproval {
   toolName: string;
   input: unknown;
   preview: string;
+  herdr?: NonNullable<NonNullable<AssistantSnapshot["pendingApproval"]>["herdr"]>;
   /** Present when this call may be allowed and remembered for the conversation. */
   remember?: { label: string };
   /** Present for a reminder card: the fields its preview text was built from. */
@@ -140,6 +141,7 @@ export interface UiSnapshot {
   canSteer: boolean;
   steers: readonly AssistantSteerRecord[];
   pendingApproval: PendingApproval | null;
+  pendingHerdrSelection?: PendingHerdrSelection | null;
   recentOutput: string;
   outputTruncated: boolean;
   toolActivity: readonly ToolActivity[];
@@ -160,6 +162,10 @@ export type MainToRenderer =
   | { type: "module-notification"; moduleId: string; message: string }
   | { type: "approval"; approval: PendingApproval }
   | { type: "approval-cleared"; approvalId: string }
+  | { type: "approval-decision"; runId: string | null; input: ConfirmInput; approval: PendingApproval | null; accepted: boolean; source: "runtime-bridge"; decidedAt: string }
+  | { type: "herdr-selection"; selection: PendingHerdrSelection }
+  | { type: "herdr-selection-cleared"; selectionId: string }
+  | { type: "herdr-selection-decision"; runId: string | null; input: SelectHerdrTargetInput; selection: PendingHerdrSelection | null; accepted: boolean; source: "runtime-bridge"; decidedAt: string }
   | { type: "steer"; steer: AssistantSteerRecord }
   | { type: "event"; phase: RunPhase; event: AgentEvent }
   | { type: "result"; phase: RunPhase; result: RunResult }
@@ -265,6 +271,7 @@ export interface RendererApi {
   steer(input: DesktopSteerInput): Promise<DesktopSteerResponse>;
   cancel(): Promise<void>;
   confirm(input: ConfirmInput): Promise<ConfirmResponse>;
+  selectHerdrTarget(input: SelectHerdrTargetInput): Promise<ConfirmResponse>;
   command(line: string): Promise<CommandResponse>;
   listRuns(): Promise<ListRunsResponse>;
   getRun(runId: string): Promise<GetRunResponse>;
@@ -366,3 +373,5 @@ export interface ThreadSummary {
   runCount?: number;
   activityAt?: string;
 }
+
+export type { PendingHerdrSelection, SelectHerdrTargetInput } from "@serika/assistant";

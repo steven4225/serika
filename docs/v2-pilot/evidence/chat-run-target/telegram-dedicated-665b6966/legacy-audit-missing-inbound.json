@@ -1,0 +1,11 @@
+{
+  "auditId": "eba2a6aa-8e36-4c20-82f2-e29472c791a8",
+  "command": [
+    "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+    "scripts/chat-run-target-telegram-stop-audit.mjs",
+    "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-d5a887cd"
+  ],
+  "exitCode": 1,
+  "stdout": "",
+  "stderr": "file:///Users/a1-6/Code/agents/serika-chat-run-target/scripts/chat-run-target-telegram-stop-audit.mjs:56\n  console.log(JSON.stringify({ acceptance: audit.acceptance, resultUnmodified: true, rejectedUpdates: audit.inboundChecks.filter(row => !row.accepted).length }));\n                                                                                                                          ^\n\nTypeError: Cannot read properties of undefined (reading 'filter')\n    at file:///Users/a1-6/Code/agents/serika-chat-run-target/scripts/chat-run-target-telegram-stop-audit.mjs:56:123\n\nNode.js v26.4.0\n"
+}

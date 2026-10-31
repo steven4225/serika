@@ -1,0 +1,9 @@
+{
+  "auditId": "7b50c34e-cd03-4be1-af28-cc051017151d",
+  "rejectedDayUseBot": true,
+  "rejectedMissingFields": true,
+  "rejectedConcurrentHost": true,
+  "rejectedRetainedRuntime": true,
+  "rejectedSymlinkBeforeWrite": true,
+  "privateTestEnvAccepted": true
+}

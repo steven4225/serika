@@ -1,0 +1,25 @@
+{
+  "runId": "642a36ff-1484-46f8-89a9-cf1b862cb6ab",
+  "startedAt": "2026-10-30T10:30:55.583Z",
+  "home": "/private/tmp/serika-chat-target-standard-guard-local",
+  "protectedRoot": "/Users/a1-6/.serika",
+  "command": [
+    "/bin/sh",
+    "-c",
+    "pnpm --workspace-root build:runtime && pnpm build && node scripts/electron-smoke-fixture.mjs"
+  ],
+  "recordConcurrentChanges": true,
+  "exitCode": 0,
+  "signal": null,
+  "status": "passed",
+  "violations": [],
+  "metadataUnchanged": false,
+  "finishedAt": "2026-10-30T10:31:04.970Z",
+  "metadataEntryCounts": {
+    "before": 272,
+    "after": 272
+  },
+  "concurrentChanges": 6,
+  "sourceSha256": "bc14c1b49d5a53c31deb98a0b78b62923e0ca3b935184cb636ef36894af3dbf3",
+  "projection": "Original guard result with daily metadata paths omitted; counts and source digest are derived from the original."
+}

@@ -1,0 +1,31 @@
+{
+  "auditId": "ec3a90d6-6fa6-4e7c-896c-4867f9a69a30",
+  "records": [
+    {
+      "phase": "first-pairing",
+      "owner": {
+        "userId": 42,
+        "chatId": 42,
+        "name": "Owner",
+        "threadId": "2681b947-f91c-4676-a93c-e483c89e7e56"
+      },
+      "offset": 2
+    },
+    {
+      "phase": "reused-binding",
+      "owner": {
+        "userId": 42,
+        "chatId": 42,
+        "name": "Owner",
+        "threadId": "2681b947-f91c-4676-a93c-e483c89e7e56"
+      },
+      "offset": 2,
+      "registeredThread": true,
+      "pairing": null
+    }
+  ],
+  "closeCalls": 2,
+  "networkCalls": 0,
+  "modelCalls": 0,
+  "forbiddenAccesses": 0
+}

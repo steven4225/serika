@@ -1,0 +1,5118 @@
+{
+  "runId": "4b458011-c87c-4876-b7d2-6a6f04a0d593",
+  "startedAt": "2026-10-31T11:51:19.130Z",
+  "home": "/private/tmp/serika-197-tg-pair-ready-guard",
+  "protectedRoot": "/Users/a1-6/.serika",
+  "command": [
+    "node",
+    "--test",
+    "apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs",
+    "apps/desktop/scripts/chat-run-target-approval.test.mjs"
+  ],
+  "recordConcurrentChanges": true,
+  "before": [
+    {
+      "path": "/Users/a1-6/.serika",
+      "type": "directory",
+      "bytes": 384,
+      "mtime": "2026-10-27T12:16:49.290Z",
+      "mtimeNs": "1793103409290367752",
+      "ctimeNs": "1793103409290367752",
+      "inode": "29413804"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:55:06.569Z",
+      "mtimeNs": "1792824906569862924",
+      "ctimeNs": "1792824906569862924",
+      "inode": "29414710"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron",
+      "type": "directory",
+      "bytes": 800,
+      "mtime": "2026-10-30T13:48:57.364Z",
+      "mtimeNs": "1793368137364335658",
+      "ctimeNs": "1793368137364335658",
+      "inode": "29414711"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Cache",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:55:06.744Z",
+      "mtimeNs": "1792824906744889774",
+      "ctimeNs": "1792824906744889774",
+      "inode": "29414732"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Cache/Cache_Data",
+      "type": "directory",
+      "bytes": 64,
+      "mtime": "2026-10-24T06:55:06.744Z",
+      "mtimeNs": "1792824906744845774",
+      "ctimeNs": "1792824906744857566",
+      "inode": "29414733"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Cache/No_Vary_Search",
+      "type": "directory",
+      "bytes": 64,
+      "mtime": "2026-10-24T06:55:06.744Z",
+      "mtimeNs": "1792824906744884357",
+      "ctimeNs": "1792824906744899941",
+      "inode": "29414734"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache",
+      "type": "directory",
+      "bytes": 160,
+      "mtime": "2026-10-24T06:55:06.834Z",
+      "mtimeNs": "1792824906834228965",
+      "ctimeNs": "1792824906834228965",
+      "inode": "29414736"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/electron-preload",
+      "type": "directory",
+      "bytes": 256,
+      "mtime": "2026-10-30T13:42:04.696Z",
+      "mtimeNs": "1793367724696482807",
+      "ctimeNs": "1793367724696482807",
+      "inode": "29414789"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/electron-preload/13532A266DD7CAE041B6E900157E2B6E34B08817342B8876A516750EEAB64E9D-046EE14B76106E2E39DCF4D74A8AEE393DEDA01000D21673491EB8D652BB29D2.cache",
+      "type": "file",
+      "bytes": 7652,
+      "mtime": "2026-10-30T13:42:04.696Z",
+      "mtimeNs": "1793367724696615848",
+      "ctimeNs": "1793367724696615848",
+      "inode": "34228636"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/electron-preload/3688CE8FA1416EB45CCC02B31D1CEEDBA2603FAFA40F973427E9AF8701C9F337-046EE14B76106E2E39DCF4D74A8AEE393DEDA01000D21673491EB8D652BB29D2.cache",
+      "type": "file",
+      "bytes": 7612,
+      "mtime": "2026-10-25T09:42:11.443Z",
+      "mtimeNs": "1792921331443950542",
+      "ctimeNs": "1792921331443950542",
+      "inode": "31517025"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/electron-preload/4368D210CAE73123378DD552B3A3EF7BD8E5C898992BCEE3711C96EF737F06B8-046EE14B76106E2E39DCF4D74A8AEE393DEDA01000D21673491EB8D652BB29D2.cache",
+      "type": "file",
+      "bytes": 7612,
+      "mtime": "2026-10-27T12:17:22.139Z",
+      "mtimeNs": "1793103442139274300",
+      "ctimeNs": "1793103442139274300",
+      "inode": "32451624"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/electron-preload/746F3660AD39E60529FC06F7B51429314D30988161556521A5B09D579BA82725-046EE14B76106E2E39DCF4D74A8AEE393DEDA01000D21673491EB8D652BB29D2.cache",
+      "type": "file",
+      "bytes": 7612,
+      "mtime": "2026-10-25T02:58:43.422Z",
+      "mtimeNs": "1792897123422795673",
+      "ctimeNs": "1792897123422795673",
+      "inode": "31280471"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/electron-preload/C05D8EC1E0AC0B65D2B1EBC309F50A0F72A3CEC7026A73A2486156842752E8F6-046EE14B76106E2E39DCF4D74A8AEE393DEDA01000D21673491EB8D652BB29D2.cache",
+      "type": "file",
+      "bytes": 7612,
+      "mtime": "2026-10-29T18:10:44.744Z",
+      "mtimeNs": "1793297444744618303",
+      "ctimeNs": "1793297444744618303",
+      "inode": "33534354"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/electron-preload/E45AE2BCE12A434B062480E2124DA1077947EF3E5159E5C4DB12091C9438E81F-046EE14B76106E2E39DCF4D74A8AEE393DEDA01000D21673491EB8D652BB29D2.cache",
+      "type": "file",
+      "bytes": 7540,
+      "mtime": "2026-10-24T06:55:06.834Z",
+      "mtimeNs": "1792824906834416507",
+      "ctimeNs": "1792824906834416507",
+      "inode": "29414790"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/js",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:55:06.745Z",
+      "mtimeNs": "1792824906745918021",
+      "ctimeNs": "1792824906745918021",
+      "inode": "29414737"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/js/index",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:55:06.745Z",
+      "mtimeNs": "1792824906745713230",
+      "ctimeNs": "1792824906745713230",
+      "inode": "29414739"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/js/index-dir",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:55:06.746Z",
+      "mtimeNs": "1792824906746220687",
+      "ctimeNs": "1792824906746220687",
+      "inode": "29414741"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/js/index-dir/the-real-index",
+      "type": "file",
+      "bytes": 48,
+      "mtime": "2026-10-24T06:55:06.746Z",
+      "mtimeNs": "1792824906746156479",
+      "ctimeNs": "1792824906746220646",
+      "inode": "29414742"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/wasm",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:55:06.745Z",
+      "mtimeNs": "1792824906745971980",
+      "ctimeNs": "1792824906745971980",
+      "inode": "29414738"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/wasm/index",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:55:06.745Z",
+      "mtimeNs": "1792824906745717772",
+      "ctimeNs": "1792824906745717772",
+      "inode": "29414740"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/wasm/index-dir",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:55:06.746Z",
+      "mtimeNs": "1792824906746230312",
+      "ctimeNs": "1792824906746230312",
+      "inode": "29414743"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/wasm/index-dir/the-real-index",
+      "type": "file",
+      "bytes": 48,
+      "mtime": "2026-10-24T06:55:06.746Z",
+      "mtimeNs": "1792824906746163771",
+      "ctimeNs": "1792824906746230312",
+      "inode": "29414744"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DIPS",
+      "type": "file",
+      "bytes": 36864,
+      "mtime": "2026-10-30T13:41:02.097Z",
+      "mtimeNs": "1793367662097841721",
+      "ctimeNs": "1793368131302650187",
+      "inode": "29414768"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DIPS-wal",
+      "type": "file",
+      "bytes": 181312,
+      "mtime": "2026-10-31T11:33:00.074Z",
+      "mtimeNs": "1793446380074500083",
+      "ctimeNs": "1793446380074500083",
+      "inode": "34230374"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnGraphiteCache",
+      "type": "directory",
+      "bytes": 224,
+      "mtime": "2026-10-24T06:55:06.763Z",
+      "mtimeNs": "1792824906763612227",
+      "ctimeNs": "1792824906763612227",
+      "inode": "29414760"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnGraphiteCache/data_0",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.763Z",
+      "mtimeNs": "1792824906763401061",
+      "ctimeNs": "1793368131296200410",
+      "inode": "29414762"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnGraphiteCache/data_1",
+      "type": "file",
+      "bytes": 270336,
+      "mtime": "2026-10-31T11:47:11.110Z",
+      "mtimeNs": "1793447231110957692",
+      "ctimeNs": "1793447231110957692",
+      "inode": "29414763"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnGraphiteCache/data_2",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.763Z",
+      "mtimeNs": "1792824906763562352",
+      "ctimeNs": "1793368131296179493",
+      "inode": "29414764"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnGraphiteCache/data_3",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.763Z",
+      "mtimeNs": "1792824906763631768",
+      "ctimeNs": "1793368131296171701",
+      "inode": "29414765"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnGraphiteCache/index",
+      "type": "file",
+      "bytes": 262512,
+      "mtime": "2026-10-30T14:16:00.897Z",
+      "mtimeNs": "1793369760897639088",
+      "ctimeNs": "1793369760897639088",
+      "inode": "29414761"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnWebGPUCache",
+      "type": "directory",
+      "bytes": 224,
+      "mtime": "2026-10-24T06:55:06.762Z",
+      "mtimeNs": "1792824906762949937",
+      "ctimeNs": "1792824906762949937",
+      "inode": "29414754"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnWebGPUCache/data_0",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.762Z",
+      "mtimeNs": "1792824906762766771",
+      "ctimeNs": "1793368131296127202",
+      "inode": "29414756"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnWebGPUCache/data_1",
+      "type": "file",
+      "bytes": 270336,
+      "mtime": "2026-10-31T11:47:11.110Z",
+      "mtimeNs": "1793447231110864359",
+      "ctimeNs": "1793447231110864359",
+      "inode": "29414757"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnWebGPUCache/data_2",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.762Z",
+      "mtimeNs": "1792824906762903645",
+      "ctimeNs": "1793368131296102493",
+      "inode": "29414758"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnWebGPUCache/data_3",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.762Z",
+      "mtimeNs": "1792824906762973228",
+      "ctimeNs": "1793368131296095202",
+      "inode": "29414759"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnWebGPUCache/index",
+      "type": "file",
+      "bytes": 262512,
+      "mtime": "2026-10-30T14:16:00.897Z",
+      "mtimeNs": "1793369760897571463",
+      "ctimeNs": "1793369760897571463",
+      "inode": "29414755"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUCache",
+      "type": "directory",
+      "bytes": 224,
+      "mtime": "2026-10-24T06:55:06.762Z",
+      "mtimeNs": "1792824906762238772",
+      "ctimeNs": "1792824906762238772",
+      "inode": "29414748"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUCache/data_0",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.761Z",
+      "mtimeNs": "1792824906761962522",
+      "ctimeNs": "1793368131296044577",
+      "inode": "29414750"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUCache/data_1",
+      "type": "file",
+      "bytes": 270336,
+      "mtime": "2026-10-31T11:47:11.110Z",
+      "mtimeNs": "1793447231110842484",
+      "ctimeNs": "1793447231110842484",
+      "inode": "29414751"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUCache/data_2",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.762Z",
+      "mtimeNs": "1792824906762188605",
+      "ctimeNs": "1793368131295985910",
+      "inode": "29414752"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUCache/data_3",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.762Z",
+      "mtimeNs": "1792824906762261147",
+      "ctimeNs": "1793368131295957994",
+      "inode": "29414753"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUCache/index",
+      "type": "file",
+      "bytes": 262512,
+      "mtime": "2026-10-30T14:16:00.897Z",
+      "mtimeNs": "1793369760897528297",
+      "ctimeNs": "1793369760897528297",
+      "inode": "29414749"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUPersistentCache",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:55:06.583Z",
+      "mtimeNs": "1792824906583576764",
+      "ctimeNs": "1792824906583576764",
+      "inode": "29414718"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUPersistentCache/GPUCache",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:55:06.583Z",
+      "mtimeNs": "1792824906583663514",
+      "ctimeNs": "1792824906583663514",
+      "inode": "29414719"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUPersistentCache/GPUCache/ZBVFTVEKBSX72Y7WF25TMOWFX3JUICO4",
+      "type": "directory",
+      "bytes": 160,
+      "mtime": "2026-10-24T06:55:06.583Z",
+      "mtimeNs": "1792824906583924805",
+      "ctimeNs": "1792824906583924805",
+      "inode": "29414720"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUPersistentCache/GPUCache/ZBVFTVEKBSX72Y7WF25TMOWFX3JUICO4/cache.db",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.583Z",
+      "mtimeNs": "1792824906583796930",
+      "ctimeNs": "1792824906583813097",
+      "inode": "29414721"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUPersistentCache/GPUCache/ZBVFTVEKBSX72Y7WF25TMOWFX3JUICO4/cache.db-wal",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.583Z",
+      "mtimeNs": "1792824906583923263",
+      "ctimeNs": "1792824906583936888",
+      "inode": "29414723"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUPersistentCache/GPUCache/ZBVFTVEKBSX72Y7WF25TMOWFX3JUICO4/cache.journal",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.583Z",
+      "mtimeNs": "1792824906583882263",
+      "ctimeNs": "1792824906583896097",
+      "inode": "29414722"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache",
+      "type": "directory",
+      "bytes": 480,
+      "mtime": "2026-10-29T11:34:13.793Z",
+      "mtimeNs": "1793273653793336062",
+      "ctimeNs": "1793273653793336062",
+      "inode": "29414772"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/data_0",
+      "type": "file",
+      "bytes": 45056,
+      "mtime": "2026-10-29T16:40:28.114Z",
+      "mtimeNs": "1793292028114881739",
+      "ctimeNs": "1793297435856410360",
+      "inode": "29414779"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/data_1",
+      "type": "file",
+      "bytes": 270336,
+      "mtime": "2026-10-29T18:10:35.856Z",
+      "mtimeNs": "1793297435856243610",
+      "ctimeNs": "1793297435856398110",
+      "inode": "29414781"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/data_2",
+      "type": "file",
+      "bytes": 1056768,
+      "mtime": "2026-10-29T11:34:13.657Z",
+      "mtimeNs": "1793273653657026133",
+      "ctimeNs": "1793297435856394527",
+      "inode": "29414782"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/data_3",
+      "type": "file",
+      "bytes": 4202496,
+      "mtime": "2026-10-29T11:34:13.903Z",
+      "mtimeNs": "1793273653903508235",
+      "ctimeNs": "1793297435856374694",
+      "inode": "29414784"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000001",
+      "type": "file",
+      "bytes": 17270,
+      "mtime": "2026-10-24T06:55:07.719Z",
+      "mtimeNs": "1792824907719226609",
+      "ctimeNs": "1792824907719226609",
+      "inode": "29414914"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000002",
+      "type": "file",
+      "bytes": 16688,
+      "mtime": "2026-10-24T06:55:07.719Z",
+      "mtimeNs": "1792824907719454858",
+      "ctimeNs": "1792824907719454858",
+      "inode": "29414915"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000003",
+      "type": "file",
+      "bytes": 17433,
+      "mtime": "2026-10-24T06:55:07.719Z",
+      "mtimeNs": "1792824907719622816",
+      "ctimeNs": "1792824907719622816",
+      "inode": "29414916"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000004",
+      "type": "file",
+      "bytes": 19358,
+      "mtime": "2026-10-24T06:55:08.088Z",
+      "mtimeNs": "1792824908088760385",
+      "ctimeNs": "1792824908088760385",
+      "inode": "29414921"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000005",
+      "type": "file",
+      "bytes": 20942,
+      "mtime": "2026-10-24T06:55:08.123Z",
+      "mtimeNs": "1792824908123364132",
+      "ctimeNs": "1792824908123364132",
+      "inode": "29414922"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000006",
+      "type": "file",
+      "bytes": 16889,
+      "mtime": "2026-10-24T06:55:12.386Z",
+      "mtimeNs": "1792824912386561215",
+      "ctimeNs": "1792824912386561215",
+      "inode": "29415043"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000007",
+      "type": "file",
+      "bytes": 16631,
+      "mtime": "2026-10-24T06:56:00.552Z",
+      "mtimeNs": "1792824960552761642",
+      "ctimeNs": "1792824960552761642",
+      "inode": "29415253"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000008",
+      "type": "file",
+      "bytes": 16726,
+      "mtime": "2026-10-29T11:34:13.793Z",
+      "mtimeNs": "1793273653793425104",
+      "ctimeNs": "1793273653793425104",
+      "inode": "32909426"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/index",
+      "type": "file",
+      "bytes": 262512,
+      "mtime": "2026-10-29T17:21:48.994Z",
+      "mtimeNs": "1793294508994852708",
+      "ctimeNs": "1793297435856415068",
+      "inode": "29414773"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local State",
+      "type": "file",
+      "bytes": 57,
+      "mtime": "2026-10-24T06:55:16.583Z",
+      "mtimeNs": "1792824916583483508",
+      "ctimeNs": "1792824916584886713",
+      "inode": "29415116"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:55:06.744Z",
+      "mtimeNs": "1792824906744448567",
+      "ctimeNs": "1792824906744448567",
+      "inode": "29414728"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage/leveldb",
+      "type": "directory",
+      "bytes": 256,
+      "mtime": "2026-10-30T13:48:57.343Z",
+      "mtimeNs": "1793368137343183332",
+      "ctimeNs": "1793368137343183332",
+      "inode": "29414729"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage/leveldb/000003.log",
+      "type": "file",
+      "bytes": 1887,
+      "mtime": "2026-10-30T13:49:57.352Z",
+      "mtimeNs": "1793368197352649351",
+      "ctimeNs": "1793368197352649351",
+      "inode": "29414747"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage/leveldb/CURRENT",
+      "type": "file",
+      "bytes": 16,
+      "mtime": "2026-10-24T06:55:06.748Z",
+      "mtimeNs": "1792824906748429223",
+      "ctimeNs": "1792824906748721848",
+      "inode": "29414746"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage/leveldb/LOCK",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.744Z",
+      "mtimeNs": "1792824906744551150",
+      "ctimeNs": "1792824906744562275",
+      "inode": "29414731"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage/leveldb/LOG",
+      "type": "file",
+      "bytes": 289,
+      "mtime": "2026-10-30T13:48:57.350Z",
+      "mtimeNs": "1793368137350866022",
+      "ctimeNs": "1793368137350866022",
+      "inode": "34230373"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage/leveldb/LOG.old",
+      "type": "file",
+      "bytes": 289,
+      "mtime": "2026-10-30T13:43:33.741Z",
+      "mtimeNs": "1793367813741170042",
+      "ctimeNs": "1793368137343115540",
+      "inode": "34229180"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage/leveldb/MANIFEST-000001",
+      "type": "file",
+      "bytes": 41,
+      "mtime": "2026-10-24T06:55:06.746Z",
+      "mtimeNs": "1792824906746754811",
+      "ctimeNs": "1792824906746754811",
+      "inode": "29414745"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Network Persistent State",
+      "type": "file",
+      "bytes": 144,
+      "mtime": "2026-10-29T02:43:21.853Z",
+      "mtimeNs": "1793241801853940651",
+      "ctimeNs": "1793241801854834854",
+      "inode": "32814190"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Preferences",
+      "type": "file",
+      "bytes": 41,
+      "mtime": "2026-10-24T06:55:16.759Z",
+      "mtimeNs": "1792824916759949397",
+      "ctimeNs": "1792824916761653017",
+      "inode": "29415117"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Session Storage",
+      "type": "directory",
+      "bytes": 256,
+      "mtime": "2026-10-30T13:48:57.640Z",
+      "mtimeNs": "1793368137640665112",
+      "ctimeNs": "1793368137640665112",
+      "inode": "29415027"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Session Storage/000003.log",
+      "type": "file",
+      "bytes": 239,
+      "mtime": "2026-10-30T13:48:51.292Z",
+      "mtimeNs": "1793368131292033794",
+      "ctimeNs": "1793368131292033794",
+      "inode": "29415033"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Session Storage/CURRENT",
+      "type": "file",
+      "bytes": 16,
+      "mtime": "2026-10-24T06:55:11.945Z",
+      "mtimeNs": "1792824911945846577",
+      "ctimeNs": "1792824911946247492",
+      "inode": "29415032"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Session Storage/LOCK",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:11.944Z",
+      "mtimeNs": "1792824911944982662",
+      "ctimeNs": "1792824911944993829",
+      "inode": "29415029"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Session Storage/LOG",
+      "type": "file",
+      "bytes": 277,
+      "mtime": "2026-10-30T13:48:57.641Z",
+      "mtimeNs": "1793368137641188777",
+      "ctimeNs": "1793368137641188777",
+      "inode": "34230398"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Session Storage/LOG.old",
+      "type": "file",
+      "bytes": 277,
+      "mtime": "2026-10-30T13:43:34.040Z",
+      "mtimeNs": "1793367814040975275",
+      "ctimeNs": "1793368137640514945",
+      "inode": "34229208"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Session Storage/MANIFEST-000001",
+      "type": "file",
+      "bytes": 41,
+      "mtime": "2026-10-24T06:55:11.945Z",
+      "mtimeNs": "1792824911945123412",
+      "ctimeNs": "1792824911945123412",
+      "inode": "29415030"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Shared Dictionary",
+      "type": "directory",
+      "bytes": 160,
+      "mtime": "2026-10-24T06:55:06.825Z",
+      "mtimeNs": "1792824906825433946",
+      "ctimeNs": "1792824906825433946",
+      "inode": "29414735"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Shared Dictionary/cache",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:55:06.826Z",
+      "mtimeNs": "1792824906826578610",
+      "ctimeNs": "1792824906826578610",
+      "inode": "29414774"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Shared Dictionary/cache/index",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:55:06.823Z",
+      "mtimeNs": "1792824906823399284",
+      "ctimeNs": "1792824906823399284",
+      "inode": "29414775"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Shared Dictionary/cache/index-dir",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:55:06.827Z",
+      "mtimeNs": "1792824906827154108",
+      "ctimeNs": "1792824906827154108",
+      "inode": "29414785"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Shared Dictionary/cache/index-dir/the-real-index",
+      "type": "file",
+      "bytes": 48,
+      "mtime": "2026-10-24T06:55:06.826Z",
+      "mtimeNs": "1792824906826916442",
+      "ctimeNs": "1792824906827154067",
+      "inode": "29414786"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Shared Dictionary/db",
+      "type": "file",
+      "bytes": 45056,
+      "mtime": "2026-10-24T06:55:06.832Z",
+      "mtimeNs": "1792824906832525470",
+      "ctimeNs": "1793297435841533577",
+      "inode": "29414776"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Shared Dictionary/db-journal",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.832Z",
+      "mtimeNs": "1792824906832612261",
+      "ctimeNs": "1792824906832612261",
+      "inode": "29414783"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/SingletonCookie",
+      "type": "symlink",
+      "bytes": 20,
+      "mtime": "2026-10-30T13:48:57.221Z",
+      "mtimeNs": "1793368137221778775",
+      "ctimeNs": "1793368137221790942",
+      "inode": "34230369"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/SingletonLock",
+      "type": "symlink",
+      "bytes": 18,
+      "mtime": "2026-10-30T13:48:57.221Z",
+      "mtimeNs": "1793368137221569692",
+      "ctimeNs": "1793368137221604734",
+      "inode": "34230366"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/SingletonSocket",
+      "type": "symlink",
+      "bytes": 81,
+      "mtime": "2026-10-30T13:48:57.221Z",
+      "mtimeNs": "1793368137221745275",
+      "ctimeNs": "1793368137221758109",
+      "inode": "34230368"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Trust Tokens",
+      "type": "file",
+      "bytes": 36864,
+      "mtime": "2026-10-24T06:55:06.830Z",
+      "mtimeNs": "1792824906830353058",
+      "ctimeNs": "1793297435834395789",
+      "inode": "29414778"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Trust Tokens-journal",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.830Z",
+      "mtimeNs": "1792824906830412517",
+      "ctimeNs": "1792824906830412517",
+      "inode": "29414780"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/blob_storage",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-30T13:48:57.343Z",
+      "mtimeNs": "1793368137343513373",
+      "ctimeNs": "1793368137343513373",
+      "inode": "29414766"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/blob_storage/7faa153d-5284-4712-b3cb-6b8a5d4c4c53",
+      "type": "directory",
+      "bytes": 64,
+      "mtime": "2026-10-30T13:48:57.342Z",
+      "mtimeNs": "1793368137342653375",
+      "ctimeNs": "1793368137342686374",
+      "inode": "34230372"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/declarative_performance_observer.db",
+      "type": "file",
+      "bytes": 32768,
+      "mtime": "2026-10-24T06:55:06.832Z",
+      "mtimeNs": "1792824906832750011",
+      "ctimeNs": "1793368131302003480",
+      "inode": "29414769"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/declarative_performance_observer.db-journal",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.832Z",
+      "mtimeNs": "1792824906832948219",
+      "ctimeNs": "1792824906832948219",
+      "inode": "29414771"
+    },
+    {
+      "path": "/Users/a1-6/.serika/config.json",
+      "type": "file",
+      "bytes": 1776,
+      "mtime": "2026-10-27T12:16:49.285Z",
+      "mtimeNs": "1793103409285844140",
+      "ctimeNs": "1793103409290367752",
+      "inode": "32451527"
+    },
+    {
+      "path": "/Users/a1-6/.serika/config.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.827Z",
+      "mtimeNs": "1792824906827286233",
+      "ctimeNs": "1792824906827321941",
+      "inode": "29414787"
+    },
+    {
+      "path": "/Users/a1-6/.serika/config.json.v1-9cde2278-ebb3-4384-8326-5c544c517b7f.backup",
+      "type": "file",
+      "bytes": 1342,
+      "mtime": "2026-10-25T02:30:54.945Z",
+      "mtimeNs": "1792895454945446362",
+      "ctimeNs": "1792895454945506362",
+      "inode": "31276817"
+    },
+    {
+      "path": "/Users/a1-6/.serika/config.json.v2-9cde2278-ebb3-4384-8326-5c544c517b7f.receipt.json",
+      "type": "file",
+      "bytes": 449,
+      "mtime": "2026-10-25T02:30:54.950Z",
+      "mtimeNs": "1792895454950993256",
+      "ctimeNs": "1792895454951147922",
+      "inode": "31276818"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data",
+      "type": "directory",
+      "bytes": 640,
+      "mtime": "2026-10-31T11:51:15.324Z",
+      "mtimeNs": "1793447475324529283",
+      "ctimeNs": "1793447475324529283",
+      "inode": "29413913"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/.work-task-owner-1cfa257e17a82c2d4c02bd542c7760255c0cb728ae4be200ae45eedd70f91153.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T08:47:02.431Z",
+      "mtimeNs": "1793004422431108801",
+      "ctimeNs": "1793004422431108801",
+      "inode": "31929505"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/.work-task-owner-4dedc5dc53521759da1c15431c060c25de99e32f08530038d337ffb138717452.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T08:29:25.592Z",
+      "mtimeNs": "1792830565592615052",
+      "ctimeNs": "1792830565592648343",
+      "inode": "29449510"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/.work-task-owner-96f500660bf667c9a07485104cab12cc2e46a6984f18c667e4cd11dcf6e03497.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-30T13:43:36.997Z",
+      "mtimeNs": "1793367816997736615",
+      "ctimeNs": "1793367816997736615",
+      "inode": "34229309"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/.work-task-owner-a4491f8140ec2da4d20ee55d4f6c34af7d6df8aead2df776f057a89040d8edb9.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:35:49.041Z",
+      "mtimeNs": "1793007349041388339",
+      "ctimeNs": "1793007349041388339",
+      "inode": "31941030"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/.work-task-owner-aafd30b6ee28584c162255f08a3d92911debb7d516d844ff34999d532996d990.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:15:40.227Z",
+      "mtimeNs": "1793006140227890181",
+      "ctimeNs": "1793006140227890181",
+      "inode": "31935722"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/.work-task-owner-cff38a50871755a42b8d6f6d19797c154b8845dfa343d0b2ea8ed53b1167ec9b.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T09:16:05.699Z",
+      "mtimeNs": "1792833365699474262",
+      "ctimeNs": "1792897125909631878",
+      "inode": "29477901"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/memory-extraction-failures.jsonl",
+      "type": "file",
+      "bytes": 294,
+      "mtime": "2026-10-29T12:05:15.599Z",
+      "mtimeNs": "1793275515599080535",
+      "ctimeNs": "1793275515599080535",
+      "inode": "32914592"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/memory-extraction-failures.jsonl.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-29T12:05:15.565Z",
+      "mtimeNs": "1793275515565344909",
+      "ctimeNs": "1793275515565344909",
+      "inode": "32914591"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/memory.json",
+      "type": "file",
+      "bytes": 13452,
+      "mtime": "2026-10-31T09:33:09.131Z",
+      "mtimeNs": "1793439189131054354",
+      "ctimeNs": "1793439189135318676",
+      "inode": "34526989"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/memory.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T09:46:14.807Z",
+      "mtimeNs": "1792835174807370114",
+      "ctimeNs": "1792895455069706342",
+      "inode": "29491026"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/memory.json.v6-73a574f0-ea38-447a-88c6-bbb41b0e1d3b.backup",
+      "type": "file",
+      "bytes": 11822,
+      "mtime": "2026-10-25T02:30:55.107Z",
+      "mtimeNs": "1792895455107519642",
+      "ctimeNs": "1792895455107560600",
+      "inode": "31276822"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/memory.json.v7-73a574f0-ea38-447a-88c6-bbb41b0e1d3b.receipt.json",
+      "type": "file",
+      "bytes": 2828,
+      "mtime": "2026-10-25T02:30:55.112Z",
+      "mtimeNs": "1792895455112239538",
+      "ctimeNs": "1792895455112265955",
+      "inode": "31276823"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/projects.json",
+      "type": "file",
+      "bytes": 324,
+      "mtime": "2026-10-25T04:53:39.441Z",
+      "mtimeNs": "1792904019441118197",
+      "ctimeNs": "1792904019444131065",
+      "inode": "31466004"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/projects.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-25T02:58:43.683Z",
+      "mtimeNs": "1792897123683074132",
+      "ctimeNs": "1792897123683126465",
+      "inode": "31280512"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/task-worker-health.json",
+      "type": "file",
+      "bytes": 184,
+      "mtime": "2026-10-31T11:51:15.319Z",
+      "mtimeNs": "1793447475319083254",
+      "ctimeNs": "1793447475324529241",
+      "inode": "34559039"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/task-worker.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T08:52:42.157Z",
+      "mtimeNs": "1792831962157190308",
+      "ctimeNs": "1792832084837214913",
+      "inode": "29454827"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/tasks.json",
+      "type": "file",
+      "bytes": 11772,
+      "mtime": "2026-10-24T06:52:43.066Z",
+      "mtimeNs": "1792824763066108844",
+      "ctimeNs": "1792824763066108844",
+      "inode": "29413915"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/tasks.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T08:52:42.199Z",
+      "mtimeNs": "1792831962199393397",
+      "ctimeNs": "1792831962199393397",
+      "inode": "29454829"
+    },
+    {
+      "path": "/Users/a1-6/.serika/desktop",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-31T08:32:40.507Z",
+      "mtimeNs": "1793435560507827958",
+      "ctimeNs": "1793435560507827958",
+      "inode": "29413808"
+    },
+    {
+      "path": "/Users/a1-6/.serika/desktop/conversation-drafts.json",
+      "type": "file",
+      "bytes": 6185,
+      "mtime": "2026-10-31T08:32:40.503Z",
+      "mtimeNs": "1793435560503291386",
+      "ctimeNs": "1793435560507827958",
+      "inode": "34499914"
+    },
+    {
+      "path": "/Users/a1-6/.serika/desktop/desktop-identity.json",
+      "type": "file",
+      "bytes": 8864,
+      "mtime": "2026-10-31T08:32:40.286Z",
+      "mtimeNs": "1793435560286579942",
+      "ctimeNs": "1793435560291438597",
+      "inode": "34499910"
+    },
+    {
+      "path": "/Users/a1-6/.serika/imports",
+      "type": "directory",
+      "bytes": 160,
+      "mtime": "2026-10-24T06:52:43.153Z",
+      "mtimeNs": "1792824763153482123",
+      "ctimeNs": "1792824763153482123",
+      "inode": "29413805"
+    },
+    {
+      "path": "/Users/a1-6/.serika/imports/intent.json",
+      "type": "file",
+      "bytes": 85,
+      "mtime": "2026-10-24T06:52:42.804Z",
+      "mtimeNs": "1792824762804816919",
+      "ctimeNs": "1792824762804816919",
+      "inode": "29413806"
+    },
+    {
+      "path": "/Users/a1-6/.serika/imports/prepared.json",
+      "type": "file",
+      "bytes": 65897,
+      "mtime": "2026-10-24T06:52:43.072Z",
+      "mtimeNs": "1792824763072424828",
+      "ctimeNs": "1792824763072424828",
+      "inode": "29413916"
+    },
+    {
+      "path": "/Users/a1-6/.serika/imports/receipt.json",
+      "type": "file",
+      "bytes": 65895,
+      "mtime": "2026-10-24T06:52:43.148Z",
+      "mtimeNs": "1792824763148901343",
+      "ctimeNs": "1792824763153482082",
+      "inode": "29413917"
+    },
+    {
+      "path": "/Users/a1-6/.serika/resident",
+      "type": "directory",
+      "bytes": 192,
+      "mtime": "2026-10-31T11:44:10.285Z",
+      "mtimeNs": "1793447050285441090",
+      "ctimeNs": "1793447050285441090",
+      "inode": "29414820"
+    },
+    {
+      "path": "/Users/a1-6/.serika/resident/auth-token",
+      "type": "file",
+      "bytes": 64,
+      "mtime": "2026-10-24T08:31:16.675Z",
+      "mtimeNs": "1792830676675210214",
+      "ctimeNs": "1792830676675210214",
+      "inode": "29449942"
+    },
+    {
+      "path": "/Users/a1-6/.serika/resident/identity.json",
+      "type": "file",
+      "bytes": 468,
+      "mtime": "2026-10-30T13:48:51.594Z",
+      "mtimeNs": "1793368131594454355",
+      "ctimeNs": "1793368131594593146",
+      "inode": "34230319"
+    },
+    {
+      "path": "/Users/a1-6/.serika/resident/telegram.json",
+      "type": "file",
+      "bytes": 1560195,
+      "mtime": "2026-10-31T11:44:10.279Z",
+      "mtimeNs": "1793447050279640246",
+      "ctimeNs": "1793447050285441048",
+      "inode": "34558107"
+    },
+    {
+      "path": "/Users/a1-6/.serika/resident/transport.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T08:31:16.675Z",
+      "mtimeNs": "1792830676675557005",
+      "ctimeNs": "1792830676675557005",
+      "inode": "29449943"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts",
+      "type": "directory",
+      "bytes": 1536,
+      "mtime": "2026-10-30T13:43:35.110Z",
+      "mtimeNs": "1793367815110665336",
+      "ctimeNs": "1793367815110665336",
+      "inode": "29413811"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/03c92d5d-6256-4af9-96f2-bbd37de85899",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.823Z",
+      "mtimeNs": "1792824762823574330",
+      "ctimeNs": "1792824762823574330",
+      "inode": "29413812"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/03c92d5d-6256-4af9-96f2-bbd37de85899/a722807a821cb63cd79120dc6812096a6a199a208514bc63fa3b8be76050f8be.jsonl",
+      "type": "file",
+      "bytes": 9120,
+      "mtime": "2026-10-24T06:52:42.820Z",
+      "mtimeNs": "1792824762820721087",
+      "ctimeNs": "1792824762820721087",
+      "inode": "29413813"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/03c92d5d-6256-4af9-96f2-bbd37de85899/execution-records.json",
+      "type": "file",
+      "bytes": 12641,
+      "mtime": "2026-10-24T06:52:42.823Z",
+      "mtimeNs": "1792824762823648330",
+      "ctimeNs": "1792824762823648330",
+      "inode": "29413814"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/03e407b8-e766-4db6-a52c-74ae28bbe0a0",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.831Z",
+      "mtimeNs": "1792824762831433394",
+      "ctimeNs": "1792824762831433394",
+      "inode": "29413815"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/03e407b8-e766-4db6-a52c-74ae28bbe0a0/execution-records.json",
+      "type": "file",
+      "bytes": 18817,
+      "mtime": "2026-10-24T06:52:42.827Z",
+      "mtimeNs": "1792824762827580195",
+      "ctimeNs": "1792824762827580195",
+      "inode": "29413816"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/03e407b8-e766-4db6-a52c-74ae28bbe0a0/f5f3bb77e5c4035e31c11bae65799e8b32d4eb10f4797918f2570b47a5df3a25.jsonl",
+      "type": "file",
+      "bytes": 66711,
+      "mtime": "2026-10-24T06:52:42.831Z",
+      "mtimeNs": "1792824762831505185",
+      "ctimeNs": "1792824762831505185",
+      "inode": "29413817"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0b5a23aa-3470-414c-9202-7088054e2545",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.835Z",
+      "mtimeNs": "1792824762835532383",
+      "ctimeNs": "1792824762835532383",
+      "inode": "29413818"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0b5a23aa-3470-414c-9202-7088054e2545/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.835Z",
+      "mtimeNs": "1792824762835590342",
+      "ctimeNs": "1792824762835590342",
+      "inode": "29413819"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399",
+      "type": "directory",
+      "bytes": 448,
+      "mtime": "2026-10-31T09:33:08.957Z",
+      "mtimeNs": "1793439188957261833",
+      "ctimeNs": "1793439188957261833",
+      "inode": "29413820"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/.execution-owner-cff38a50871755a42b8d6f6d19797c154b8845dfa343d0b2ea8ed53b1167ec9b.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:09.765Z",
+      "mtimeNs": "1792824909765746407",
+      "ctimeNs": "1792824909765788782",
+      "inode": "29415020"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/.model-calls.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T09:16:08.127Z",
+      "mtimeNs": "1792833368127241977",
+      "ctimeNs": "1792897126500707339",
+      "inode": "29477914"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/cff38a50871755a42b8d6f6d19797c154b8845dfa343d0b2ea8ed53b1167ec9b.jsonl",
+      "type": "file",
+      "bytes": 6377000,
+      "mtime": "2026-10-31T08:33:00.656Z",
+      "mtimeNs": "1793435580656540547",
+      "ctimeNs": "1793435580656540547",
+      "inode": "29413821"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/cff38a50871755a42b8d6f6d19797c154b8845dfa343d0b2ea8ed53b1167ec9b.jsonl.append.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T09:16:07.733Z",
+      "mtimeNs": "1792833367733520616",
+      "ctimeNs": "1792897264621446200",
+      "inode": "29477910"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/execution-records.json",
+      "type": "file",
+      "bytes": 169820,
+      "mtime": "2026-10-31T09:33:08.951Z",
+      "mtimeNs": "1793439188951029059",
+      "ctimeNs": "1793439188957261833",
+      "inode": "34526988"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/execution-records.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:09.832Z",
+      "mtimeNs": "1792824909832925238",
+      "ctimeNs": "1792824909832956738",
+      "inode": "29415021"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/model-calls-2026-10-24.jsonl",
+      "type": "file",
+      "bytes": 24580,
+      "mtime": "2026-10-24T12:09:57.849Z",
+      "mtimeNs": "1792843797849720437",
+      "ctimeNs": "1792843797849720437",
+      "inode": "29477915"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/model-calls-2026-10-25.jsonl",
+      "type": "file",
+      "bytes": 40428,
+      "mtime": "2026-10-25T10:31:28.843Z",
+      "mtimeNs": "1792924288843468826",
+      "ctimeNs": "1792924288843468826",
+      "inode": "31280696"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/model-calls-2026-10-26.jsonl",
+      "type": "file",
+      "bytes": 4902,
+      "mtime": "2026-10-26T10:16:05.579Z",
+      "mtimeNs": "1793009765579756118",
+      "ctimeNs": "1793009765579756118",
+      "inode": "31944447"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/model-calls-2026-10-29.jsonl",
+      "type": "file",
+      "bytes": 44529,
+      "mtime": "2026-10-29T12:35:20.075Z",
+      "mtimeNs": "1793277320075943865",
+      "ctimeNs": "1793277320075943865",
+      "inode": "32883205"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/model-calls-2026-10-30.jsonl",
+      "type": "file",
+      "bytes": 55901,
+      "mtime": "2026-10-30T14:19:10.384Z",
+      "mtimeNs": "1793369950384762200",
+      "ctimeNs": "1793369950384762200",
+      "inode": "33537204"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/model-calls-2026-10-31.jsonl",
+      "type": "file",
+      "bytes": 9305,
+      "mtime": "2026-10-31T09:33:09.004Z",
+      "mtimeNs": "1793439189004399537",
+      "ctimeNs": "1793439189004399537",
+      "inode": "34499921"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7",
+      "type": "directory",
+      "bytes": 288,
+      "mtime": "2026-10-30T13:47:37.672Z",
+      "mtimeNs": "1793368057672501221",
+      "ctimeNs": "1793368057672501221",
+      "inode": "34229301"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7/.execution-owner-96f500660bf667c9a07485104cab12cc2e46a6984f18c667e4cd11dcf6e03497.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-30T13:43:37.631Z",
+      "mtimeNs": "1793367817631778169",
+      "ctimeNs": "1793367817631778169",
+      "inode": "34229312"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7/.model-calls.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-30T13:43:38.512Z",
+      "mtimeNs": "1793367818512125829",
+      "ctimeNs": "1793367818512125829",
+      "inode": "34229324"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7/96f500660bf667c9a07485104cab12cc2e46a6984f18c667e4cd11dcf6e03497.jsonl",
+      "type": "file",
+      "bytes": 39671,
+      "mtime": "2026-10-30T13:47:37.629Z",
+      "mtimeNs": "1793368057629027278",
+      "ctimeNs": "1793368057629027278",
+      "inode": "34230069"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7/96f500660bf667c9a07485104cab12cc2e46a6984f18c667e4cd11dcf6e03497.jsonl.append.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-30T13:43:38.379Z",
+      "mtimeNs": "1793367818379589506",
+      "ctimeNs": "1793367818379589506",
+      "inode": "34229320"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7/execution-records.json",
+      "type": "file",
+      "bytes": 23823,
+      "mtime": "2026-10-30T13:47:37.668Z",
+      "mtimeNs": "1793368057668721479",
+      "ctimeNs": "1793368057672501179",
+      "inode": "34230121"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7/execution-records.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-30T13:43:38.079Z",
+      "mtimeNs": "1793367818079221315",
+      "ctimeNs": "1793367818079221315",
+      "inode": "34229315"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7/model-calls-2026-10-30.jsonl",
+      "type": "file",
+      "bytes": 35917,
+      "mtime": "2026-10-30T13:47:37.712Z",
+      "mtimeNs": "1793368057712876337",
+      "ctimeNs": "1793368057712876337",
+      "inode": "34229325"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0eb7bb45-76fc-47c4-80c0-d86bfe28f958",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.849Z",
+      "mtimeNs": "1792824762849611723",
+      "ctimeNs": "1792824762849611723",
+      "inode": "29413823"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0eb7bb45-76fc-47c4-80c0-d86bfe28f958/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.849Z",
+      "mtimeNs": "1792824762849673306",
+      "ctimeNs": "1792824762849673306",
+      "inode": "29413824"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/1a07e312-6aa8-499c-a9a2-3d7a6379c683",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.853Z",
+      "mtimeNs": "1792824762853492046",
+      "ctimeNs": "1792824762853492046",
+      "inode": "29413825"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/1a07e312-6aa8-499c-a9a2-3d7a6379c683/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.853Z",
+      "mtimeNs": "1792824762853559963",
+      "ctimeNs": "1792824762853559963",
+      "inode": "29413826"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/1bedc181-edf2-4362-bc06-926827f877e2",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.857Z",
+      "mtimeNs": "1792824762857447745",
+      "ctimeNs": "1792824762857447745",
+      "inode": "29413827"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/1bedc181-edf2-4362-bc06-926827f877e2/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.857Z",
+      "mtimeNs": "1792824762857510911",
+      "ctimeNs": "1792824762857510911",
+      "inode": "29413828"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/1c1e1ef4-8159-4e4c-a113-f47e25dbf367",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.865Z",
+      "mtimeNs": "1792824762865420475",
+      "ctimeNs": "1792824762865420475",
+      "inode": "29413829"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/1c1e1ef4-8159-4e4c-a113-f47e25dbf367/734ea2b4437f0af48bc7ba9472cbefa833f9a90b336cfa5c39121aedf5a30591.jsonl",
+      "type": "file",
+      "bytes": 83725,
+      "mtime": "2026-10-24T06:52:42.861Z",
+      "mtimeNs": "1792824762861594276",
+      "ctimeNs": "1792824762861594276",
+      "inode": "29413830"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/1c1e1ef4-8159-4e4c-a113-f47e25dbf367/execution-records.json",
+      "type": "file",
+      "bytes": 18487,
+      "mtime": "2026-10-24T06:52:42.865Z",
+      "mtimeNs": "1792824762865489600",
+      "ctimeNs": "1792824762865489600",
+      "inode": "29413831"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/22ded8b8-5795-45d2-847c-4f816affb755",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.869Z",
+      "mtimeNs": "1792824762869650506",
+      "ctimeNs": "1792824762869650506",
+      "inode": "29413832"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/22ded8b8-5795-45d2-847c-4f816affb755/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.869Z",
+      "mtimeNs": "1792824762869717714",
+      "ctimeNs": "1792824762869717714",
+      "inode": "29413833"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2854a552-4277-4fb0-be55-e25e2c4ce709",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.877Z",
+      "mtimeNs": "1792824762877455069",
+      "ctimeNs": "1792824762877455069",
+      "inode": "29413834"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2854a552-4277-4fb0-be55-e25e2c4ce709/eedae78ac0deb86ed30265138ff9b132af13176ed0b8d9d43bf142890a4a2228.jsonl",
+      "type": "file",
+      "bytes": 13762,
+      "mtime": "2026-10-24T06:52:42.873Z",
+      "mtimeNs": "1792824762873600329",
+      "ctimeNs": "1792824762873600329",
+      "inode": "29413835"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2854a552-4277-4fb0-be55-e25e2c4ce709/execution-records.json",
+      "type": "file",
+      "bytes": 3306,
+      "mtime": "2026-10-24T06:52:42.877Z",
+      "mtimeNs": "1792824762877514069",
+      "ctimeNs": "1792824762877514069",
+      "inode": "29413836"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2ac6cb33-8a0a-422f-8be1-f2451e4f903f",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.885Z",
+      "mtimeNs": "1792824762885529049",
+      "ctimeNs": "1792824762885529049",
+      "inode": "29413837"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2ac6cb33-8a0a-422f-8be1-f2451e4f903f/execution-records.json",
+      "type": "file",
+      "bytes": 3390,
+      "mtime": "2026-10-24T06:52:42.881Z",
+      "mtimeNs": "1792824762881576101",
+      "ctimeNs": "1792824762881576101",
+      "inode": "29413838"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2ac6cb33-8a0a-422f-8be1-f2451e4f903f/ffd6e47958d8d39eb2a1f41b0f39e7c8bfeac032b2d5a40a00f69d2eb586265f.jsonl",
+      "type": "file",
+      "bytes": 7706,
+      "mtime": "2026-10-24T06:52:42.885Z",
+      "mtimeNs": "1792824762885598591",
+      "ctimeNs": "1792824762885598591",
+      "inode": "29413839"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2c80d23d-a22d-4e5e-8597-5e52aae3fe21",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.889Z",
+      "mtimeNs": "1792824762889600789",
+      "ctimeNs": "1792824762889600789",
+      "inode": "29413840"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2c80d23d-a22d-4e5e-8597-5e52aae3fe21/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.889Z",
+      "mtimeNs": "1792824762889659830",
+      "ctimeNs": "1792824762889659830",
+      "inode": "29413841"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/31d8928b-af1b-46e4-88e7-f23dc0f6555f",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.892Z",
+      "mtimeNs": "1792824762892538406",
+      "ctimeNs": "1792824762892538406",
+      "inode": "29413842"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/31d8928b-af1b-46e4-88e7-f23dc0f6555f/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.892Z",
+      "mtimeNs": "1792824762892596990",
+      "ctimeNs": "1792824762892596990",
+      "inode": "29413843"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/393f0507-650c-43e6-84ae-4336e62bc29b",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.900Z",
+      "mtimeNs": "1792824762900593053",
+      "ctimeNs": "1792824762900593053",
+      "inode": "29413844"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/393f0507-650c-43e6-84ae-4336e62bc29b/7515a79c5308973968edd234d8eefeb59cdc05839b7896d18fb54ad033e8206c.jsonl",
+      "type": "file",
+      "bytes": 9386,
+      "mtime": "2026-10-24T06:52:42.896Z",
+      "mtimeNs": "1792824762896617396",
+      "ctimeNs": "1792824762896617396",
+      "inode": "29413845"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/393f0507-650c-43e6-84ae-4336e62bc29b/execution-records.json",
+      "type": "file",
+      "bytes": 5345,
+      "mtime": "2026-10-24T06:52:42.900Z",
+      "mtimeNs": "1792824762900673052",
+      "ctimeNs": "1792824762900673052",
+      "inode": "29413846"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/3a782be9-e9f1-4caf-8b7f-acf80a4f6484",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.906Z",
+      "mtimeNs": "1792824762906686412",
+      "ctimeNs": "1792824762906686412",
+      "inode": "29413847"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/3a782be9-e9f1-4caf-8b7f-acf80a4f6484/97580b460d2e2b68600bdd4a5c2e130c1d16c3dbe181f8eb35234d19a99c162b.jsonl",
+      "type": "file",
+      "bytes": 2675,
+      "mtime": "2026-10-24T06:52:42.903Z",
+      "mtimeNs": "1792824762903597420",
+      "ctimeNs": "1792824762903597420",
+      "inode": "29413848"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/3a782be9-e9f1-4caf-8b7f-acf80a4f6484/execution-records.json",
+      "type": "file",
+      "bytes": 4056,
+      "mtime": "2026-10-24T06:52:42.906Z",
+      "mtimeNs": "1792824762906747412",
+      "ctimeNs": "1792824762906747412",
+      "inode": "29413849"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/442270ba-4d83-4fad-bc6e-d34678913a8b",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.910Z",
+      "mtimeNs": "1792824762910672402",
+      "ctimeNs": "1792824762910672402",
+      "inode": "29413850"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/442270ba-4d83-4fad-bc6e-d34678913a8b/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.910Z",
+      "mtimeNs": "1792824762910728902",
+      "ctimeNs": "1792824762910728902",
+      "inode": "29413851"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/5a79ce84-3398-40a5-8317-9bec25a7b612",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.918Z",
+      "mtimeNs": "1792824762918571924",
+      "ctimeNs": "1792824762918571924",
+      "inode": "29413852"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/5a79ce84-3398-40a5-8317-9bec25a7b612/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.918Z",
+      "mtimeNs": "1792824762918660882",
+      "ctimeNs": "1792824762918660882",
+      "inode": "29413853"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/614f9a90-6fbd-4cdb-8c14-b4b4880229f9",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.922Z",
+      "mtimeNs": "1792824762922683830",
+      "ctimeNs": "1792824762922683830",
+      "inode": "29413854"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/614f9a90-6fbd-4cdb-8c14-b4b4880229f9/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.922Z",
+      "mtimeNs": "1792824762922778872",
+      "ctimeNs": "1792824762922778872",
+      "inode": "29413855"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/72aaf806-209b-4f01-a754-cf10b32d664b",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.930Z",
+      "mtimeNs": "1792824762930508769",
+      "ctimeNs": "1792824762930508769",
+      "inode": "29413856"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/72aaf806-209b-4f01-a754-cf10b32d664b/911b543caa21fc337d3dd21547ebb266d9de95053b7ffb1d8b740db77b459a98.jsonl",
+      "type": "file",
+      "bytes": 30552,
+      "mtime": "2026-10-24T06:52:42.926Z",
+      "mtimeNs": "1792824762926720195",
+      "ctimeNs": "1792824762926720195",
+      "inode": "29413857"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/72aaf806-209b-4f01-a754-cf10b32d664b/execution-records.json",
+      "type": "file",
+      "bytes": 15346,
+      "mtime": "2026-10-24T06:52:42.930Z",
+      "mtimeNs": "1792824762930568977",
+      "ctimeNs": "1792824762930568977",
+      "inode": "29413858"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/7390de98-dc89-47c8-a83f-5c8b38559554",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.937Z",
+      "mtimeNs": "1792824762937507293",
+      "ctimeNs": "1792824762937507293",
+      "inode": "29413859"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/7390de98-dc89-47c8-a83f-5c8b38559554/3095b321db5431e097ccfd081b97cb6520a063da3d0b17c5074917d5d74b124b.jsonl",
+      "type": "file",
+      "bytes": 28696,
+      "mtime": "2026-10-24T06:52:42.933Z",
+      "mtimeNs": "1792824762933769011",
+      "ctimeNs": "1792824762933769011",
+      "inode": "29413860"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/7390de98-dc89-47c8-a83f-5c8b38559554/execution-records.json",
+      "type": "file",
+      "bytes": 7487,
+      "mtime": "2026-10-24T06:52:42.937Z",
+      "mtimeNs": "1792824762937581376",
+      "ctimeNs": "1792824762937581376",
+      "inode": "29413861"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/744871b3-09b8-4b19-b7ff-8e5dded86685",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.940Z",
+      "mtimeNs": "1792824762940659035",
+      "ctimeNs": "1792824762940659035",
+      "inode": "29413862"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/744871b3-09b8-4b19-b7ff-8e5dded86685/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.940Z",
+      "mtimeNs": "1792824762940725160",
+      "ctimeNs": "1792824762940725160",
+      "inode": "29413863"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/75e91e59-6dfb-47fb-b8dc-a2294fa855e7",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.948Z",
+      "mtimeNs": "1792824762948511390",
+      "ctimeNs": "1792824762948511390",
+      "inode": "29413864"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/75e91e59-6dfb-47fb-b8dc-a2294fa855e7/09c39c06db479baa2a114a0ba1cdc1f93b95e159a107946235968f5e7c5c99af.jsonl",
+      "type": "file",
+      "bytes": 28323,
+      "mtime": "2026-10-24T06:52:42.944Z",
+      "mtimeNs": "1792824762944680817",
+      "ctimeNs": "1792824762944680817",
+      "inode": "29413865"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/75e91e59-6dfb-47fb-b8dc-a2294fa855e7/execution-records.json",
+      "type": "file",
+      "bytes": 30910,
+      "mtime": "2026-10-24T06:52:42.948Z",
+      "mtimeNs": "1792824762948601015",
+      "ctimeNs": "1792824762948601015",
+      "inode": "29413866"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/7a9ade88-49d5-4a57-90a4-e27da3102f5d",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.952Z",
+      "mtimeNs": "1792824762952647380",
+      "ctimeNs": "1792824762952647380",
+      "inode": "29413867"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/7a9ade88-49d5-4a57-90a4-e27da3102f5d/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.952Z",
+      "mtimeNs": "1792824762952737505",
+      "ctimeNs": "1792824762952737505",
+      "inode": "29413868"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed",
+      "type": "directory",
+      "bytes": 288,
+      "mtime": "2026-10-24T09:01:10.324Z",
+      "mtimeNs": "1792832470324422264",
+      "ctimeNs": "1792832470324422264",
+      "inode": "29421016"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed/.execution-owner-4dedc5dc53521759da1c15431c060c25de99e32f08530038d337ffb138717452.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T07:00:37.862Z",
+      "mtimeNs": "1792825237862842808",
+      "ctimeNs": "1792825237862889224",
+      "inode": "29421017"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed/.model-calls.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T08:15:46.508Z",
+      "mtimeNs": "1792829746508803580",
+      "ctimeNs": "1792829746508821705",
+      "inode": "29443251"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed/4dedc5dc53521759da1c15431c060c25de99e32f08530038d337ffb138717452.jsonl",
+      "type": "file",
+      "bytes": 55583,
+      "mtime": "2026-10-24T09:01:10.281Z",
+      "mtimeNs": "1792832470281389260",
+      "ctimeNs": "1792832470281389260",
+      "inode": "29443275"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed/4dedc5dc53521759da1c15431c060c25de99e32f08530038d337ffb138717452.jsonl.append.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T08:15:46.339Z",
+      "mtimeNs": "1792829746339844940",
+      "ctimeNs": "1792829746339869523",
+      "inode": "29443247"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed/execution-records.json",
+      "type": "file",
+      "bytes": 17062,
+      "mtime": "2026-10-24T09:01:10.320Z",
+      "mtimeNs": "1792832470320259022",
+      "ctimeNs": "1792832470324422223",
+      "inode": "29468545"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed/execution-records.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T07:00:37.918Z",
+      "mtimeNs": "1792825237918566471",
+      "ctimeNs": "1792825237918614430",
+      "inode": "29421018"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed/model-calls-2026-10-24.jsonl",
+      "type": "file",
+      "bytes": 13751,
+      "mtime": "2026-10-24T09:01:10.361Z",
+      "mtimeNs": "1792832470361196863",
+      "ctimeNs": "1792832470361196863",
+      "inode": "29443253"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/8bb44ece-9c2f-446c-9954-7c14bf362da0",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.960Z",
+      "mtimeNs": "1792824762960582735",
+      "ctimeNs": "1792824762960582735",
+      "inode": "29413869"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/8bb44ece-9c2f-446c-9954-7c14bf362da0/execution-records.json",
+      "type": "file",
+      "bytes": 14800,
+      "mtime": "2026-10-24T06:52:42.956Z",
+      "mtimeNs": "1792824762956686870",
+      "ctimeNs": "1792824762956686870",
+      "inode": "29413870"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/8bb44ece-9c2f-446c-9954-7c14bf362da0/f882694edab07e29dfbbb55ab479ab83c829663ba9db527be9cd44fbc8912965.jsonl",
+      "type": "file",
+      "bytes": 47491,
+      "mtime": "2026-10-24T06:52:42.960Z",
+      "mtimeNs": "1792824762960662110",
+      "ctimeNs": "1792824762960662110",
+      "inode": "29413871"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/8dbb379d-3b4c-43bf-97e3-4e1f3ca5fcff",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.964Z",
+      "mtimeNs": "1792824762964623266",
+      "ctimeNs": "1792824762964623266",
+      "inode": "29413872"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/8dbb379d-3b4c-43bf-97e3-4e1f3ca5fcff/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.964Z",
+      "mtimeNs": "1792824762964692224",
+      "ctimeNs": "1792824762964692224",
+      "inode": "29413873"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/931afeef-967b-47e7-8403-319e2d4b2800",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.968Z",
+      "mtimeNs": "1792824762968566798",
+      "ctimeNs": "1792824762968566798",
+      "inode": "29413874"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/931afeef-967b-47e7-8403-319e2d4b2800/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.968Z",
+      "mtimeNs": "1792824762968645256",
+      "ctimeNs": "1792824762968645256",
+      "inode": "29413875"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/9b123bfc-0603-470c-aea1-3f78717067cd",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.976Z",
+      "mtimeNs": "1792824762976668736",
+      "ctimeNs": "1792824762976668736",
+      "inode": "29413876"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/9b123bfc-0603-470c-aea1-3f78717067cd/9bd2af9c81ef698a89dfabbaed3c3d545ec3481fd756e5bd8b91ab3486e67623.jsonl",
+      "type": "file",
+      "bytes": 36399,
+      "mtime": "2026-10-24T06:52:42.972Z",
+      "mtimeNs": "1792824762972697496",
+      "ctimeNs": "1792824762972697496",
+      "inode": "29413877"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/9b123bfc-0603-470c-aea1-3f78717067cd/execution-records.json",
+      "type": "file",
+      "bytes": 19598,
+      "mtime": "2026-10-24T06:52:42.976Z",
+      "mtimeNs": "1792824762976801611",
+      "ctimeNs": "1792824762976801611",
+      "inode": "29413878"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553",
+      "type": "directory",
+      "bytes": 288,
+      "mtime": "2026-10-26T09:42:49.379Z",
+      "mtimeNs": "1793007769379487008",
+      "ctimeNs": "1793007769379487008",
+      "inode": "31941028"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553/.execution-owner-a4491f8140ec2da4d20ee55d4f6c34af7d6df8aead2df776f057a89040d8edb9.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:35:49.554Z",
+      "mtimeNs": "1793007349554947652",
+      "ctimeNs": "1793007349554947652",
+      "inode": "31941036"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553/.model-calls.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:36:22.040Z",
+      "mtimeNs": "1793007382040358996",
+      "ctimeNs": "1793007382040358996",
+      "inode": "31941228"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553/a4491f8140ec2da4d20ee55d4f6c34af7d6df8aead2df776f057a89040d8edb9.jsonl",
+      "type": "file",
+      "bytes": 16359,
+      "mtime": "2026-10-26T09:36:59.251Z",
+      "mtimeNs": "1793007419251681487",
+      "ctimeNs": "1793007419251681487",
+      "inode": "31941448"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553/a4491f8140ec2da4d20ee55d4f6c34af7d6df8aead2df776f057a89040d8edb9.jsonl.append.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:36:21.861Z",
+      "mtimeNs": "1793007381861080227",
+      "ctimeNs": "1793007381861080227",
+      "inode": "31941224"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553/execution-records.json",
+      "type": "file",
+      "bytes": 5800,
+      "mtime": "2026-10-26T09:42:49.374Z",
+      "mtimeNs": "1793007769374204229",
+      "ctimeNs": "1793007769379486966",
+      "inode": "31943548"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553/execution-records.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:35:49.787Z",
+      "mtimeNs": "1793007349787926189",
+      "ctimeNs": "1793007349787926189",
+      "inode": "31941038"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553/model-calls-2026-10-26.jsonl",
+      "type": "file",
+      "bytes": 5046,
+      "mtime": "2026-10-26T09:36:59.363Z",
+      "mtimeNs": "1793007419363492556",
+      "ctimeNs": "1793007419363492556",
+      "inode": "31941230"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/af8a7337-e425-4d4f-aa5e-5e5c2989b500",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.985Z",
+      "mtimeNs": "1792824762985608755",
+      "ctimeNs": "1792824762985608755",
+      "inode": "29413879"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/af8a7337-e425-4d4f-aa5e-5e5c2989b500/61ae4fc12d8a1f946efbe741988d385b28928582d1dd6112777a61f19b8e5e5c.jsonl",
+      "type": "file",
+      "bytes": 173955,
+      "mtime": "2026-10-24T06:52:42.980Z",
+      "mtimeNs": "1792824762980897225",
+      "ctimeNs": "1792824762980897225",
+      "inode": "29413880"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/af8a7337-e425-4d4f-aa5e-5e5c2989b500/execution-records.json",
+      "type": "file",
+      "bytes": 60427,
+      "mtime": "2026-10-24T06:52:42.985Z",
+      "mtimeNs": "1792824762985778046",
+      "ctimeNs": "1792824762985778046",
+      "inode": "29413881"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/b2e04cdd-e19a-452a-befe-7668c639792c",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.988Z",
+      "mtimeNs": "1792824762988735622",
+      "ctimeNs": "1792824762988735622",
+      "inode": "29413882"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/b2e04cdd-e19a-452a-befe-7668c639792c/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.988Z",
+      "mtimeNs": "1792824762988827580",
+      "ctimeNs": "1792824762988827580",
+      "inode": "29413883"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/b6074d8b-87cf-45bb-974e-a8ab511e6d19",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.996Z",
+      "mtimeNs": "1792824762996603186",
+      "ctimeNs": "1792824762996603186",
+      "inode": "29413884"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/b6074d8b-87cf-45bb-974e-a8ab511e6d19/a8d01e30dbaf0f95e6f9295499182ed332f4bdd68399729bc875b638888e7187.jsonl",
+      "type": "file",
+      "bytes": 119231,
+      "mtime": "2026-10-24T06:52:42.992Z",
+      "mtimeNs": "1792824762992795987",
+      "ctimeNs": "1792824762992795987",
+      "inode": "29413885"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/b6074d8b-87cf-45bb-974e-a8ab511e6d19/execution-records.json",
+      "type": "file",
+      "bytes": 29393,
+      "mtime": "2026-10-24T06:52:42.996Z",
+      "mtimeNs": "1792824762996707394",
+      "ctimeNs": "1792824762996707394",
+      "inode": "29413886"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/ba8e1c2e-8904-44c0-b487-7ce3cb3ac34e",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:43.000Z",
+      "mtimeNs": "1792824763000680634",
+      "ctimeNs": "1792824763000680634",
+      "inode": "29413887"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/ba8e1c2e-8904-44c0-b487-7ce3cb3ac34e/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:43.000Z",
+      "mtimeNs": "1792824763000771592",
+      "ctimeNs": "1792824763000771592",
+      "inode": "29413888"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/bece7af3-2433-4a62-af7f-6a7bb7a86905",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:43.008Z",
+      "mtimeNs": "1792824763008595905",
+      "ctimeNs": "1792824763008595905",
+      "inode": "29413889"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/bece7af3-2433-4a62-af7f-6a7bb7a86905/29b2fafdf8e905f65d2db80addb7f410b05d68ea490e8786a7847c6b3ab1f470.jsonl",
+      "type": "file",
+      "bytes": 8778,
+      "mtime": "2026-10-24T06:52:43.004Z",
+      "mtimeNs": "1792824763004728915",
+      "ctimeNs": "1792824763004728915",
+      "inode": "29413890"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/bece7af3-2433-4a62-af7f-6a7bb7a86905/execution-records.json",
+      "type": "file",
+      "bytes": 4243,
+      "mtime": "2026-10-24T06:52:43.008Z",
+      "mtimeNs": "1792824763008719572",
+      "ctimeNs": "1792824763008719572",
+      "inode": "29413891"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cbe820cf-81dc-4a60-ba5e-18f29fd09cbb",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:43.015Z",
+      "mtimeNs": "1792824763015675263",
+      "ctimeNs": "1792824763015675263",
+      "inode": "29413892"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cbe820cf-81dc-4a60-ba5e-18f29fd09cbb/41dd77f2910f939a2ef4c113d6f819802eda5be18016b6faf3324883c547d036.jsonl",
+      "type": "file",
+      "bytes": 22752,
+      "mtime": "2026-10-24T06:52:43.012Z",
+      "mtimeNs": "1792824763012773312",
+      "ctimeNs": "1792824763012773312",
+      "inode": "29413893"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cbe820cf-81dc-4a60-ba5e-18f29fd09cbb/execution-records.json",
+      "type": "file",
+      "bytes": 7573,
+      "mtime": "2026-10-24T06:52:43.015Z",
+      "mtimeNs": "1792824763015791304",
+      "ctimeNs": "1792824763015791304",
+      "inode": "29413894"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3",
+      "type": "directory",
+      "bytes": 288,
+      "mtime": "2026-10-26T09:14:16.150Z",
+      "mtimeNs": "1793006056150095021",
+      "ctimeNs": "1793006056150095021",
+      "inode": "31929504"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3/.execution-owner-1cfa257e17a82c2d4c02bd542c7760255c0cb728ae4be200ae45eedd70f91153.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T08:47:02.471Z",
+      "mtimeNs": "1793004422471993308",
+      "ctimeNs": "1793004422471993308",
+      "inode": "31929506"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3/.model-calls.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T08:49:32.607Z",
+      "mtimeNs": "1793004572607916620",
+      "ctimeNs": "1793004572607916620",
+      "inode": "31930408"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3/1cfa257e17a82c2d4c02bd542c7760255c0cb728ae4be200ae45eedd70f91153.jsonl",
+      "type": "file",
+      "bytes": 12263,
+      "mtime": "2026-10-26T08:49:34.982Z",
+      "mtimeNs": "1793004574982887280",
+      "ctimeNs": "1793004574982887280",
+      "inode": "31930446"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3/1cfa257e17a82c2d4c02bd542c7760255c0cb728ae4be200ae45eedd70f91153.jsonl.append.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T08:49:32.447Z",
+      "mtimeNs": "1793004572447333001",
+      "ctimeNs": "1793004572447333001",
+      "inode": "31930403"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3/execution-records.json",
+      "type": "file",
+      "bytes": 1510,
+      "mtime": "2026-10-26T09:14:16.145Z",
+      "mtimeNs": "1793006056145495991",
+      "ctimeNs": "1793006056150094979",
+      "inode": "31935457"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3/execution-records.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T08:47:02.505Z",
+      "mtimeNs": "1793004422505310546",
+      "ctimeNs": "1793004422505310546",
+      "inode": "31929507"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3/model-calls-2026-10-26.jsonl",
+      "type": "file",
+      "bytes": 1586,
+      "mtime": "2026-10-26T08:49:35.074Z",
+      "mtimeNs": "1793004575074138037",
+      "ctimeNs": "1793004575074138037",
+      "inode": "31930409"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/d6a0adf5-897e-481d-9093-25f17e85065b",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:43.019Z",
+      "mtimeNs": "1792824763019580003",
+      "ctimeNs": "1792824763019580003",
+      "inode": "29413895"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/d6a0adf5-897e-481d-9093-25f17e85065b/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:43.019Z",
+      "mtimeNs": "1792824763019666669",
+      "ctimeNs": "1792824763019666669",
+      "inode": "29413896"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/d7233ea6-d735-460c-a94c-93c478a200a7",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:43.023Z",
+      "mtimeNs": "1792824763023663326",
+      "ctimeNs": "1792824763023663326",
+      "inode": "29413897"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/d7233ea6-d735-460c-a94c-93c478a200a7/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:43.023Z",
+      "mtimeNs": "1792824763023765200",
+      "ctimeNs": "1792824763023765200",
+      "inode": "29413898"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/de7b607f-8f01-4ebc-b036-c21a340f43f6",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:43.027Z",
+      "mtimeNs": "1792824763027658732",
+      "ctimeNs": "1792824763027658732",
+      "inode": "29413899"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/de7b607f-8f01-4ebc-b036-c21a340f43f6/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:43.027Z",
+      "mtimeNs": "1792824763027771774",
+      "ctimeNs": "1792824763027771774",
+      "inode": "29413900"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/e1e64dbc-30ee-4d02-a3d6-badadef7d218",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:43.036Z",
+      "mtimeNs": "1792824763036587502",
+      "ctimeNs": "1792824763036587502",
+      "inode": "29413901"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/e1e64dbc-30ee-4d02-a3d6-badadef7d218/1b38c7e5ba43d44247314b253929b919ae339f9cec775bab36fdfb85b3893b66.jsonl",
+      "type": "file",
+      "bytes": 2719,
+      "mtime": "2026-10-24T06:52:43.031Z",
+      "mtimeNs": "1792824763031800889",
+      "ctimeNs": "1792824763031800889",
+      "inode": "29413902"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/e1e64dbc-30ee-4d02-a3d6-badadef7d218/execution-records.json",
+      "type": "file",
+      "bytes": 4080,
+      "mtime": "2026-10-24T06:52:43.036Z",
+      "mtimeNs": "1792824763036682668",
+      "ctimeNs": "1792824763036682668",
+      "inode": "29413903"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/e3d1d78a-5db3-4319-93cb-06a62da9f210",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:43.040Z",
+      "mtimeNs": "1792824763040569992",
+      "ctimeNs": "1792824763040569992",
+      "inode": "29413904"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/e3d1d78a-5db3-4319-93cb-06a62da9f210/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:43.040Z",
+      "mtimeNs": "1792824763040659575",
+      "ctimeNs": "1792824763040659575",
+      "inode": "29413905"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/edb8f89c-53e2-4d7e-bb6b-1aaa5f8c6ffe",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:43.044Z",
+      "mtimeNs": "1792824763044619106",
+      "ctimeNs": "1792824763044619106",
+      "inode": "29413906"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/edb8f89c-53e2-4d7e-bb6b-1aaa5f8c6ffe/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:43.044Z",
+      "mtimeNs": "1792824763044742148",
+      "ctimeNs": "1792824763044742148",
+      "inode": "29413907"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/eebb8c0c-5702-435f-95d7-1e2a82eb52ac",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:43.052Z",
+      "mtimeNs": "1792824763052627669",
+      "ctimeNs": "1792824763052627669",
+      "inode": "29413908"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/eebb8c0c-5702-435f-95d7-1e2a82eb52ac/54b7320b70c002308ffea57cb52cb8713fb45a0d92175adf678b56ed8aa24779.jsonl",
+      "type": "file",
+      "bytes": 150677,
+      "mtime": "2026-10-24T06:52:43.047Z",
+      "mtimeNs": "1792824763047871890",
+      "ctimeNs": "1792824763047871890",
+      "inode": "29413909"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/eebb8c0c-5702-435f-95d7-1e2a82eb52ac/execution-records.json",
+      "type": "file",
+      "bytes": 6552,
+      "mtime": "2026-10-24T06:52:43.052Z",
+      "mtimeNs": "1792824763052732961",
+      "ctimeNs": "1792824763052732961",
+      "inode": "29413910"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fbc580b9-25c4-483d-82eb-fe4d77c206ee",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:43.056Z",
+      "mtimeNs": "1792824763056627243",
+      "ctimeNs": "1792824763056627243",
+      "inode": "29413911"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fbc580b9-25c4-483d-82eb-fe4d77c206ee/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:43.056Z",
+      "mtimeNs": "1792824763056736826",
+      "ctimeNs": "1792824763056736826",
+      "inode": "29413912"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075",
+      "type": "directory",
+      "bytes": 288,
+      "mtime": "2026-10-26T09:23:26.683Z",
+      "mtimeNs": "1793006606683840848",
+      "ctimeNs": "1793006606683840848",
+      "inode": "31935721"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075/.execution-owner-aafd30b6ee28584c162255f08a3d92911debb7d516d844ff34999d532996d990.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:15:40.267Z",
+      "mtimeNs": "1793006140267976249",
+      "ctimeNs": "1793006140267976249",
+      "inode": "31935723"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075/.model-calls.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:16:22.187Z",
+      "mtimeNs": "1793006182187742997",
+      "ctimeNs": "1793006182187742997",
+      "inode": "31936050"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075/aafd30b6ee28584c162255f08a3d92911debb7d516d844ff34999d532996d990.jsonl",
+      "type": "file",
+      "bytes": 36015,
+      "mtime": "2026-10-26T09:18:39.335Z",
+      "mtimeNs": "1793006319335017486",
+      "ctimeNs": "1793006319335017486",
+      "inode": "31936742"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075/aafd30b6ee28584c162255f08a3d92911debb7d516d844ff34999d532996d990.jsonl.append.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:16:22.015Z",
+      "mtimeNs": "1793006182015435712",
+      "ctimeNs": "1793006182015435712",
+      "inode": "31936046"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075/execution-records.json",
+      "type": "file",
+      "bytes": 19908,
+      "mtime": "2026-10-26T09:23:26.679Z",
+      "mtimeNs": "1793006606679308481",
+      "ctimeNs": "1793006606683840848",
+      "inode": "31937725"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075/execution-records.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:15:40.305Z",
+      "mtimeNs": "1793006140305529199",
+      "ctimeNs": "1793006140305529199",
+      "inode": "31935724"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075/model-calls-2026-10-26.jsonl",
+      "type": "file",
+      "bytes": 18982,
+      "mtime": "2026-10-26T09:18:39.496Z",
+      "mtimeNs": "1793006319496965505",
+      "ctimeNs": "1793006319496965505",
+      "inode": "31936051"
+    }
+  ],
+  "after": [
+    {
+      "path": "/Users/a1-6/.serika",
+      "type": "directory",
+      "bytes": 384,
+      "mtime": "2026-10-27T12:16:49.290Z",
+      "mtimeNs": "1793103409290367752",
+      "ctimeNs": "1793103409290367752",
+      "inode": "29413804"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:55:06.569Z",
+      "mtimeNs": "1792824906569862924",
+      "ctimeNs": "1792824906569862924",
+      "inode": "29414710"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron",
+      "type": "directory",
+      "bytes": 800,
+      "mtime": "2026-10-30T13:48:57.364Z",
+      "mtimeNs": "1793368137364335658",
+      "ctimeNs": "1793368137364335658",
+      "inode": "29414711"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Cache",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:55:06.744Z",
+      "mtimeNs": "1792824906744889774",
+      "ctimeNs": "1792824906744889774",
+      "inode": "29414732"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Cache/Cache_Data",
+      "type": "directory",
+      "bytes": 64,
+      "mtime": "2026-10-24T06:55:06.744Z",
+      "mtimeNs": "1792824906744845774",
+      "ctimeNs": "1792824906744857566",
+      "inode": "29414733"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Cache/No_Vary_Search",
+      "type": "directory",
+      "bytes": 64,
+      "mtime": "2026-10-24T06:55:06.744Z",
+      "mtimeNs": "1792824906744884357",
+      "ctimeNs": "1792824906744899941",
+      "inode": "29414734"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache",
+      "type": "directory",
+      "bytes": 160,
+      "mtime": "2026-10-24T06:55:06.834Z",
+      "mtimeNs": "1792824906834228965",
+      "ctimeNs": "1792824906834228965",
+      "inode": "29414736"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/electron-preload",
+      "type": "directory",
+      "bytes": 256,
+      "mtime": "2026-10-30T13:42:04.696Z",
+      "mtimeNs": "1793367724696482807",
+      "ctimeNs": "1793367724696482807",
+      "inode": "29414789"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/electron-preload/13532A266DD7CAE041B6E900157E2B6E34B08817342B8876A516750EEAB64E9D-046EE14B76106E2E39DCF4D74A8AEE393DEDA01000D21673491EB8D652BB29D2.cache",
+      "type": "file",
+      "bytes": 7652,
+      "mtime": "2026-10-30T13:42:04.696Z",
+      "mtimeNs": "1793367724696615848",
+      "ctimeNs": "1793367724696615848",
+      "inode": "34228636"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/electron-preload/3688CE8FA1416EB45CCC02B31D1CEEDBA2603FAFA40F973427E9AF8701C9F337-046EE14B76106E2E39DCF4D74A8AEE393DEDA01000D21673491EB8D652BB29D2.cache",
+      "type": "file",
+      "bytes": 7612,
+      "mtime": "2026-10-25T09:42:11.443Z",
+      "mtimeNs": "1792921331443950542",
+      "ctimeNs": "1792921331443950542",
+      "inode": "31517025"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/electron-preload/4368D210CAE73123378DD552B3A3EF7BD8E5C898992BCEE3711C96EF737F06B8-046EE14B76106E2E39DCF4D74A8AEE393DEDA01000D21673491EB8D652BB29D2.cache",
+      "type": "file",
+      "bytes": 7612,
+      "mtime": "2026-10-27T12:17:22.139Z",
+      "mtimeNs": "1793103442139274300",
+      "ctimeNs": "1793103442139274300",
+      "inode": "32451624"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/electron-preload/746F3660AD39E60529FC06F7B51429314D30988161556521A5B09D579BA82725-046EE14B76106E2E39DCF4D74A8AEE393DEDA01000D21673491EB8D652BB29D2.cache",
+      "type": "file",
+      "bytes": 7612,
+      "mtime": "2026-10-25T02:58:43.422Z",
+      "mtimeNs": "1792897123422795673",
+      "ctimeNs": "1792897123422795673",
+      "inode": "31280471"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/electron-preload/C05D8EC1E0AC0B65D2B1EBC309F50A0F72A3CEC7026A73A2486156842752E8F6-046EE14B76106E2E39DCF4D74A8AEE393DEDA01000D21673491EB8D652BB29D2.cache",
+      "type": "file",
+      "bytes": 7612,
+      "mtime": "2026-10-29T18:10:44.744Z",
+      "mtimeNs": "1793297444744618303",
+      "ctimeNs": "1793297444744618303",
+      "inode": "33534354"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/electron-preload/E45AE2BCE12A434B062480E2124DA1077947EF3E5159E5C4DB12091C9438E81F-046EE14B76106E2E39DCF4D74A8AEE393DEDA01000D21673491EB8D652BB29D2.cache",
+      "type": "file",
+      "bytes": 7540,
+      "mtime": "2026-10-24T06:55:06.834Z",
+      "mtimeNs": "1792824906834416507",
+      "ctimeNs": "1792824906834416507",
+      "inode": "29414790"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/js",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:55:06.745Z",
+      "mtimeNs": "1792824906745918021",
+      "ctimeNs": "1792824906745918021",
+      "inode": "29414737"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/js/index",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:55:06.745Z",
+      "mtimeNs": "1792824906745713230",
+      "ctimeNs": "1792824906745713230",
+      "inode": "29414739"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/js/index-dir",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:55:06.746Z",
+      "mtimeNs": "1792824906746220687",
+      "ctimeNs": "1792824906746220687",
+      "inode": "29414741"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/js/index-dir/the-real-index",
+      "type": "file",
+      "bytes": 48,
+      "mtime": "2026-10-24T06:55:06.746Z",
+      "mtimeNs": "1792824906746156479",
+      "ctimeNs": "1792824906746220646",
+      "inode": "29414742"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/wasm",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:55:06.745Z",
+      "mtimeNs": "1792824906745971980",
+      "ctimeNs": "1792824906745971980",
+      "inode": "29414738"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/wasm/index",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:55:06.745Z",
+      "mtimeNs": "1792824906745717772",
+      "ctimeNs": "1792824906745717772",
+      "inode": "29414740"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/wasm/index-dir",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:55:06.746Z",
+      "mtimeNs": "1792824906746230312",
+      "ctimeNs": "1792824906746230312",
+      "inode": "29414743"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Code Cache/wasm/index-dir/the-real-index",
+      "type": "file",
+      "bytes": 48,
+      "mtime": "2026-10-24T06:55:06.746Z",
+      "mtimeNs": "1792824906746163771",
+      "ctimeNs": "1792824906746230312",
+      "inode": "29414744"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DIPS",
+      "type": "file",
+      "bytes": 36864,
+      "mtime": "2026-10-30T13:41:02.097Z",
+      "mtimeNs": "1793367662097841721",
+      "ctimeNs": "1793368131302650187",
+      "inode": "29414768"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DIPS-wal",
+      "type": "file",
+      "bytes": 181312,
+      "mtime": "2026-10-31T11:33:00.074Z",
+      "mtimeNs": "1793446380074500083",
+      "ctimeNs": "1793446380074500083",
+      "inode": "34230374"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnGraphiteCache",
+      "type": "directory",
+      "bytes": 224,
+      "mtime": "2026-10-24T06:55:06.763Z",
+      "mtimeNs": "1792824906763612227",
+      "ctimeNs": "1792824906763612227",
+      "inode": "29414760"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnGraphiteCache/data_0",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.763Z",
+      "mtimeNs": "1792824906763401061",
+      "ctimeNs": "1793368131296200410",
+      "inode": "29414762"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnGraphiteCache/data_1",
+      "type": "file",
+      "bytes": 270336,
+      "mtime": "2026-10-31T11:47:11.110Z",
+      "mtimeNs": "1793447231110957692",
+      "ctimeNs": "1793447231110957692",
+      "inode": "29414763"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnGraphiteCache/data_2",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.763Z",
+      "mtimeNs": "1792824906763562352",
+      "ctimeNs": "1793368131296179493",
+      "inode": "29414764"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnGraphiteCache/data_3",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.763Z",
+      "mtimeNs": "1792824906763631768",
+      "ctimeNs": "1793368131296171701",
+      "inode": "29414765"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnGraphiteCache/index",
+      "type": "file",
+      "bytes": 262512,
+      "mtime": "2026-10-30T14:16:00.897Z",
+      "mtimeNs": "1793369760897639088",
+      "ctimeNs": "1793369760897639088",
+      "inode": "29414761"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnWebGPUCache",
+      "type": "directory",
+      "bytes": 224,
+      "mtime": "2026-10-24T06:55:06.762Z",
+      "mtimeNs": "1792824906762949937",
+      "ctimeNs": "1792824906762949937",
+      "inode": "29414754"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnWebGPUCache/data_0",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.762Z",
+      "mtimeNs": "1792824906762766771",
+      "ctimeNs": "1793368131296127202",
+      "inode": "29414756"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnWebGPUCache/data_1",
+      "type": "file",
+      "bytes": 270336,
+      "mtime": "2026-10-31T11:47:11.110Z",
+      "mtimeNs": "1793447231110864359",
+      "ctimeNs": "1793447231110864359",
+      "inode": "29414757"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnWebGPUCache/data_2",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.762Z",
+      "mtimeNs": "1792824906762903645",
+      "ctimeNs": "1793368131296102493",
+      "inode": "29414758"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnWebGPUCache/data_3",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.762Z",
+      "mtimeNs": "1792824906762973228",
+      "ctimeNs": "1793368131296095202",
+      "inode": "29414759"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/DawnWebGPUCache/index",
+      "type": "file",
+      "bytes": 262512,
+      "mtime": "2026-10-30T14:16:00.897Z",
+      "mtimeNs": "1793369760897571463",
+      "ctimeNs": "1793369760897571463",
+      "inode": "29414755"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUCache",
+      "type": "directory",
+      "bytes": 224,
+      "mtime": "2026-10-24T06:55:06.762Z",
+      "mtimeNs": "1792824906762238772",
+      "ctimeNs": "1792824906762238772",
+      "inode": "29414748"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUCache/data_0",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.761Z",
+      "mtimeNs": "1792824906761962522",
+      "ctimeNs": "1793368131296044577",
+      "inode": "29414750"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUCache/data_1",
+      "type": "file",
+      "bytes": 270336,
+      "mtime": "2026-10-31T11:47:11.110Z",
+      "mtimeNs": "1793447231110842484",
+      "ctimeNs": "1793447231110842484",
+      "inode": "29414751"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUCache/data_2",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.762Z",
+      "mtimeNs": "1792824906762188605",
+      "ctimeNs": "1793368131295985910",
+      "inode": "29414752"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUCache/data_3",
+      "type": "file",
+      "bytes": 8192,
+      "mtime": "2026-10-24T06:55:06.762Z",
+      "mtimeNs": "1792824906762261147",
+      "ctimeNs": "1793368131295957994",
+      "inode": "29414753"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUCache/index",
+      "type": "file",
+      "bytes": 262512,
+      "mtime": "2026-10-30T14:16:00.897Z",
+      "mtimeNs": "1793369760897528297",
+      "ctimeNs": "1793369760897528297",
+      "inode": "29414749"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUPersistentCache",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:55:06.583Z",
+      "mtimeNs": "1792824906583576764",
+      "ctimeNs": "1792824906583576764",
+      "inode": "29414718"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUPersistentCache/GPUCache",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:55:06.583Z",
+      "mtimeNs": "1792824906583663514",
+      "ctimeNs": "1792824906583663514",
+      "inode": "29414719"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUPersistentCache/GPUCache/ZBVFTVEKBSX72Y7WF25TMOWFX3JUICO4",
+      "type": "directory",
+      "bytes": 160,
+      "mtime": "2026-10-24T06:55:06.583Z",
+      "mtimeNs": "1792824906583924805",
+      "ctimeNs": "1792824906583924805",
+      "inode": "29414720"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUPersistentCache/GPUCache/ZBVFTVEKBSX72Y7WF25TMOWFX3JUICO4/cache.db",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.583Z",
+      "mtimeNs": "1792824906583796930",
+      "ctimeNs": "1792824906583813097",
+      "inode": "29414721"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUPersistentCache/GPUCache/ZBVFTVEKBSX72Y7WF25TMOWFX3JUICO4/cache.db-wal",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.583Z",
+      "mtimeNs": "1792824906583923263",
+      "ctimeNs": "1792824906583936888",
+      "inode": "29414723"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GPUPersistentCache/GPUCache/ZBVFTVEKBSX72Y7WF25TMOWFX3JUICO4/cache.journal",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.583Z",
+      "mtimeNs": "1792824906583882263",
+      "ctimeNs": "1792824906583896097",
+      "inode": "29414722"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache",
+      "type": "directory",
+      "bytes": 480,
+      "mtime": "2026-10-29T11:34:13.793Z",
+      "mtimeNs": "1793273653793336062",
+      "ctimeNs": "1793273653793336062",
+      "inode": "29414772"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/data_0",
+      "type": "file",
+      "bytes": 45056,
+      "mtime": "2026-10-29T16:40:28.114Z",
+      "mtimeNs": "1793292028114881739",
+      "ctimeNs": "1793297435856410360",
+      "inode": "29414779"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/data_1",
+      "type": "file",
+      "bytes": 270336,
+      "mtime": "2026-10-29T18:10:35.856Z",
+      "mtimeNs": "1793297435856243610",
+      "ctimeNs": "1793297435856398110",
+      "inode": "29414781"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/data_2",
+      "type": "file",
+      "bytes": 1056768,
+      "mtime": "2026-10-29T11:34:13.657Z",
+      "mtimeNs": "1793273653657026133",
+      "ctimeNs": "1793297435856394527",
+      "inode": "29414782"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/data_3",
+      "type": "file",
+      "bytes": 4202496,
+      "mtime": "2026-10-29T11:34:13.903Z",
+      "mtimeNs": "1793273653903508235",
+      "ctimeNs": "1793297435856374694",
+      "inode": "29414784"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000001",
+      "type": "file",
+      "bytes": 17270,
+      "mtime": "2026-10-24T06:55:07.719Z",
+      "mtimeNs": "1792824907719226609",
+      "ctimeNs": "1792824907719226609",
+      "inode": "29414914"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000002",
+      "type": "file",
+      "bytes": 16688,
+      "mtime": "2026-10-24T06:55:07.719Z",
+      "mtimeNs": "1792824907719454858",
+      "ctimeNs": "1792824907719454858",
+      "inode": "29414915"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000003",
+      "type": "file",
+      "bytes": 17433,
+      "mtime": "2026-10-24T06:55:07.719Z",
+      "mtimeNs": "1792824907719622816",
+      "ctimeNs": "1792824907719622816",
+      "inode": "29414916"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000004",
+      "type": "file",
+      "bytes": 19358,
+      "mtime": "2026-10-24T06:55:08.088Z",
+      "mtimeNs": "1792824908088760385",
+      "ctimeNs": "1792824908088760385",
+      "inode": "29414921"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000005",
+      "type": "file",
+      "bytes": 20942,
+      "mtime": "2026-10-24T06:55:08.123Z",
+      "mtimeNs": "1792824908123364132",
+      "ctimeNs": "1792824908123364132",
+      "inode": "29414922"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000006",
+      "type": "file",
+      "bytes": 16889,
+      "mtime": "2026-10-24T06:55:12.386Z",
+      "mtimeNs": "1792824912386561215",
+      "ctimeNs": "1792824912386561215",
+      "inode": "29415043"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000007",
+      "type": "file",
+      "bytes": 16631,
+      "mtime": "2026-10-24T06:56:00.552Z",
+      "mtimeNs": "1792824960552761642",
+      "ctimeNs": "1792824960552761642",
+      "inode": "29415253"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/f_000008",
+      "type": "file",
+      "bytes": 16726,
+      "mtime": "2026-10-29T11:34:13.793Z",
+      "mtimeNs": "1793273653793425104",
+      "ctimeNs": "1793273653793425104",
+      "inode": "32909426"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/GraphiteDawnCache/index",
+      "type": "file",
+      "bytes": 262512,
+      "mtime": "2026-10-29T17:21:48.994Z",
+      "mtimeNs": "1793294508994852708",
+      "ctimeNs": "1793297435856415068",
+      "inode": "29414773"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local State",
+      "type": "file",
+      "bytes": 57,
+      "mtime": "2026-10-24T06:55:16.583Z",
+      "mtimeNs": "1792824916583483508",
+      "ctimeNs": "1792824916584886713",
+      "inode": "29415116"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:55:06.744Z",
+      "mtimeNs": "1792824906744448567",
+      "ctimeNs": "1792824906744448567",
+      "inode": "29414728"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage/leveldb",
+      "type": "directory",
+      "bytes": 256,
+      "mtime": "2026-10-30T13:48:57.343Z",
+      "mtimeNs": "1793368137343183332",
+      "ctimeNs": "1793368137343183332",
+      "inode": "29414729"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage/leveldb/000003.log",
+      "type": "file",
+      "bytes": 1887,
+      "mtime": "2026-10-30T13:49:57.352Z",
+      "mtimeNs": "1793368197352649351",
+      "ctimeNs": "1793368197352649351",
+      "inode": "29414747"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage/leveldb/CURRENT",
+      "type": "file",
+      "bytes": 16,
+      "mtime": "2026-10-24T06:55:06.748Z",
+      "mtimeNs": "1792824906748429223",
+      "ctimeNs": "1792824906748721848",
+      "inode": "29414746"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage/leveldb/LOCK",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.744Z",
+      "mtimeNs": "1792824906744551150",
+      "ctimeNs": "1792824906744562275",
+      "inode": "29414731"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage/leveldb/LOG",
+      "type": "file",
+      "bytes": 289,
+      "mtime": "2026-10-30T13:48:57.350Z",
+      "mtimeNs": "1793368137350866022",
+      "ctimeNs": "1793368137350866022",
+      "inode": "34230373"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage/leveldb/LOG.old",
+      "type": "file",
+      "bytes": 289,
+      "mtime": "2026-10-30T13:43:33.741Z",
+      "mtimeNs": "1793367813741170042",
+      "ctimeNs": "1793368137343115540",
+      "inode": "34229180"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Local Storage/leveldb/MANIFEST-000001",
+      "type": "file",
+      "bytes": 41,
+      "mtime": "2026-10-24T06:55:06.746Z",
+      "mtimeNs": "1792824906746754811",
+      "ctimeNs": "1792824906746754811",
+      "inode": "29414745"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Network Persistent State",
+      "type": "file",
+      "bytes": 144,
+      "mtime": "2026-10-29T02:43:21.853Z",
+      "mtimeNs": "1793241801853940651",
+      "ctimeNs": "1793241801854834854",
+      "inode": "32814190"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Preferences",
+      "type": "file",
+      "bytes": 41,
+      "mtime": "2026-10-24T06:55:16.759Z",
+      "mtimeNs": "1792824916759949397",
+      "ctimeNs": "1792824916761653017",
+      "inode": "29415117"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Session Storage",
+      "type": "directory",
+      "bytes": 256,
+      "mtime": "2026-10-30T13:48:57.640Z",
+      "mtimeNs": "1793368137640665112",
+      "ctimeNs": "1793368137640665112",
+      "inode": "29415027"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Session Storage/000003.log",
+      "type": "file",
+      "bytes": 239,
+      "mtime": "2026-10-30T13:48:51.292Z",
+      "mtimeNs": "1793368131292033794",
+      "ctimeNs": "1793368131292033794",
+      "inode": "29415033"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Session Storage/CURRENT",
+      "type": "file",
+      "bytes": 16,
+      "mtime": "2026-10-24T06:55:11.945Z",
+      "mtimeNs": "1792824911945846577",
+      "ctimeNs": "1792824911946247492",
+      "inode": "29415032"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Session Storage/LOCK",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:11.944Z",
+      "mtimeNs": "1792824911944982662",
+      "ctimeNs": "1792824911944993829",
+      "inode": "29415029"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Session Storage/LOG",
+      "type": "file",
+      "bytes": 277,
+      "mtime": "2026-10-30T13:48:57.641Z",
+      "mtimeNs": "1793368137641188777",
+      "ctimeNs": "1793368137641188777",
+      "inode": "34230398"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Session Storage/LOG.old",
+      "type": "file",
+      "bytes": 277,
+      "mtime": "2026-10-30T13:43:34.040Z",
+      "mtimeNs": "1793367814040975275",
+      "ctimeNs": "1793368137640514945",
+      "inode": "34229208"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Session Storage/MANIFEST-000001",
+      "type": "file",
+      "bytes": 41,
+      "mtime": "2026-10-24T06:55:11.945Z",
+      "mtimeNs": "1792824911945123412",
+      "ctimeNs": "1792824911945123412",
+      "inode": "29415030"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Shared Dictionary",
+      "type": "directory",
+      "bytes": 160,
+      "mtime": "2026-10-24T06:55:06.825Z",
+      "mtimeNs": "1792824906825433946",
+      "ctimeNs": "1792824906825433946",
+      "inode": "29414735"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Shared Dictionary/cache",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:55:06.826Z",
+      "mtimeNs": "1792824906826578610",
+      "ctimeNs": "1792824906826578610",
+      "inode": "29414774"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Shared Dictionary/cache/index",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:55:06.823Z",
+      "mtimeNs": "1792824906823399284",
+      "ctimeNs": "1792824906823399284",
+      "inode": "29414775"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Shared Dictionary/cache/index-dir",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:55:06.827Z",
+      "mtimeNs": "1792824906827154108",
+      "ctimeNs": "1792824906827154108",
+      "inode": "29414785"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Shared Dictionary/cache/index-dir/the-real-index",
+      "type": "file",
+      "bytes": 48,
+      "mtime": "2026-10-24T06:55:06.826Z",
+      "mtimeNs": "1792824906826916442",
+      "ctimeNs": "1792824906827154067",
+      "inode": "29414786"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Shared Dictionary/db",
+      "type": "file",
+      "bytes": 45056,
+      "mtime": "2026-10-24T06:55:06.832Z",
+      "mtimeNs": "1792824906832525470",
+      "ctimeNs": "1793297435841533577",
+      "inode": "29414776"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Shared Dictionary/db-journal",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.832Z",
+      "mtimeNs": "1792824906832612261",
+      "ctimeNs": "1792824906832612261",
+      "inode": "29414783"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/SingletonCookie",
+      "type": "symlink",
+      "bytes": 20,
+      "mtime": "2026-10-30T13:48:57.221Z",
+      "mtimeNs": "1793368137221778775",
+      "ctimeNs": "1793368137221790942",
+      "inode": "34230369"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/SingletonLock",
+      "type": "symlink",
+      "bytes": 18,
+      "mtime": "2026-10-30T13:48:57.221Z",
+      "mtimeNs": "1793368137221569692",
+      "ctimeNs": "1793368137221604734",
+      "inode": "34230366"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/SingletonSocket",
+      "type": "symlink",
+      "bytes": 81,
+      "mtime": "2026-10-30T13:48:57.221Z",
+      "mtimeNs": "1793368137221745275",
+      "ctimeNs": "1793368137221758109",
+      "inode": "34230368"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Trust Tokens",
+      "type": "file",
+      "bytes": 36864,
+      "mtime": "2026-10-24T06:55:06.830Z",
+      "mtimeNs": "1792824906830353058",
+      "ctimeNs": "1793297435834395789",
+      "inode": "29414778"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/Trust Tokens-journal",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.830Z",
+      "mtimeNs": "1792824906830412517",
+      "ctimeNs": "1792824906830412517",
+      "inode": "29414780"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/blob_storage",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-30T13:48:57.343Z",
+      "mtimeNs": "1793368137343513373",
+      "ctimeNs": "1793368137343513373",
+      "inode": "29414766"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/blob_storage/7faa153d-5284-4712-b3cb-6b8a5d4c4c53",
+      "type": "directory",
+      "bytes": 64,
+      "mtime": "2026-10-30T13:48:57.342Z",
+      "mtimeNs": "1793368137342653375",
+      "ctimeNs": "1793368137342686374",
+      "inode": "34230372"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/declarative_performance_observer.db",
+      "type": "file",
+      "bytes": 32768,
+      "mtime": "2026-10-24T06:55:06.832Z",
+      "mtimeNs": "1792824906832750011",
+      "ctimeNs": "1793368131302003480",
+      "inode": "29414769"
+    },
+    {
+      "path": "/Users/a1-6/.serika/cache/electron/declarative_performance_observer.db-journal",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.832Z",
+      "mtimeNs": "1792824906832948219",
+      "ctimeNs": "1792824906832948219",
+      "inode": "29414771"
+    },
+    {
+      "path": "/Users/a1-6/.serika/config.json",
+      "type": "file",
+      "bytes": 1776,
+      "mtime": "2026-10-27T12:16:49.285Z",
+      "mtimeNs": "1793103409285844140",
+      "ctimeNs": "1793103409290367752",
+      "inode": "32451527"
+    },
+    {
+      "path": "/Users/a1-6/.serika/config.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:06.827Z",
+      "mtimeNs": "1792824906827286233",
+      "ctimeNs": "1792824906827321941",
+      "inode": "29414787"
+    },
+    {
+      "path": "/Users/a1-6/.serika/config.json.v1-9cde2278-ebb3-4384-8326-5c544c517b7f.backup",
+      "type": "file",
+      "bytes": 1342,
+      "mtime": "2026-10-25T02:30:54.945Z",
+      "mtimeNs": "1792895454945446362",
+      "ctimeNs": "1792895454945506362",
+      "inode": "31276817"
+    },
+    {
+      "path": "/Users/a1-6/.serika/config.json.v2-9cde2278-ebb3-4384-8326-5c544c517b7f.receipt.json",
+      "type": "file",
+      "bytes": 449,
+      "mtime": "2026-10-25T02:30:54.950Z",
+      "mtimeNs": "1792895454950993256",
+      "ctimeNs": "1792895454951147922",
+      "inode": "31276818"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data",
+      "type": "directory",
+      "bytes": 640,
+      "mtime": "2026-10-31T11:51:15.324Z",
+      "mtimeNs": "1793447475324529283",
+      "ctimeNs": "1793447475324529283",
+      "inode": "29413913"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/.work-task-owner-1cfa257e17a82c2d4c02bd542c7760255c0cb728ae4be200ae45eedd70f91153.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T08:47:02.431Z",
+      "mtimeNs": "1793004422431108801",
+      "ctimeNs": "1793004422431108801",
+      "inode": "31929505"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/.work-task-owner-4dedc5dc53521759da1c15431c060c25de99e32f08530038d337ffb138717452.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T08:29:25.592Z",
+      "mtimeNs": "1792830565592615052",
+      "ctimeNs": "1792830565592648343",
+      "inode": "29449510"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/.work-task-owner-96f500660bf667c9a07485104cab12cc2e46a6984f18c667e4cd11dcf6e03497.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-30T13:43:36.997Z",
+      "mtimeNs": "1793367816997736615",
+      "ctimeNs": "1793367816997736615",
+      "inode": "34229309"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/.work-task-owner-a4491f8140ec2da4d20ee55d4f6c34af7d6df8aead2df776f057a89040d8edb9.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:35:49.041Z",
+      "mtimeNs": "1793007349041388339",
+      "ctimeNs": "1793007349041388339",
+      "inode": "31941030"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/.work-task-owner-aafd30b6ee28584c162255f08a3d92911debb7d516d844ff34999d532996d990.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:15:40.227Z",
+      "mtimeNs": "1793006140227890181",
+      "ctimeNs": "1793006140227890181",
+      "inode": "31935722"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/.work-task-owner-cff38a50871755a42b8d6f6d19797c154b8845dfa343d0b2ea8ed53b1167ec9b.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T09:16:05.699Z",
+      "mtimeNs": "1792833365699474262",
+      "ctimeNs": "1792897125909631878",
+      "inode": "29477901"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/memory-extraction-failures.jsonl",
+      "type": "file",
+      "bytes": 294,
+      "mtime": "2026-10-29T12:05:15.599Z",
+      "mtimeNs": "1793275515599080535",
+      "ctimeNs": "1793275515599080535",
+      "inode": "32914592"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/memory-extraction-failures.jsonl.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-29T12:05:15.565Z",
+      "mtimeNs": "1793275515565344909",
+      "ctimeNs": "1793275515565344909",
+      "inode": "32914591"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/memory.json",
+      "type": "file",
+      "bytes": 13452,
+      "mtime": "2026-10-31T09:33:09.131Z",
+      "mtimeNs": "1793439189131054354",
+      "ctimeNs": "1793439189135318676",
+      "inode": "34526989"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/memory.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T09:46:14.807Z",
+      "mtimeNs": "1792835174807370114",
+      "ctimeNs": "1792895455069706342",
+      "inode": "29491026"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/memory.json.v6-73a574f0-ea38-447a-88c6-bbb41b0e1d3b.backup",
+      "type": "file",
+      "bytes": 11822,
+      "mtime": "2026-10-25T02:30:55.107Z",
+      "mtimeNs": "1792895455107519642",
+      "ctimeNs": "1792895455107560600",
+      "inode": "31276822"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/memory.json.v7-73a574f0-ea38-447a-88c6-bbb41b0e1d3b.receipt.json",
+      "type": "file",
+      "bytes": 2828,
+      "mtime": "2026-10-25T02:30:55.112Z",
+      "mtimeNs": "1792895455112239538",
+      "ctimeNs": "1792895455112265955",
+      "inode": "31276823"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/projects.json",
+      "type": "file",
+      "bytes": 324,
+      "mtime": "2026-10-25T04:53:39.441Z",
+      "mtimeNs": "1792904019441118197",
+      "ctimeNs": "1792904019444131065",
+      "inode": "31466004"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/projects.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-25T02:58:43.683Z",
+      "mtimeNs": "1792897123683074132",
+      "ctimeNs": "1792897123683126465",
+      "inode": "31280512"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/task-worker-health.json",
+      "type": "file",
+      "bytes": 184,
+      "mtime": "2026-10-31T11:51:15.319Z",
+      "mtimeNs": "1793447475319083254",
+      "ctimeNs": "1793447475324529241",
+      "inode": "34559039"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/task-worker.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T08:52:42.157Z",
+      "mtimeNs": "1792831962157190308",
+      "ctimeNs": "1792832084837214913",
+      "inode": "29454827"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/tasks.json",
+      "type": "file",
+      "bytes": 11772,
+      "mtime": "2026-10-24T06:52:43.066Z",
+      "mtimeNs": "1792824763066108844",
+      "ctimeNs": "1792824763066108844",
+      "inode": "29413915"
+    },
+    {
+      "path": "/Users/a1-6/.serika/data/tasks.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T08:52:42.199Z",
+      "mtimeNs": "1792831962199393397",
+      "ctimeNs": "1792831962199393397",
+      "inode": "29454829"
+    },
+    {
+      "path": "/Users/a1-6/.serika/desktop",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-31T08:32:40.507Z",
+      "mtimeNs": "1793435560507827958",
+      "ctimeNs": "1793435560507827958",
+      "inode": "29413808"
+    },
+    {
+      "path": "/Users/a1-6/.serika/desktop/conversation-drafts.json",
+      "type": "file",
+      "bytes": 6185,
+      "mtime": "2026-10-31T08:32:40.503Z",
+      "mtimeNs": "1793435560503291386",
+      "ctimeNs": "1793435560507827958",
+      "inode": "34499914"
+    },
+    {
+      "path": "/Users/a1-6/.serika/desktop/desktop-identity.json",
+      "type": "file",
+      "bytes": 8864,
+      "mtime": "2026-10-31T08:32:40.286Z",
+      "mtimeNs": "1793435560286579942",
+      "ctimeNs": "1793435560291438597",
+      "inode": "34499910"
+    },
+    {
+      "path": "/Users/a1-6/.serika/imports",
+      "type": "directory",
+      "bytes": 160,
+      "mtime": "2026-10-24T06:52:43.153Z",
+      "mtimeNs": "1792824763153482123",
+      "ctimeNs": "1792824763153482123",
+      "inode": "29413805"
+    },
+    {
+      "path": "/Users/a1-6/.serika/imports/intent.json",
+      "type": "file",
+      "bytes": 85,
+      "mtime": "2026-10-24T06:52:42.804Z",
+      "mtimeNs": "1792824762804816919",
+      "ctimeNs": "1792824762804816919",
+      "inode": "29413806"
+    },
+    {
+      "path": "/Users/a1-6/.serika/imports/prepared.json",
+      "type": "file",
+      "bytes": 65897,
+      "mtime": "2026-10-24T06:52:43.072Z",
+      "mtimeNs": "1792824763072424828",
+      "ctimeNs": "1792824763072424828",
+      "inode": "29413916"
+    },
+    {
+      "path": "/Users/a1-6/.serika/imports/receipt.json",
+      "type": "file",
+      "bytes": 65895,
+      "mtime": "2026-10-24T06:52:43.148Z",
+      "mtimeNs": "1792824763148901343",
+      "ctimeNs": "1792824763153482082",
+      "inode": "29413917"
+    },
+    {
+      "path": "/Users/a1-6/.serika/resident",
+      "type": "directory",
+      "bytes": 192,
+      "mtime": "2026-10-31T11:44:10.285Z",
+      "mtimeNs": "1793447050285441090",
+      "ctimeNs": "1793447050285441090",
+      "inode": "29414820"
+    },
+    {
+      "path": "/Users/a1-6/.serika/resident/auth-token",
+      "type": "file",
+      "bytes": 64,
+      "mtime": "2026-10-24T08:31:16.675Z",
+      "mtimeNs": "1792830676675210214",
+      "ctimeNs": "1792830676675210214",
+      "inode": "29449942"
+    },
+    {
+      "path": "/Users/a1-6/.serika/resident/identity.json",
+      "type": "file",
+      "bytes": 468,
+      "mtime": "2026-10-30T13:48:51.594Z",
+      "mtimeNs": "1793368131594454355",
+      "ctimeNs": "1793368131594593146",
+      "inode": "34230319"
+    },
+    {
+      "path": "/Users/a1-6/.serika/resident/telegram.json",
+      "type": "file",
+      "bytes": 1560195,
+      "mtime": "2026-10-31T11:44:10.279Z",
+      "mtimeNs": "1793447050279640246",
+      "ctimeNs": "1793447050285441048",
+      "inode": "34558107"
+    },
+    {
+      "path": "/Users/a1-6/.serika/resident/transport.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T08:31:16.675Z",
+      "mtimeNs": "1792830676675557005",
+      "ctimeNs": "1792830676675557005",
+      "inode": "29449943"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts",
+      "type": "directory",
+      "bytes": 1536,
+      "mtime": "2026-10-30T13:43:35.110Z",
+      "mtimeNs": "1793367815110665336",
+      "ctimeNs": "1793367815110665336",
+      "inode": "29413811"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/03c92d5d-6256-4af9-96f2-bbd37de85899",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.823Z",
+      "mtimeNs": "1792824762823574330",
+      "ctimeNs": "1792824762823574330",
+      "inode": "29413812"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/03c92d5d-6256-4af9-96f2-bbd37de85899/a722807a821cb63cd79120dc6812096a6a199a208514bc63fa3b8be76050f8be.jsonl",
+      "type": "file",
+      "bytes": 9120,
+      "mtime": "2026-10-24T06:52:42.820Z",
+      "mtimeNs": "1792824762820721087",
+      "ctimeNs": "1792824762820721087",
+      "inode": "29413813"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/03c92d5d-6256-4af9-96f2-bbd37de85899/execution-records.json",
+      "type": "file",
+      "bytes": 12641,
+      "mtime": "2026-10-24T06:52:42.823Z",
+      "mtimeNs": "1792824762823648330",
+      "ctimeNs": "1792824762823648330",
+      "inode": "29413814"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/03e407b8-e766-4db6-a52c-74ae28bbe0a0",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.831Z",
+      "mtimeNs": "1792824762831433394",
+      "ctimeNs": "1792824762831433394",
+      "inode": "29413815"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/03e407b8-e766-4db6-a52c-74ae28bbe0a0/execution-records.json",
+      "type": "file",
+      "bytes": 18817,
+      "mtime": "2026-10-24T06:52:42.827Z",
+      "mtimeNs": "1792824762827580195",
+      "ctimeNs": "1792824762827580195",
+      "inode": "29413816"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/03e407b8-e766-4db6-a52c-74ae28bbe0a0/f5f3bb77e5c4035e31c11bae65799e8b32d4eb10f4797918f2570b47a5df3a25.jsonl",
+      "type": "file",
+      "bytes": 66711,
+      "mtime": "2026-10-24T06:52:42.831Z",
+      "mtimeNs": "1792824762831505185",
+      "ctimeNs": "1792824762831505185",
+      "inode": "29413817"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0b5a23aa-3470-414c-9202-7088054e2545",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.835Z",
+      "mtimeNs": "1792824762835532383",
+      "ctimeNs": "1792824762835532383",
+      "inode": "29413818"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0b5a23aa-3470-414c-9202-7088054e2545/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.835Z",
+      "mtimeNs": "1792824762835590342",
+      "ctimeNs": "1792824762835590342",
+      "inode": "29413819"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399",
+      "type": "directory",
+      "bytes": 448,
+      "mtime": "2026-10-31T09:33:08.957Z",
+      "mtimeNs": "1793439188957261833",
+      "ctimeNs": "1793439188957261833",
+      "inode": "29413820"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/.execution-owner-cff38a50871755a42b8d6f6d19797c154b8845dfa343d0b2ea8ed53b1167ec9b.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:09.765Z",
+      "mtimeNs": "1792824909765746407",
+      "ctimeNs": "1792824909765788782",
+      "inode": "29415020"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/.model-calls.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T09:16:08.127Z",
+      "mtimeNs": "1792833368127241977",
+      "ctimeNs": "1792897126500707339",
+      "inode": "29477914"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/cff38a50871755a42b8d6f6d19797c154b8845dfa343d0b2ea8ed53b1167ec9b.jsonl",
+      "type": "file",
+      "bytes": 6377000,
+      "mtime": "2026-10-31T08:33:00.656Z",
+      "mtimeNs": "1793435580656540547",
+      "ctimeNs": "1793435580656540547",
+      "inode": "29413821"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/cff38a50871755a42b8d6f6d19797c154b8845dfa343d0b2ea8ed53b1167ec9b.jsonl.append.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T09:16:07.733Z",
+      "mtimeNs": "1792833367733520616",
+      "ctimeNs": "1792897264621446200",
+      "inode": "29477910"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/execution-records.json",
+      "type": "file",
+      "bytes": 169820,
+      "mtime": "2026-10-31T09:33:08.951Z",
+      "mtimeNs": "1793439188951029059",
+      "ctimeNs": "1793439188957261833",
+      "inode": "34526988"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/execution-records.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T06:55:09.832Z",
+      "mtimeNs": "1792824909832925238",
+      "ctimeNs": "1792824909832956738",
+      "inode": "29415021"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/model-calls-2026-10-24.jsonl",
+      "type": "file",
+      "bytes": 24580,
+      "mtime": "2026-10-24T12:09:57.849Z",
+      "mtimeNs": "1792843797849720437",
+      "ctimeNs": "1792843797849720437",
+      "inode": "29477915"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/model-calls-2026-10-25.jsonl",
+      "type": "file",
+      "bytes": 40428,
+      "mtime": "2026-10-25T10:31:28.843Z",
+      "mtimeNs": "1792924288843468826",
+      "ctimeNs": "1792924288843468826",
+      "inode": "31280696"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/model-calls-2026-10-26.jsonl",
+      "type": "file",
+      "bytes": 4902,
+      "mtime": "2026-10-26T10:16:05.579Z",
+      "mtimeNs": "1793009765579756118",
+      "ctimeNs": "1793009765579756118",
+      "inode": "31944447"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/model-calls-2026-10-29.jsonl",
+      "type": "file",
+      "bytes": 44529,
+      "mtime": "2026-10-29T12:35:20.075Z",
+      "mtimeNs": "1793277320075943865",
+      "ctimeNs": "1793277320075943865",
+      "inode": "32883205"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/model-calls-2026-10-30.jsonl",
+      "type": "file",
+      "bytes": 55901,
+      "mtime": "2026-10-30T14:19:10.384Z",
+      "mtimeNs": "1793369950384762200",
+      "ctimeNs": "1793369950384762200",
+      "inode": "33537204"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0de800a7-0bc1-4b6b-8299-ffe070563399/model-calls-2026-10-31.jsonl",
+      "type": "file",
+      "bytes": 9305,
+      "mtime": "2026-10-31T09:33:09.004Z",
+      "mtimeNs": "1793439189004399537",
+      "ctimeNs": "1793439189004399537",
+      "inode": "34499921"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7",
+      "type": "directory",
+      "bytes": 288,
+      "mtime": "2026-10-30T13:47:37.672Z",
+      "mtimeNs": "1793368057672501221",
+      "ctimeNs": "1793368057672501221",
+      "inode": "34229301"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7/.execution-owner-96f500660bf667c9a07485104cab12cc2e46a6984f18c667e4cd11dcf6e03497.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-30T13:43:37.631Z",
+      "mtimeNs": "1793367817631778169",
+      "ctimeNs": "1793367817631778169",
+      "inode": "34229312"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7/.model-calls.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-30T13:43:38.512Z",
+      "mtimeNs": "1793367818512125829",
+      "ctimeNs": "1793367818512125829",
+      "inode": "34229324"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7/96f500660bf667c9a07485104cab12cc2e46a6984f18c667e4cd11dcf6e03497.jsonl",
+      "type": "file",
+      "bytes": 39671,
+      "mtime": "2026-10-30T13:47:37.629Z",
+      "mtimeNs": "1793368057629027278",
+      "ctimeNs": "1793368057629027278",
+      "inode": "34230069"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7/96f500660bf667c9a07485104cab12cc2e46a6984f18c667e4cd11dcf6e03497.jsonl.append.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-30T13:43:38.379Z",
+      "mtimeNs": "1793367818379589506",
+      "ctimeNs": "1793367818379589506",
+      "inode": "34229320"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7/execution-records.json",
+      "type": "file",
+      "bytes": 23823,
+      "mtime": "2026-10-30T13:47:37.668Z",
+      "mtimeNs": "1793368057668721479",
+      "ctimeNs": "1793368057672501179",
+      "inode": "34230121"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7/execution-records.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-30T13:43:38.079Z",
+      "mtimeNs": "1793367818079221315",
+      "ctimeNs": "1793367818079221315",
+      "inode": "34229315"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0e663bda-7612-4ccc-a532-6b5361d266d7/model-calls-2026-10-30.jsonl",
+      "type": "file",
+      "bytes": 35917,
+      "mtime": "2026-10-30T13:47:37.712Z",
+      "mtimeNs": "1793368057712876337",
+      "ctimeNs": "1793368057712876337",
+      "inode": "34229325"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0eb7bb45-76fc-47c4-80c0-d86bfe28f958",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.849Z",
+      "mtimeNs": "1792824762849611723",
+      "ctimeNs": "1792824762849611723",
+      "inode": "29413823"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/0eb7bb45-76fc-47c4-80c0-d86bfe28f958/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.849Z",
+      "mtimeNs": "1792824762849673306",
+      "ctimeNs": "1792824762849673306",
+      "inode": "29413824"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/1a07e312-6aa8-499c-a9a2-3d7a6379c683",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.853Z",
+      "mtimeNs": "1792824762853492046",
+      "ctimeNs": "1792824762853492046",
+      "inode": "29413825"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/1a07e312-6aa8-499c-a9a2-3d7a6379c683/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.853Z",
+      "mtimeNs": "1792824762853559963",
+      "ctimeNs": "1792824762853559963",
+      "inode": "29413826"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/1bedc181-edf2-4362-bc06-926827f877e2",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.857Z",
+      "mtimeNs": "1792824762857447745",
+      "ctimeNs": "1792824762857447745",
+      "inode": "29413827"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/1bedc181-edf2-4362-bc06-926827f877e2/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.857Z",
+      "mtimeNs": "1792824762857510911",
+      "ctimeNs": "1792824762857510911",
+      "inode": "29413828"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/1c1e1ef4-8159-4e4c-a113-f47e25dbf367",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.865Z",
+      "mtimeNs": "1792824762865420475",
+      "ctimeNs": "1792824762865420475",
+      "inode": "29413829"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/1c1e1ef4-8159-4e4c-a113-f47e25dbf367/734ea2b4437f0af48bc7ba9472cbefa833f9a90b336cfa5c39121aedf5a30591.jsonl",
+      "type": "file",
+      "bytes": 83725,
+      "mtime": "2026-10-24T06:52:42.861Z",
+      "mtimeNs": "1792824762861594276",
+      "ctimeNs": "1792824762861594276",
+      "inode": "29413830"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/1c1e1ef4-8159-4e4c-a113-f47e25dbf367/execution-records.json",
+      "type": "file",
+      "bytes": 18487,
+      "mtime": "2026-10-24T06:52:42.865Z",
+      "mtimeNs": "1792824762865489600",
+      "ctimeNs": "1792824762865489600",
+      "inode": "29413831"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/22ded8b8-5795-45d2-847c-4f816affb755",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.869Z",
+      "mtimeNs": "1792824762869650506",
+      "ctimeNs": "1792824762869650506",
+      "inode": "29413832"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/22ded8b8-5795-45d2-847c-4f816affb755/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.869Z",
+      "mtimeNs": "1792824762869717714",
+      "ctimeNs": "1792824762869717714",
+      "inode": "29413833"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2854a552-4277-4fb0-be55-e25e2c4ce709",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.877Z",
+      "mtimeNs": "1792824762877455069",
+      "ctimeNs": "1792824762877455069",
+      "inode": "29413834"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2854a552-4277-4fb0-be55-e25e2c4ce709/eedae78ac0deb86ed30265138ff9b132af13176ed0b8d9d43bf142890a4a2228.jsonl",
+      "type": "file",
+      "bytes": 13762,
+      "mtime": "2026-10-24T06:52:42.873Z",
+      "mtimeNs": "1792824762873600329",
+      "ctimeNs": "1792824762873600329",
+      "inode": "29413835"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2854a552-4277-4fb0-be55-e25e2c4ce709/execution-records.json",
+      "type": "file",
+      "bytes": 3306,
+      "mtime": "2026-10-24T06:52:42.877Z",
+      "mtimeNs": "1792824762877514069",
+      "ctimeNs": "1792824762877514069",
+      "inode": "29413836"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2ac6cb33-8a0a-422f-8be1-f2451e4f903f",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.885Z",
+      "mtimeNs": "1792824762885529049",
+      "ctimeNs": "1792824762885529049",
+      "inode": "29413837"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2ac6cb33-8a0a-422f-8be1-f2451e4f903f/execution-records.json",
+      "type": "file",
+      "bytes": 3390,
+      "mtime": "2026-10-24T06:52:42.881Z",
+      "mtimeNs": "1792824762881576101",
+      "ctimeNs": "1792824762881576101",
+      "inode": "29413838"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2ac6cb33-8a0a-422f-8be1-f2451e4f903f/ffd6e47958d8d39eb2a1f41b0f39e7c8bfeac032b2d5a40a00f69d2eb586265f.jsonl",
+      "type": "file",
+      "bytes": 7706,
+      "mtime": "2026-10-24T06:52:42.885Z",
+      "mtimeNs": "1792824762885598591",
+      "ctimeNs": "1792824762885598591",
+      "inode": "29413839"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2c80d23d-a22d-4e5e-8597-5e52aae3fe21",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.889Z",
+      "mtimeNs": "1792824762889600789",
+      "ctimeNs": "1792824762889600789",
+      "inode": "29413840"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/2c80d23d-a22d-4e5e-8597-5e52aae3fe21/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.889Z",
+      "mtimeNs": "1792824762889659830",
+      "ctimeNs": "1792824762889659830",
+      "inode": "29413841"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/31d8928b-af1b-46e4-88e7-f23dc0f6555f",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.892Z",
+      "mtimeNs": "1792824762892538406",
+      "ctimeNs": "1792824762892538406",
+      "inode": "29413842"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/31d8928b-af1b-46e4-88e7-f23dc0f6555f/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.892Z",
+      "mtimeNs": "1792824762892596990",
+      "ctimeNs": "1792824762892596990",
+      "inode": "29413843"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/393f0507-650c-43e6-84ae-4336e62bc29b",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.900Z",
+      "mtimeNs": "1792824762900593053",
+      "ctimeNs": "1792824762900593053",
+      "inode": "29413844"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/393f0507-650c-43e6-84ae-4336e62bc29b/7515a79c5308973968edd234d8eefeb59cdc05839b7896d18fb54ad033e8206c.jsonl",
+      "type": "file",
+      "bytes": 9386,
+      "mtime": "2026-10-24T06:52:42.896Z",
+      "mtimeNs": "1792824762896617396",
+      "ctimeNs": "1792824762896617396",
+      "inode": "29413845"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/393f0507-650c-43e6-84ae-4336e62bc29b/execution-records.json",
+      "type": "file",
+      "bytes": 5345,
+      "mtime": "2026-10-24T06:52:42.900Z",
+      "mtimeNs": "1792824762900673052",
+      "ctimeNs": "1792824762900673052",
+      "inode": "29413846"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/3a782be9-e9f1-4caf-8b7f-acf80a4f6484",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.906Z",
+      "mtimeNs": "1792824762906686412",
+      "ctimeNs": "1792824762906686412",
+      "inode": "29413847"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/3a782be9-e9f1-4caf-8b7f-acf80a4f6484/97580b460d2e2b68600bdd4a5c2e130c1d16c3dbe181f8eb35234d19a99c162b.jsonl",
+      "type": "file",
+      "bytes": 2675,
+      "mtime": "2026-10-24T06:52:42.903Z",
+      "mtimeNs": "1792824762903597420",
+      "ctimeNs": "1792824762903597420",
+      "inode": "29413848"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/3a782be9-e9f1-4caf-8b7f-acf80a4f6484/execution-records.json",
+      "type": "file",
+      "bytes": 4056,
+      "mtime": "2026-10-24T06:52:42.906Z",
+      "mtimeNs": "1792824762906747412",
+      "ctimeNs": "1792824762906747412",
+      "inode": "29413849"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/442270ba-4d83-4fad-bc6e-d34678913a8b",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.910Z",
+      "mtimeNs": "1792824762910672402",
+      "ctimeNs": "1792824762910672402",
+      "inode": "29413850"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/442270ba-4d83-4fad-bc6e-d34678913a8b/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.910Z",
+      "mtimeNs": "1792824762910728902",
+      "ctimeNs": "1792824762910728902",
+      "inode": "29413851"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/5a79ce84-3398-40a5-8317-9bec25a7b612",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.918Z",
+      "mtimeNs": "1792824762918571924",
+      "ctimeNs": "1792824762918571924",
+      "inode": "29413852"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/5a79ce84-3398-40a5-8317-9bec25a7b612/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.918Z",
+      "mtimeNs": "1792824762918660882",
+      "ctimeNs": "1792824762918660882",
+      "inode": "29413853"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/614f9a90-6fbd-4cdb-8c14-b4b4880229f9",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.922Z",
+      "mtimeNs": "1792824762922683830",
+      "ctimeNs": "1792824762922683830",
+      "inode": "29413854"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/614f9a90-6fbd-4cdb-8c14-b4b4880229f9/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.922Z",
+      "mtimeNs": "1792824762922778872",
+      "ctimeNs": "1792824762922778872",
+      "inode": "29413855"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/72aaf806-209b-4f01-a754-cf10b32d664b",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.930Z",
+      "mtimeNs": "1792824762930508769",
+      "ctimeNs": "1792824762930508769",
+      "inode": "29413856"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/72aaf806-209b-4f01-a754-cf10b32d664b/911b543caa21fc337d3dd21547ebb266d9de95053b7ffb1d8b740db77b459a98.jsonl",
+      "type": "file",
+      "bytes": 30552,
+      "mtime": "2026-10-24T06:52:42.926Z",
+      "mtimeNs": "1792824762926720195",
+      "ctimeNs": "1792824762926720195",
+      "inode": "29413857"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/72aaf806-209b-4f01-a754-cf10b32d664b/execution-records.json",
+      "type": "file",
+      "bytes": 15346,
+      "mtime": "2026-10-24T06:52:42.930Z",
+      "mtimeNs": "1792824762930568977",
+      "ctimeNs": "1792824762930568977",
+      "inode": "29413858"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/7390de98-dc89-47c8-a83f-5c8b38559554",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.937Z",
+      "mtimeNs": "1792824762937507293",
+      "ctimeNs": "1792824762937507293",
+      "inode": "29413859"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/7390de98-dc89-47c8-a83f-5c8b38559554/3095b321db5431e097ccfd081b97cb6520a063da3d0b17c5074917d5d74b124b.jsonl",
+      "type": "file",
+      "bytes": 28696,
+      "mtime": "2026-10-24T06:52:42.933Z",
+      "mtimeNs": "1792824762933769011",
+      "ctimeNs": "1792824762933769011",
+      "inode": "29413860"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/7390de98-dc89-47c8-a83f-5c8b38559554/execution-records.json",
+      "type": "file",
+      "bytes": 7487,
+      "mtime": "2026-10-24T06:52:42.937Z",
+      "mtimeNs": "1792824762937581376",
+      "ctimeNs": "1792824762937581376",
+      "inode": "29413861"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/744871b3-09b8-4b19-b7ff-8e5dded86685",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.940Z",
+      "mtimeNs": "1792824762940659035",
+      "ctimeNs": "1792824762940659035",
+      "inode": "29413862"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/744871b3-09b8-4b19-b7ff-8e5dded86685/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.940Z",
+      "mtimeNs": "1792824762940725160",
+      "ctimeNs": "1792824762940725160",
+      "inode": "29413863"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/75e91e59-6dfb-47fb-b8dc-a2294fa855e7",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.948Z",
+      "mtimeNs": "1792824762948511390",
+      "ctimeNs": "1792824762948511390",
+      "inode": "29413864"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/75e91e59-6dfb-47fb-b8dc-a2294fa855e7/09c39c06db479baa2a114a0ba1cdc1f93b95e159a107946235968f5e7c5c99af.jsonl",
+      "type": "file",
+      "bytes": 28323,
+      "mtime": "2026-10-24T06:52:42.944Z",
+      "mtimeNs": "1792824762944680817",
+      "ctimeNs": "1792824762944680817",
+      "inode": "29413865"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/75e91e59-6dfb-47fb-b8dc-a2294fa855e7/execution-records.json",
+      "type": "file",
+      "bytes": 30910,
+      "mtime": "2026-10-24T06:52:42.948Z",
+      "mtimeNs": "1792824762948601015",
+      "ctimeNs": "1792824762948601015",
+      "inode": "29413866"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/7a9ade88-49d5-4a57-90a4-e27da3102f5d",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.952Z",
+      "mtimeNs": "1792824762952647380",
+      "ctimeNs": "1792824762952647380",
+      "inode": "29413867"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/7a9ade88-49d5-4a57-90a4-e27da3102f5d/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.952Z",
+      "mtimeNs": "1792824762952737505",
+      "ctimeNs": "1792824762952737505",
+      "inode": "29413868"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed",
+      "type": "directory",
+      "bytes": 288,
+      "mtime": "2026-10-24T09:01:10.324Z",
+      "mtimeNs": "1792832470324422264",
+      "ctimeNs": "1792832470324422264",
+      "inode": "29421016"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed/.execution-owner-4dedc5dc53521759da1c15431c060c25de99e32f08530038d337ffb138717452.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T07:00:37.862Z",
+      "mtimeNs": "1792825237862842808",
+      "ctimeNs": "1792825237862889224",
+      "inode": "29421017"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed/.model-calls.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T08:15:46.508Z",
+      "mtimeNs": "1792829746508803580",
+      "ctimeNs": "1792829746508821705",
+      "inode": "29443251"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed/4dedc5dc53521759da1c15431c060c25de99e32f08530038d337ffb138717452.jsonl",
+      "type": "file",
+      "bytes": 55583,
+      "mtime": "2026-10-24T09:01:10.281Z",
+      "mtimeNs": "1792832470281389260",
+      "ctimeNs": "1792832470281389260",
+      "inode": "29443275"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed/4dedc5dc53521759da1c15431c060c25de99e32f08530038d337ffb138717452.jsonl.append.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T08:15:46.339Z",
+      "mtimeNs": "1792829746339844940",
+      "ctimeNs": "1792829746339869523",
+      "inode": "29443247"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed/execution-records.json",
+      "type": "file",
+      "bytes": 17062,
+      "mtime": "2026-10-24T09:01:10.320Z",
+      "mtimeNs": "1792832470320259022",
+      "ctimeNs": "1792832470324422223",
+      "inode": "29468545"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed/execution-records.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-24T07:00:37.918Z",
+      "mtimeNs": "1792825237918566471",
+      "ctimeNs": "1792825237918614430",
+      "inode": "29421018"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/886c4361-5a21-4a6a-b576-ff8266d3d9ed/model-calls-2026-10-24.jsonl",
+      "type": "file",
+      "bytes": 13751,
+      "mtime": "2026-10-24T09:01:10.361Z",
+      "mtimeNs": "1792832470361196863",
+      "ctimeNs": "1792832470361196863",
+      "inode": "29443253"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/8bb44ece-9c2f-446c-9954-7c14bf362da0",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.960Z",
+      "mtimeNs": "1792824762960582735",
+      "ctimeNs": "1792824762960582735",
+      "inode": "29413869"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/8bb44ece-9c2f-446c-9954-7c14bf362da0/execution-records.json",
+      "type": "file",
+      "bytes": 14800,
+      "mtime": "2026-10-24T06:52:42.956Z",
+      "mtimeNs": "1792824762956686870",
+      "ctimeNs": "1792824762956686870",
+      "inode": "29413870"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/8bb44ece-9c2f-446c-9954-7c14bf362da0/f882694edab07e29dfbbb55ab479ab83c829663ba9db527be9cd44fbc8912965.jsonl",
+      "type": "file",
+      "bytes": 47491,
+      "mtime": "2026-10-24T06:52:42.960Z",
+      "mtimeNs": "1792824762960662110",
+      "ctimeNs": "1792824762960662110",
+      "inode": "29413871"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/8dbb379d-3b4c-43bf-97e3-4e1f3ca5fcff",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.964Z",
+      "mtimeNs": "1792824762964623266",
+      "ctimeNs": "1792824762964623266",
+      "inode": "29413872"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/8dbb379d-3b4c-43bf-97e3-4e1f3ca5fcff/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.964Z",
+      "mtimeNs": "1792824762964692224",
+      "ctimeNs": "1792824762964692224",
+      "inode": "29413873"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/931afeef-967b-47e7-8403-319e2d4b2800",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.968Z",
+      "mtimeNs": "1792824762968566798",
+      "ctimeNs": "1792824762968566798",
+      "inode": "29413874"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/931afeef-967b-47e7-8403-319e2d4b2800/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.968Z",
+      "mtimeNs": "1792824762968645256",
+      "ctimeNs": "1792824762968645256",
+      "inode": "29413875"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/9b123bfc-0603-470c-aea1-3f78717067cd",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.976Z",
+      "mtimeNs": "1792824762976668736",
+      "ctimeNs": "1792824762976668736",
+      "inode": "29413876"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/9b123bfc-0603-470c-aea1-3f78717067cd/9bd2af9c81ef698a89dfabbaed3c3d545ec3481fd756e5bd8b91ab3486e67623.jsonl",
+      "type": "file",
+      "bytes": 36399,
+      "mtime": "2026-10-24T06:52:42.972Z",
+      "mtimeNs": "1792824762972697496",
+      "ctimeNs": "1792824762972697496",
+      "inode": "29413877"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/9b123bfc-0603-470c-aea1-3f78717067cd/execution-records.json",
+      "type": "file",
+      "bytes": 19598,
+      "mtime": "2026-10-24T06:52:42.976Z",
+      "mtimeNs": "1792824762976801611",
+      "ctimeNs": "1792824762976801611",
+      "inode": "29413878"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553",
+      "type": "directory",
+      "bytes": 288,
+      "mtime": "2026-10-26T09:42:49.379Z",
+      "mtimeNs": "1793007769379487008",
+      "ctimeNs": "1793007769379487008",
+      "inode": "31941028"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553/.execution-owner-a4491f8140ec2da4d20ee55d4f6c34af7d6df8aead2df776f057a89040d8edb9.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:35:49.554Z",
+      "mtimeNs": "1793007349554947652",
+      "ctimeNs": "1793007349554947652",
+      "inode": "31941036"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553/.model-calls.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:36:22.040Z",
+      "mtimeNs": "1793007382040358996",
+      "ctimeNs": "1793007382040358996",
+      "inode": "31941228"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553/a4491f8140ec2da4d20ee55d4f6c34af7d6df8aead2df776f057a89040d8edb9.jsonl",
+      "type": "file",
+      "bytes": 16359,
+      "mtime": "2026-10-26T09:36:59.251Z",
+      "mtimeNs": "1793007419251681487",
+      "ctimeNs": "1793007419251681487",
+      "inode": "31941448"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553/a4491f8140ec2da4d20ee55d4f6c34af7d6df8aead2df776f057a89040d8edb9.jsonl.append.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:36:21.861Z",
+      "mtimeNs": "1793007381861080227",
+      "ctimeNs": "1793007381861080227",
+      "inode": "31941224"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553/execution-records.json",
+      "type": "file",
+      "bytes": 5800,
+      "mtime": "2026-10-26T09:42:49.374Z",
+      "mtimeNs": "1793007769374204229",
+      "ctimeNs": "1793007769379486966",
+      "inode": "31943548"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553/execution-records.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:35:49.787Z",
+      "mtimeNs": "1793007349787926189",
+      "ctimeNs": "1793007349787926189",
+      "inode": "31941038"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/aefa23bc-d4cc-4c62-a609-39dc36b14553/model-calls-2026-10-26.jsonl",
+      "type": "file",
+      "bytes": 5046,
+      "mtime": "2026-10-26T09:36:59.363Z",
+      "mtimeNs": "1793007419363492556",
+      "ctimeNs": "1793007419363492556",
+      "inode": "31941230"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/af8a7337-e425-4d4f-aa5e-5e5c2989b500",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.985Z",
+      "mtimeNs": "1792824762985608755",
+      "ctimeNs": "1792824762985608755",
+      "inode": "29413879"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/af8a7337-e425-4d4f-aa5e-5e5c2989b500/61ae4fc12d8a1f946efbe741988d385b28928582d1dd6112777a61f19b8e5e5c.jsonl",
+      "type": "file",
+      "bytes": 173955,
+      "mtime": "2026-10-24T06:52:42.980Z",
+      "mtimeNs": "1792824762980897225",
+      "ctimeNs": "1792824762980897225",
+      "inode": "29413880"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/af8a7337-e425-4d4f-aa5e-5e5c2989b500/execution-records.json",
+      "type": "file",
+      "bytes": 60427,
+      "mtime": "2026-10-24T06:52:42.985Z",
+      "mtimeNs": "1792824762985778046",
+      "ctimeNs": "1792824762985778046",
+      "inode": "29413881"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/b2e04cdd-e19a-452a-befe-7668c639792c",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:42.988Z",
+      "mtimeNs": "1792824762988735622",
+      "ctimeNs": "1792824762988735622",
+      "inode": "29413882"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/b2e04cdd-e19a-452a-befe-7668c639792c/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:42.988Z",
+      "mtimeNs": "1792824762988827580",
+      "ctimeNs": "1792824762988827580",
+      "inode": "29413883"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/b6074d8b-87cf-45bb-974e-a8ab511e6d19",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:42.996Z",
+      "mtimeNs": "1792824762996603186",
+      "ctimeNs": "1792824762996603186",
+      "inode": "29413884"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/b6074d8b-87cf-45bb-974e-a8ab511e6d19/a8d01e30dbaf0f95e6f9295499182ed332f4bdd68399729bc875b638888e7187.jsonl",
+      "type": "file",
+      "bytes": 119231,
+      "mtime": "2026-10-24T06:52:42.992Z",
+      "mtimeNs": "1792824762992795987",
+      "ctimeNs": "1792824762992795987",
+      "inode": "29413885"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/b6074d8b-87cf-45bb-974e-a8ab511e6d19/execution-records.json",
+      "type": "file",
+      "bytes": 29393,
+      "mtime": "2026-10-24T06:52:42.996Z",
+      "mtimeNs": "1792824762996707394",
+      "ctimeNs": "1792824762996707394",
+      "inode": "29413886"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/ba8e1c2e-8904-44c0-b487-7ce3cb3ac34e",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:43.000Z",
+      "mtimeNs": "1792824763000680634",
+      "ctimeNs": "1792824763000680634",
+      "inode": "29413887"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/ba8e1c2e-8904-44c0-b487-7ce3cb3ac34e/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:43.000Z",
+      "mtimeNs": "1792824763000771592",
+      "ctimeNs": "1792824763000771592",
+      "inode": "29413888"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/bece7af3-2433-4a62-af7f-6a7bb7a86905",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:43.008Z",
+      "mtimeNs": "1792824763008595905",
+      "ctimeNs": "1792824763008595905",
+      "inode": "29413889"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/bece7af3-2433-4a62-af7f-6a7bb7a86905/29b2fafdf8e905f65d2db80addb7f410b05d68ea490e8786a7847c6b3ab1f470.jsonl",
+      "type": "file",
+      "bytes": 8778,
+      "mtime": "2026-10-24T06:52:43.004Z",
+      "mtimeNs": "1792824763004728915",
+      "ctimeNs": "1792824763004728915",
+      "inode": "29413890"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/bece7af3-2433-4a62-af7f-6a7bb7a86905/execution-records.json",
+      "type": "file",
+      "bytes": 4243,
+      "mtime": "2026-10-24T06:52:43.008Z",
+      "mtimeNs": "1792824763008719572",
+      "ctimeNs": "1792824763008719572",
+      "inode": "29413891"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cbe820cf-81dc-4a60-ba5e-18f29fd09cbb",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:43.015Z",
+      "mtimeNs": "1792824763015675263",
+      "ctimeNs": "1792824763015675263",
+      "inode": "29413892"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cbe820cf-81dc-4a60-ba5e-18f29fd09cbb/41dd77f2910f939a2ef4c113d6f819802eda5be18016b6faf3324883c547d036.jsonl",
+      "type": "file",
+      "bytes": 22752,
+      "mtime": "2026-10-24T06:52:43.012Z",
+      "mtimeNs": "1792824763012773312",
+      "ctimeNs": "1792824763012773312",
+      "inode": "29413893"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cbe820cf-81dc-4a60-ba5e-18f29fd09cbb/execution-records.json",
+      "type": "file",
+      "bytes": 7573,
+      "mtime": "2026-10-24T06:52:43.015Z",
+      "mtimeNs": "1792824763015791304",
+      "ctimeNs": "1792824763015791304",
+      "inode": "29413894"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3",
+      "type": "directory",
+      "bytes": 288,
+      "mtime": "2026-10-26T09:14:16.150Z",
+      "mtimeNs": "1793006056150095021",
+      "ctimeNs": "1793006056150095021",
+      "inode": "31929504"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3/.execution-owner-1cfa257e17a82c2d4c02bd542c7760255c0cb728ae4be200ae45eedd70f91153.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T08:47:02.471Z",
+      "mtimeNs": "1793004422471993308",
+      "ctimeNs": "1793004422471993308",
+      "inode": "31929506"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3/.model-calls.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T08:49:32.607Z",
+      "mtimeNs": "1793004572607916620",
+      "ctimeNs": "1793004572607916620",
+      "inode": "31930408"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3/1cfa257e17a82c2d4c02bd542c7760255c0cb728ae4be200ae45eedd70f91153.jsonl",
+      "type": "file",
+      "bytes": 12263,
+      "mtime": "2026-10-26T08:49:34.982Z",
+      "mtimeNs": "1793004574982887280",
+      "ctimeNs": "1793004574982887280",
+      "inode": "31930446"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3/1cfa257e17a82c2d4c02bd542c7760255c0cb728ae4be200ae45eedd70f91153.jsonl.append.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T08:49:32.447Z",
+      "mtimeNs": "1793004572447333001",
+      "ctimeNs": "1793004572447333001",
+      "inode": "31930403"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3/execution-records.json",
+      "type": "file",
+      "bytes": 1510,
+      "mtime": "2026-10-26T09:14:16.145Z",
+      "mtimeNs": "1793006056145495991",
+      "ctimeNs": "1793006056150094979",
+      "inode": "31935457"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3/execution-records.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T08:47:02.505Z",
+      "mtimeNs": "1793004422505310546",
+      "ctimeNs": "1793004422505310546",
+      "inode": "31929507"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/cc63c1ec-b059-43a9-8d4b-78b4dd1d2ae3/model-calls-2026-10-26.jsonl",
+      "type": "file",
+      "bytes": 1586,
+      "mtime": "2026-10-26T08:49:35.074Z",
+      "mtimeNs": "1793004575074138037",
+      "ctimeNs": "1793004575074138037",
+      "inode": "31930409"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/d6a0adf5-897e-481d-9093-25f17e85065b",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:43.019Z",
+      "mtimeNs": "1792824763019580003",
+      "ctimeNs": "1792824763019580003",
+      "inode": "29413895"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/d6a0adf5-897e-481d-9093-25f17e85065b/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:43.019Z",
+      "mtimeNs": "1792824763019666669",
+      "ctimeNs": "1792824763019666669",
+      "inode": "29413896"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/d7233ea6-d735-460c-a94c-93c478a200a7",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:43.023Z",
+      "mtimeNs": "1792824763023663326",
+      "ctimeNs": "1792824763023663326",
+      "inode": "29413897"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/d7233ea6-d735-460c-a94c-93c478a200a7/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:43.023Z",
+      "mtimeNs": "1792824763023765200",
+      "ctimeNs": "1792824763023765200",
+      "inode": "29413898"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/de7b607f-8f01-4ebc-b036-c21a340f43f6",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:43.027Z",
+      "mtimeNs": "1792824763027658732",
+      "ctimeNs": "1792824763027658732",
+      "inode": "29413899"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/de7b607f-8f01-4ebc-b036-c21a340f43f6/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:43.027Z",
+      "mtimeNs": "1792824763027771774",
+      "ctimeNs": "1792824763027771774",
+      "inode": "29413900"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/e1e64dbc-30ee-4d02-a3d6-badadef7d218",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:43.036Z",
+      "mtimeNs": "1792824763036587502",
+      "ctimeNs": "1792824763036587502",
+      "inode": "29413901"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/e1e64dbc-30ee-4d02-a3d6-badadef7d218/1b38c7e5ba43d44247314b253929b919ae339f9cec775bab36fdfb85b3893b66.jsonl",
+      "type": "file",
+      "bytes": 2719,
+      "mtime": "2026-10-24T06:52:43.031Z",
+      "mtimeNs": "1792824763031800889",
+      "ctimeNs": "1792824763031800889",
+      "inode": "29413902"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/e1e64dbc-30ee-4d02-a3d6-badadef7d218/execution-records.json",
+      "type": "file",
+      "bytes": 4080,
+      "mtime": "2026-10-24T06:52:43.036Z",
+      "mtimeNs": "1792824763036682668",
+      "ctimeNs": "1792824763036682668",
+      "inode": "29413903"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/e3d1d78a-5db3-4319-93cb-06a62da9f210",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:43.040Z",
+      "mtimeNs": "1792824763040569992",
+      "ctimeNs": "1792824763040569992",
+      "inode": "29413904"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/e3d1d78a-5db3-4319-93cb-06a62da9f210/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:43.040Z",
+      "mtimeNs": "1792824763040659575",
+      "ctimeNs": "1792824763040659575",
+      "inode": "29413905"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/edb8f89c-53e2-4d7e-bb6b-1aaa5f8c6ffe",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:43.044Z",
+      "mtimeNs": "1792824763044619106",
+      "ctimeNs": "1792824763044619106",
+      "inode": "29413906"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/edb8f89c-53e2-4d7e-bb6b-1aaa5f8c6ffe/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:43.044Z",
+      "mtimeNs": "1792824763044742148",
+      "ctimeNs": "1792824763044742148",
+      "inode": "29413907"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/eebb8c0c-5702-435f-95d7-1e2a82eb52ac",
+      "type": "directory",
+      "bytes": 128,
+      "mtime": "2026-10-24T06:52:43.052Z",
+      "mtimeNs": "1792824763052627669",
+      "ctimeNs": "1792824763052627669",
+      "inode": "29413908"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/eebb8c0c-5702-435f-95d7-1e2a82eb52ac/54b7320b70c002308ffea57cb52cb8713fb45a0d92175adf678b56ed8aa24779.jsonl",
+      "type": "file",
+      "bytes": 150677,
+      "mtime": "2026-10-24T06:52:43.047Z",
+      "mtimeNs": "1792824763047871890",
+      "ctimeNs": "1792824763047871890",
+      "inode": "29413909"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/eebb8c0c-5702-435f-95d7-1e2a82eb52ac/execution-records.json",
+      "type": "file",
+      "bytes": 6552,
+      "mtime": "2026-10-24T06:52:43.052Z",
+      "mtimeNs": "1792824763052732961",
+      "ctimeNs": "1792824763052732961",
+      "inode": "29413910"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fbc580b9-25c4-483d-82eb-fe4d77c206ee",
+      "type": "directory",
+      "bytes": 96,
+      "mtime": "2026-10-24T06:52:43.056Z",
+      "mtimeNs": "1792824763056627243",
+      "ctimeNs": "1792824763056627243",
+      "inode": "29413911"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fbc580b9-25c4-483d-82eb-fe4d77c206ee/execution-records.json",
+      "type": "file",
+      "bytes": 24,
+      "mtime": "2026-10-24T06:52:43.056Z",
+      "mtimeNs": "1792824763056736826",
+      "ctimeNs": "1792824763056736826",
+      "inode": "29413912"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075",
+      "type": "directory",
+      "bytes": 288,
+      "mtime": "2026-10-26T09:23:26.683Z",
+      "mtimeNs": "1793006606683840848",
+      "ctimeNs": "1793006606683840848",
+      "inode": "31935721"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075/.execution-owner-aafd30b6ee28584c162255f08a3d92911debb7d516d844ff34999d532996d990.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:15:40.267Z",
+      "mtimeNs": "1793006140267976249",
+      "ctimeNs": "1793006140267976249",
+      "inode": "31935723"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075/.model-calls.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:16:22.187Z",
+      "mtimeNs": "1793006182187742997",
+      "ctimeNs": "1793006182187742997",
+      "inode": "31936050"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075/aafd30b6ee28584c162255f08a3d92911debb7d516d844ff34999d532996d990.jsonl",
+      "type": "file",
+      "bytes": 36015,
+      "mtime": "2026-10-26T09:18:39.335Z",
+      "mtimeNs": "1793006319335017486",
+      "ctimeNs": "1793006319335017486",
+      "inode": "31936742"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075/aafd30b6ee28584c162255f08a3d92911debb7d516d844ff34999d532996d990.jsonl.append.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:16:22.015Z",
+      "mtimeNs": "1793006182015435712",
+      "ctimeNs": "1793006182015435712",
+      "inode": "31936046"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075/execution-records.json",
+      "type": "file",
+      "bytes": 19908,
+      "mtime": "2026-10-26T09:23:26.679Z",
+      "mtimeNs": "1793006606679308481",
+      "ctimeNs": "1793006606683840848",
+      "inode": "31937725"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075/execution-records.json.lock",
+      "type": "file",
+      "bytes": 0,
+      "mtime": "2026-10-26T09:15:40.305Z",
+      "mtimeNs": "1793006140305529199",
+      "ctimeNs": "1793006140305529199",
+      "inode": "31935724"
+    },
+    {
+      "path": "/Users/a1-6/.serika/transcripts/fc92558f-b4f8-4d25-8f8b-0b9bcd2db075/model-calls-2026-10-26.jsonl",
+      "type": "file",
+      "bytes": 18982,
+      "mtime": "2026-10-26T09:18:39.496Z",
+      "mtimeNs": "1793006319496965505",
+      "ctimeNs": "1793006319496965505",
+      "inode": "31936051"
+    }
+  ],
+  "events": [],
+  "exitCode": 0,
+  "signal": null,
+  "status": "passed",
+  "violations": [],
+  "metadataUnchanged": true,
+  "finishedAt": "2026-10-31T11:51:20.132Z"
+}

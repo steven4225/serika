@@ -1,0 +1,80 @@
+{
+  "verificationId": "0203bcd4-4c32-4b2f-b9bd-b842b80e863b",
+  "at": "2026-10-31T17:17:11.281Z",
+  "batchId": "949439cf-f29f-4dc9-9391-f574f3f16f6a",
+  "status": "passed",
+  "checks": [
+    {
+      "cmd": "pnpm",
+      "args": [
+        "typecheck"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": "$ tsc -b --pretty false && pnpm --filter @serika/desktop typecheck\n$ tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit\n"
+    },
+    {
+      "cmd": "node",
+      "args": [
+        "--check",
+        "apps/desktop/scripts/chat-run-target-telegram-gate.mjs"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "cmd": "node",
+      "args": [
+        "--check",
+        "apps/desktop/scripts/chat-run-target-telegram-live.mjs"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "cmd": "git",
+      "args": [
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "fullSerial": {
+    "totals": [
+      1225,
+      660,
+      25
+    ],
+    "passes": [
+      1218,
+      660,
+      25
+    ],
+    "skipped": [
+      7,
+      0,
+      0
+    ],
+    "total": 1910,
+    "passed": 1903,
+    "skip": 7
+  },
+  "sourceHashesMatch": true,
+  "productSourceDiffEmpty": true,
+  "guard": {
+    "evidence": "/private/tmp/s197-boundary-work/full-serial-home/write-guard-BvsoCz/result.json",
+    "exitCode": 0,
+    "violations": 0,
+    "metadataUnchanged": false,
+    "concurrentChanges": 443
+  },
+  "credentialPatternHits": 0,
+  "realModelCalls": 0,
+  "realTelegramCalls": 0,
+  "costUsd": 0
+}

@@ -1,0 +1,19 @@
+✔ an observed file approval cannot be reported as automatic or lack a decision source (1.083208ms)
+✔ one control approval and a separately approved file read retain both conclusions (0.44475ms)
+✔ recovered non-pairing text persists full redacted rejection and exact predicate in stop audit (6.653417ms)
+✔ owner/type failures remain separate; undefined text never becomes an expected task (0.89225ms)
+✔ rejected observed update requires acknowledgement beyond the old store offset before daily restore (1.024792ms)
+✔ early failed Run receipt is counted even before the waiting case receives its runId (1.518666ms)
+✔ pair readiness rejects wrong batch, EOF, stream error and cancellation before any handoff (2.187083ms)
+✔ original gateway pairs trimmed command and host shutdown closes real proxy dispatcher once without network (787.821708ms)
+✔ dedicated settings reject the day-use Bot, missing fields, symlink aliases, busy profile and retained runtime (130.956417ms)
+✔ original gateway persists its first pairing and reuses owner Thread and offset after a new host without daily access (911.119958ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1250.487042
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-197-dedicated-final-koP0aK/final-home/write-guard-gl1ZD1/result.json","violations":0,"changes":0,"metadataUnchanged":true}

@@ -67,6 +67,7 @@ import { createCheckpointModule } from "./modules/checkpoint-module.js";
 import { createPomodoroModule, type PomodoroService } from "./modules/pomodoro-module.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
 import { createTerminalModule } from "./modules/terminal-module.js";
+import { ForegroundHerdrTargets } from "./foreground-herdr.js";
 import { createShellModule } from "./modules/shell-module.js";
 import { SeatbeltShellRunner } from "./modules/seatbelt-shell-runner.js";
 import type { ShellProgress } from "./modules/shell-module.js";
@@ -182,6 +183,7 @@ export interface RuntimeApp {
   beginOutputTiming?: (message: UIMessage) => ReturnType<typeof beginRoundOutputTiming> | undefined;
   beginForegroundExecution?: (entry: "desktop" | "telegram" | undefined, request?: UIMessage) => boolean;
   endForegroundExecution?: () => Promise<void>;
+  foregroundHerdr?: ForegroundHerdrTargets;
   desktopAutonomyEnabled?: boolean;
   telegramAutonomyEnabled?: () => boolean;
   bindNextExecutionWorkTask: (input: { id: string; expectedRevision: number }) => () => void;
@@ -270,6 +272,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   // Per-Run state (docs/v2-pilot/run-context.md). Each begin/end pair below
   // sets and clears only its own part, at the same points as before.
   const currentRun: RunState = { foreground: undefined, workTaskMessage: undefined, workTask: undefined, memorySource: undefined, resume: undefined };
+  const foregroundHerdr = moduleConfig?.enabled.terminal && options.desktopAutonomyHost && projectDirectory
+    ? new ForegroundHerdrTargets({ directory: projectDirectory, env, configuredTarget: moduleConfig.terminalTarget }) : undefined;
   const autonomousRun = () => currentRun.foreground?.autonomous === true;
   const seatbeltRun = () => autonomousRun() && seatbeltRunner !== undefined;
   const memoryEnabled = moduleConfig?.enabled.memory ?? false;
@@ -439,7 +443,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                 ]
               : []),
             ...(moduleConfig!.enabled.terminal && options.desktopAutonomyHost
-              ? [createTerminalModule({ directory: projectDirectory!, env, target: moduleConfig!.terminalTarget,
+              ? [createTerminalModule({ directory: projectDirectory!, targets: foregroundHerdr!,
                   timeoutMs: moduleConfig!.shellTimeoutMs, onProgress: notifyShellProgress })] : []),
             ...(moduleConfig!.computer
               ? [createComputerModule(moduleConfig!.computer, { env })]
@@ -702,6 +706,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       seatbelt: seatbeltRun(), permissions: toolConfirmation?.snapshot(),
       ...(currentRun.foreground?.entry ? { entry: currentRun.foreground.entry } : {}),
       moduleEntries: new Map([["todoist", todoist.capability]]),
+      ...(foregroundHerdr ? { pi: foregroundHerdr.snapshot() } : {}),
     });
     const statusRegistration = { metadata: { name: "capability_status", version: "1", risk: "read" as const, timeoutMs: 1000, idempotent: true },
       tool: tool({ description: "Read current host-registered tools and static capability/permission mode. No service probes, process/app inspection, credentials, installation or writes. Service/OS permission health remains not_checked.",
@@ -819,6 +824,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       consolidationAgentId: AUTO_CONSOLIDATION_AGENT_ID,
       isTextSkill: agentId => automation.skills.find(skill => skill.agentId === agentId)?.kind === "text",
       primary: async (messages, signal) => {
+        foregroundHerdr?.observeSteers(messages);
         const currentUser = [...messages].reverse().find(message => message.role === "user");
         // Runtime requires one new user message per Run. Capture it before
         // reference injection/compaction; WorkTask contracts are not user facts.
@@ -914,7 +920,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         const definition = catalog.get(agentId);
         return definition && agentId === PRIMARY_AGENT_ID ? { ...definition,
           get instructions() { return primaryInstructions(); },
-          ...(autonomousRun() ? { tools: autonomousToolNames,
+          get tools() {
+            const names = autonomousRun() ? autonomousToolNames : definition.tools;
+            return foregroundHerdr?.availableTools(names) ?? names;
+          },
+          ...(autonomousRun() ? {
             limits: { ...definition.limits, maxSteps: AUTONOMOUS_MAX_STEPS, totalTimeoutMs: AUTONOMOUS_TOTAL_TIMEOUT_MS } } : {}),
         } : definition;
       } },
@@ -925,7 +935,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         ...(tuiMode ? { modelRetryDelaysMs: [250, 1_000] } : {}),
         modelRetryDisabledAgentIds: [AUTO_CONSOLIDATION_AGENT_ID],
       }),
-      ...(extensions.afterToolCall ? { afterToolCall: extensions.afterToolCall } : {}),
+      ...(foregroundHerdr ? { afterToolCall: input => foregroundHerdr.afterToolCall(input, extensions.afterToolCall) }
+        : extensions.afterToolCall ? { afterToolCall: extensions.afterToolCall } : {}),
       ...(tuiMode
         ? {
             prepareModelContext: async ({ messages, signal, definition, contextOverflow }) => {
@@ -936,7 +947,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             },
           }
         : {}),
-      ...(extensions.beforeToolExecute ? { beforeToolExecute: extensions.beforeToolExecute } : {}),
+      ...(extensions.beforeToolExecute ? { beforeToolExecute: foregroundHerdr
+        ? input => foregroundHerdr.beforeToolExecute(input, extensions.beforeToolExecute!) : extensions.beforeToolExecute } : {}),
       ...(tuiMode ? { beforeRunFinish: createWorkTaskFinishCheck({ workspaceRoot, executionRecords, workTasks }) } : {}),
     });
 
@@ -1025,12 +1037,14 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       projectExecutionRuns: runs => transcript.filterRuns(runs),
       desktopAutonomyEnabled,
       telegramAutonomyEnabled,
+      ...(foregroundHerdr ? { foregroundHerdr } : {}),
       beginForegroundExecution: (entry, request) => {
+        if (entry) foregroundHerdr?.begin(request);
         const autonomous = entry === "desktop" ? desktopAutonomyEnabled : entry === "telegram" && moduleConfig?.telegramAutonomy?.threadId === threadId && telegramAutonomyEnabled();
         currentRun.foreground = { entry, autonomous, ...(request ? { request: structuredClone(request) } : {}) };
         return autonomous;
       },
-      endForegroundExecution: async () => { await seatbeltRunner?.settle(); currentRun.foreground = undefined; },
+      endForegroundExecution: async () => { foregroundHerdr?.end(); await seatbeltRunner?.settle(); currentRun.foreground = undefined; },
       ...(recipes ? { recipes } : {}),
       renderHome: renderFreshHome,
       registerNotificationRedraw: (redraw) => {
@@ -1041,6 +1055,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         return () => { shellProgressListeners.delete(listener); };
       },
       dispose: () => {
+        foregroundHerdr?.end();
         redrawAfterModuleNotification = undefined;
         shellProgressListeners.clear();
         moduleHost?.dispose();

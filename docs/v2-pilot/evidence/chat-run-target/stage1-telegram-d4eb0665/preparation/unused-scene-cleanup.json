@@ -1,0 +1,13 @@
+{
+  "at": "2026-10-31T17:27:00.282Z",
+  "batchId": "2639473b-c243-4f7d-9b59-3ea56054bb29",
+  "result": {
+    "statePath": "/private/tmp/s197-tg/herdr-fixture/herdr-state.json",
+    "phase": "cleaned",
+    "session": "w-6322cf31",
+    "retainedFixture": "/private/tmp/s197-tg/herdr-fixture"
+  },
+  "retained": "/private/tmp/s197-tg-unused-2639473b",
+  "telegramCalls": 0,
+  "modelCalls": 0
+}

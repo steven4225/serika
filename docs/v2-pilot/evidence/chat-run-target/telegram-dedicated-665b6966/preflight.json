@@ -1,0 +1,12 @@
+{
+  "mode": "zero-request-preflight",
+  "importsLoaded": true,
+  "envFilePresent": true,
+  "model": "deepseek/deepseek-v4.1-flash-fast",
+  "capUsd": 0.25,
+  "maxRequests": 24,
+  "maxRuns": 1,
+  "modelCalls": 0,
+  "telegramCalls": 0,
+  "scriptSha256": "2ded837cd0bd206023b108d908a58875293610d300562ec0f7fe2ee5f1160b93"
+}

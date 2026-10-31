@@ -1,0 +1,24 @@
+{
+  "auditId": "7570f9f1-d595-486e-9b3d-8f02e59602f5",
+  "at": "2026-10-31T11:53:09.133Z",
+  "source": "targeted-existing-daily-journal-not-original-Bot-API-update",
+  "input": [
+    {
+      "updateId": 414513487,
+      "receivedAt": "2026-10-31T19:44+08:00",
+      "text": "/start E5DC0CF764",
+      "state": "rejected",
+      "runId": null,
+      "taskId": null,
+      "sourceRowSha256": "77a8ee7926f10366dcb51c4b6a1a338d82dbf98598a0e6a46fa305281da50dc3"
+    }
+  ],
+  "delivery": [
+    {
+      "state": "submitted",
+      "text": "未识别的控制指令，未提交给模型。发送 /help 查看用法。",
+      "messageId": 661,
+      "sourceRowSha256": "00f32e203e36404300935b409e1db82f765f34282907437c884dd8ead7aa29ed"
+    }
+  ]
+}

@@ -1,0 +1,158 @@
+{
+  "auditId": "6caea55d-7b3b-47be-a620-b935951382ef",
+  "at": "2026-10-31T09:48:32.794Z",
+  "verification": "offline-inbound-diagnostics-original-gateway-fake-transport",
+  "sourceCommit": "e6804b5196d34eaac72e1acbbfa9f03e540df5b0",
+  "sourceWorktreeDirty": true,
+  "sourceHashes": {
+    "apps/desktop/scripts/chat-run-target-telegram-live.mjs": "29709716a76ff9e826b8ef008291dc16b8b2bc2c19a806aabb76c1484fcd5246",
+    "apps/desktop/scripts/chat-run-target-telegram-inbound.mjs": "62fb9dfa0a80c23b3013704860a516c2a5fe7fc9417087893b7d9bff6e266263",
+    "apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs": "ad934f2d44e484a8cbde762881cc4f0fa03a8cb20e90d28919baacec9fe104d2",
+    "apps/desktop/scripts/chat-run-target-telegram-delivery.mjs": "189a05f2d1b3eef445ba3eddb9511dc9872bac4e9f56d08a419f240f16391588",
+    "apps/desktop/scripts/chat-run-target-approval.test.mjs": "91a5f71ba8e48a861c7b415b7cf38ff8674990c8c41b32ff89a454bd2070e071",
+    "scripts/chat-run-target-telegram-stop-audit.mjs": "256512d206b13d55b938aaaaca3aca73c94b20c92ecfbc2d1dbf6494063b7203",
+    "scripts/chat-run-target-telegram-audit.mjs": "65298494c98aa2d2afdaba5aaa36050360aa1175474f6f7b419a4ff4a8871297"
+  },
+  "oldResultSha256": "d6d2856f4fd10b4f331b99084cdbd9790dc55ddf3c974e6d09ac4a8802a6528d",
+  "oldEvidenceUnmodified": true,
+  "tests": {
+    "inboundAndApproval": 7,
+    "affectedTelegram": 85,
+    "failures": 0
+  },
+  "originalGateway": {
+    "modelCalls": 0,
+    "networkCalls": 0,
+    "dispatcherCloseCalls": 1
+  },
+  "commands": [
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "--check",
+        "apps/desktop/scripts/chat-run-target-telegram-live.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "--check",
+        "apps/desktop/scripts/chat-run-target-telegram-inbound.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "--check",
+        "apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "--check",
+        "apps/desktop/scripts/chat-run-target-telegram-delivery.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "--check",
+        "apps/desktop/scripts/chat-run-target-approval.test.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "--check",
+        "scripts/chat-run-target-telegram-stop-audit.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "--check",
+        "scripts/chat-run-target-telegram-audit.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "--import",
+        "./apps/desktop/node_modules/tsx/dist/loader.mjs",
+        "apps/desktop/scripts/chat-run-target-telegram-live.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"mode\":\"zero-request-preflight\",\"importsLoaded\":true,\"envFilePresent\":true,\"model\":\"deepseek/deepseek-v4.1-flash-fast\",\"capUsd\":0.25,\"maxRequests\":24,\"maxRuns\":1,\"modelCalls\":0,\"telegramCalls\":0,\"scriptSha256\":\"29709716a76ff9e826b8ef008291dc16b8b2bc2c19a806aabb76c1484fcd5246\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "scripts/chat-run-target-telegram-stop-audit.mjs",
+        "/Users/a1-6/Code/agents/serika-chat-run-target/docs/v2-pilot/evidence/chat-run-target/stage1-telegram-inbound-6caea55d/offline-reviewed/rejection"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"acceptance\":\"failed-telegram-batch\",\"resultUnmodified\":true,\"rejectedUpdates\":2}\n",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "scripts/chat-run-target-telegram-stop-audit.mjs",
+        "/Users/a1-6/Code/agents/serika-chat-run-target/docs/v2-pilot/evidence/chat-run-target/stage1-telegram-inbound-6caea55d/offline-reviewed/early-run"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"acceptance\":\"failed-telegram-batch\",\"resultUnmodified\":true,\"rejectedUpdates\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": "git",
+      "args": [
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "limitations": [
+    "original rejected Bot API payload and first failing predicate unrecoverable",
+    "no true Telegram rerun",
+    "full success auditor not yet exercised against a true Telegram completion",
+    "desktop PASS retained; full tests and Electron evidence reused per current scope"
+  ]
+}

@@ -11,14 +11,31 @@ export function createDesktopSmokeModel() {
       : eligible ? JSON.stringify({ proposals: [], outcomes: ids.map(messageId => ({ messageId, status: "no_memory" })) }) : JSON.stringify({ merge: null });
     return { content: [{ type: "text", text: response }], finishReason: { unified: "stop", raw: undefined }, warnings: [],
       usage: { inputTokens: { total: 10, noCache: 10, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 5, text: 5, reasoning: undefined } } };
-  }, doStream: async ({ prompt }) => {
+  }, doStream: async ({ prompt, tools }) => {
     let lastUser = prompt.length - 1;
     while (lastUser >= 0 && prompt[lastUser]?.role !== "user") lastUser--;
     const user = prompt[lastUser];
     const text = user?.role === "user" ? user.content.find(part => part.type === "text")?.text ?? "" : "";
     let input: Record<string, unknown> | undefined;
     let toolName = "memory_write";
-    if (!prompt.slice(lastUser + 1).some(message => message.role === "tool")) {
+    let piAnswer: string | undefined;
+    if (text.startsWith("S2 pi ")) {
+      const results = prompt.slice(lastUser + 1).flatMap(message => message.role === "tool" ? message.content : []);
+      const failed = results.some(result => result.type === "tool-result" && (result.output.type === "error-text" || result.output.type === "error-json" || result.output.type === "json" &&
+        typeof result.output.value === "object" && result.output.value !== null && "ok" in result.output.value && result.output.value.ok === false));
+      const names = results.flatMap(result => result.type === "tool-result" ? [result.toolName] : []);
+      if (!failed) {
+        const discoveryAvailable = tools?.some(tool => tool.name === "herdr_pi_discover") ?? false;
+        if (discoveryAvailable === names.includes("herdr_pi_discover")) throw new Error("Smoke Pi discovery contract does not match Run adoption");
+      }
+      if (failed) piAnswer = "S2_PI_STOPPED";
+      else if (!names.includes("herdr_pi_discover")) { toolName = "herdr_pi_discover"; input = {}; }
+      else if (!names.includes("herdr_pi_control")) { toolName = "herdr_pi_control"; input = { action: "prompt", text }; }
+      else if (!names.includes("herdr_pi_read")) { toolName = "herdr_pi_read"; input = { action: "read" }; }
+      else if (!names.includes("read_file")) { toolName = "read_file"; input = { path: "answer.json" }; }
+      else piAnswer = "S2_PI_DONE";
+    }
+    if (!text.startsWith("S2 pi ") && !prompt.slice(lastUser + 1).some(message => message.role === "tool")) {
       if (text.startsWith("S1 shell ")) { input = { command: text.slice(9) }; toolName = "shell_exec"; }
       if (text.startsWith("记住 ")) input = { operation: "add", text: text.slice(3), category: "preference", scope: "user", sourceQuote: text, identity: { subject: "user", attribute: "smoke_preference", value: text.slice(3) } };
       if (text.startsWith("记住项目 ")) input = { operation: "add", text: text.slice(5), category: "note", scope: "project", sourceQuote: text, identity: { subject: "project", attribute: "smoke_note", value: text.slice(5) } };
@@ -39,8 +56,8 @@ export function createDesktopSmokeModel() {
       const marker = "Host context captured with this message:\n", suffix = part.text.indexOf(marker);
       return /^(?:Fixed Memory snapshot:|Memory document index \(read with memory_read\):|Memory updates supersede the fixed snapshot:)/u.test(part.text) ? [part.text] : suffix >= 0 ? [part.text.slice(suffix + marker.length)] : [];
     }));
-    const answer = text.startsWith("检查项目上下文") ? "SMOKE_CONTEXT:" + JSON.stringify(context) : "离线冒烟回复完成。";
-    const chunks = input ? [{ type: "tool-call" as const, toolCallId: toolName === "memory_write" ? "smoke-memory" : "s1-shell", toolName, input: JSON.stringify(input) }] : [
+    const answer = piAnswer ?? (text.startsWith("检查项目上下文") ? "SMOKE_CONTEXT:" + JSON.stringify(context) : "离线冒烟回复完成。");
+    const chunks = input ? [{ type: "tool-call" as const, toolCallId: toolName === "memory_write" ? "smoke-memory" : text.startsWith("S2 pi ") ? `s2-${toolName}` : "s1-shell", toolName, input: JSON.stringify(input) }] : [
       { type: "text-start" as const, id: "answer" }, { type: "text-delta" as const, id: "answer", delta: answer }, { type: "text-end" as const, id: "answer" },
     ];
     return { stream: simulateReadableStream({ chunks: [

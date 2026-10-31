@@ -1,0 +1,14 @@
+{
+  "runId": "780d6461-65f0-4117-8ee1-163b939e4b0a",
+  "startedAt": "2026-10-30T13:10:54.790Z",
+  "finishedAt": "2026-10-30T13:11:07.775Z",
+  "status": "passed",
+  "exitCode": 0,
+  "signal": null,
+  "recordConcurrentChanges": true,
+  "metadataUnchanged": false,
+  "originalSha256": "6df9899a2ffd59cf8046f626de11a845b5273608fd6f8165eb0345d221ec8cdc",
+  "violationsCount": 0,
+  "concurrentEventCount": 8,
+  "rawRetainedAt": "/private/tmp/serika-run-choice-final-standard-guard/write-guard-KI33Ie/result.json"
+}

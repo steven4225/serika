@@ -1,0 +1,40 @@
+{
+  "batchId": "5aabe3c7-5631-4abf-9c0d-29019649c7dc",
+  "startedAt": "2026-10-31T16:23:51.598Z",
+  "verification": "real-herdr-start-connect-lease-in-fresh-short-root",
+  "root": "/private/tmp/r197-7AWDlF",
+  "status": "passed",
+  "modelProxyRequests": 0,
+  "realModelCalls": 0,
+  "telegramCalls": 0,
+  "costUsd": 0,
+  "retainedFailureRootUntouched": "/private/tmp/s197-tg",
+  "workspaceList": {
+    "id": "cli:workspace:list",
+    "result": {
+      "type": "workspace_list",
+      "workspaces": [
+        {
+          "active_tab_id": "w1:t1",
+          "agent_status": "idle",
+          "focused": true,
+          "label": "Serika isolated wiring",
+          "number": 1,
+          "pane_count": 2,
+          "tab_count": 1,
+          "workspace_id": "w1"
+        }
+      ]
+    }
+  },
+  "serverPid": 47111,
+  "concurrentLeaseRejected": true,
+  "cleanup": {
+    "statePath": "/private/tmp/r197-7AWDlF/herdr-fixture/herdr-state.json",
+    "phase": "cleaned",
+    "session": "w-3836f405",
+    "retainedFixture": "/private/tmp/r197-7AWDlF/herdr-fixture"
+  },
+  "leaseReleasedAndReacquired": true,
+  "finishedAt": "2026-10-31T16:24:00.416Z"
+}

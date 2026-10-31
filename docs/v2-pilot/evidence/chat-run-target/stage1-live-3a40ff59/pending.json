@@ -1,0 +1,27 @@
+{
+  "kind": "approval",
+  "stage": "multiple-pi",
+  "value": {
+    "approvalId": "2b1aa1ad-ff6b-48b9-b99e-7ee5950c5b86",
+    "toolCallId": "call_00_vuxsSisdPYmcZrLlTrQk6491",
+    "toolName": "herdr_pi_control",
+    "input": {
+      "action": "prompt",
+      "text": "在 /private/tmp/c-UKF8eT/herdr-fixture/workspace 下：读取 blue.json，计算 a 与 b 的和，生成 blue-answer.json，内容为 {\"sum\": <a+b>, \"order\": <blue.json 的 order 原值>}。只需写文件，完成后简短回复完成。"
+    },
+    "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"在 /private/tmp/c-UKF8eT/herdr-fixture/workspace 下：读取 blue.json，计算 a 与 b 的和，生成 blue-answer.json，内容为 {\\\"sum\\\": <a+b>, \\\"order\\\": <blue.json 的 order 原值>}。只需写文件，完成后简短回复完成。\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/tmp/c-UKF8eT/herdr-fixture/workspace\",\"session\":\"w-3f57c2cf\",\"paneId\":\"w1:p2\",\"terminalId\":\"term_65f19c0222be12\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+    "herdr": {
+      "target": {
+        "authorizedDirectory": "/private/tmp/c-UKF8eT/herdr-fixture/workspace",
+        "session": "w-3f57c2cf",
+        "paneId": "w1:p2",
+        "terminalId": "term_65f19c0222be12"
+      },
+      "action": {
+        "action": "prompt",
+        "text": "在 /private/tmp/c-UKF8eT/herdr-fixture/workspace 下：读取 blue.json，计算 a 与 b 的和，生成 blue-answer.json，内容为 {\"sum\": <a+b>, \"order\": <blue.json 的 order 原值>}。只需写文件，完成后简短回复完成。"
+      },
+      "selectionVersion": 1
+    }
+  }
+}

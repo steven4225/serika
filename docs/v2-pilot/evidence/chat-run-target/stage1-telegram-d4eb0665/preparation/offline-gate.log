@@ -1,0 +1,2 @@
+{"status":"passed","checks":8,"modelCalls":5,"piRequests":3,"output":"/private/tmp/s197-tg-authorized-01nov-c/offline-gate"}
+{"testHomeGuard":"passed","evidence":"/private/tmp/s197-tg-authorized-01nov-c/offline-home/write-guard-76WCHo/result.json","violations":0,"changes":6,"metadataUnchanged":false}

@@ -1,0 +1,22 @@
+{
+  "verificationId": "f51e217c-57df-40cd-80e3-a6cba8206c54",
+  "startedAt": "2026-10-31T08:05:35.524832+00:00",
+  "command": [
+    "node",
+    "scripts/test-home.mjs",
+    "--home",
+    "/private/tmp/serika-197-contract-live-c6009e35/guard",
+    "--",
+    "node",
+    "apps/desktop/scripts/chat-run-target-live.mjs",
+    "--pi-only",
+    "--env-file",
+    "/Users/a1-6/.config/serika/v2-daily.env",
+    "--run",
+    "--output",
+    "/private/tmp/serika-197-contract-live-c6009e35/live"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-10-31T08:07:16.263919+00:00",
+  "logSha256": "59f9ed630227b6b64e464ba9379e472b7970ce97c63270eae9c8fec6dfd9b5f6"
+}

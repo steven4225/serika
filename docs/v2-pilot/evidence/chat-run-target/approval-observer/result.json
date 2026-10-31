@@ -1,0 +1,279 @@
+{
+  "runId": "7088ff4f-323b-45e3-a39a-76015dd5a651",
+  "startedAt": "2026-10-30T13:10:25.909Z",
+  "verification": "real-electron-scripted-model-offline-herdr",
+  "sourceCommit": "542e854b0e492b2abb936bba6a80415a01a5aed0",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "4bc4379bdf3b1a24b4ac6d4dc4ba68999a51ed37e8fa1625028e99019c732add",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "checks": [
+    {
+      "name": "choose-continue-approve-readback-independent-file-check",
+      "result": "passed",
+      "runId": "5046bca2-807a-4b88-b238-4724d51cccdb",
+      "selectionId": "b4d88035-1240-4801-80c1-e9d69e5929f8",
+      "approvalId": "04080286-4197-447b-b37a-438fbd9456a3",
+      "fileApprovalId": "e2ac1ab8-b365-48bc-9d9d-b13cb44b5ee0",
+      "actualArtifact": {
+        "request": "S2 pi 7088ff4f-323b-45e3-a39a-76015dd5a651-first",
+        "paneId": "p2",
+        "answer": 56
+      },
+      "tools": [
+        {
+          "toolName": "herdr_pi_control",
+          "status": "completed"
+        },
+        {
+          "toolName": "herdr_pi_read",
+          "status": "completed"
+        },
+        {
+          "toolName": "read_file",
+          "status": "completed"
+        }
+      ],
+      "screenshot": {
+        "file": "independently-verified.png",
+        "sha256": "2a3d30a9a4d2a9404f043c554275e414076a0d763e1837dc7dffd3c71968b73a"
+      }
+    },
+    {
+      "name": "original-preload-exact-approval-id-rejects-stale-and-unmatched",
+      "result": "passed"
+    },
+    {
+      "name": "new-run-reselects-old-choice-invalid-replacement-blocks-old-approval",
+      "result": "passed",
+      "runId": "c7f4c458-4edc-41e0-8ba5-ff913ea5857b",
+      "failureCode": "HERDR_TARGET_CHANGED",
+      "promptDispatches": 1,
+      "screenshot": {
+        "file": "replacement-blocked.png",
+        "sha256": "155b65bb18a6cb274ee21015b311a9f072e462ead68c38ebd1607abab9c99ca7"
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "choose-pi.png",
+      "sha256": "9fc339ac43c670c8748b59a56a1c13827170fdd6b8a26c4e7d07cb8dbbe0fd6a"
+    },
+    {
+      "file": "approve-frozen-pi.png",
+      "sha256": "c96d6e74f886eab02311c386cdc998d5b5604cb63b6c9873dbad65e13436a139"
+    },
+    {
+      "file": "approve-independent-file-read.png",
+      "sha256": "6bad71b8305ad1d2efa6d0f7b881546104ffa6271c346d5068e85b9281758f15"
+    },
+    {
+      "file": "independently-verified.png",
+      "sha256": "2a3d30a9a4d2a9404f043c554275e414076a0d763e1837dc7dffd3c71968b73a"
+    },
+    {
+      "file": "replacement-blocked.png",
+      "sha256": "155b65bb18a6cb274ee21015b311a9f072e462ead68c38ebd1607abab9c99ca7"
+    }
+  ],
+  "approvalEvents": [
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "04080286-4197-447b-b37a-438fbd9456a3",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi 7088ff4f-323b-45e3-a39a-76015dd5a651-first"
+        },
+        "preview": ""
+      },
+      "at": "2026-10-30T13:10:29.523Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "04080286-4197-447b-b37a-438fbd9456a3",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi 7088ff4f-323b-45e3-a39a-76015dd5a651-first"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi 7088ff4f-323b-45e3-a39a-76015dd5a651-first\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-Y8fhQT/workspace\",\"session\":\"isolated\",\"paneId\":\"p2\",\"terminalId\":\"t2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-Y8fhQT/workspace",
+            "session": "isolated",
+            "paneId": "p2",
+            "terminalId": "t2"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi 7088ff4f-323b-45e3-a39a-76015dd5a651-first"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "at": "2026-10-30T13:10:29.527Z"
+    },
+    {
+      "type": "approval-cleared",
+      "approvalId": "04080286-4197-447b-b37a-438fbd9456a3",
+      "at": "2026-10-30T13:10:29.626Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "e2ac1ab8-b365-48bc-9d9d-b13cb44b5ee0",
+        "toolCallId": "s2-read_file",
+        "toolName": "read_file",
+        "input": {
+          "path": "answer.json"
+        },
+        "preview": "",
+        "remember": {
+          "label": "本次对话内不再询问 read_file"
+        }
+      },
+      "at": "2026-10-30T13:10:30.968Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "e2ac1ab8-b365-48bc-9d9d-b13cb44b5ee0",
+        "toolCallId": "s2-read_file",
+        "toolName": "read_file",
+        "input": {
+          "path": "answer.json"
+        },
+        "preview": "\nTool: read_file\nPath: \"answer.json\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ",
+        "remember": {
+          "label": "本次对话内不再询问 read_file"
+        }
+      },
+      "at": "2026-10-30T13:10:30.971Z"
+    },
+    {
+      "type": "approval-cleared",
+      "approvalId": "e2ac1ab8-b365-48bc-9d9d-b13cb44b5ee0",
+      "at": "2026-10-30T13:10:31.107Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "080c8646-6833-4871-8a6f-c6331098fbba",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi 7088ff4f-323b-45e3-a39a-76015dd5a651-replaced"
+        },
+        "preview": ""
+      },
+      "at": "2026-10-30T13:10:32.720Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "080c8646-6833-4871-8a6f-c6331098fbba",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi 7088ff4f-323b-45e3-a39a-76015dd5a651-replaced"
+        },
+        "preview": ""
+      },
+      "at": "2026-10-30T13:10:32.720Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "080c8646-6833-4871-8a6f-c6331098fbba",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi 7088ff4f-323b-45e3-a39a-76015dd5a651-replaced"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi 7088ff4f-323b-45e3-a39a-76015dd5a651-replaced\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-Y8fhQT/workspace\",\"session\":\"isolated\",\"paneId\":\"p2\",\"terminalId\":\"t2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-Y8fhQT/workspace",
+            "session": "isolated",
+            "paneId": "p2",
+            "terminalId": "t2"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi 7088ff4f-323b-45e3-a39a-76015dd5a651-replaced"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "at": "2026-10-30T13:10:32.723Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "080c8646-6833-4871-8a6f-c6331098fbba",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi 7088ff4f-323b-45e3-a39a-76015dd5a651-replaced"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi 7088ff4f-323b-45e3-a39a-76015dd5a651-replaced\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-Y8fhQT/workspace\",\"session\":\"isolated\",\"paneId\":\"p2\",\"terminalId\":\"t2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-Y8fhQT/workspace",
+            "session": "isolated",
+            "paneId": "p2",
+            "terminalId": "t2"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi 7088ff4f-323b-45e3-a39a-76015dd5a651-replaced"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "at": "2026-10-30T13:10:32.723Z"
+    },
+    {
+      "type": "approval-cleared",
+      "approvalId": "080c8646-6833-4871-8a6f-c6331098fbba",
+      "at": "2026-10-30T13:10:32.773Z"
+    },
+    {
+      "type": "approval-cleared",
+      "approvalId": "080c8646-6833-4871-8a6f-c6331098fbba",
+      "at": "2026-10-30T13:10:32.773Z"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "status": "passed",
+  "configSha256Before": "4bda6f68ae99165894142c6c5a8695695f16ccd33b0505da6b910b4940d6efd4",
+  "artifactHashes": {
+    "out/main/index.js": "8a9f425ff113ff60eef30f8707cf5e5c479ad3dbc5831cd2393bb9e30f372e88",
+    "out/preload/index.cjs": "1001a6b85f82a25f42428f97643258cbff80115e7f9489cad7a209fdaa1d7a36",
+    "out/renderer/index.html": "30a7539060dbc9dca1b43e3e0df3cb38c3bf03221598c45291e9b41c01b8ff85"
+  },
+  "main": {
+    "electron": "44.4.5",
+    "pid": 2547,
+    "userData": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-Y8fhQT/profile",
+    "home": "/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-Y8fhQT/home"
+  },
+  "renderer": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+    "url": "file:///Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/out/renderer/index.html"
+  },
+  "configSha256After": "4bda6f68ae99165894142c6c5a8695695f16ccd33b0505da6b910b4940d6efd4",
+  "electronStopped": true,
+  "temporaryDirectoryRemoved": true
+}

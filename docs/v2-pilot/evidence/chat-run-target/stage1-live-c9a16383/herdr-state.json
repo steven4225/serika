@@ -1,0 +1,270 @@
+{
+  "id": "604fe4ab-9284-4b86-831d-55abb7c72c3a",
+  "root": "/private/tmp/c-N9iRdH/herdr-fixture",
+  "parentRoot": "/private/tmp/c-N9iRdH",
+  "createdAt": "2026-10-31T08:05:35.839Z",
+  "phase": "cleaned",
+  "unknown": false,
+  "home": "/private/tmp/c-N9iRdH/herdr-fixture/H",
+  "piDirectory": "/private/tmp/c-N9iRdH/herdr-fixture/pi",
+  "work": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+  "piSession": "/private/tmp/c-N9iRdH/herdr-fixture/pi-session.jsonl",
+  "model": "deepseek/deepseek-v4.1-flash-fast",
+  "proxyURL": "http://127.0.0.1:58846/pi/v1",
+  "operations": [
+    {
+      "phase": "workspace-create",
+      "at": "2026-10-31T08:05:36.364Z",
+      "result": {
+        "id": "cli:workspace:create",
+        "result": {
+          "root_pane": {
+            "agent_status": "unknown",
+            "cwd": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+            "focused": true,
+            "foreground_cwd": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+            "pane_id": "w1:p1",
+            "revision": 0,
+            "scroll": {
+              "max_offset_from_bottom": 0,
+              "offset_from_bottom": 0,
+              "viewport_rows": 40
+            },
+            "tab_id": "w1:t1",
+            "terminal_id": "term_65f1e60b46fa21",
+            "workspace_id": "w1"
+          },
+          "tab": {
+            "agent_status": "unknown",
+            "focused": true,
+            "label": "1",
+            "number": 1,
+            "pane_count": 1,
+            "tab_id": "w1:t1",
+            "workspace_id": "w1"
+          },
+          "type": "workspace_created",
+          "workspace": {
+            "active_tab_id": "w1:t1",
+            "agent_status": "unknown",
+            "focused": true,
+            "label": "Serika isolated wiring",
+            "number": 1,
+            "pane_count": 1,
+            "tab_count": 1,
+            "workspace_id": "w1"
+          }
+        }
+      }
+    },
+    {
+      "phase": "pi-start",
+      "at": "2026-10-31T08:05:40.254Z",
+      "result": {
+        "id": "cli:agent:start",
+        "result": {
+          "agent": {
+            "agent": "pi",
+            "agent_status": "idle",
+            "cwd": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+            "focused": true,
+            "foreground_cwd": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+            "interactive_ready": true,
+            "name": "serika-wiring-pi",
+            "pane_id": "w1:p1",
+            "revision": 1,
+            "state_change_seq": 1,
+            "tab_id": "w1:t1",
+            "terminal_id": "term_65f1e60b46fa21",
+            "terminal_title": "π - workspace",
+            "terminal_title_stripped": "π - workspace",
+            "workspace_id": "w1"
+          },
+          "argv": [
+            "pi",
+            "--offline",
+            "--tools",
+            "read,write,edit",
+            "--no-extensions",
+            "--no-mcp",
+            "--no-skills",
+            "--no-prompt-templates",
+            "--no-context-files",
+            "--no-themes",
+            "--no-approve",
+            "--provider",
+            "serika-isolated-proxy",
+            "--model",
+            "deepseek/deepseek-v4.1-flash-fast",
+            "--thinking",
+            "off",
+            "--session",
+            "/private/tmp/c-N9iRdH/herdr-fixture/pi-session.jsonl",
+            "--system-prompt",
+            "Work only inside /private/tmp/c-N9iRdH/herdr-fixture/workspace. Use only read, write and edit tools. Do the requested small file task, read the result, then report exactly what changed. Never run commands, install software or access unrelated paths."
+          ],
+          "type": "agent_started"
+        }
+      }
+    },
+    {
+      "phase": "pane-split",
+      "at": "2026-10-31T08:05:40.294Z",
+      "result": {
+        "id": "cli:pane:split",
+        "result": {
+          "pane": {
+            "agent_status": "unknown",
+            "cwd": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+            "focused": false,
+            "foreground_cwd": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+            "pane_id": "w1:p2",
+            "revision": 0,
+            "scroll": {
+              "max_offset_from_bottom": 0,
+              "offset_from_bottom": 0,
+              "viewport_rows": 39
+            },
+            "tab_id": "w1:t1",
+            "terminal_id": "term_65f1e60f076e92",
+            "workspace_id": "w1"
+          },
+          "type": "pane_info"
+        }
+      }
+    },
+    {
+      "phase": "second-pi-start",
+      "at": "2026-10-31T08:05:44.271Z",
+      "result": {
+        "id": "cli:agent:start",
+        "result": {
+          "agent": {
+            "agent": "pi",
+            "agent_status": "idle",
+            "cwd": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+            "focused": false,
+            "foreground_cwd": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+            "interactive_ready": true,
+            "name": "blue-pi",
+            "pane_id": "w1:p2",
+            "revision": 1,
+            "state_change_seq": 2,
+            "tab_id": "w1:t1",
+            "terminal_id": "term_65f1e60f076e92",
+            "terminal_title": "π - workspace",
+            "terminal_title_stripped": "π - workspace",
+            "workspace_id": "w1"
+          },
+          "argv": [
+            "pi",
+            "--offline",
+            "--tools",
+            "read,write,edit",
+            "--no-extensions",
+            "--no-mcp",
+            "--no-skills",
+            "--no-prompt-templates",
+            "--no-context-files",
+            "--no-themes",
+            "--no-approve",
+            "--provider",
+            "serika-isolated-proxy",
+            "--model",
+            "deepseek/deepseek-v4.1-flash-fast",
+            "--thinking",
+            "off",
+            "--session",
+            "/private/tmp/c-N9iRdH/herdr-fixture/pi-second.jsonl",
+            "--system-prompt",
+            "Work only inside /private/tmp/c-N9iRdH/herdr-fixture/workspace. Use only read, write and edit tools. Complete the requested small file task. Never run commands, install software or access unrelated paths."
+          ],
+          "type": "agent_started"
+        }
+      }
+    },
+    {
+      "phase": "session-stop",
+      "at": "2026-10-31T08:07:16.217Z",
+      "result": {
+        "session": {
+          "default": false,
+          "name": "w-604fe4ab",
+          "running": false,
+          "session_dir": "/private/tmp/c-N9iRdH/herdr-fixture/H/.config/herdr/sessions/w-604fe4ab",
+          "socket_path": "/private/tmp/c-N9iRdH/herdr-fixture/H/.config/herdr/sessions/w-604fe4ab/herdr.sock"
+        },
+        "stopped": true
+      }
+    },
+    {
+      "phase": "session-delete",
+      "at": "2026-10-31T08:07:16.230Z",
+      "result": {
+        "deleted": true,
+        "session": {
+          "default": false,
+          "name": "w-604fe4ab",
+          "running": false,
+          "session_dir": "/private/tmp/c-N9iRdH/herdr-fixture/H/.config/herdr/sessions/w-604fe4ab",
+          "socket_path": "/private/tmp/c-N9iRdH/herdr-fixture/H/.config/herdr/sessions/w-604fe4ab/herdr.sock"
+        }
+      }
+    }
+  ],
+  "session": "w-604fe4ab",
+  "serverPid": 88048,
+  "target": {
+    "authorizedDirectory": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+    "session": "w-604fe4ab",
+    "paneId": "w1:p1",
+    "terminalId": "term_65f1e60b46fa21"
+  },
+  "initialObservation": {
+    "ok": true,
+    "value": {
+      "terminalId": "term_65f1e60b46fa21",
+      "paneId": "w1:p1",
+      "status": "idle",
+      "stateChangeSeq": 1
+    }
+  },
+  "targets": [
+    {
+      "authorizedDirectory": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+      "session": "w-604fe4ab",
+      "paneId": "w1:p1",
+      "terminalId": "term_65f1e60b46fa21"
+    },
+    {
+      "authorizedDirectory": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+      "session": "w-604fe4ab",
+      "paneId": "w1:p2",
+      "terminalId": "term_65f1e60f076e92"
+    }
+  ],
+  "piSessions": [
+    "/private/tmp/c-N9iRdH/herdr-fixture/pi-session.jsonl",
+    "/private/tmp/c-N9iRdH/herdr-fixture/pi-second.jsonl"
+  ],
+  "cleanupObservations": [
+    {
+      "ok": true,
+      "value": {
+        "terminalId": "term_65f1e60b46fa21",
+        "paneId": "w1:p1",
+        "status": "idle",
+        "stateChangeSeq": 1
+      }
+    },
+    {
+      "ok": true,
+      "value": {
+        "terminalId": "term_65f1e60f076e92",
+        "paneId": "w1:p2",
+        "status": "idle",
+        "stateChangeSeq": 2
+      }
+    }
+  ]
+}

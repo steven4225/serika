@@ -1,0 +1,138 @@
+{
+  "auditId": "333576e2-aa93-4af9-87b5-3133cc84f986",
+  "at": "2026-10-31T11:53:09.860Z",
+  "verification": "offline-original-gateway-and-native-local-stdin-pair-readiness",
+  "sourceCommit": "843fe27b833072b7ca42b2d8175dcf9819182a96",
+  "sourceWorktreeDirty": true,
+  "sourceHashes": {
+    "apps/desktop/scripts/chat-run-target-telegram-pairing.mjs": "a86aeb98544336a0deeb4a46615c202231d7d1a3054b6307629474eb6369951d",
+    "apps/desktop/scripts/chat-run-target-telegram-live.mjs": "08fe3fe86eaca25971cc83a93a4751ef0317120a7fe6e2777731cbc15f313970",
+    "apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs": "2a4160560d91fa350f998d87a0fe0c24f037af04c99903a22385a36a1f39aeb0",
+    "scripts/chat-run-target-telegram-stop-audit.mjs": "fab769686fdf58cf3533feb4cc47f2e5c6b22ae114e0f658cec0a40da0fdd984",
+    "scripts/chat-run-target-telegram-audit.mjs": "bd9c1919b6454007a4441a5c579143461b971af02ec33a5a993fe881d41bf608"
+  },
+  "tests": 8,
+  "modelCalls": 0,
+  "networkCalls": 0,
+  "simulatedWaitMs": 660000,
+  "productPairingTtlMs": 300000,
+  "realHarnessReadinessTimeoutMs": 300000,
+  "homeGuard": {
+    "passed": true,
+    "violations": 0,
+    "changes": 0,
+    "metadataUnchanged": true
+  },
+  "lineCounts": {
+    "product": {
+      "added": 0,
+      "removed": 0
+    },
+    "harness": {
+      "added": 49,
+      "removed": 1
+    },
+    "tests": {
+      "added": 36,
+      "removed": 3
+    }
+  },
+  "commands": [
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "--check",
+        "apps/desktop/scripts/chat-run-target-telegram-pairing.mjs"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "--check",
+        "apps/desktop/scripts/chat-run-target-telegram-live.mjs"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "--check",
+        "apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "--check",
+        "scripts/chat-run-target-telegram-stop-audit.mjs"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "--check",
+        "scripts/chat-run-target-telegram-audit.mjs"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "--import",
+        "./apps/desktop/node_modules/tsx/dist/loader.mjs",
+        "apps/desktop/scripts/chat-run-target-telegram-live.mjs"
+      ],
+      "exitCode": 0,
+      "stdout": "{\"mode\":\"zero-request-preflight\",\"importsLoaded\":true,\"envFilePresent\":true,\"model\":\"deepseek/deepseek-v4.1-flash-fast\",\"capUsd\":0.25,\"maxRequests\":24,\"maxRuns\":1,\"modelCalls\":0,\"telegramCalls\":0,\"scriptSha256\":\"08fe3fe86eaca25971cc83a93a4751ef0317120a7fe6e2777731cbc15f313970\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "scripts/chat-run-target-telegram-stop-audit.mjs",
+        "docs/v2-pilot/evidence/chat-run-target/telegram-pair-ready-333576e2/offline/rejection"
+      ],
+      "exitCode": 0,
+      "stdout": "{\"acceptance\":\"failed-telegram-batch\",\"resultUnmodified\":true,\"rejectedUpdates\":2}\n",
+      "stderr": ""
+    },
+    {
+      "command": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+      "args": [
+        "scripts/chat-run-target-telegram-stop-audit.mjs",
+        "docs/v2-pilot/evidence/chat-run-target/telegram-pair-ready-333576e2/offline/early-run"
+      ],
+      "exitCode": 0,
+      "stdout": "{\"acceptance\":\"failed-telegram-batch\",\"resultUnmodified\":true,\"rejectedUpdates\":0}\n",
+      "stderr": ""
+    },
+    {
+      "command": "git",
+      "args": [
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "limitations": [
+    "No real Telegram retry or daily pause during this repair",
+    "11-minute wait is an injected-clock fixture, not the live readiness timeout",
+    "Existing desktop PASS and Telegram 85-test regression retained"
+  ]
+}

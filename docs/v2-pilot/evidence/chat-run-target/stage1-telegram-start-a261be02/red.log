@@ -1,0 +1,20 @@
+
+Interrupted while running:
+
+⚠ apps/desktop/scripts/chat-run-target-telegram-profile.test.mjs (apps/desktop/scripts/chat-run-target-telegram-profile.test.mjs:1:1)
+✖ apps/desktop/scripts/chat-run-target-telegram-profile.test.mjs (503.463ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 0
+ℹ cancelled 1
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 507.278292
+
+✖ failing tests:
+
+test at apps/desktop/scripts/chat-run-target-telegram-profile.test.mjs:1:1
+✖ apps/desktop/scripts/chat-run-target-telegram-profile.test.mjs (503.463ms)
+  'Promise resolution is still pending but the event loop has already resolved'
+{"testHomeGuard":"failed","evidence":"/private/tmp/s197-start-fix/red-home/write-guard-FqCVpb/result.json","violations":0,"changes":3,"metadataUnchanged":false}

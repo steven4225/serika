@@ -1,0 +1,23 @@
+{
+  "reviewId": "36aa220b-c9b9-4950-8b98-31c0caa880f2",
+  "reviewedAt": "2026-10-31T08:06:53.161619+00:00",
+  "runId": "5c18bfbd-93d6-425e-8dac-2aaf672c5002",
+  "toolCallId": "call_00_FVRdo5zZ5TTL8n8aovH46779",
+  "approvalId": "c46ee452-4605-45f7-88d4-9803a732c71d",
+  "frozen": {
+    "target": {
+      "authorizedDirectory": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+      "session": "w-604fe4ab",
+      "paneId": "w1:p2",
+      "terminalId": "term_65f1e60f076e92"
+    },
+    "action": {
+      "action": "prompt",
+      "text": "请在工作目录 /private/tmp/c-N9iRdH/herdr-fixture/workspace 中完成：读取 blue.json，把字段 a 与 b 的和以及原来的 order 值写入新文件 blue-answer.json，格式为 {\"sum\": <a+b>, \"order\": <blue.json 中的 order>}。只需创建该文件，不要修改 blue.json，也不要增加其他字段。"
+    },
+    "selectionVersion": 1
+  },
+  "sourceResultSha256": "5333d867084ec88e3ade0ed84dda6aeb546767a8278ddb683286feccf28c7fee",
+  "actor": "codex-under-current-batch-user-authorization",
+  "decision": "allow-one-frozen-Pi-prompt"
+}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -113,4 +113,47 @@ test("bounded compaction checklist retains successful CLI evidence and failed/un
     assert.match(text, /uncertain.*unknown/); assert.match(text, /bad.*failed/); assert.match(text, /exitCode/);
     assert.equal((await records.listRuns("thread"))[0]?.tools.length, 4);
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("one ordinary CLI request discovers Node, writes the requested artifact and independently checks it through existing Shell", async () => {
+  const root = await mkdtemp(join(tmpdir(), "serika-cli-artifact-")), workspace = join(root, "workspace");
+  await mkdir(workspace);
+  await writeFile(join(workspace, "input.json"), JSON.stringify({ a: 7, b: 8 }));
+  const configPath = join(root, "config.json");
+  await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
+    modules: { shell: { enabled: true }, terminal: { enabled: false }, "read-file": { enabled: true } } }));
+  const node = quote(process.execPath);
+  const calls = [
+    { tool: "shell_exec", input: { command: `command -v ${node} && ${node} --version && ${node} --help` } },
+    { tool: "shell_exec", input: { command: `${node} -e ${quote("const fs=require('node:fs');const {a,b}=JSON.parse(fs.readFileSync('input.json','utf8'));fs.writeFileSync('answer.json',JSON.stringify({product:a*b}));")}` } },
+    { tool: "shell_exec", input: { command: `${node} -e ${quote("const fs=require('node:fs');require('node:assert/strict').deepEqual(JSON.parse(fs.readFileSync('answer.json','utf8')),{product:56});console.log('ARTIFACT_VERIFIED_56');")}` } },
+    { tool: "read_file", input: { path: "answer.json" } },
+  ];
+  let step = 0;
+  const observed: string[] = [];
+  const app = await createRuntimeApp({ cwd: root, env: {}, directory: join(root, "transcripts"), output: new PassThrough(),
+    assistant: { configPath, threadId: "cli", dataDirectory: join(root, "data") }, modelAlias: "scripted",
+    model: new MockLanguageModelV3({ doStream: async request => {
+      observed.push(JSON.stringify(request.prompt));
+      const call = calls[step++];
+      return { stream: simulateReadableStream({ chunks: [{ type: "stream-start" as const, warnings: [] },
+        ...(call ? [{ type: "tool-call" as const, toolCallId: `cli-${step}`, toolName: call.tool, input: JSON.stringify(call.input) }] : []),
+        { type: "finish" as const, finishReason: { unified: call ? "tool-calls" as const : "stop" as const, raw: undefined }, usage }] }) };
+    } }) });
+  const controller = createAssistantController(app), approvals: string[] = [];
+  controller.subscribe(event => { if (event.type === "approval" && event.approval.preview) {
+    approvals.push(event.approval.toolName); controller.confirm({ approvalId: event.approval.approvalId, decision: "allow" });
+  } });
+  try {
+    const done = new Promise<void>(resolve => { const off = controller.subscribe(event => { if (event.type === "state" && event.state.kind === "idle") { off(); resolve(); } }); });
+    const start = await controller.run("用 Node 读取 input.json，把两个数的乘积写入 answer.json 并核查结果", { desktopEntry: true });
+    assert.ok(start.ok); await done;
+    assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
+    assert.deepEqual(JSON.parse(await readFile(join(workspace, "answer.json"), "utf8")), { product: 56 });
+    assert.deepEqual(approvals, ["shell_exec", "shell_exec", "shell_exec", "read_file"]);
+    assert.match(observed.at(-1)!, /ARTIFACT_VERIFIED_56/);
+    assert.match(observed.at(-1)!, /product/);
+    const receipt = await controller.runs.get(start.runId);
+    assert.equal(receipt?.tools.filter(tool => tool.shell?.exitCode === 0).length, 3);
+  } finally { await controller.shutdown(); await rm(root, { recursive: true, force: true }); }
 });

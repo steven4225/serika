@@ -1,0 +1,181 @@
+{
+  "auditId": "534b231d-2307-4c17-9a05-b1ba408719e8",
+  "startedAt": "2026-10-31T16:33:13.783Z",
+  "purpose": "explicitly-approved-test-only-handoff-and-scene-archive",
+  "oldBatchId": "4ebdd9b2-7cea-4e51-81c8-2a2e7108def8",
+  "root": "/private/tmp/s197-tg",
+  "retained": "/private/tmp/s197-tg-failed-4ebdd9b2",
+  "status": "passed",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "ignoredSockets": [
+    "/private/tmp/s197-tg/herdr-fixture/H/.config/herdr/sessions/w-9ee5d488/herdr.sock",
+    "/private/tmp/s197-tg/herdr-fixture/H/.config/herdr/sessions/w-9ee5d488/herdr-client.sock"
+  ],
+  "storeBefore": {
+    "version": 2,
+    "workspace": "/Users/a1-6/.serika-test/chat-run-target-telegram/profile",
+    "enabled": false,
+    "botId": 9127642960,
+    "offset": 819511887,
+    "owner": {
+      "userId": 6349286154,
+      "chatId": 6349286154,
+      "name": "All",
+      "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+    },
+    "inputs": [
+      {
+        "key": "6349286154:5",
+        "updateId": 819511886,
+        "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：4ebdd9b2。",
+        "receivedAt": "2026-11-01T00:10+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null
+      }
+    ],
+    "deliveries": [
+      {
+        "key": "binding:02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+        "chatId": 6349286154,
+        "text": "已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。工具仍逐次确认。例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。",
+        "parts": [
+          {
+            "text": "已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。工具仍逐次确认。例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。",
+            "state": "submitted",
+            "messageId": 4
+          }
+        ],
+        "state": "submitted",
+        "messageId": 4
+      },
+      {
+        "key": "input:6349286154:5",
+        "chatId": 6349286154,
+        "text": "本条启动未成功。未自动重试，请查看桌面连接状态。",
+        "parts": [
+          {
+            "text": "本条启动未成功。未自动重试，请查看桌面连接状态。",
+            "state": "submitted",
+            "messageId": 6
+          }
+        ],
+        "state": "submitted",
+        "messageId": 6
+      }
+    ],
+    "routes": []
+  },
+  "sceneSnapshotSaved": true,
+  "ack": {
+    "offset": 819511887,
+    "dispatchingAt": "2026-10-31T16:33:13.826Z",
+    "returnedAt": "2026-10-31T16:33:45.897Z",
+    "responseIsArray": true,
+    "returnedUpdates": [],
+    "confirmed": true
+  },
+  "botIdentityMatches": true,
+  "storeAfter": {
+    "version": 2,
+    "workspace": "/Users/a1-6/.serika-test/chat-run-target-telegram/profile",
+    "enabled": false,
+    "botId": 9127642960,
+    "offset": 819511887,
+    "owner": {
+      "userId": 6349286154,
+      "chatId": 6349286154,
+      "name": "All",
+      "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+    },
+    "inputs": [
+      {
+        "key": "6349286154:5",
+        "updateId": 819511886,
+        "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：4ebdd9b2。",
+        "receivedAt": "2026-11-01T00:10+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null
+      }
+    ],
+    "deliveries": [
+      {
+        "key": "binding:02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+        "chatId": 6349286154,
+        "text": "已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。工具仍逐次确认。例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。",
+        "parts": [
+          {
+            "text": "已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。工具仍逐次确认。例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。",
+            "state": "submitted",
+            "messageId": 4
+          }
+        ],
+        "state": "submitted",
+        "messageId": 4
+      },
+      {
+        "key": "input:6349286154:5",
+        "chatId": 6349286154,
+        "text": "本条启动未成功。未自动重试，请查看桌面连接状态。",
+        "parts": [
+          {
+            "text": "本条启动未成功。未自动重试，请查看桌面连接状态。",
+            "state": "submitted",
+            "messageId": 6
+          }
+        ],
+        "state": "submitted",
+        "messageId": 6
+      }
+    ],
+    "routes": []
+  },
+  "targetChecks": [
+    {
+      "target": {
+        "authorizedDirectory": "/private/tmp/s197-tg/herdr-fixture/workspace",
+        "session": "w-9ee5d488",
+        "paneId": "w1:p1",
+        "terminalId": "term_65f251e215d741"
+      },
+      "observation": {
+        "ok": true,
+        "value": {
+          "terminalId": "term_65f251e215d741",
+          "paneId": "w1:p1",
+          "status": "idle",
+          "stateChangeSeq": 1
+        }
+      }
+    },
+    {
+      "target": {
+        "authorizedDirectory": "/private/tmp/s197-tg/herdr-fixture/workspace",
+        "session": "w-9ee5d488",
+        "paneId": "w1:p2",
+        "terminalId": "term_65f251e5d95302"
+      },
+      "observation": {
+        "ok": true,
+        "value": {
+          "terminalId": "term_65f251e5d95302",
+          "paneId": "w1:p2",
+          "status": "idle",
+          "stateChangeSeq": 2
+        }
+      }
+    }
+  ],
+  "cleanup": {
+    "statePath": "/private/tmp/s197-tg/herdr-fixture/herdr-state.json",
+    "phase": "cleaned",
+    "session": "w-9ee5d488",
+    "retainedFixture": "/private/tmp/s197-tg/herdr-fixture"
+  },
+  "retainedDirectoryRenamed": true,
+  "originalEvidenceUnchanged": true,
+  "profileLeaseReleased": true,
+  "finishedAt": "2026-10-31T16:33:46.357Z"
+}

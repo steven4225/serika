@@ -1,0 +1,1 @@
+{"status":"failed","batchId":"42a7c072-609d-4047-a1e8-895397cadc52","sourceCommit":"offline-accounting-fixture","inboundChecks":[],"calls":[],"cases":[{"receipt":{"runId":"observed-before-wait-completed","status":"failed"}}],"costUsd":0,"unresolvedReservedUsd":0,"errors":[]}

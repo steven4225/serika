@@ -1,0 +1,28 @@
+✔ discovery blocks the next model request until one host choice, then refresh keeps the adopted identity (3780.894291ms)
+✔ unbound multi-target choice keeps the original Run, freezes approval, sends once, verifies the artifact and clears at end (5467.584125ms)
+✔ a new explicit selector revokes the old adoption and remains binding through rediscovery (1685.856959ms)
+✔ historical Steer cannot become new-Run target evidence or revive a selection (491.925833ms)
+✔ current Run choice and discovery survive production compaction at 32768 tokens (3388.4985ms)
+✔ current Run choice and discovery survive production compaction at 1000000 tokens (3204.935ms)
+✔ a replacement while approval waits rejects the frozen identity with zero input dispatch (1736.63175ms)
+✔ same-Run Steer revokes old approval and binds its exact target correction before one new dispatch (2899.365375ms)
+✔ unknown dispatch stops the original AgentLoop before readback and never resends (1960.199125ms)
+✔ a stale configured binding cannot silently redirect even to the only healthy candidate (1051.116958ms)
+✔ cancel-selection after discovery leaves zero prompt dispatches (1112.68825ms)
+✔ deny-control after discovery leaves zero prompt dispatches (1765.352167ms)
+✔ run-budget after discovery leaves zero prompt dispatches (4278.302791ms)
+✔ cached exact pane evidence cannot silently adopt a replacement terminal on refresh (1709.266917ms)
+✔ identity rejection cannot auto-adopt the sole replacement on the next discovery (2048.542625ms)
+✔ desktop structured Herdr calls bind the fixed target and only sending asks each time (4664.326375ms)
+✔ telegram structured Herdr calls bind the fixed target and only sending asks each time (4425.581292ms)
+✔ startup discovery follows a Node upgrade and only grants actual loaded library directories (11.327709ms)
+✔ missing discovery and protected executable, library or config directories fail closed (8.110125ms)
+✔ trusted launch Node works without a PATH Node and still rejects protected runtime paths (5.301791ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 36710.528417

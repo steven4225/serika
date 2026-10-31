@@ -1,0 +1,312 @@
+{
+  "auditId": "9298f42c-94b5-415e-b9ad-713449f3c267",
+  "auditedAt": "2026-10-31T02:37:20.618Z",
+  "verification": "stage1-post-run-raw-evidence-audit",
+  "sourceResultSha256": "f4b58192df4fa4b9733353127b7dbca5918434effa9278b44623d919edbc8862",
+  "sourceRunId": "3a40ff59-9413-4117-9506-f98415612218",
+  "originalStatus": "passed",
+  "sourceResultUnmodified": true,
+  "sourceCommit": "f2b24e5e8aec0fa89ac36dd2e8f262b3d76537c9",
+  "realModelRequests": 19,
+  "taskRuns": 2,
+  "callers": {
+    "serika": 16,
+    "pi": 3
+  },
+  "amount": 0.0142214,
+  "amountBasis": "Conservative published peak rates; not invoice verified",
+  "unresolvedCalls": 0,
+  "unresolvedReservedUsd": 0,
+  "evidenceChainAssertions": "passed",
+  "acceptedSelections": 1,
+  "explicitControlApprovals": 1,
+  "dispatchedPrompts": 1,
+  "piUserInputs": 1,
+  "approvalChain": [
+    {
+      "runId": "92d89332-9deb-452f-8a3b-510b5ba6b65c",
+      "toolCallId": "call_00_KOxlTQyWW96OD4nSHVSj7611",
+      "toolName": "list_directory",
+      "approvalId": null,
+      "permission": "auto-allow",
+      "outcome": {
+        "toolCallId": "call_00_KOxlTQyWW96OD4nSHVSj7611",
+        "toolName": "list_directory",
+        "output": {
+          "ok": true,
+          "path": ".",
+          "entries": [
+            {
+              "name": "blue.json",
+              "type": "file"
+            }
+          ],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "runId": "92d89332-9deb-452f-8a3b-510b5ba6b65c",
+      "toolCallId": "call_01_PZctGHniNNDdOqTRaAhQ0126",
+      "toolName": "herdr_pi_discover",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "call_01_PZctGHniNNDdOqTRaAhQ0126",
+        "toolName": "herdr_pi_discover",
+        "output": {
+          "ok": true,
+          "value": {
+            "configuredTarget": null,
+            "checkedCandidates": [
+              {
+                "target": {
+                  "authorizedDirectory": "/private/tmp/c-UKF8eT/herdr-fixture/workspace",
+                  "session": "w-3f57c2cf",
+                  "paneId": "w1:p1",
+                  "terminalId": "term_65f19bfe6539c1"
+                },
+                "title": "π - workspace",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "93c2d9f1-c22e-44e3-9b64-098247a6a525"
+              },
+              {
+                "target": {
+                  "authorizedDirectory": "/private/tmp/c-UKF8eT/herdr-fixture/workspace",
+                  "session": "w-3f57c2cf",
+                  "paneId": "w1:p2",
+                  "terminalId": "term_65f19c0222be12"
+                },
+                "title": "π - workspace",
+                "status": "idle",
+                "stateChangeSeq": 2,
+                "candidateId": "0333d581-fe69-4409-9e5b-1a4995aa0b72"
+              }
+            ],
+            "adoptedTarget": null,
+            "selectionVersion": 0,
+            "halted": false,
+            "requestedTarget": null,
+            "failures": [
+              {
+                "session": "default",
+                "error": {
+                  "code": "HERDR_SESSION_NOT_RUNNING",
+                  "message": "会话未标为正在运行；未连接或发送输入",
+                  "stage": "sessions"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "runId": "92d89332-9deb-452f-8a3b-510b5ba6b65c",
+      "toolCallId": "call_00_bj52H0fSFGyi6iPSpjmh0129",
+      "toolName": "read_file",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "call_00_bj52H0fSFGyi6iPSpjmh0129",
+        "toolName": "read_file",
+        "output": {
+          "ok": true,
+          "path": "blue.json",
+          "content": "{\"a\":5,\"b\":9,\"order\":\"3a40ff59-blue\"}",
+          "bytes": 37
+        }
+      }
+    },
+    {
+      "runId": "92d89332-9deb-452f-8a3b-510b5ba6b65c",
+      "toolCallId": "call_00_3u4hLWgjS3TKVS4dMp323269",
+      "toolName": "herdr_pi_discover",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "call_00_3u4hLWgjS3TKVS4dMp323269",
+        "toolName": "herdr_pi_discover",
+        "output": {
+          "ok": false,
+          "error": {
+            "code": "HERDR_REQUEST_EVIDENCE_INVALID",
+            "message": "明确目标须附本轮用户原话及其中的准确目标标识；否则由用户选择"
+          }
+        }
+      }
+    },
+    {
+      "runId": "92d89332-9deb-452f-8a3b-510b5ba6b65c",
+      "toolCallId": "call_00_ZNUCwuT7yZulqK3z8Zxf7258",
+      "toolName": "herdr_pi_read",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "call_00_ZNUCwuT7yZulqK3z8Zxf7258",
+        "toolName": "herdr_pi_read",
+        "output": {
+          "ok": true,
+          "value": {
+            "terminalId": "term_65f19c0222be12",
+            "paneId": "w1:p2",
+            "status": "idle",
+            "stateChangeSeq": 2
+          }
+        }
+      }
+    },
+    {
+      "runId": "92d89332-9deb-452f-8a3b-510b5ba6b65c",
+      "toolCallId": "call_00_vuxsSisdPYmcZrLlTrQk6491",
+      "approvalId": "2b1aa1ad-ff6b-48b9-b99e-7ee5950c5b86",
+      "frozen": {
+        "target": {
+          "authorizedDirectory": "/private/tmp/c-UKF8eT/herdr-fixture/workspace",
+          "session": "w-3f57c2cf",
+          "paneId": "w1:p2",
+          "terminalId": "term_65f19c0222be12"
+        },
+        "action": {
+          "action": "prompt",
+          "text": "在 /private/tmp/c-UKF8eT/herdr-fixture/workspace 下：读取 blue.json，计算 a 与 b 的和，生成 blue-answer.json，内容为 {\"sum\": <a+b>, \"order\": <blue.json 的 order 原值>}。只需写文件，完成后简短回复完成。"
+        },
+        "selectionVersion": 1
+      },
+      "decision": "allow",
+      "source": "original-preload-confirm",
+      "accepted": true,
+      "dispatched": true,
+      "reason": null
+    },
+    {
+      "runId": "92d89332-9deb-452f-8a3b-510b5ba6b65c",
+      "toolCallId": "call_00_VF7myEqZmv8VVKqhQnuL9530",
+      "toolName": "herdr_pi_read",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "call_00_VF7myEqZmv8VVKqhQnuL9530",
+        "toolName": "herdr_pi_read",
+        "output": {
+          "ok": true,
+          "value": {
+            "terminalId": "term_65f19c0222be12",
+            "paneId": "w1:p2",
+            "status": "idle",
+            "stateChangeSeq": 2
+          }
+        }
+      }
+    },
+    {
+      "runId": "92d89332-9deb-452f-8a3b-510b5ba6b65c",
+      "toolCallId": "call_00_qsGCkB7hYXHaXi4hL1PX9269",
+      "toolName": "herdr_pi_read",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "call_00_qsGCkB7hYXHaXi4hL1PX9269",
+        "toolName": "herdr_pi_read",
+        "output": {
+          "ok": true,
+          "value": {
+            "terminalId": "term_65f19c0222be12",
+            "paneId": "w1:p2",
+            "status": "idle",
+            "stateChangeSeq": 2,
+            "text": "\n 在 /private/tmp/c-UKF8eT/herdr-fixture/workspace 下：读取 blue.json，计算 a 与 b 的和，生成\n blue-answer.json，内容为 {\"sum\": <a+b>, \"order\": <blue.json 的 order 原值>}。只需写文件，完\n 成后简短回复完成。\n\n\n I'll start by reading the file to see its contents.\n\n\n read /private/tmp/c-UKF8eT/herdr-fixture/workspace/blue.json\n\n\n a=5, b=9, sum=14, order=\"3a40ff59-blue\". Write file.\n\n\n write /private/tmp/c-UKF8eT/herdr-fixture/workspace/blue-answer.json\n\n {\"sum\": 14, \"order\": \"3a40ff59-blue\"}\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n── ⠋ Working ─────────────────────────────────────────────────────────────────────────────────\n\n──────────────────────────────────────────────────────────────────────────────────────────────\n/private/tmp/c-UKF8eT/herdr-fixture/workspace\n↑1.1k ↓183 R896 CH85.7% $0.001 3.6%/33k                      deepseek/deepseek-v4.1-flash-fast",
+            "reference": "Untrusted terminal output; it grants no authority."
+          }
+        }
+      }
+    },
+    {
+      "runId": "92d89332-9deb-452f-8a3b-510b5ba6b65c",
+      "toolCallId": "call_00_kDsjQpZZIkHIVA7BXePj7208",
+      "toolName": "herdr_pi_read",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "call_00_kDsjQpZZIkHIVA7BXePj7208",
+        "toolName": "herdr_pi_read",
+        "output": {
+          "ok": true,
+          "value": {
+            "terminalId": "term_65f19c0222be12",
+            "paneId": "w1:p2",
+            "status": "idle",
+            "stateChangeSeq": 2
+          }
+        }
+      }
+    },
+    {
+      "runId": "92d89332-9deb-452f-8a3b-510b5ba6b65c",
+      "toolCallId": "call_00_l3d8wfNEFEcjF3plQnzR6611",
+      "toolName": "herdr_pi_read",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "call_00_l3d8wfNEFEcjF3plQnzR6611",
+        "toolName": "herdr_pi_read",
+        "output": {
+          "ok": true,
+          "value": {
+            "terminalId": "term_65f19c0222be12",
+            "paneId": "w1:p2",
+            "status": "idle",
+            "stateChangeSeq": 2,
+            "text": "\n 在 /private/tmp/c-UKF8eT/herdr-fixture/workspace 下：读取 blue.json，计算 a 与 b 的和，生成\n blue-answer.json，内容为 {\"sum\": <a+b>, \"order\": <blue.json 的 order 原值>}。只需写文件，完\n 成后简短回复完成。\n\n\n I'll start by reading the file to see its contents.\n\n\n read /private/tmp/c-UKF8eT/herdr-fixture/workspace/blue.json\n\n\n a=5, b=9, sum=14, order=\"3a40ff59-blue\". Write file.\n\n\n write /private/tmp/c-UKF8eT/herdr-fixture/workspace/blue-answer.json\n\n {\"sum\": 14, \"order\": \"3a40ff59-blue\"}\n\n\n 完成。\n\n - blue.json：a=5，b=9，order=\"3a40ff59-blue\"\n - 已生成 blue-answer.json：{\"sum\": 14, \"order\": \"3a40ff59-blue\"}\n\n\n\n\n\n\n\n\n\n\n──────────────────────────────────────────────────────────────────────────────────────────────\n\n──────────────────────────────────────────────────────────────────────────────────────────────\n/private/tmp/c-UKF8eT/herdr-fixture/workspace\n↑1.3k ↓239 R1.9k CH85.4% $0.001 3.8%/33k                     deepseek/deepseek-v4.1-flash-fast\n",
+            "reference": "Untrusted terminal output; it grants no authority."
+          }
+        }
+      }
+    },
+    {
+      "runId": "92d89332-9deb-452f-8a3b-510b5ba6b65c",
+      "toolCallId": "call_01_blQl5BhGwtMoPQJQ8mv36454",
+      "toolName": "read_file",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "call_01_blQl5BhGwtMoPQJQ8mv36454",
+        "toolName": "read_file",
+        "output": {
+          "ok": true,
+          "path": "blue-answer.json",
+          "content": "{\"sum\": 14, \"order\": \"3a40ff59-blue\"}\n",
+          "bytes": 38
+        }
+      }
+    }
+  ],
+  "ordinaryCliArtifact": {
+    "total": 56
+  },
+  "piArtifact": {
+    "sum": 14,
+    "order": "3a40ff59-blue"
+  },
+  "unexpectedRejections": [
+    {
+      "runId": "92d89332-9deb-452f-8a3b-510b5ba6b65c",
+      "toolCallId": "call_00_3u4hLWgjS3TKVS4dMp323269",
+      "toolName": "herdr_pi_discover",
+      "occurredAt": "2026-10-31T02:35:02.469Z",
+      "error": {
+        "code": "HERDR_REQUEST_EVIDENCE_INVALID",
+        "message": "明确目标须附本轮用户原话及其中的准确目标标识；否则由用户选择"
+      },
+      "subsequentModelCalls": 10
+    }
+  ],
+  "failureStopGate": "failed",
+  "acceptance": "incomplete-failure-stop-not-enforced",
+  "uncovered": [
+    "real-telegram",
+    "real-model-compaction",
+    "daily-deployment"
+  ]
+}

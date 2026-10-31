@@ -1,0 +1,40 @@
+{
+  "auditId": "6ec543c2-9c7f-485d-b594-d692df0f46b7",
+  "at": "2026-10-31T09:27:28.784Z",
+  "source": "targeted-existing-daily-execution-record-after-channel-restoration",
+  "networkRequests": 0,
+  "runFound": true,
+  "runId": "94c5e58f-8199-4168-987b-43db4b829904",
+  "status": "completed",
+  "phase": "primary",
+  "startedAt": "2026-10-31T08:32:40.309Z",
+  "finishedAt": "2026-10-31T08:32:47.217Z",
+  "tools": [],
+  "traceSteps": 1,
+  "traceUsage": {
+    "inputTokens": 43016,
+    "outputTokens": 404,
+    "totalTokens": 43420,
+    "cacheReadTokens": 15744
+  },
+  "recordSha256": "889d0a0524b36d30f5232fd496c3ce6403dd7060bcd705ca91cbd8f90a58d617",
+  "modelUsageRecords": [
+    {
+      "id": "3c02d71d-11e6-4018-882e-13b0a28b53f5",
+      "threadId": "0de800a7-0bc1-4b6b-8299-ffe070563399",
+      "runId": "94c5e58f-8199-4168-987b-43db4b829904",
+      "purpose": "chat",
+      "provider": "openai-compatible.chat",
+      "modelId": "deepseek/deepseek-v4.1-flash-fast",
+      "startedAt": "2026-10-31T08:32:40.802Z",
+      "finishedAt": "2026-10-31T08:32:47.038Z",
+      "status": "returned",
+      "usage": {
+        "inputTokens": 43016,
+        "outputTokens": 404,
+        "cacheReadTokens": 15744,
+        "totalTokens": 43420
+      }
+    }
+  ]
+}

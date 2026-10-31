@@ -1,0 +1,219 @@
+{
+  "auditId": "fb868572-1feb-4dcb-8586-e355f6b35f72",
+  "actual": {
+    "at": "2026-10-31T17:23:52.582Z",
+    "pollId": "offline-poll",
+    "indexInPoll": 0,
+    "phase": "control",
+    "controlAuthority": "original-telegram-gateway",
+    "sourceOwner": {
+      "userId": 6349286154,
+      "chatId": 6349286154,
+      "threadId": null
+    },
+    "updateSha256": "13c4662d370c73e3e1a0c46e16f8df1464dee703ba571a983d534ac268c71158",
+    "update": {
+      "update_id": 819511888,
+      "callback_query": {
+        "id": "8823232310804114272",
+        "from": {
+          "id": 6349286154,
+          "is_bot": false,
+          "first_name": "All",
+          "last_name": "Mind",
+          "language_code": "zh-hans"
+        },
+        "message": {
+          "message_id": 8,
+          "from": {
+            "id": 9127642960,
+            "is_bot": true,
+            "first_name": "Serika PR197 Test",
+            "username": "serika197_test_4225_bot"
+          },
+          "chat": {
+            "id": 6349286154,
+            "first_name": "All",
+            "last_name": "Mind",
+            "type": "private"
+          },
+          "date": 1793464480,
+          "text": "需要你确认 · 使用工具 list_directory\n\n\nTool: list_directory\nInput: {\"path\":\"/private/tmp/s197-tg/herdr-fixture/workspace\"}\nAllow this call? [y/n] \n\n允许 98BCAF60A7\n拒绝 98BCAF60A7\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+          "reply_markup": {
+            "inline_keyboard": [
+              [
+                {
+                  "text": "允许这次",
+                  "callback_data": "allow:98BCAF60A7"
+                },
+                {
+                  "text": "取消",
+                  "callback_data": "deny:98BCAF60A7"
+                }
+              ]
+            ]
+          }
+        },
+        "chat_instance": "5191036256262212037",
+        "data": "allow:98BCAF60A7"
+      }
+    },
+    "normalizedText": null,
+    "predicates": [
+      {
+        "id": "update_object_valid",
+        "expected": "object",
+        "actual": "object",
+        "passed": true
+      },
+      {
+        "id": "update_id_valid",
+        "expected": "nonnegative safe integer",
+        "actual": 819511888,
+        "passed": true
+      }
+    ],
+    "accepted": true,
+    "failedPredicate": null,
+    "failedPredicates": [],
+    "safeToAcknowledge": false,
+    "forwarded": false,
+    "bindingBefore": {
+      "owner": {
+        "userId": 6349286154,
+        "chatId": 6349286154,
+        "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+      },
+      "gatewayCreated": true,
+      "pairing": null,
+      "botId": 9127642960,
+      "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+      "offset": 819511888,
+      "state": "running",
+      "runId": "0adad13d-7ece-49d5-84f6-43d606c3e33d"
+    },
+    "bindingAfter": {
+      "owner": {
+        "userId": 6349286154,
+        "chatId": 6349286154,
+        "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+      },
+      "gatewayCreated": true,
+      "pairing": null,
+      "botId": 9127642960,
+      "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+      "offset": 819511888,
+      "state": "running",
+      "runId": "0adad13d-7ece-49d5-84f6-43d606c3e33d"
+    }
+  },
+  "callbackAfterRun": {
+    "at": "2026-10-31T17:23:52.582Z",
+    "pollId": "offline-poll",
+    "indexInPoll": 0,
+    "phase": "control",
+    "controlAuthority": "original-telegram-gateway",
+    "sourceOwner": {
+      "userId": 42,
+      "chatId": 42,
+      "threadId": "daily-thread"
+    },
+    "updateSha256": "13c4662d370c73e3e1a0c46e16f8df1464dee703ba571a983d534ac268c71158",
+    "update": {
+      "update_id": 819511888,
+      "callback_query": {
+        "id": "8823232310804114272",
+        "from": {
+          "id": 6349286154,
+          "is_bot": false,
+          "first_name": "All",
+          "last_name": "Mind",
+          "language_code": "zh-hans"
+        },
+        "message": {
+          "message_id": 8,
+          "from": {
+            "id": 9127642960,
+            "is_bot": true,
+            "first_name": "Serika PR197 Test",
+            "username": "serika197_test_4225_bot"
+          },
+          "chat": {
+            "id": 6349286154,
+            "first_name": "All",
+            "last_name": "Mind",
+            "type": "private"
+          },
+          "date": 1793464480,
+          "text": "需要你确认 · 使用工具 list_directory\n\n\nTool: list_directory\nInput: {\"path\":\"/private/tmp/s197-tg/herdr-fixture/workspace\"}\nAllow this call? [y/n] \n\n允许 98BCAF60A7\n拒绝 98BCAF60A7\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+          "reply_markup": {
+            "inline_keyboard": [
+              [
+                {
+                  "text": "允许这次",
+                  "callback_data": "allow:98BCAF60A7"
+                },
+                {
+                  "text": "取消",
+                  "callback_data": "deny:98BCAF60A7"
+                }
+              ]
+            ]
+          }
+        },
+        "chat_instance": "5191036256262212037",
+        "data": "allow:98BCAF60A7"
+      }
+    },
+    "normalizedText": null,
+    "predicates": [
+      {
+        "id": "update_object_valid",
+        "expected": "object",
+        "actual": "object",
+        "passed": true
+      },
+      {
+        "id": "update_id_valid",
+        "expected": "nonnegative safe integer",
+        "actual": 819511888,
+        "passed": true
+      }
+    ],
+    "accepted": true,
+    "failedPredicate": null,
+    "failedPredicates": [],
+    "safeToAcknowledge": false,
+    "forwarded": false,
+    "bindingBefore": {
+      "owner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": "daily-thread"
+      },
+      "pairing": {
+        "code": "3935B76A82",
+        "proposed": null
+      },
+      "botId": 100,
+      "threadId": "isolated-thread",
+      "offset": 414513485,
+      "runId": null
+    },
+    "bindingAfter": {
+      "owner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": "daily-thread"
+      },
+      "pairing": {
+        "code": "3935B76A82",
+        "proposed": null
+      },
+      "botId": 100,
+      "threadId": "isolated-thread",
+      "offset": 414513485,
+      "runId": null
+    }
+  }
+}

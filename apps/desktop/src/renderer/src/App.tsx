@@ -24,6 +24,7 @@ import { steerReview, UncertainSteerNotice } from "./app/steers.js";
 import { useChatAttachments } from "./app/use-chat-attachments.js";
 import { useConversationDraftPersistence, useConversationDraftState } from "./app/use-conversation-draft.js";
 import { useBriefContinue } from "./app/use-brief-continue.js";
+import { HerdrSelectionCard } from "./herdr-selection.js";
 import { ApprovalCard } from "./approval.js";
 import { useApproval } from "./app/use-approval.js";
 import { createRuntimeStore, useRuntime } from "./app/runtime-store.js";
@@ -110,6 +111,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const { draftReady, setDraftReady, draftError, setDraftError, draftSaving, draftSave, input, setInput, excludeFromMemory, setExcludeFromMemory } = conversationDraft;
   const reconnecting = useRuntime(runtime, runtimeState => runtimeState.reconnecting);
   const { approval, decidingId, decide } = useApproval(runtime, setMobileDashboard, setError);
+  const herdrSelection = useRuntime(runtime, runtimeState => runtimeState.herdrSelection);
+  useEffect(() => { if (herdrSelection) setMobileDashboard(false); }, [herdrSelection?.selectionId]);
   const live = useRuntime(runtime, runtimeState => runtimeState.live);
   const lastResult = useRuntime(runtime, runtimeState => runtimeState.lastResult);
   const canSteer = useRuntime(runtime, runtimeState => runtimeState.canSteer);
@@ -239,7 +242,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     if (!area) return;
     if (followConversation.current) { area.scrollTop = area.scrollHeight; setUnreadOutput(false); setAwayFromLatest(false); }
     else setUnreadOutput(true);
-  }, [history, live, lastResult, submittedInput, approval, detailsOpen, composerText]);
+  }, [history, live, lastResult, submittedInput, approval, herdrSelection, detailsOpen, composerText]);
 
   useLayoutEffect(() => {
     const area = conversationScroll.current;
@@ -436,7 +439,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
-  const attention = attentionKind({ approval: approval !== null, unknownRuns: unknownRuns.length || (reviewTask ? 1 : 0), pendingMemory: 0, idle: !busy });
+  const attention = attentionKind({ approval: approval !== null || herdrSelection !== null, unknownRuns: unknownRuns.length || (reviewTask ? 1 : 0), pendingMemory: 0, idle: !busy });
   const status = headerStatus(state, attention);
   const stageLabel = info?.runtimeRecovery ? "连接已停止" : info ? status.label : error ? "连接失败" : "正在连接";
   const threadDrafts = new Map(threads.flatMap(thread => {
@@ -531,13 +534,13 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 </div> : null}
                 <div className="conversation-thread">
                   {historyBefore ? <button className="secondary" disabled={historyLoading} onClick={() => void loadOlderHistory()}>{historyLoading ? "正在读取…" : "查看更早的对话"}</button> : null}
-                  {layout === "serika" ? <PersonalConversation rows={rows} onRestoreSteer={restoreSteer} workspaceRoot={info?.workspaceRoot ?? undefined} running={activePrimary} streaming={live.streaming} waitingForApproval={approval !== null} onTrace={(runId, toolCallId) => { openDetails("records"); void openRecord(runId, toolCallId).catch(() => setError("执行追踪读取失败")); }} /> : rows.map(row => <Row key={row.key} row={row} onRestoreSteer={restoreSteer} delivered={delivered.has(row.key)} />)}
+                  {layout === "serika" ? <PersonalConversation rows={rows} onRestoreSteer={restoreSteer} workspaceRoot={info?.workspaceRoot ?? undefined} running={activePrimary} streaming={live.streaming} waitingForApproval={approval !== null || herdrSelection !== null} onTrace={(runId, toolCallId) => { openDetails("records"); void openRecord(runId, toolCallId).catch(() => setError("执行追踪读取失败")); }} /> : rows.map(row => <Row key={row.key} row={row} onRestoreSteer={restoreSteer} delivered={delivered.has(row.key)} />)}
                   {info?.memory.enabled ? <MemoryReferences hideEmpty={layout === "serika"} refreshToken={contextRefresh} runId={state.kind === "running" && state.phase === "primary" ? state.runId : runtime.latestPrimaryId()} starting={state.kind === "running" && state.phase === "primary" && state.runId === null} /> : null}
                   {layout !== "serika" && activePrimary && live.streaming ? <div className="row row-text role-assistant live">
                     <span className="role"><SerikaMark size={20} /> Serika <span className="streaming-label">正在回复</span></span>
                     <MessageContent text={live.streaming} />
                   </div> : null}
-                  {layout !== "serika" && activePrimary && !live.streaming ? <div className="working-indicator" role="status"><span /><span /><span /><small>{approval ? "等待你的确认" : "正在处理"}</small></div> : null}
+                  {layout !== "serika" && activePrimary && !live.streaming ? <div className="working-indicator" role="status"><span /><span /><span /><small>{herdrSelection ? "等待你选择 Pi" : approval ? "等待你的确认" : "正在处理"}</small></div> : null}
                   <div ref={conversationEnd} />
                 </div>
               </div>
@@ -558,7 +561,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           {error ? info ? <ErrorBanner message={error} onClose={() => setError(null)} /> : <ErrorBanner message={error} /> : null}
           {workTasks.draftError ? <div className="error error-banner" role="alert"><span>{workTasks.draftError}</span><button className="ghost" type="button" onClick={workTasks.retryDrafts}>重试任务草稿保存</button></div> : null}
           {uncertainSteer ? <UncertainSteerNotice steer={uncertainSteer} busy={busy} onRecheck={() => void recheckSteer()} onRelease={() => void releaseSteer()} /> : null}
-          {approval ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={(decision, remember) => void decide(decision, remember === true)} /> : null}
+          {herdrSelection ? <HerdrSelectionCard selection={herdrSelection} onError={setError} /> : null}
+          {approval && !herdrSelection ? <ApprovalCard approval={approval} deciding={decidingId === approval.approvalId} onDecision={(decision, remember) => void decide(decision, remember === true)} /> : null}
           <PersonalPromptEditor inputRef={inputRef} value={composerText} aria-label={composingTask ? "本轮任务指令" : "消息输入"}
               notice={composingTask ? !composerTask ? "任务已切换，原草稿仍保留。重新选择任务，或切回普通对话。" : !busy && !taskActions(composerTask).run ? "本轮已结束，请从任务卡查看结果，或切回普通对话。" : null : null}
               topContent={<>{recoverableAttachments ? <div className="serika-draft-setting"><span>上次未完成消息的附件仍可恢复。</span><button type="button" className="ghost" disabled={busy || sending || !!attachments.length || !!input.trim()} onClick={() => { setAttachments(recoverableAttachments.files); setInput(recoverableAttachments.text); setRecoverableAttachments(null); }}>恢复到草稿</button></div> : null}<AttachmentPreview attachments={attachments} setAttachments={setAttachments} disabled={sending} />{creatingTask ? <div className="composer-create-mode"><strong>新任务</strong><button type="button" className="ghost" disabled={busy || sending} onClick={() => setCreatingTask(false)}>返回普通对话</button></div> : null}{workTasks.task || composingTask ? <div className="composer-target" role="group" aria-label="发送方式"><button className={!composingTask ? "selected" : ""} type="button" aria-pressed={!composingTask} onClick={() => setTaskComposerId(null)}>普通对话</button><button className={composingTask ? "selected" : ""} type="button" aria-pressed={composingTask} disabled={!workTasks.task || (!taskActions(workTasks.task).run && !composingTask)} onClick={composeTask}>补充当前任务</button>{composingTask ? <span>{composerTask ? humanFacingTitle(composerTask.goal, "当前任务") : "当前任务暂不可用"}</span> : null}</div> : null}{excludeFromMemory && !composingTask ? <div className="serika-draft-setting"><Icon name="memory" size={13} /><span>本条不存入记忆</span><button type="button" className="icon-button" aria-label="恢复本条记忆整理" onClick={() => setExcludeFromMemory(false)}><Icon name="close" size={12} /></button></div> : null}</>}

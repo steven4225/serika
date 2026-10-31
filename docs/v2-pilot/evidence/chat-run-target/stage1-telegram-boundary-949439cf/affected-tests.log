@@ -1,0 +1,20 @@
+✔ recovered non-pairing text persists full redacted rejection and exact predicate in stop audit (50.697459ms)
+✔ owner/type failures remain separate; undefined text never becomes an expected task (4.536166ms)
+✔ live failed native callback and all controls reach the original gateway without a second approval policy (5.939958ms)
+✔ Run budget is enforced at host admission after gateway parsing, independently of approval syntax (1.302459ms)
+✔ rejected observed update requires acknowledgement beyond the old store offset before daily restore (2.599ms)
+✔ early failed Run receipt is counted even before the waiting case receives its runId (27.150292ms)
+✔ pair readiness rejects wrong batch, EOF, stream error and cancellation before any handoff (8.121416ms)
+✔ original gateway pairs trimmed command and host shutdown closes real proxy dispatcher once without network (1706.822917ms)
+✔ dedicated settings reject the day-use Bot, missing fields, symlink aliases, busy profile and retained runtime (338.689625ms)
+✔ original gateway persists its first pairing and reuses owner Thread and offset after a new host without daily access (1919.45575ms)
+✔ live observer permits the first paired Telegram task to start and records its unique Run (2731.906541ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5380.955
+{"testHomeGuard":"passed","evidence":"/private/tmp/s197-boundary-work/affected-final-3-home/write-guard-OdzTY2/result.json","violations":0,"changes":7,"metadataUnchanged":false}

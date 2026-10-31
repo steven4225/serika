@@ -1,0 +1,337 @@
+{
+  "auditId": "cd4f3808-87b3-4087-96a3-4947d86a206c",
+  "auditedAt": "2026-10-31T15:00:05.544Z",
+  "verification": "failed-telegram-batch-diagnostics-from-original-result",
+  "acceptance": "failed-telegram-batch",
+  "batchId": "b81f6739-0850-4948-8122-efb1a71beebc",
+  "sourceCommit": "offline-only",
+  "sourceResultSha256": "76499060f4b86f51e034aab0bd7d6ba3e5073b9ef19dc2aa81e20247ddc3698c",
+  "sourceResultUnmodified": true,
+  "stopReason": "unexpected-telegram-inbound",
+  "modelRequests": 0,
+  "taskRuns": 0,
+  "amount": 0,
+  "unresolvedReservedUsd": 0,
+  "inboundChecks": [
+    {
+      "at": "2026-10-31T15:00:05.541Z",
+      "pollId": "offline-poll",
+      "indexInPoll": 0,
+      "phase": "pairing",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": "daily-thread"
+      },
+      "updateSha256": "8594b03ee713d1f7ce5c993fb199b821e6808922881004562aaed3cf35926e29",
+      "update": {
+        "update_id": 414513485,
+        "message": {
+          "message_id": 656,
+          "date": 1,
+          "chat": {
+            "id": 42,
+            "type": "private"
+          },
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "text": "继续，允许临时停用并恢复日用 TG 接入。"
+        }
+      },
+      "normalizedText": "继续，允许临时停用并恢复日用 TG 接入。",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 414513485,
+          "passed": true
+        },
+        {
+          "id": "message_present",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "message_id_valid",
+          "expected": "positive safe integer",
+          "actual": 656,
+          "passed": true
+        },
+        {
+          "id": "owner_user_matches",
+          "expected": 42,
+          "actual": 42,
+          "passed": true
+        },
+        {
+          "id": "owner_chat_matches",
+          "expected": 42,
+          "actual": 42,
+          "passed": true
+        },
+        {
+          "id": "chat_private",
+          "expected": "private",
+          "actual": "private",
+          "passed": true
+        },
+        {
+          "id": "sender_is_human",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "id": "not_forwarded",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "id": "not_via_bot",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "id": "text_is_string",
+          "expected": "string",
+          "actual": "string",
+          "passed": true
+        },
+        {
+          "id": "text_matches_phase",
+          "expected": "/start 3935B76A82",
+          "actual": "继续，允许临时停用并恢复日用 TG 接入。",
+          "passed": false
+        },
+        {
+          "id": "single_task_message",
+          "expected": "first task",
+          "actual": 656,
+          "passed": true
+        }
+      ],
+      "accepted": false,
+      "failedPredicate": "text_matches_phase",
+      "failedPredicates": [
+        "text_matches_phase"
+      ],
+      "safeToAcknowledge": true,
+      "forwarded": false,
+      "bindingBefore": {
+        "owner": null,
+        "pairing": {
+          "code": "3935B76A82",
+          "proposed": null
+        },
+        "botId": 100,
+        "threadId": "isolated-thread",
+        "offset": 414513485,
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": null,
+        "pairing": {
+          "code": "3935B76A82",
+          "proposed": null
+        },
+        "botId": 100,
+        "threadId": "isolated-thread",
+        "offset": 414513485,
+        "runId": null
+      }
+    },
+    {
+      "at": "2026-10-31T15:00:05.543Z",
+      "pollId": "offline-poll",
+      "indexInPoll": 0,
+      "phase": "pairing",
+      "sourceOwner": {
+        "userId": 42,
+        "chatId": 42,
+        "threadId": "daily-thread"
+      },
+      "updateSha256": "6495cc45a2720adcee61be5dbd502ffbaf0526b4a74e90c4580a0a3b626b6579",
+      "update": {
+        "update_id": 414513485,
+        "message": {
+          "message_id": 656,
+          "date": 1,
+          "chat": {
+            "id": 42,
+            "type": "private"
+          },
+          "from": {
+            "id": 42,
+            "is_bot": false
+          },
+          "text": "完整前文 [REDACTED_TELEGRAM_TOKEN]\n[REDACTED_CREDENTIAL] 完整后文",
+          "caption": "附加字段完整保留"
+        }
+      },
+      "normalizedText": "完整前文 [REDACTED_TELEGRAM_TOKEN]\n[REDACTED_CREDENTIAL] 完整后文",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 414513485,
+          "passed": true
+        },
+        {
+          "id": "message_present",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "message_id_valid",
+          "expected": "positive safe integer",
+          "actual": 656,
+          "passed": true
+        },
+        {
+          "id": "owner_user_matches",
+          "expected": 42,
+          "actual": 42,
+          "passed": true
+        },
+        {
+          "id": "owner_chat_matches",
+          "expected": 42,
+          "actual": 42,
+          "passed": true
+        },
+        {
+          "id": "chat_private",
+          "expected": "private",
+          "actual": "private",
+          "passed": true
+        },
+        {
+          "id": "sender_is_human",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "id": "not_forwarded",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "id": "not_via_bot",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "id": "text_is_string",
+          "expected": "string",
+          "actual": "string",
+          "passed": true
+        },
+        {
+          "id": "text_matches_phase",
+          "expected": "/start 3935B76A82",
+          "actual": "完整前文 [REDACTED_TELEGRAM_TOKEN]\n[REDACTED_CREDENTIAL] 完整后文",
+          "passed": false
+        },
+        {
+          "id": "single_task_message",
+          "expected": "first task",
+          "actual": 656,
+          "passed": true
+        }
+      ],
+      "accepted": false,
+      "failedPredicate": "text_matches_phase",
+      "failedPredicates": [
+        "text_matches_phase"
+      ],
+      "safeToAcknowledge": true,
+      "forwarded": false,
+      "bindingBefore": {
+        "owner": null,
+        "pairing": {
+          "code": "3935B76A82",
+          "proposed": null
+        },
+        "botId": 100,
+        "threadId": "isolated-thread",
+        "offset": 414513485,
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": null,
+        "pairing": {
+          "code": "3935B76A82",
+          "proposed": null
+        },
+        "botId": 100,
+        "threadId": "isolated-thread",
+        "offset": 414513485,
+        "runId": null
+      }
+    }
+  ],
+  "telegramIdentity": null,
+  "pollFailure": null,
+  "pairReadiness": [
+    {
+      "status": "accepted",
+      "at": "2026-10-31T15:00:05.541Z",
+      "matched": true
+    }
+  ],
+  "channelStrategy": null,
+  "dailyAccess": null,
+  "testProfile": null,
+  "testChannelStartedAt": null,
+  "bindingAtPairingStart": null,
+  "pairingConfirmation": null,
+  "bindingBeforeShutdown": {
+    "owner": null,
+    "pairing": {
+      "code": "3935B76A82",
+      "proposed": null
+    },
+    "botId": 100,
+    "threadId": "isolated-thread",
+    "offset": 414513485,
+    "runId": null
+  },
+  "bindingAfterShutdown": {
+    "owner": null,
+    "pairing": null,
+    "botId": 100,
+    "threadId": "isolated-thread",
+    "offset": 414513485,
+    "runId": null
+  },
+  "telegramStore": null,
+  "telegramStoreAfterShutdown": null,
+  "transportCursorHandoff": null,
+  "shutdownErrors": [],
+  "isolatedHostStoppedAt": null,
+  "isolatedTelegramStoppedAt": null,
+  "daily": null,
+  "receipts": [],
+  "fixtureRetained": null
+}

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "version": "0.1.0",
+  "builtAt": "2026-10-31T05:47:40.110Z",
+  "frontendSource": {
+    "revision": "580269f803c41583ed65e05f7ff4865c21de4ca0",
+    "dirty": false
+  },
+  "backendSource": {
+    "revision": "580269f803c41583ed65e05f7ff4865c21de4ca0",
+    "dirty": false
+  },
+  "backendDistFingerprint": "7e5983b8a1a5d8736310e71f777289a7fb1190d8da5c1ca338c5db735312a297",
+  "id": "e5042d5ce091095a"
+}

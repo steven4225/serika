@@ -54,7 +54,8 @@ export interface ToolPermissionFacts {
  * built from (reminder-specific, like the Home item's `task`; not a generic
  * presentation description). The text alone is what terminals show.
  */
-export type ToolConfirmationCard = string | { text: string; reminder: ReminderConfirmationFields };
+export type ToolConfirmationCard = string | { text: string; reminder: ReminderConfirmationFields }
+  | { text: string; herdr: { target: import("./herdr.js").HerdrTarget; action: import("./herdr.js").HerdrControl; selectionVersion: number } };
 
 /** What module instructions may depend on for one Run. */
 export interface InstructionRun {

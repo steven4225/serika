@@ -1,0 +1,17 @@
+{
+  "verificationId": "72ddc36a-98d1-4866-9add-4f809465f980",
+  "startedAt": "2026-10-31T08:04:49.802379+00:00",
+  "sourceCommit": "d19be49af5f2485ffffdbf3dbc1016e2293ddb49",
+  "command": [
+    "node",
+    "scripts/test-home.mjs",
+    "--home",
+    "/private/tmp/serika-197-contract-live-c6009e35/guard",
+    "--",
+    "pnpm",
+    "build"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-10-31T08:04:52.719983+00:00",
+  "logSha256": "4b4a41423fe718e51d4172c87dd3893d1656d2422cd96d21232b0880c676f5f7"
+}

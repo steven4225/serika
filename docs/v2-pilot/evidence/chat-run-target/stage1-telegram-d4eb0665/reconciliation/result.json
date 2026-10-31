@@ -1,0 +1,19 @@
+{
+  "auditId": "39cafcc9-095e-415a-a3e0-25f9bf004260",
+  "startedAt": "2026-10-31T17:21:53.598Z",
+  "purpose": "authorized-next-batch-test-only-handoff-without-replay",
+  "oldBatchId": "d71b0a0d-2725-4264-93ab-a2616d9912fd",
+  "oldResultSha256": "b902660012710fb1f5d2a958d425ad7c896800dfa3e47038f0390d5f758e109a",
+  "root": "/private/tmp/s197-tg",
+  "retained": "/private/tmp/s197-tg-failed-d71b0a0d",
+  "status": "failed",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "ignoredSockets": [],
+  "failure": {
+    "name": "AssertionError",
+    "message": "Unsettled test inputs require review"
+  },
+  "profileLeaseReleased": true,
+  "finishedAt": "2026-10-31T17:21:53.642Z"
+}

@@ -1,0 +1,17 @@
+{
+  "auditId": "a7b23460-7e42-445f-af9a-2298f94d32a9",
+  "at": "2026-10-31T09:48:32.792Z",
+  "parentBatchId": "d5a887cd-6976-41e1-ad2a-ed41c83e44f7",
+  "runId": "94c5e58f-8199-4168-987b-43db4b829904",
+  "modelRequests": 1,
+  "taskRuns": 1,
+  "amount": 0.009668,
+  "prices": {
+    "input": 0.32,
+    "output": 1.16,
+    "cacheRead": 0.03
+  },
+  "amountBasis": "Recovered existing daily usage at frozen d5a887cd harness rates; not invoice verified",
+  "sourceRecoverySha256": "1d5f45c10fafb1629b64e1ad856b99d27a8d98db0348ab9ed4f895c6f0823d21",
+  "newModelRequestsDuringInvestigation": 0
+}

@@ -1,0 +1,11 @@
+{
+  "auditId": "0bac49ef-11f2-42b2-a6e3-df816f380e42",
+  "command": [
+    "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+    "scripts/chat-run-target-telegram-stop-audit.mjs",
+    "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-d5a887cd"
+  ],
+  "exitCode": 1,
+  "stdout": "",
+  "stderr": "file:///Users/a1-6/Code/agents/serika-chat-run-target/scripts/chat-run-target-telegram-stop-audit.mjs:54\n  for (const row of audit.receipts) assert.deepEqual(row.receiptAfterShutdown ?? null,\n                          ^\n\nTypeError: audit.receipts is not iterable\n    at file:///Users/a1-6/Code/agents/serika-chat-run-target/scripts/chat-run-target-telegram-stop-audit.mjs:54:27\n\nNode.js v26.4.0\n"
+}

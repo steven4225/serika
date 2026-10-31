@@ -1,0 +1,25 @@
+{
+  "auditId": "973acec4-7cf7-4d6d-a1c4-07e593910887",
+  "checkedAt": "2026-10-31T15:02:16.760Z",
+  "operation": "fill-local-public-config-fields-only",
+  "addedFieldNames": [
+    "SERIKA_TG_TEST_BOT_ID",
+    "COMMAND_CODE_BASE_URL",
+    "COMMAND_CODE_MODEL_ID"
+  ],
+  "command": [
+    "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+    "--import",
+    "./apps/desktop/node_modules/tsx/dist/loader.mjs",
+    "apps/desktop/scripts/chat-run-target-telegram-live.mjs",
+    "--check-settings"
+  ],
+  "exitCode": 1,
+  "check": {
+    "mode": "zero-request-settings-check",
+    "valid": false,
+    "error": "Missing test env fields: SERIKA_TG_TEST_OWNER_USER_ID, SERIKA_TG_TEST_OWNER_CHAT_ID, COMMAND_CODE_API_KEY",
+    "modelCalls": 0,
+    "telegramCalls": 0
+  }
+}

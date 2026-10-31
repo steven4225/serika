@@ -1,0 +1,2022 @@
+$ node scripts/test-home.mjs --home "$SERIKA_TEST_HOME" -- /bin/sh -c 'pnpm test:runtime && pnpm desktop:test'
+$ node scripts/test-home.mjs --home "$SERIKA_TEST_HOME" -- /bin/sh -c 'pnpm build:runtime && node --test --test-concurrency=4 packages/core/dist/*.test.js packages/ai-sdk-adapter/dist/*.test.js packages/assistant/dist/*.test.js packages/assistant/dist/acceptance/*.test.js packages/assistant/dist/modules/*.test.js apps/cli/dist/*.test.js packages/assistant/scripts/cm-step7-migrate.test.mjs packages/assistant/scripts/home-import.test.mjs packages/assistant/scripts/config-upgrade.test.mjs packages/assistant/scripts/memory-upgrade.test.mjs packages/assistant/scripts/project-rebind.test.mjs packages/assistant/scripts/daily-project-repair.test.mjs scripts/test-home.test.mjs'
+$ tsc -b && node packages/assistant/scripts/write-node-runtime.mjs
+✔ home precedence and read-only preflight neither create files nor alter the environment (15.449917ms)
+✔ fresh CLI homes keep real memory writes, tasks and transcripts apart across restart without a workspace (3136.177875ms)
+✔ a storage home does not grant workspace file access or load old workspace memory (20.424916ms)
+✔ CLI entry creates only its selected home and --check stays read-only (746.76625ms)
+▶ TUI module configuration entry
+  ✔ shows persistent rules through /permissions without starting a Run (310.057708ms)
+  ✔ exposes /authorize-web only when the web module is enabled (234.746125ms)
+  ✔ registers keyless Exa search when web search is enabled (199.513416ms)
+  ✔ always exposes /modules when every configurable module is disabled (168.543291ms)
+✔ TUI module configuration entry (913.864333ms)
+▶ parseTuiArgs
+  ✔ parses the optional transcript directory, thread, workspace, and modules (0.86575ms)
+  ✔ defaults optional capabilities to off (0.271ms)
+  ✔ parses config alongside the transcript directory and thread (0.192708ms)
+  ✔ leaves workspace dependency validation to the resolved configuration (0.129833ms)
+  ✔ rejects a missing workspace value (0.398041ms)
+  ✔ rejects unknown options and duplicate positional directories (0.135792ms)
+  ✔ rejects duplicate workspace options (0.108375ms)
+  ✔ rejects a missing or duplicate config path (0.154459ms)
+  ✔ rejects config together with module selection flags (0.333333ms)
+✔ parseTuiArgs (3.727208ms)
+✔ the CLI uses only the assistant package's public entries; test fixtures stay in tests (8.60375ms)
+▶ static TUI startup check
+  ✔ rejects unknown-hook during static automation validation without writing files (22.154833ms)
+  ✔ rejects missing-package during static automation validation without writing files (10.293375ms)
+  ✔ rejects wrong-hash during static automation validation without writing files (11.1615ms)
+  ✔ validates a pinned package and explicit hooks: [] without writing workspace, transcripts or package files (19.887292ms)
+  ✔ checks Computer config without launching the configured executable (3.201167ms)
+  ✔ reports the persistent home directory and unknown external state without creating files (1.942958ms)
+  ✔ blocks missing model credential and invalid configuration without leaking secrets (2.105334ms)
+  ✔ preserves stable explicit identity and rejects a file as transcript directory (3.1335ms)
+  ✔ shows configured data locations without creating a store or transcript directory (3.2615ms)
+✔ static TUI startup check (78.494167ms)
+▶ runTui
+  ✔ finishes startup Home after history and before the first prompt without a Run (4.841833ms)
+  ✔ keeps the TUI usable if startup Home rendering fails (2.47375ms)
+  ✔ renders committed history but sends exactly one new user message (13.988167ms)
+  ✔ does not reprint the last-step result after streaming deltas (2.083166ms)
+  ✔ reports a saved checkpoint when the Run fails after the write (2.08175ms)
+  ✔ does not report a checkpoint when save returns ok:false (0.660584ms)
+  ✔ rejects input while running, renders events, and returns idle only after result (4.363625ms)
+  ✔ cancels a running handle on Ctrl+C and waits for its result (6.33825ms)
+  ✔ reports a result rejection as a run completion failure (1.284375ms)
+  ✔ reports a completed edit_file action when the run fails afterward (2.023292ms)
+  ✔ renders scheduled model retries as transient run feedback (2.656208ms)
+  ✔ settles completed actions and unknown non-idempotent outcomes without replay (1.068667ms)
+  ✔ reports a started pomodoro when the run fails afterward (2.087833ms)
+  ✔ reports a created task when the run fails afterward (2.053875ms)
+  ✔ reports a rescheduled task when the run is failed afterward (1.953042ms)
+  ✔ reports a rescheduled task when the run is cancelled afterward (2.369583ms)
+  ✔ does not report a reschedule when the tool did not succeed (2.062708ms)
+  ✔ does not report a task when creation is denied or fails (1.787666ms)
+  ✔ reports a saved memory when the run fails afterward (0.885042ms)
+  ✔ does not report a memory when memory_add returns ok:false and the run fails (0.928958ms)
+  ✔ does not repeat a saved memory receipt when the run completes (1.310833ms)
+  ✔ exits when Ctrl+C is pressed while idle without submitting a run (0.294375ms)
+  ✔ dispatches idle slash commands with the complete argument string (1.912167ms)
+  ✔ redraws the idle prompt after a later module notification (1.691208ms)
+  ✔ aborts /resume without creating a Run and clears a late inspection result (3.238667ms)
+  ✔ clears /resume observation when the primary Run fails to start (2.638416ms)
+  ✔ waits for an async idle command before accepting the next line (3.668167ms)
+  ✔ restores the prompt after an async command notification, not before it (1.931875ms)
+  ✔ runs /workspace on the shared output without starting a run (6.678833ms)
+  ✔ treats unknown slash commands, including bare slash, as local errors (2.099375ms)
+  ✔ lets pending confirmation consume slash input before command dispatch (1.936083ms)
+  ✔ reports Busy for slash input while a run is starting (3.621375ms)
+  ✔ reports Busy for slash input while a run is active (4.893625ms)
+✔ runTui (96.658875ms)
+▶ createToolConfirmation
+  ✔ approval preview guard: delayed preview cannot be approved before publication (4.71675ms)
+  ✔ approval preview guard: whitespace is not ready, but denial remains available (0.7745ms)
+  ✔ approval replacement race: late old preview and stale decisions cannot approve the new call (2.085291ms)
+  ✔ resolves only the matching approval and rejects stale or repeated decisions (0.979917ms)
+  ✔ publishes the completed async preview and clears approval on cancellation (0.669333ms)
+  ✔ keeps approval pending when a UI observer throws (0.62975ms)
+  ✔ keeps memory tools on normal confirmation paths outside the consolidator read (0.65725ms)
+  ✔ keeps checkpoint reads and writes on normal y/n confirmation even with file authorization (0.702167ms)
+  ✔ allows pomodoro tools without asking for y or n (0.629708ms)
+  ✔ still rejects an already aborted pomodoro call (1.09675ms)
+  ✔ identifies a read_file path and explains where file contents go (1.312708ms)
+  ✔ shows shell command and workspace-relative cwd before confirmation (0.751875ms)
+  ✔ describes Docker sandbox isolation in the shell confirmation prompt (1.191875ms)
+  ✔ shows the complete write_file confirmation input as JSON fields (0.851ms)
+  ✔ shows the complete edit_file old and new text as JSON fields (0.694333ms)
+  ✔ supports an asynchronous custom confirmation prompt and keeps the default for other tools (0.71ms)
+  ✔ registers pending state before a synchronous prompt writer can answer (0.584292ms)
+  ✔ keeps invalid input pending and treats abort as cancellation, not denial (0.599542ms)
+  ✔ registers one pending confirmation before prompting and clears it on y or n (0.713334ms)
+✔ createToolConfirmation (20.759917ms)
+▶ runTui tool confirmation
+  ✔ executes a tool only after y and commits the completed transcript (40.124125ms)
+  ✔ turns n into a tool denial that the model can answer (21.688292ms)
+  ✔ cancels a pending confirmation without saving or executing the tool (10.136834ms)
+  ✔ keeps confirmation open beyond the Run budget and executes only after y (368.216833ms)
+  ✔ cancels a pending confirmation when stdin closes (7.666167ms)
+  ✔ cancels a run that is still starting when Ctrl+C arrives (3.383083ms)
+  ✔ keeps the TUI alive after Ctrl+C so the next run gets a fresh confirmation (28.300167ms)
+  ✔ asks again on a new turn even when the committed previous result was 42 (35.465292ms)
+  ✔ handles two tool calls one confirmation at a time (16.374458ms)
+✔ runTui tool confirmation (531.812834ms)
+▶ runTui read_file confirmation
+  ✔ reads the real workspace file after y and saves the answer (25.548625ms)
+  ✔ denies read_file on n while the model can answer without reading (15.619875ms)
+  ✔ does not read or save when confirmation is cancelled (9.909042ms)
+  ✔ keeps read_file unexecuted beyond the Run budget until n (375.49825ms)
+✔ runTui read_file confirmation (426.810083ms)
+▶ runTui write_file confirmation
+  ✔ does not create a file when the write is denied (14.656791ms)
+  ✔ does not create a file when confirmation is cancelled (8.614667ms)
+  ✔ keeps a completed write when the run fails afterward (13.110208ms)
+✔ runTui write_file confirmation (36.571125ms)
+▶ runTui checkpoint confirmation
+  ✔ shows expectedVersion and the full draft, then writes only after y (67.782042ms)
+  ✔ leaves no checkpoint file after n (13.047458ms)
+✔ runTui checkpoint confirmation (81.009667ms)
+▶ createToolConfirmation run-scoped authorization
+  ✔ allows normalized in-scope paths for explicitly authorized tools (0.844917ms)
+  ✔ does not widen authorization to tools outside the explicit whitelist (0.531083ms)
+  ✔ asks again for an out-of-scope normalized path and never executes it after denial (0.9335ms)
+  ✔ clears authorization when the Run ends and does not reuse it on the next Run (0.667375ms)
+  ✔ does not let an aborted Run leave an authorization active (0.777333ms)
+✔ createToolConfirmation run-scoped authorization (3.858333ms)
+▶ createToolConfirmation persistent authorization
+  ✔ allows every listed file tool under a persisted path scope (0.785167ms)
+  ✔ keeps path and tool boundaries under persisted authorization (0.703125ms)
+  ✔ does not clear persisted authorization when a Run ends (0.575167ms)
+  ✔ restores y/n after persisted rules are removed and the TUI is restarted (1.649542ms)
+  ✔ does not restore next-Run /authorize after a new confirmation is created (1.339917ms)
+✔ createToolConfirmation persistent authorization (5.1795ms)
+▶ createToolConfirmation sandbox shell authorization
+  ✔ allows shell calls for one Docker-sandboxed Run only (0.762208ms)
+  ✔ keeps host and unsandboxed shell on per-call confirmation (1.028625ms)
+  ✔ does not let shell authorization widen to file or other tools (0.5385ms)
+✔ createToolConfirmation sandbox shell authorization (2.399375ms)
+▶ createToolConfirmation web authorization
+  ✔ allows only exact authorized origins for one Run (7.103917ms)
+  ✔ does not reuse web authorization after the Run ends (0.821292ms)
+  ✔ rejects non-origin web authorization values (0.566042ms)
+  ✔ still prompts for feed_read after /authorize-web and honors n (0.798ms)
+  ✔ denies feed_read without another prompt after web_search is refused (0.514458ms)
+  ✔ denies later web_fetch without a prompt after web_search is refused (0.690583ms)
+  ✔ does not let /authorize-web bypass a denied web_search in the same Run (0.474458ms)
+  ✔ clears the search-denial latch when the Run ends (0.415292ms)
+  ✔ still asks for web_fetch after an approved web_search (0.385333ms)
+  ✔ does not latch web_fetch denial after an aborted search confirmation (0.385167ms)
+✔ createToolConfirmation web authorization (12.338042ms)
+▶ createConfiguredModel
+  ✔ rejects invalid connection configuration with INVALID_REQUEST (0.770792ms)
+  ✔ does not call the injected fetch while constructing a model (0.3045ms)
+  ✔ sends an OpenAI-compatible streaming request and parses text and usage (27.168416ms)
+  ✔ omits authorization when the API key is absent or blank (7.172625ms)
+✔ createConfiguredModel (36.144708ms)
+▶ afterToolCall hook
+  ✔ sees only this Run's messages ending with the completed result, and feedback reaches only the next request (41.154916ms)
+  ✔ a stop decision ends the Run after the completed call without another model request (6.989042ms)
+  ✔ a throwing hook or an invalid decision fails the Run as INTERNAL without replaying the tool (21.138042ms)
+✔ afterToolCall hook (70.19925ms)
+✔ cancel wait Demo: request-hangs settles on step-timeout without provider cooperation (43.315042ms)
+✔ cancel wait Demo: request-hangs settles on total-timeout without provider cooperation (101.510416ms)
+✔ cancel wait Demo: request-hangs settles on cancel without provider cooperation (1.670917ms)
+✔ cancel wait Demo: stream-hangs settles on step-timeout without provider cooperation (41.678291ms)
+✔ cancel wait Demo: stream-hangs settles on total-timeout without provider cooperation (101.935041ms)
+✔ cancel wait Demo: stream-hangs settles on cancel without provider cooperation (1.763458ms)
+✔ cancel wait Demo: a late next-step tool call never replays an already completed tool (10.409042ms)
+✔ finish corrections keep the same loop, original tool confirmation and remaining step budget (27.173042ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:435:27)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+✔ cancellation interrupts an unfinished completion check without another model request (8.39425ms)
+▶ AiSdkAgentLoop
+  ✔ does not call the model after cancellation during step setup (0.507417ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:470:88)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:485:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+Error: provider wrapper
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:512:27)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    ... 6 lines matching cause stack trace ...
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  [cause]: Error: dns lookup failed
+      at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:509:56)
+      at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+      at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+      at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+      at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+      at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+      at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+    code: 'ENOTFOUND'
+  }
+}
+  ✔ retries a transient model request within the same step (10.021917ms)
+  ✔ does not retry a host-declared one-shot Agent even for an empty transient failure (1.152458ms)
+  ✔ keeps model retries disabled unless the caller opts in (0.677167ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:538:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+  ✔ retries a model request when the network error is nested in cause (10.809167ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:538:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:538:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 401
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:560:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 401,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: false,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 403
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:581:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 403,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: false,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 429
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:604:27)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 429,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+  ✔ exhausts transient model retries at the configured attempt count (5.793167ms)
+  ✔ does not retry authentication failures (0.787042ms)
+  ✔ does not retry forbidden responses (0.775458ms)
+APICallError [AI_APICallError]: HTTP 408
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:631:31)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 408,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+  ✔ retries a rate-limited model request (13.029791ms)
+APICallError [AI_APICallError]: HTTP 502
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:631:31)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 502,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 501
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:657:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 501,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 400
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:679:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 400,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+Error: provider wrapper
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:702:27)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    ... 6 lines matching cause stack trace ...
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  [cause]: APICallError [AI_APICallError]: HTTP 503
+      at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+      at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:702:66)
+      at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+      at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+      at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+      at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+      at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+      at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+    cause: undefined,
+    url: 'https://model.test/v1/chat/completions',
+    requestBodyValues: {},
+    statusCode: 503,
+    responseHeaders: undefined,
+    responseBody: undefined,
+    isRetryable: true,
+    data: undefined,
+    Symbol(vercel.ai.error): true,
+    Symbol(vercel.ai.error.AI_APICallError): true
+  }
+}
+  ✔ retries HTTP 408 and 502 as unavailable (19.052417ms)
+  ✔ does not retry HTTP 501 even when the SDK marks it retryable (1.461917ms)
+  ✔ does not retry HTTP 400 even when the SDK marks it retryable (2.150959ms)
+  ✔ retries a nested APICallError from the cause chain (11.416167ms)
+  ✔ retries an empty model step timeout (49.110292ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:775:53)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+  ✔ does not retry after a partial model output (5.2405ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:812:53)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+  ✔ does not retry after a tool call is requested (3.872833ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:848:53)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:875:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+  ✔ does not retry after a tool-input-start chunk (5.150291ms)
+  ✔ stops before the next model attempt when cancelled during retry delay (0.906208ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:904:27)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+  ✔ does not repeat a successful tool when the following model step retries (12.204125ms)
+  ✔ stops after an unknown outcome from a non-idempotent tool (4.898334ms)
+  ✔ stops after a non-idempotent tool times out without a result (15.755125ms)
+  ✔ does not execute later tool calls after an unknown outcome (7.183833ms)
+  ✔ keeps an explicit non-idempotent tool failure as a known result (12.129166ms)
+  ✔ prepares a cloned transcript for the model (12.249084ms)
+  ✔ fails before the model when context preparation returns a non-array (0.489834ms)
+  ✔ preserves a context preparation AgentError (0.154917ms)
+  ✔ stops waiting for context preparation when the run is aborted (0.119292ms)
+  ✔ allows an empty response with a normal stop finish reason (2.488834ms)
+  ✔ rejects inconsistent and unsupported finish reasons before tool execution (24.2555ms)
+  ✔ does not execute a legal tool call when the model output is truncated (5.554667ms)
+  ✔ owns the model-tool-model loop and executes multiple calls sequentially (14.656166ms)
+  ✔ feeds the SDK-marked invalid tool input back without executing the tool (16.989542ms)
+  ✔ lets the model correct a case-sensitive argument without bypassing approval or replaying the invalid call (16.846792ms)
+  ✔ invalid-input diagnostic: wrong kind with text present without leaking input or revalidating (15.24ms)
+  ✔ invalid-input diagnostic: wrong sourceQuote type without leaking input or revalidating (19.735958ms)
+  ✔ invalid-input diagnostic: missing text without leaking input or revalidating (20.015375ms)
+  ✔ invalid-input diagnostic: root field combination without leaking input or revalidating (14.701166ms)
+  ✔ invalid-input diagnostic: malformed JSON without leaking input or revalidating (15.416666ms)
+  ✔ invalid-input diagnostic: untrusted field name without leaking input or revalidating (15.248834ms)
+  ✔ feeds a tool execution error back to the model and continues (10.736083ms)
+  ✔ fails the run when an idempotent tool throws CONTEXT_PREPARE_FAILED (5.721458ms)
+  ✔ fails an unknown tool without calling the precheck (7.951167ms)
+  ✔ runs the precheck on a cloned input and passes through context (11.947833ms)
+  ✔ denies a tool call as a tool result and continues the loop (12.149125ms)
+  ✔ checks same-step tools in order and continues after denying one (13.640875ms)
+  ✔ fails the run when the precheck throws or returns an invalid decision (32.265ms)
+  ✔ preserves a TOOL_PRECHECK_FAILED thrown by the precheck (4.989708ms)
+  ✔ stops waiting for a precheck when the run is aborted (5.948625ms)
+  ✔ does not apply the tool timeout while the precheck is waiting (39.902459ms)
+  ✔ feeds a tool timeout back to the model with its timeout reason (23.784208ms)
+  ✔ does not execute a tool after cancellation during tool setup (5.990417ms)
+  ✔ does not let a model step timeout cut off an already running tool (163.5645ms)
+  ✔ stops waiting for a tool when the run is aborted (10.308417ms)
+  ✔ fails instead of completing a partial transcript at maxSteps (4.643292ms)
+✔ AiSdkAgentLoop (744.047041ms)
+▶ beforeToolExecute Runtime integration
+  ✔ saves the original request and unknown receipt while the Run remains failed (5.776167ms)
+  ✔ does not save when beforeToolExecute fails in the real runtime loop (7.063792ms)
+  ✔ does not save when cancelling a pending beforeToolExecute in the real runtime loop (6.581458ms)
+  ✔ does not spend the run timeout while beforeToolExecute awaits approval (259.573667ms)
+✔ beforeToolExecute Runtime integration (279.400292ms)
+APICallError [AI_APICallError]: context length exceeded: input 42000 tokens
+    at TestContext.<anonymous> (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:2613:22)
+    at Test.runInAsyncScope (node:async_hooks:226:14)
+    at Test.run (node:internal/test_runner/test:1382:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    at Suite.postRun (node:internal/test_runner/test:1522:19)
+    at Suite.run (node:internal/test_runner/test:1885:10)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+  cause: undefined,
+  url: 'https://fixture.invalid',
+  requestBodyValues: {},
+  statusCode: 400,
+  responseHeaders: undefined,
+  responseBody: '{"error":{"code":"context_length_exceeded","input_tokens":42000}}',
+  isRetryable: false,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: input too long: input 42000 tokens
+    at TestContext.<anonymous> (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:2642:23)
+    at Test.runInAsyncScope (node:async_hooks:226:14)
+    at Test.run (node:internal/test_runner/test:1382:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    at Test.postRun (node:internal/test_runner/test:1522:19)
+    at Test.run (node:internal/test_runner/test:1447:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+  cause: undefined,
+  url: 'https://fixture.invalid',
+  requestBodyValues: {},
+  statusCode: 400,
+  responseHeaders: undefined,
+  responseBody: '{"error":{"code":"context_length_exceeded","input_tokens":42000}}',
+  isRetryable: false,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: input too long: input 42000 tokens
+    at TestContext.<anonymous> (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:2642:23)
+    at Test.runInAsyncScope (node:async_hooks:226:14)
+    at Test.run (node:internal/test_runner/test:1382:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    at Test.postRun (node:internal/test_runner/test:1522:19)
+    at Test.run (node:internal/test_runner/test:1447:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+  cause: undefined,
+  url: 'https://fixture.invalid',
+  requestBodyValues: {},
+  statusCode: 400,
+  responseHeaders: undefined,
+  responseBody: '{"error":{"code":"context_length_exceeded","input_tokens":42000}}',
+  isRetryable: false,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+✔ provider overflow recalibrates once and never replays a tool already completed in the Run (23.572708ms)
+APICallError [AI_APICallError]: input too long: input 42000 tokens
+    at TestContext.<anonymous> (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:2642:23)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async Test.run (node:internal/test_runner/test:1389:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+  cause: undefined,
+  url: 'https://fixture.invalid',
+  requestBodyValues: {},
+  statusCode: 400,
+  responseHeaders: undefined,
+  responseBody: '{"error":{"code":"context_length_exceeded","input_tokens":42000}}',
+  isRetryable: false,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+✔ a second overflow or an overflow after visible output fails without another dispatch (14.979375ms)
+✔ steer waits for in-flight model, suppresses every stale call and preserves model tool pairing (35.34725ms)
+✔ steer revokes waiting approval without cancelling Run or granting the stale tool (19.685583ms)
+✔ steer lets dispatched tool settle then suppresses remaining stale batch (16.920083ms)
+✔ steer during the awaited start persistence barrier cannot dispatch stale effect (16.472458ms)
+✔ steer accepted during finish check is applied before terminal seal, late requests remain unapplied (18.542875ms)
+✔ steer never increases step budget and exhausted request has not_applied receipt (7.764167ms)
+✔ cancellation retains an accepted not_applied receipt without dispatch or second model (1.530417ms)
+✔ normalization preserves provider cache read/write, keeps absence unknown and preserves reported zero (0.712791ms)
+✔ aggregates only fully reported fields instead of treating a missing step as zero (0.101125ms)
+✔ registers nine distinct cases with a required human outcome (0.754375ms)
+✔ verifies a captured artifact without passing its human quality check (5.850667ms)
+✔ keeps an unprovided assertion unrun and checks a denied target snapshot (3.094041ms)
+✔ compares captured pre/post task fields without accepting missing fields (9.380208ms)
+✔ does not let operator expectations invert fixed refusal or reschedule criteria (2.558125ms)
+✔ blocks unsafe or malformed evidence rather than reading outside the attempt (1.899583ms)
+✔ records one reviewed attempt with automatic evidence and keeps later attempts separate (104.588292ms)
+✔ redacts configured secrets before computing an acceptance config digest (54.749792ms)
+▶ acceptance report
+  ✔ keeps the first failed required check even if later work is blocked (0.371542ms)
+  ✔ writes JSON and Markdown once and keeps separate attempts (10.952916ms)
+  ✔ does not record passed when a required check failed or lacks evidence (0.9245ms)
+  ✔ requires a classified failure before saving a failed attempt (1.108792ms)
+  ✔ rejects traversal and symlinked evidence (3.014625ms)
+✔ acceptance report (17.081875ms)
+✔ production five-layer runtime persists references, reopens the same prefix, reads documents and overflow without approval (1159.994333ms)
+✔ snapshot budgets include whole serialized entries, pin priority and temporal scope, without deleting overflow (0.874416ms)
+✔ memory reads recheck disabled documents and retracted overflow instead of returning stale bodies (334.411042ms)
+✔ M1 extraction rules fit the existing instruction budget without a consolidation Skill (0.3885ms)
+▶ createRuntimeApp
+  ✔ receipt file sync failure prevents model dispatch and a later Run in the real runtime (305.494208ms)
+  ✔ receipt directory sync failure prevents model dispatch and a later Run in the real runtime (325.662417ms)
+  ✔ preserves an injected timer across app reassembly, disabled modules and Thread changes (23.970125ms)
+  ✔ has one conversation memory writer with autoConsolidate false (122.3125ms)
+  ✔ has one conversation memory writer with autoConsolidate true (127.723583ms)
+  ✔ supplies research delivery checks only with enabled capabilities ({"web":false,"search":false,"files":true}) (82.703542ms)
+  ✔ supplies research delivery checks only with enabled capabilities ({"web":true,"search":false,"files":true}) (98.870625ms)
+  ✔ supplies research delivery checks only with enabled capabilities ({"web":true,"search":true,"files":true}) (86.361625ms)
+  ✔ supplies research delivery checks only with enabled capabilities ({"web":true,"search":false,"files":false}) (80.5775ms)
+  ✔ runs Computer reads automatically and denies actions before driver dispatch (800.058333ms)
+  ✔ sends current memory after obsolete empty-selection answers without persisting the reference (compaction false) (285.716708ms)
+  ✔ reports reference selection failure instead of the previous successful preparation (compaction false) (191.96775ms)
+  ✔ sends current memory after obsolete empty-selection answers without persisting the reference (compaction true) (265.491625ms)
+  ✔ reports reference selection failure instead of the previous successful preparation (compaction true) (189.268958ms)
+  ✔ assembles the demo runtime without TUI surfaces and runs one turn (81.319875ms)
+  ✔ assembles TUI surfaces from an explicit config and writes command output to the given stream (5.803167ms)
+  ✔ applies a configured total timeout to the primary TUI Run (94.248458ms)
+  ✔ forwards configured Shell progress before the final tool result (283.108375ms)
+✔ createRuntimeApp (3453.044ms)
+✔ two assistants assembled in one process keep their data apart (180.270833ms)
+✔ structured assembly rejects the same combinations as the CLI flags (0.730375ms)
+✔ createRuntimeApp refuses a contradictory structured assembly before touching disk (1.54775ms)
+▶ AssistantController
+  ✔ records a real pending confirmation once and restores its timestamp after restart (1542.273542ms)
+  ✔ persists WorkTask memory exclusion across restart without excluding later ordinary chat (4885.187083ms)
+  ✔ drives the assembled Runtime and commits a demo turn (1812.985542ms)
+  ✔ fails closed before model execution when recovery records are corrupt (119.370875ms)
+  ✔ does not recover a WorkTask Thread already owned through another transcript directory (373.561958ms)
+  ✔ keeps WorkTask completion separate from a successful Run (679.277291ms)
+  ✔ recovers an unknown task Run for explicit reconciliation without replay (697.881583ms)
+  ✔ accepts an automatic Shell criterion only from this task's exact zero-exit receipt (1270.426667ms)
+  ✔ does not accept a pre-existing artifact without this task's successful write receipt (628.996125ms)
+  ✔ snapshots a verified artifact only after a successful task-owned write receipt (818.992167ms)
+  ✔ cancels a Run requested during startup once its handle arrives (2.278417ms)
+  ✔ keeps an asynchronous command busy until it settles (0.501125ms)
+  ✔ restores the pending approval in a snapshot and rejects a stale approval ID (0.189875ms)
+  ✔ exposes a pending approval before its asynchronous preview resolves (1.690833ms)
+  ✔ reports a failed command in its response instead of ok (0.228708ms)
+  ✔ bounds activity retained for a renderer reload (0.074542ms)
+  ✔ keeps a bounded completed tool receipt when the view reloads (0.763ms)
+  ✔ failure activity Demo preserves returned failure before truncation and a completed Run cannot overwrite it (1.696333ms)
+  ✔ failure activity Demo retains unknown effects from structured outputs and failed events (3.043917ms)
+  ✔ forwards live shell output only while its Run is active (1.876416ms)
+  ✔ waits for active Run cancellation before disposing the app (0.580417ms)
+✔ AssistantController (12843.764167ms)
+▶ automation hooks
+  ✔ selects registered skill requests in rule order with host lifecycle identity (3.064041ms)
+  ✔ changes matching by configuration and uses equality rather than regex (1.260167ms)
+  ✔ never recurses from consolidation or other auxiliary agent completion (0.607541ms)
+  ✔ preserves explicit empty configuration and disabled rules without fallback (0.3415ms)
+  ✔ rejects unknown skills including disabled rules and duplicate rule identities (0.53675ms)
+  ✔ rejects unsupported events, handlers, matcher fields and incompatible combinations (1.323917ms)
+  ✔ snapshots validated configuration instead of retaining mutable inputs (0.14425ms)
+✔ automation hooks (8.244458ms)
+▶ v2 pilot baseline: assembled tools, instructions and capability report
+  ✔ minimal assembly matches __baseline__/assembly-minimal.txt (104.960334ms)
+  ✔ full assembly matches __baseline__/assembly-full.txt (79.77225ms)
+  ✔ full-without-todoist assembly matches __baseline__/assembly-full-without-todoist.txt (91.750084ms)
+  ✔ full assembly in the autonomous desktop foreground matches __baseline__/assembly-full-desktop-autonomous.txt (100.1715ms)
+  ✔ the two full assemblies differ only by Todoist-owned content (1.022209ms)
+✔ v2 pilot baseline: assembled tools, instructions and capability report (379.147417ms)
+▶ v2 pilot baseline: persisted hash golden samples
+  ✔ every reachable persisted hash matches __baseline__/hashes.json (176.759625ms)
+✔ v2 pilot baseline: persisted hash golden samples (177.634583ms)
+▶ v2 pilot baseline: CLI Home text
+  ✔ renderHome matches __baseline__/home.txt for every branch (23.945916ms)
+  ✔ step 3: the structured snapshot is the single source of that text (fixture for the desktop panel) (3.381792ms)
+  ✔ an assembled app writes the same Home text it renders, with live stores (17.085292ms)
+✔ v2 pilot baseline: CLI Home text (45.399042ms)
+▶ v2 pilot baseline: data paths
+  ✔ path constants, an assembled workspace and the demo temp dir match __baseline__/paths.txt (271.164708ms)
+✔ v2 pilot baseline: data paths (271.828625ms)
+▶ v2 pilot baseline: receipt and verifier invariants (current behavior)
+  ✔ I1 path consistency: only a receipt for the exact requested path counts (15.212ms)
+  ✔ I2 content hash: current bytes must match the receipt's SHA-256 and length (16.960416ms)
+  ✔ I3 readback: a matching read_file must come after the latest write (14.270584ms)
+  ✔ I4 a later failure invalidates an earlier success (9.357792ms)
+  ✔ I5 shell evidence: exit code 0, untruncated, no timeout or cancellation, exact command and cwd (27.235041ms)
+  ✔ unknown outcomes and interrupted Runs block instead of failing or passing (4.045375ms)
+✔ v2 pilot baseline: receipt and verifier invariants (current behavior) (88.877125ms)
+✔ validates bounded inline bytes and rejects paths, remote URLs, corrupt encodings and binary text (3.332292ms)
+✔ images use a bounded token estimate and compaction never serializes image bytes as prose (0.433ms)
+✔ real Controller sends image bytes and text content to the model adapter and reopens the same committed attachments (1657.077875ms)
+▶ WorkspaceCheckpointStore
+  ✔ creates v1, advances versions, and retrieves retained history with a stable id (160.144917ms)
+  ✔ persists a program-supplied Git pin but never inherits it on the next version (151.637208ms)
+  ✔ omits invalid or oversized program pins without rejecting a valid draft (158.732792ms)
+  ✔ fails closed on a malformed stored Git pin (127.565ms)
+  ✔ drops the oldest retained version once history is full (665.092666ms)
+  ✔ allows only one concurrent write using the same expected version (162.407209ms)
+  ✔ rejects oversized content without changing the current version (63.957459ms)
+  ✔ rejects a snapshot whose serialized model-context message exceeds the injection limit (46.642708ms)
+  ✔ fails closed on corrupt data and never overwrites it (105.407667ms)
+  ✔ rejects files above the read limit without parsing or rewriting them (1.842833ms)
+  ✔ does not create a checkpoint when the save is already cancelled (1.310958ms)
+✔ WorkspaceCheckpointStore (1645.957917ms)
+▶ Computer Controller fault boundaries (controlled driver, not native desktop)
+  ✔ retains honest receipts and never replays after deny on desktop (3457.675083ms)
+  ✔ retains honest receipts and never replays after cancel-approval on desktop (2554.406958ms)
+  ✔ retains honest receipts and never replays after disconnect on desktop (2559.937625ms)
+  ✔ retains honest receipts and never replays after cancel-dispatched on desktop (2793.703917ms)
+  ✔ retains honest receipts and never replays after deny on telegram (3360.126541ms)
+  ✔ retains honest receipts and never replays after cancel-approval on telegram (2597.651375ms)
+  ✔ retains honest receipts and never replays after disconnect on telegram (2650.77425ms)
+  ✔ retains honest receipts and never replays after cancel-dispatched on telegram (2398.093125ms)
+✔ Computer Controller fault boundaries (controlled driver, not native desktop) (22373.689583ms)
+✔ restricts native fixture approvals to a fresh exact TextEdit area and one marker (0.499791ms)
+✔ background handoff times out without treating cancellation request as completion (10.828792ms)
+✔ extraction thresholds share the effective-window baseline and stay below the block (0.635167ms)
+✔ background extraction commits memory with progress and never appends a synthetic Run (371.407792ms)
+✔ primary filtering removes a complete extraction turn, not user-authored JSON or neighboring replies (0.74975ms)
+▶ consolidateMessages
+  ✔ returns the most recent eight user-started turns by default (0.373ms)
+  ✔ excludes auto-consolidation turns before selecting the most recent eight turns (0.126167ms)
+  ✔ keeps ordinary turns that use other message metadata (0.071125ms)
+  ✔ uses the requested number of recent turns and returns all available turns when fewer exist (0.081958ms)
+  ✔ does not make prefix messages into a turn (0.085791ms)
+  ✔ returns user text only and drops assistant text and tool output (0.0845ms)
+  ✔ drops empty and pure-tool messages without backfilling an omitted turn (0.075834ms)
+  ✔ returns an empty result for an empty transcript (0.064167ms)
+  ✔ rejects turns outside the supported range (0.10375ms)
+✔ consolidateMessages (1.863417ms)
+▶ selectIncrementalConsolidationTurns
+  ✔ bootstraps only the latest eight ordinary turns (0.687208ms)
+  ✔ selects every eligible turn after the latest committed marker (0.366041ms)
+  ✔ does not advance the cursor for missing, failed, denied, or repeated preparation (0.269083ms)
+  ✔ bootstraps recent ordinary turns when no successful preparation exists (0.073708ms)
+  ✔ excludes a turn that explicitly used any memory tool (0.061333ms)
+  ✔ returns assistant and bounded completed-tool evidence (0.371792ms)
+  ✔ omits pending tool calls and empty user turns (0.050333ms)
+✔ selectIncrementalConsolidationTurns (2.076042ms)
+▶ findCommittedUserMessage
+  ✔ honors the program-owned opt-out in every material/source helper (0.125292ms)
+  ✔ resolves a committed user message by id even outside the recent proposal window (0.056458ms)
+  ✔ does not attribute assistant, tool, or auto-consolidation text to the user (0.1995ms)
+  ✔ rejects ambiguous duplicate message ids (0.035458ms)
+  ✔ accepts only an exact substring quote (0.049ms)
+✔ findCommittedUserMessage (0.534417ms)
+✔ five-layer references persist only on new messages, remain stable after reopen and refresh at a boundary (10.40275ms)
+✔ foreground original is restored only after compaction, and complete old tool output is never clipped (0.321458ms)
+✔ foreground retains unpublished complete blocks without model wait below the hard trigger; cancellation never publishes (38.067166ms)
+✔ a null tip boundary remains valid after append while a changed covered prefix fails closed (18.048125ms)
+✔ privacy exclusions survive restart, preserve original chat and redact memory, snapshots, search and numbered reads (297.146958ms)
+✔ oversized messages and tool outputs keep head/tail plus a numbered range placeholder without changing originals (17.372916ms)
+✔ oversized leading assistant and user material is extracted chronologically in exact fragments; cursor waits for the final fragment (1129.535583ms)
+✔ background installs one bounded segment per item and folds the fifth into a bounded dated index at both windows (479.083ms)
+✔ a complete proportional block below the physical window retains every ordinary source byte (21.120583ms)
+✔ extraction gives the model its exact schema and accepts one complete fenced JSON response without a retry (79.070375ms)
+✔ overflow checklist reads page through filtered receipts, including uncommitted unknown effects (621.816792ms)
+▶ context budget
+  ✔ uses decimal daily/long-task input ceilings independent of physical window reserves (0.53975ms)
+  ✔ validates new ratios, chunk size and physical-model ceiling without changing legacy input math (0.144583ms)
+  ✔ uses the replaceable char-half estimator and counts message overhead (0.187125ms)
+  ✔ rejects a configuration that leaves no valid recent or fixed-input budget (0.141208ms)
+  ✔ keeps a tool call and its later result in one compaction unit (0.595875ms)
+  ✔ keeps history as complete turns and splits the current turn safely (0.190209ms)
+  ✔ selects a contiguous recent suffix without splitting a unit (0.241417ms)
+✔ context budget (2.86525ms)
+﹣ live DeepSeek summary JSON installs a compaction record (0.4515ms) # SKIP
+﹣ live context mode Demo: daily compacts forecast-sized history with the configured provider (0.077625ms) # SKIP
+﹣ live context mode Demo: long-task compacts forecast-sized history with the configured provider (0.057375ms) # SKIP
+✔ retains a same-Run tool result until background publication and restores JSONL layers (95.6645ms)
+✔ cancelled automatic summary does not persist a partial record (10.681792ms)
+✔ Demo: daily retains unpublished full-size JSONL history, drains one background call per block, and reopens without replay (230.258292ms)
+✔ Demo: long-task retains unpublished full-size JSONL history, drains one background call per block, and reopens without replay (434.298209ms)
+✔ unknown write failure retains the original request and receipt in the next request, compaction and cold restart (32768) (326.640875ms)
+✔ unknown write failure retains the original request and receipt in the next request, compaction and cold restart (1000000) (177.818959ms)
+✔ passes the fixed budget and finish reason through the real SDK summarizer boundary (22.008708ms)
+▶ parseContextSummary
+  ✔ explicitly requests the top-level version and still rejects its omission (0.963292ms)
+  ✔ accepts DeepSeek-shaped JSON that omits evidence ids and file text (1.097917ms)
+  ✔ extracts a JSON object from markdown with trailing prose (0.499ms)
+  ✔ coerces version string 2 (0.12025ms)
+  ✔ rejects an empty goal even when fallback ids exist (0.270875ms)
+  ✔ rejects malformed entries instead of silently dropping constraints or decisions (0.221417ms)
+  ✔ rejects omitted sections instead of treating them as empty (0.191125ms)
+  ✔ does not invent a summary when JSON is truncated (0.063584ms)
+✔ parseContextSummary (3.831541ms)
+✔ write_file restart checklist reads an uncommitted unknown effect from real receipts and masks retained old attachments (287.26725ms)
+CM_STEP6_METRICS {"case":"C5 essential summary overflow","at":"2026-10-31T16:55:54.606Z","outcome":"reused","compactionId":"saturated","estimatedInputTokens":22626,"error":null,"summaryLayer":{"tokens":1853,"checklistTokens":409,"budget":1248,"borrowedTokens":606,"borrowLimitTokens":2496,"requiredBorrowTokens":606,"reduction":{"originalTokens":1519,"requiredTokens":1445,"budget":839,"reducedSegments":4,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["input_limit","summary_overflow","checklist_overflow"],"borrowedTokens":606,"borrowLimitTokens":2496,"requiredBorrowTokens":606,"maskedOriginalTokens":3364,"maskedFromMessageId":"u2","checklistTokens":405,"sectionBudget":208,"maskedThroughMessageId":"u2","emergencyMasking":[{"trigger":"input_threshold","ranges":[{"fromMessageId":"u2","throughMessageId":"u2"}]}]},"modelCalls":0}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":32768,"exceeds":true,"at":"2026-10-31T16:55:54.613Z","outcome":"failed","compactionId":"cap","estimatedInputTokens":4482,"error":{"code":"CONTEXT_PREPARE_FAILED","message":"Essential continuation exceeds the capped C5 allocation after masking; original journal retained"},"summaryLayer":{"tokens":4044,"checklistTokens":161,"budget":1248,"borrowedTokens":2496,"borrowLimitTokens":2496,"requiredBorrowTokens":2797,"reduction":{"originalTokens":3851,"requiredTokens":3884,"budget":1087,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["input_limit","summary_overflow","checklist_overflow"],"borrowedTokens":2496,"borrowLimitTokens":2496,"requiredBorrowTokens":2797,"maskedOriginalTokens":49885,"maskedFromMessageId":"failure-request","checklistTokens":10169,"sectionBudget":208,"maskedThroughMessageId":"failure-198","emergencyMasking":[{"trigger":"input_threshold","ranges":[{"fromMessageId":"failure-request","throughMessageId":"failure-198"}]}]}}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":32768,"exceeds":false,"at":"2026-10-31T16:55:54.620Z","outcome":"reused","compactionId":"cap","estimatedInputTokens":3482,"error":null,"summaryLayer":{"tokens":3044,"checklistTokens":161,"budget":1248,"borrowedTokens":1797,"borrowLimitTokens":2496,"requiredBorrowTokens":1797,"reduction":{"originalTokens":2851,"requiredTokens":2884,"budget":1087,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["input_limit","summary_overflow","checklist_overflow"],"borrowedTokens":1797,"borrowLimitTokens":2496,"requiredBorrowTokens":1797,"maskedOriginalTokens":49885,"maskedFromMessageId":"failure-request","checklistTokens":10169,"sectionBudget":208,"maskedThroughMessageId":"failure-198","emergencyMasking":[{"trigger":"input_threshold","ranges":[{"fromMessageId":"failure-request","throughMessageId":"failure-198"}]}]}}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":1000000,"exceeds":true,"at":"2026-10-31T16:55:54.627Z","outcome":"failed","compactionId":"cap","estimatedInputTokens":86483,"error":{"code":"CONTEXT_PREPARE_FAILED","message":"Essential continuation exceeds the capped C5 allocation after masking; original journal retained"},"summaryLayer":{"tokens":36300,"checklistTokens":161,"budget":12000,"borrowedTokens":24000,"borrowLimitTokens":24000,"requiredBorrowTokens":24301,"reduction":{"originalTokens":36107,"requiredTokens":36140,"budget":11839,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["summary_overflow","checklist_overflow"],"borrowedTokens":24000,"borrowLimitTokens":24000,"requiredBorrowTokens":24301,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":10169,"sectionBudget":2000,"maskedThroughMessageId":null,"emergencyMasking":[]}}
+CM_STEP6_METRICS {"case":"C5 capped borrow","window":1000000,"exceeds":false,"at":"2026-10-31T16:55:54.631Z","outcome":"reused","compactionId":"cap","estimatedInputTokens":85483,"error":null,"summaryLayer":{"tokens":35300,"checklistTokens":161,"budget":12000,"borrowedTokens":23301,"borrowLimitTokens":24000,"requiredBorrowTokens":23301,"reduction":{"originalTokens":35107,"requiredTokens":35140,"budget":11839,"reducedSegments":1,"compacted":true,"indexDuplicateLines":0}},"degradation":{"reasons":["summary_overflow","checklist_overflow"],"borrowedTokens":23301,"borrowLimitTokens":24000,"requiredBorrowTokens":23301,"maskedOriginalTokens":1,"maskedFromMessageId":null,"checklistTokens":10169,"sectionBudget":2000,"maskedThroughMessageId":null,"emergencyMasking":[]}}
+✔ terminal_exec restart checklist reads an uncommitted unknown effect from real receipts and masks retained old attachments (256.745125ms)
+✔ retains the last eight completed receipts plus rollup, unknown and denied effects without losing originals (1.610375ms)
+✔ compacts interleaved successful reads and edits, without turning reads into saved file evidence (0.45025ms)
+✔ asks the summarizer for evidenced values without an empty JSON template (0.464917ms)
+✔ background compacts only uncovered blocks, publishes bounded action receipts, and restores without dispatch (21.820041ms)
+✔ background excludes synthetic extraction turns while hashes remain bound to the physical prefix (5.800042ms)
+✔ invalid, empty, length-truncated and oversized background summaries never advance and never retry the item (24.648875ms)
+✔ recorded array shape failures normalize only collection containers and retain remaining semantic failures (23.715167ms)
+✔ recorded CE03/CE05 proportional overflows preserve essentials, trim index topics and publish without retry (471.9775ms)
+✔ changed source or exclusions invalidate all derived layers, including a source after the old boundary (21.368708ms)
+✔ source changes during background work discard the model result before persistence (7.91825ms)
+✔ diagnostics remain read-only, preserve unknown usage, and fail visibly on read errors (10.005125ms)
+✔ foreground counts the supplied fixed prefix once, clips a single oversized message, and rejects fixed overflow (30.045583ms)
+✔ host reconciliation rejects invented success/files/evidence and retains denied, failed, unknown and unexecuted actions (0.581667ms)
+✔ an oversized checklist stays within its section and total summary budget with an explicit numbered overflow reference (13.60525ms)
+✔ reusing an old summary rebuilds a checklist with the current permission snapshot (17.82625ms)
+✔ reported provider overflow recalibrates a single oversized current message when there is no additional safe block (24.4285ms)
+✔ C5 preserves oversized essential legacy continuation using unused recent capacity without a model call (2.174667ms)
+✔ CE05 1248 total minus literal unknown request checklist retains goals, confirmed decisions, pending and permissions (1.475875ms)
+✔ C5 masks the oldest complete block for excess essential summary tokens while keeping goals, decisions, pending and permissions (36.585042ms)
+✔ C5 caps borrowing at half of recent capacity, masks through the oldest blocks, and records both overflow causes (24.827917ms)
+✔ C5 retains opaque far-index contents instead of hiding possibly essential clauses (0.42125ms)
+✔ recorded single-object constraints normalize while essential overflow uses C5 and invalid semantics still fail (21.665375ms)
+✔ C5 emergency masking preserves the current request, Steer and the latest complete split tool unit (45.455584ms)
+✔ C5 oversized protected floor clips only the provider view and continues with the result's original message ID (1310.768416ms)
+✔ continuity failure preserves the matching child cause, not just process exited 1 (0.701833ms)
+✔ WorkTask continuity requires latest primary ownership and leaves quality unaccepted (18.691584ms)
+✔ continuity fixture approves only the exact task artifact, never protected paths or shell (0.248875ms)
+✔ continuity requires a successful read before the first successful edit, not merely completed calls (0.276541ms)
+✔ summary evidence requires an actual assistant reference, not a mention in a user or compactor prompt (0.251416ms)
+✔ continuity requires a successful fresh read after editing, not a pre-edit or failed read (0.496625ms)
+✔ reminder creation replay survives restart and due time; changed payload never reuses a key (351.231542ms)
+✔ recurring and once share a key namespace; a new operation can intentionally duplicate content (242.199208ms)
+✔ work task create is atomic and replayable across Store instances, Thread and payload are bound (285.511291ms)
+▶ createDemoModel
+  ✔ reads the structured current-turn result instead of matching serialized text (6.89525ms)
+  ✔ turns a structured denial into a model answer (6.58275ms)
+  ✔ does not let a previous turn's result suppress a new tool call (4.787208ms)
+✔ createDemoModel (19.4695ms)
+✔ only the offline demo model is marked for the demo add tool (0.124334ms)
+✔ b2 applies deepest directory permissions, protected controls, selection and revocation to real file tools (91.528917ms)
+✔ b2 native Seatbelt uses the same directory declarations and rejects boundary escapes and new hardlinks (793.793458ms)
+✔ b2 reloads persistent grants before the next request and protects their configuration (12.704292ms)
+✔ b2 native Git can read controls and commit but cannot rewrite controls or read credentials (724.006375ms)
+✔ b2 resolves Git controls from target ancestors including gitfile and commondir (18.566916ms)
+✔ b2 protects real nested submodule controls and preserves main repository config branch commits (2919.356959ms)
+✔ an instance without an authorized directory cannot register file tools or enable a foreign grant (111.233958ms)
+▶ host-managed dreaming experience skills
+  ✔ reads without creating a store; learns, recalls across threads, replays and survives restart (148.003625ms)
+  ✔ invalid, cancelled, changed or fabricated batches never consume experience (56.079292ms)
+  ✔ preserves uncertain commit acknowledgement when foreground cancellation follows rename (114.345041ms)
+  ✔ requires explicit required human acceptance, latest owned completed Run and no unknown effects (7.51125ms)
+  ✔ CAS disable prevents selection; new learned versions do not undo disable; restore creates a new revision (369.819209ms)
+  ✔ still lets the user disable a selected method when content history is full (754.695ms)
+  ✔ rechecks source receipts on each selection and never silently treats a corrupt file as empty (135.025417ms)
+  ✔ archives accepted evidence atomically and survives receipt retention plus service restart (216.140542ms)
+  ✔ refuses corrupt archives and does not repair missing live tasks or failed receipt reads (74.229042ms)
+  ✔ reads v1 without writing or inventing evidence and archives a live legacy source on explicit enable (130.791416ms)
+  ✔ bounds experience input, skill instructions and strict fields without exposing full tool inputs (3.535666ms)
+  ✔ binds actual injected Memory revisions and suppresses a skill after memory changes or withdrawal (120.46025ms)
+  ✔ suppresses disabled Memory-dependent methods consistently in overview, selection and restoration (232.388459ms)
+  ✔ rejects mixed Memory revisions and excludes truncated reference coverage (2.05375ms)
+  ✔ serializes independent reflection commits and strict-loads old versions instead of dropping corruption (185.321959ms)
+✔ host-managed dreaming experience skills (2552.043959ms)
+▶ editFileInWorkspace
+  ✔ preserves UTF-8 BOM and hashes the exact resulting bytes (7.676709ms)
+  ✔ replaces one literal occurrence and preserves exact text (10.718292ms)
+  ✔ requires a non-empty unique match, including overlapping matches (2.803083ms)
+  ✔ accepts empty replacement and enforces the UTF-8 byte limit (5.056209ms)
+  ✔ rejects invalid text and workspace paths (1.562209ms)
+  ✔ preserves the original permission bits (2.389334ms)
+  ✔ leaves no temporary file after an already-aborted edit (1.850458ms)
+✔ editFileInWorkspace (33.051ms)
+▶ createEditFileTool
+  ✔ exposes the frozen input and output contract (4.808375ms)
+✔ createEditFileTool (4.976334ms)
+▶ execution record adapter
+  ✔ does not swallow corrupt authoritative receipts at an optional trace barrier (194.129208ms)
+  ✔ a failed optional trace file sync blocks later tool dispatch even after the filesystem recovers (192.424042ms)
+  ✔ persists host source association before Core creation and fails closed (252.645333ms)
+  ✔ binds a WorkTask at the Run create barrier and consumes it once (420.675375ms)
+  ✔ does not create a Run or receipt when WorkTask begin fails at the create barrier (152.6ms)
+  ✔ persists a completed file-tool receipt even when no conversation is committed (377.899333ms)
+  ✔ does not enter tool execution when its started receipt cannot be written (209.851625ms)
+✔ execution record adapter (1801.387666ms)
+▶ ExecutionRecordStore
+  ✔ keeps receipts beyond the old 64-call limit and rejects dispatch at the new bounded capacity (10299.522375ms)
+  ✔ stops receipt writes at file sync failure, preserves the correct unknown boundary on reopen (346.037542ms)
+  ✔ stops receipt writes at directory sync failure, preserves the correct unknown boundary on reopen (274.555209ms)
+  ✔ persists bounded full readback evidence across reopen, never hashes a truncated display preview (564.29725ms)
+  ✔ persists compact file evidence independently of truncated display input across reopen (324.538667ms)
+  ✔ does not create file success evidence for denial, unknown, wrong digest/path or completion without start (1710.719833ms)
+  ✔ keeps old truncated records unverifiable and rejects corrupt compact metadata (500.801875ms)
+  ✔ preserves explicit unknown outcomes across finalization and reopen, unlike ordinary failures (1064.550583ms)
+  ✔ persists bounded Run and shell tool receipts outside transcript JSONL (7.778791ms)
+  ✔ shell_exec records request/start/completion and actual shell outcome across reopen (345.210625ms)
+  ✔ terminal_exec records request/start/completion and actual shell outcome across reopen (316.211334ms)
+  ✔ marks interrupted Run, started tool unknown, requested tool not_started without replay (479.921625ms)
+  ✔ preserves completed tool receipt when Run ends abnormally (334.336709ms)
+  ✔ fails closed on corrupt JSON and symlink without overwriting either (62.167416ms)
+  ✔ rejects duplicate Run and mismatched tool event identity (196.072458ms)
+  ✔ recovers and lists only the selected Thread in a shared transcript directory (220.576917ms)
+  ✔ allows only one live controller to recover a Thread (193.862458ms)
+✔ ExecutionRecordStore (17243.250333ms)
+✔ persists bounded model/approval metadata across restart without raw payloads (496.864917ms)
+✔ truncates display metadata without blocking or changing tool receipts (10437.347833ms)
+✔ corrupt receipts fail at the trace barrier and leave a visible gap after explicit repair (244.63825ms)
+✔ invalid optional display metadata is omitted without poisoning sound receipt storage (175.5185ms)
+✔ old receipts remain readable and malformed traces fail closed (76.847291ms)
+✔ rejects unknown trace fields and does not extract text/tool output (0.2045ms)
+✔ the adapter persists steps/confirmation before emitting them to the controller stream (125.74675ms)
+✔ records actual pending approval once, scoped to the active Thread; automatic calls get no fabricated wait (325.153084ms)
+▶ readFeed
+  ✔ maps RSS 2.0 in document order, skips missing titles, resolves relative links, and bounds fields (29.723875ms)
+  ✔ maps Atom with alternate link priority and no date sorting (1.929125ms)
+  ✔ defaults to ten entries, and truncated only means more than the local limit (1.923708ms)
+  ✔ rejects DTD, external entities, invalid XML, other roots, and declared non-UTF8 (2.300709ms)
+  ✔ rejects oversized raw response rather than parsing a partial feed (0.485458ms)
+  ✔ rejects local and DNS-private item links without fetching those articles (0.352875ms)
+  ✔ validates limit before network and rejects invalid tool input (0.786833ms)
+✔ readFeed (40.187041ms)
+✔ five layers preserve tools, exact message order and appended current references without mutating inputs (1.360709ms)
+✔ snapshot replacement breaks at layer two even when later summary/history hashes match (0.133292ms)
+▶ tryAcquireFlock
+  ✔ starts the holder in Node mode when embedded in Electron (68.875917ms)
+  ✔ returns null when the lock is already held (81.978209ms)
+✔ tryAcquireFlock (152.363541ms)
+✔ discovery blocks until one host choice, then every model step removes discover and continues read/control (6421.523875ms)
+✔ unbound multi-target choice keeps the original Run, freezes approval, sends once, verifies the artifact and clears at end (9071.981209ms)
+✔ adopted discovery rejects stale same-response selectors without changing adoption or weakening source evidence (592.733542ms)
+✔ historical Steer cannot become new-Run target evidence or revive a selection (745.659291ms)
+✔ current Run choice and discovery survive production compaction at 32768 tokens (5862.488041ms)
+✔ current Run choice and discovery survive production compaction at 1000000 tokens (6522.352625ms)
+✔ a replacement while approval waits rejects the frozen identity with zero input dispatch (3762.938334ms)
+✔ same-Run Steer revokes old approval and binds its exact target correction before one new dispatch (5436.710084ms)
+✔ unknown dispatch stops the original AgentLoop before readback and never resends (5702.823416ms)
+✔ a stale configured binding cannot silently redirect even to the only healthy candidate (2845.666875ms)
+✔ cancel-selection after discovery leaves zero prompt dispatches (3116.125333ms)
+✔ deny-control after discovery leaves zero prompt dispatches (8716.26075ms)
+✔ cancel-run after discovery leaves zero prompt dispatches (3964.00975ms)
+✔ run-budget after discovery leaves zero prompt dispatches (4838.948709ms)
+✔ identity failure restores discover but cached exact pane evidence cannot auto-adopt a replacement (5711.089291ms)
+✔ identity rejection cannot auto-adopt the sole replacement on the next discovery (4565.561583ms)
+✔ desktop ordinary foreground captures its request, discovers through Shell with terminal disabled and continues after approval (3419.896042ms)
+✔ telegram ordinary foreground captures its request, discovers through Shell with terminal disabled and continues after approval (2768.5245ms)
+✔ bounded compaction checklist retains successful CLI evidence and failed/unknown status from real host receipts (1258.632084ms)
+✔ one ordinary CLI request discovers Node, writes the requested artifact and independently checks it through existing Shell (3790.023167ms)
+▶ Git reality inspection
+  ✔ captures HEAD, branch and dirty state only for the workspace's own repository (163.873459ms)
+  ✔ counts old project bookkeeping as project changes after home storage moved (257.159ms)
+Preparing worktree (detached HEAD 3f28ddd)
+  ✔ rejects symlinked Git metadata but accepts an ordinary linked-worktree .git file (157.255292ms)
+  ✔ treats an equal clean HEAD as consistent, but does not equate dirty booleans with identical files (525.078ms)
+  ✔ classifies branch-only changes, descendant commits, non-ancestor commits and unknown pins (675.353083ms)
+  ✔ reports missing pin and cancellation without inventing a comparison (145.462ms)
+✔ Git reality inspection (1925.648ms)
+✔ desktop structured Herdr calls bind the fixed target and only sending asks each time (7155.221084ms)
+✔ telegram structured Herdr calls bind the fixed target and only sending asks each time (7303.117167ms)
+✔ Herdr fixed actions verify the selected Pi identity, strip credentials and use only explicit argv (1715.05025ms)
+✔ Herdr rejects replacement, foreign directory, non-Pi and working prompt before reading or sending (1208.962459ms)
+✔ Herdr sending failure is unknown once, with stderr suppressed and no automatic readback (435.767792ms)
+✔ Herdr cancellation before dispatch sends nothing; cancellation after input dispatch stays unknown (482.498417ms)
+✔ Herdr pre-dispatch failures retain safe server, JSON and metadata reasons (421.961084ms)
+✔ Herdr discovery checks running candidates and reports safe per-session and identity failures without reading or dispatch (924.365ms)
+✔ Herdr discovery rejects forbidden binaries and distinguishes a process that never spawned (3.943375ms)
+▶ renderHome
+  ✔ shows only enabled entrances and distinguishes temporary directory from Thread (12.396709ms)
+  ✔ reads workspace checkpoint afresh, marks another Thread, and never calls disabled task store (0.638833ms)
+  ✔ keeps task section visible when checkpoint is corrupt and shows task status and truncation (1.101334ms)
+  ✔ isolates thrown checkpoint and task errors without claiming no tasks exist (0.385417ms)
+✔ renderHome (15.427625ms)
+✔ config hook dispatches an external text Skill with its instructions and no inherited tools/history/Memory/checkpoint (2065.041583ms)
+✔ hash mismatch and changed external Skill bytes fail before a Run or transcript is created (309.395334ms)
+✔ ordinary chat preempts a real background text Skill without overlapping model calls or inheriting approval bypass (3435.381875ms)
+▶ listDirectoryFromWorkspace
+  ✔ lists one level of real entries, including hidden files and node_modules, by name (11.419458ms)
+  ✔ normalizes a requested directory to a workspace-relative path (3.613583ms)
+  ✔ caps sorted entries at 200 and reports truncation (66.453792ms)
+  ✔ rejects invalid and outside paths, missing paths, files, and symlink components (7.729375ms)
+  ✔ propagates an already-aborted signal (1.211958ms)
+✔ listDirectoryFromWorkspace (91.669292ms)
+▶ createListDirectoryTool
+  ✔ exposes the optional path input and structured output contract (4.561083ms)
+✔ createListDirectoryTool (4.927458ms)
+✔ context-continuity-acceptance rejects implicit live calls and mock opt-in before provider access (1468.028084ms)
+✔ real runtime scopes main references and memory_read across A/B/null and cold-restored fixed/update references (13464.677291ms)
+✔ extraction excludes a foreign-project source and rejects a proposal trying to bind its message ID (177.309709ms)
+✔ unknown historical Memory tool output is omitted from project model views without mutating transcript (0.515416ms)
+▶ persists extraction, validation and actual store-save failures without source/model text in both windows
+  ✔ 32k:extract (186.186792ms)
+  ✔ 32k:validate (161.324459ms)
+  ✔ 32k:save (217.3675ms)
+  ✔ daily:extract (204.123375ms)
+  ✔ daily:validate (174.930167ms)
+  ✔ daily:save (252.982791ms)
+✔ persists extraction, validation and actual store-save failures without source/model text in both windows (1198.7555ms)
+✔ reopened controller exposes the retained reason even with automatic extraction disabled (617.264667ms)
+✔ failed journal writes remain visible without converting extraction failure to success (119.558791ms)
+✔ controller can still read a recorded save failure when the actual memory file becomes corrupt (504.976416ms)
+✔ v7 receipts bind original source and replacement/withdrawal state across reopen; receipts use validated records before transcript commit (287.724583ms)
+▶ memory health
+  ✔ does not read when disabled (1.312792ms)
+  ✔ reports the exact injectable set and exclusive exclusions (1.225417ms)
+  ✔ returns store errors without treating corrupt data as an empty store (0.535458ms)
+✔ memory health (4.303375ms)
+✔ preview and cancellation do not create storage; rejects unbounded and forged source fields before writing (110.596041ms)
+✔ imports atomically with manual scoped sources, skips exact active duplicates, and preserves receipts across writes/restart (677.7545ms)
+✔ changed preview or capacity rejects the entire batch; disabled entries are never revived (517.772459ms)
+✔ post-rename uncertainty is resolved by reading the persisted receipt, without another write (430.594292ms)
+✔ concurrent confirmations sharing a preview serialize; a rejected or cancelled batch writes nothing (252.653ms)
+✔ imports equal text separately by scope and binds replay receipts to the selected project (392.33875ms)
+✔ reads legacy memory as unfiled documents without creating files or guessing folders (188.805459ms)
+✔ persists folder names, titles and exact Unicode document bodies through import, edit and reopen (648.972834ms)
+✔ rejects stale folder and body revisions atomically; ordinary writes preserve document ownership (566.268791ms)
+✔ excludes disabled documents from active counts and rejects forged ownership (391.365166ms)
+✔ rejects nonempty folder removal, missing content and oversized input without partial writes (569.405ms)
+✔ document body and folder metadata share the before-rename failure boundary (174.157666ms)
+✔ document body and folder metadata share the after-rename failure boundary (183.360875ms)
+✔ v7 background writes preserve folders and document titles while old candidate writes stay disabled (158.813959ms)
+✔ projects v7 unfiled source text and uncertainty without changing the saved body (88.756083ms)
+✔ keeps project document titles and bodies out of other projects; user memory edits preserve scope (481.179667ms)
+▶ M1 uncertain extraction stores the exact user quote despite a rewritten model body in both windows
+  ✔ 32k (146.813834ms)
+  ✔ daily (104.530958ms)
+✔ M1 uncertain extraction stores the exact user quote despite a rewritten model body in both windows (252.547916ms)
+✔ M1 ordinary automatic chat uses one writer without approval: 3 foreground calls / 2 messages; autonomous has no writer (3385.577125ms)
+✔ M1 two extraction failures survive reopen; only idle retries the third, cancellation waits and commits no progress (231.401042ms)
+✔ M1 foreground cancellation waits for the background provider to settle and never advances progress (37.39375ms)
+✔ M1 idle trigger waits exactly 30 minutes; an idle retry stops after the third persisted failure (282.454042ms)
+✔ M1 saved older pending replay cannot supersede a newer-source value after restart (210.922917ms)
+▶ formal Memory controller and actual reference preparation
+  ✔ exposes current entries, CAS edits, explicit pin/disable, source semantics and Thread isolation without a Run (617.159875ms)
+  ✔ shows the selected version across Thread, updates next preparation, excludes disabled, and clears process snapshot on restart (3667.230416ms)
+  ✔ default lexical mode makes zero rewrite calls and a corrupt source fails instead of returning stale references (1572.064292ms)
+  ✔ bounds management pages and rejects forged fields (2.229291ms)
+✔ formal Memory controller and actual reference preparation (5860.186833ms)
+✔ overflow merge inherits real bound sources and pin state; cold undo restores every original (1466.451375ms)
+✔ merge rejects stale revisions and omitted conditions; cancelled inference never writes or retries (822.75975ms)
+✔ the extraction lifecycle settles its backlog before one merge and does not repeat unchanged work (591.658791ms)
+✔ an uncertain merge commit is rereadable and the lifecycle never retries it (577.014584ms)
+✔ v1-v6 remain unchanged and require explicit migration for every product read and write (62.44ms)
+✔ malformed, unsupported, duplicate and symlinked files fail closed; stale concurrent CAS has one winner (330.771833ms)
+✔ v5 requires migration for reads and writes without creating locks, siblings or backups (34.916959ms)
+✔ v7 replacement/undo, withdrawal/undo, conflict diagnostics and source-specific deletion survive reopen (929.867416ms)
+✔ memory and progress share the commit barrier; pre-rename and post-rename failures stay distinct (174.94ms)
+✔ automatic extraction reserves space; explicit remember still tries the actual hard limit (441.769792ms)
+✔ daily data path and a symlink alias fail before any store write (8.453916ms)
+✔ privacy redaction survives an uncertain acknowledgement, blocks replacement-chain undo and is read-before-write idempotent (507.733ms)
+✔ v7 scopes isolate reads, mutation targets, conflicts, merges and extraction progress across projects (2781.677584ms)
+✔ v6 is rejected without writes and diagnostics contain absolute dry-run and upgrade commands (20.904084ms)
+✔ provider segments preserve order, canonical hashes and byte/token counts without retaining content (2.121125ms)
+✔ daily append retains more than 128 attempts and exactly 30 calendar days at +08:00 (21471.476417ms)
+✔ locked concurrent append and reopen preserve complete events after an interrupted suffix (511.352291ms)
+✔ log write failure counts skipped events, preserves symlink target and retries next call without blocking dispatch (885.387834ms)
+✔ stream first output measures text or tool input, ignoring empty text and reasoning (968.998083ms)
+✔ actual generate and cancellation log metadata once; missing usage stays unknown (741.844792ms)
+✔ 32K and daily-window provider inputs are fingerprinted whole without changing the request (1298.657791ms)
+▶ CLI model configuration
+  ✔ retains each entry's own mock and never silently falls back for invalid configuration (1.768417ms)
+  ✔ reports Command Code configuration in static preflight without a provider call (0.230791ms)
+  ✔ preserves MiniMax defaults and supports provider-specific endpoint/model overrides (71.377958ms)
+  ✔ runs a streamed deepseek tool call and sends its result through the existing Run loop (23.832166ms)
+  ✔ runs a streamed command-code tool call and sends its result through the existing Run loop (14.066791ms)
+✔ CLI model configuration (112.529625ms)
+✔ runtime clamps a daily preset to the configured actual model capacity without calling it (48.759625ms)
+✔ 32K preset sends a fitting user turn and truncates an oversized current request with a readable original (445.479125ms)
+✔ 32K model starts with a daily preset and proportionally bounded reserves instead of inheriting a 32K margin (12.405083ms)
+✔ unknown model capacity does not inherit a template 1M window (18.501417ms)
+✔ capacity configuration matches exact provider and model, not aliases or other models (67.5855ms)
+✔ same model ID on another provider never inherits this route's environment capacity (1.184666ms)
+✔ explicit smaller physical limits remain authoritative and tiny windows fail before a model request (0.779958ms)
+✔ reassembling with another model capacity recalculates the effective ceiling (62.775ms)
+✔ budget counts the exact model-visible description/JSON Schema, only for selected tools (8.898083ms)
+✔ explicit pricing only; unknown cache is not zero, invalid counts/currencies never fabricate cost (2.755791ms)
+✔ trusted pricing config validates exact models, rejects duplicate rates and leaves absence unconfigured (66.714333ms)
+✔ journal persists per-call cache values, legacy reads, thread boundaries and interrupted unknown without replay (1525.993875ms)
+✔ retention prunes terminal calls, protects pending calls and explicitly reports truncated coverage (327.953916ms)
+✔ SDK retry is two actual provider calls; missing caches remain unknown (2802.89525ms)
+✔ cancellation of non-cooperative provider keeps one unknown-use attempt; late results cannot settle it again (168.248084ms)
+✔ usage file sync failure prevents provider dispatch and does not retry to hide a missing journal (100.070666ms)
+✔ abort during journal barrier is explicitly not_dispatched and never invokes the provider (203.847042ms)
+APICallError [AI_APICallError]: unavailable
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/assistant/dist/model-usage.test.js:212:27)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:14389:48)
+    at wrapStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/assistant/dist/model-usage-observer.js:73:38)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async Object.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:14390:27)
+    at async execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:26)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12) {
+  cause: undefined,
+  url: 'https://fixture.invalid',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+✔ actual AgentLoop streaming retry preserves two call attempts without changing loop or replaying tools (2245.255125ms)
+Usage Demo PASS: chat/compactor separated; short chat has no extraction; reuse +0 calls; reopen unchanged.
+✔ Demo: real Controller records chat/consolidation, compactor usage and summary reuse without auxiliary retrieval (4177.149208ms)
+▶ createModuleHost
+  ✔ collects tools and commands and closes the registration window (1.862125ms)
+  ✔ rejects duplicate module ids before setup (0.2115ms)
+  ✔ rejects duplicate command names and disposes successful setup (0.907542ms)
+  ✔ discards a failed module and disposes prior modules in reverse order (0.393625ms)
+  ✔ continues disposal and throws AggregateError (0.762667ms)
+  ✔ routes notify with the module id (0.168458ms)
+  ✔ collects declared permission facts, tool ownership, and per-module instructions (0.393791ms)
+  ✔ leaves no permission facts or instructions from a failed module (0.151291ms)
+  ✔ words function-form instructions for the Run and keeps their order (0.246667ms)
+✔ createModuleHost (7.610625ms)
+▶ instruction placement (architecture-v2 §4.4 cross-module interfaces)
+  ✔ orders each section by rank, keeps assembly order on ties, and puts unplaced modules last in body (0.496958ms)
+✔ instruction placement (architecture-v2 §4.4 cross-module interfaces) (0.674875ms)
+▶ createCheckpointModule
+  ✔ registers only the frozen checkpoint tools and metadata (7.552667ms)
+  ✔ declares the checkpoint cards and adds its instructions (8.397917ms)
+  ✔ prepares only current checkpoint and injectable memory without a model or transcript reader (177.075542ms)
+  ✔ returns no memories when Memory is disabled and reports preparation errors as data (5.021083ms)
+  ✔ returns a corrupt checkpoint error as tool data without replacing the file (3.438167ms)
+  ✔ reads current or retained versions and surfaces missing-version errors (430.020166ms)
+  ✔ binds the save source to the active thread and rejects stale versions (210.305625ms)
+  ✔ captures a Git pin only for the save, and omits it if the optional inspection fails (238.582042ms)
+  ✔ requires exact bounded inputs (6.716917ms)
+✔ createCheckpointModule (1089.728125ms)
+▶ allowed local application computer tools
+  ✔ explicit health check probes only connection and filters unrelated app metadata; never reads UI or claims OS permission (6.132875ms)
+  ✔ health failures stay unverified, do not leak driver text or guess missing OS permission (1.874542ms)
+  ✔ excludes app menus and their tokens from the exact-window observation (4.313834ms)
+  ✔ fails closed on missing/ambiguous roots and over-limit exact window subtrees (4.6575ms)
+  ✔ rejects duplicate indices and excludes orphaned or cyclic nodes (2.430792ms)
+  ✔ stops the existing AgentLoop on an unknown action without another model call or replay (91.529709ms)
+  ✔ requires explicit driver and exact app whitelist (2.743541ms)
+  ✔ returns only the allowed app windows and never dispatches for a foreign app (0.809833ms)
+  ✔ observes then acts with a target-scoped token, consumes it and requires re-observation (2.2435ms)
+  ✔ rejects expired snapshots, changed ownership and tokens from replaced observations (2.530167ms)
+  ✔ rejects degraded, mismatched, oversized and truncated snapshots (5.369875ms)
+  ✔ inserts bounded text only into the observed element and disables screenshots (0.696291ms)
+  ✔ lets transport/unknown effects escape, does not repeat dispatch, and disposes tokens (2.714ms)
+  ✔ allows a fresh read after a dispatched but not business-verified click without repeating the action (3.489542ms)
+  ✔ declares automatic reads and never-remembered actions (0.619417ms)
+✔ allowed local application computer tools (135.092959ms)
+▶ bounded Cua CLI transport
+  ✔ uses stdin JSON, not shell/argv text, and strips secrets and bypass flags (533.702292ms)
+  ✔ fails closed on invalid JSON, excessive output and cancelled child processes (945.295792ms)
+✔ bounded Cua CLI transport (1479.759084ms)
+✔ returns clipped AX text as bounded read-only diagnostics with no action authority (0.710792ms)
+▶ buildDockerRunArguments
+  ✔ builds an isolated argv with explicit mounts and no host-shell interpolation (1.958209ms)
+✔ buildDockerRunArguments (2.962417ms)
+▶ assertDockerShellSandboxAvailable
+  ✔ fails before TUI startup when the Docker executable is unavailable (12.153458ms)
+✔ assertDockerShellSandboxAvailable (12.538917ms)
+▶ executeDockerShellCommand
+  ✔ forwards Docker run output as display progress without changing its result (348.254416ms)
+  ✔ fails closed when Docker is unavailable instead of using the host shell (4.113583ms)
+✔ executeDockerShellCommand (352.803292ms)
+✔ M5 normalizes the body while binding literal values, numbers, polarity and conditions (8.013667ms)
+✔ C04 binds the specific confirmation; short acknowledgement and external evidence fail (1.788375ms)
+✔ ordinary memory module registers exactly one host-bound writer with primary-only approval (142.849ms)
+▶ createPomodoroModule
+  ✔ keeps host-owned state across disposal and routes completion only to the new adapter (4.867167ms)
+  ✔ notifies outside a module lifetime and lets the owner cancel or dispose explicitly (0.624125ms)
+  ✔ registers the three tools and pomodoro command with required metadata (0.32575ms)
+  ✔ shares state between commands and tools and starts immediately (0.524917ms)
+  ✔ uses the default duration and refuses a second start (0.618667ms)
+  ✔ rounds remaining seconds up and notifies once when the timer fires (0.433625ms)
+  ✔ sends a desktop notification and sound request when the timer ends (0.868667ms)
+  ✔ reports desktop failures after completion without keeping the timer running (0.371625ms)
+  ✔ cancels and disposes without a completion notification (0.372042ms)
+  ✔ does not start when the tool signal is already aborted (1.634875ms)
+  ✔ keeps invalid command input from changing state (0.390875ms)
+  ✔ declares its timer tools as auto-approved and adds its instructions (0.34875ms)
+✔ createPomodoroModule (13.082083ms)
+▶ createReadFileModule
+  ✔ registers read_file with its existing metadata and reads through the registered tool (40.131375ms)
+  ✔ notifies the workspace for /workspace and usage for arguments (6.903875ms)
+  ✔ declares path-scoped permission facts, confirmation cards and its instructions (1.973417ms)
+✔ createReadFileModule (50.019083ms)
+✔ startup discovery follows a Node upgrade and only grants actual loaded library directories (42.567792ms)
+✔ missing discovery and protected executable, library or config directories fail closed (24.407791ms)
+✔ trusted launch Node works without a PATH Node and still rejects protected runtime paths (21.431875ms)
+▶ createShellModule
+  ✔ registers shell_exec and runs from a workspace-relative cwd (99.88125ms)
+  ✔ gives Docker sandbox execute a timeout budget that outlasts cleanup (0.628541ms)
+  ✔ uses a configured command timeout for host execution and tool metadata (55.0655ms)
+  ✔ emits bounded live output with tool call identity without changing the final result (149.684875ms)
+  ✔ keeps the configured Docker deadline ahead of cleanup and kill grace (0.682708ms)
+  ✔ returns a non-zero exit code and combined command output (390.299791ms)
+✔ createShellModule (698.796625ms)
+▶ executeShellCommand
+  ✔ keeps split UTF-8 characters intact in live progress (165.779583ms)
+  ✔ reports output truncation without buffering beyond the configured limit (139.111375ms)
+  ✔ terminates a command that exceeds the timeout (55.042792ms)
+  ✔ terminates a running command when its AbortSignal is cancelled (55.734042ms)
+  ✔ returns a timed-out command result before a later tool-layer abort (54.778833ms)
+  ✔ does not pass application API keys into the command environment (100.701583ms)
+  ✔ rejects a cwd outside the workspace (1.72975ms)
+  ✔ declares never-remembered shell calls, sandbox-only Run authorization, cards and instructions (1.006334ms)
+✔ executeShellCommand (574.823959ms)
+▶ createTaskModule
+  ✔ declares the arrangement and reminder cards and adds its instructions (45.695375ms)
+  ✔ requires host-pinned Skill validation for model-created one-time and recurring schedules (9.936542ms)
+  ✔ passes complete reminder arrangements through the existing create and recurring stores (4.112834ms)
+  ✔ rejects unavailable Todoist and rechecks host availability before saving (2.868541ms)
+  ✔ rejects RSS declarations and mismatched/extra source fields before any store write (2.37ms)
+  ✔ runs service setup only after a typed arrangement commits, exposing failure without rollback (1.862833ms)
+  ✔ Demo: saved reminder with unavailable background keeps the warning in its readback (0.8255ms)
+  ✔ Demo: rescheduling/resuming checks readiness without enabling or replaying a worker (3.31775ms)
+  ✔ cancels before a save but settles service setup after an already committed arrangement (1.874875ms)
+  ✔ registers task and recurring task tools with frozen metadata (0.478416ms)
+  ✔ routes tool inputs through the same store and preserves the operation result (0.58975ms)
+  ✔ routes recurring tools through the same store and passes operation signals (0.282084ms)
+  ✔ validates recurrence shape at the tool boundary (1.069542ms)
+  ✔ awaits task command results before returning to the TUI (2.765833ms)
+  ✔ supports inbox and ack commands through the same async notification path (0.884208ms)
+  ✔ reschedules directly from the idle command and reports observed old and committed new time (0.505708ms)
+  ✔ does not reschedule when the idle command cannot read the task (29.364542ms)
+  ✔ shows old and requested time in the run confirmation without claiming the preview reserves the task (0.373708ms)
+  ✔ supports repeat create/list/show/pause/resume/cancel commands (5.784917ms)
+  ✔ rejects malformed repeat commands without touching the store (6.975125ms)
+  ✔ accepts pending and attention command filters and renders list summaries (31.158667ms)
+  ✔ renders complete task details, including full result and execution identifiers (2.625084ms)
+  ✔ renders failed task details with the full error (5.745125ms)
+  ✔ rejects malformed command syntax without touching the store (9.840291ms)
+  ✔ turns a rejected async command operation into a notification (4.727208ms)
+  ✔ keeps /task show pending until its result has been printed (0.704125ms)
+✔ createTaskModule (185.073084ms)
+▶ createTodoistModule
+  ✔ registers one strict read-only tool and the todoist command (86.536708ms)
+  ✔ declares the read card and adds the plan-save flow only beside the file tools (7.0075ms)
+  ✔ forwards the tool AbortSignal to the shared query (1.644916ms)
+  ✔ aborts an active tool query when the module is disposed (1.416917ms)
+  ✔ waits for the direct command notification and escapes task control characters (16.316125ms)
+  ✔ marks an empty page-limited result as incomplete instead of empty (12.221667ms)
+  ✔ shows usage for invalid command input without making a request (1.606583ms)
+  ✔ aborts an active command and suppresses its late notification on dispose (12.542584ms)
+  ✔ enforces one 20 second timeout for a direct command (4.990917ms)
+✔ createTodoistModule (152.383083ms)
+▶ assembleTodoist (architecture-v2 §4.4 step 2)
+  ✔ reads the token only from the env the assembler passes (7.832417ms)
+  ✔ owns the /modules lines, the planning fact and the capability entry (4.598ms)
+  ✔ resolves the time zone exactly as the config format always did (49.52725ms)
+✔ assembleTodoist (architecture-v2 §4.4 step 2) (62.66475ms)
+▶ createWebModule
+  ✔ keeps only web_fetch when search is disabled (4.034541ms)
+  ✔ registers web_search when enabled without a provider key (2.35ms)
+  ✔ registers feed_read only when enabled and reads raw RSS through the shared transport (70.177875ms)
+  ✔ registers one read-only idempotent web_fetch tool (5.838083ms)
+  ✔ forwards the Tool AbortSignal to the web fetch helper (10.539458ms)
+  ✔ returns the helper's structured failure unchanged (4.340875ms)
+  ✔ fetches a y/n origin even when another origin was authorized for the Run (0.918167ms)
+  ✔ declares web_fetch origin scope and the web_search denial latch as facts (1.354167ms)
+  ✔ adds instructions only for its registered tools, in fetch, feed, search order (7.638792ms)
+✔ createWebModule (110.151ms)
+▶ no-progress tool guard
+  ✔ ABAB timestamp-only reads warn on the second cycle and stop on the third cycle (478.948375ms)
+  ✔ guard feedback is system-only context, not assistant transcript or visible chat events (88.609208ms)
+  ✔ successful Runtime persistence excludes internal feedback and retains original read receipts (50.344291ms)
+  ✔ a two-argument cycle of the same built-in tool is also bounded (136.1775ms)
+  ✔ changing either tool's business result breaks the repeated cycle (103.14625ms)
+  ✔ a denied cycle step breaks continuity without bypassing its approval (89.934667ms)
+  ✔ new user steering after the second cycle clears both history and pending feedback (70.433666ms)
+  ✔ cancellation after the second cycle takes priority over feedback or a third cycle (32.022167ms)
+  ✔ timestamp-only web results warn the next model step then stop honestly on the third call (28.955958ms)
+  ✔ the Runtime exposes the stuck reason as a failed Run rather than successful completion (30.358542ms)
+  ✔ all exact built-in file/search registration names participate in the guard (106.820708ms)
+  ✔ canonical argument and business-result key order cannot evade the guard (24.649875ms)
+  ✔ changing business text, mtime or scheduled time is real progress (165.971459ms)
+  ✔ web normalization ignores only its exact fetchedAt field, not other timestamps (43.615084ms)
+  ✔ changed arguments break the consecutive no-progress sequence (33.526ms)
+  ✔ the same loop instance isolates its no-progress state between Runs (130.82775ms)
+  ✔ legal polling and non-allowlisted read tools retain their original step budgets (310.603792ms)
+  ✔ an allowlisted name is not sufficient for writes or unclassified effects (309.470834ms)
+  ✔ unknown write outcomes still stop immediately without replay or guard feedback (151.354333ms)
+  ✔ a denied call breaks the successful consecutive sequence without bypassing approval (209.711959ms)
+  ✔ cancellation after a repeat result prevents feedback and any next model request (58.780833ms)
+✔ no-progress tool guard (2658.522125ms)
+✔ b0 locks full host decisions, current Memory, configuration and filesystem boundaries (221287.227042ms)
+▶ permission decision snapshot
+  ✔ matches the locked decisions of the current rules (1649.277542ms)
+✔ permission decision snapshot (1650.475209ms)
+▶ permission extension
+  ✔ allows host pre-approved calls without a pending approval (2.065083ms)
+  ✔ still rejects an aborted pre-approved call (0.64125ms)
+  ✔ asks for every other call through the shared confirmation (1.498083ms)
+  ✔ registers only the grants the assembly can honor (7.861458ms)
+  ✔ lists the tools that declared path authorization when /authorize names another tool (0.416ms)
+✔ permission extension (14.065792ms)
+▶ Stage 7-3 Todoist plan save acceptance
+  ✔ connects Todoist query and file write through confirmations, then commits the Run (275.192583ms)
+  ✔ turns a denied write confirmation into TOOL_DENIED without creating the target (56.871292ms)
+✔ Stage 7-3 Todoist plan save acceptance (333.551041ms)
+✔ identifies nearest Git/worktree root, explicit folder and no project using metadata (129.907709ms)
+✔ restores selection without authorizations and reports a moved or changed selected root before replacing it (601.113416ms)
+▶ readFileFromWorkspace
+  ✔ preserves a UTF-8 BOM so readback content matches the actual bytes (18.745708ms)
+  ✔ reads real UTF-8 text and reports bytes and normalized relative path (13.723916ms)
+  ✔ allows an empty file and exactly 64 KiB (13.06375ms)
+  ✔ rejects the first byte beyond the 64 KiB limit (12.7665ms)
+  ✔ rejects invalid UTF-8 and NUL-containing files (11.503292ms)
+  ✔ rejects absolute, empty, NUL, and outside paths (10.327375ms)
+  ✔ uses path components for containment instead of a string prefix (5.844459ms)
+  ✔ rejects missing files, directories, and every symlink component (7.169ms)
+  ✔ propagates an already-aborted signal instead of returning READ_FAILED (18.041041ms)
+✔ readFileFromWorkspace (113.606167ms)
+▶ createReadFileTool
+  ✔ exposes the authorized input and structured output contract (16.310583ms)
+✔ createReadFileTool (16.552ms)
+✔ task file sync failure preserves the replacement boundary and freezes uncertain writes (275.190292ms)
+✔ task directory sync failure preserves the replacement boundary and freezes uncertain writes (409.212958ms)
+✔ work-task file sync failure preserves the replacement boundary and freezes uncertain writes (174.353125ms)
+✔ work-task directory sync failure preserves the replacement boundary and freezes uncertain writes (274.649875ms)
+✔ checkpoint file sync failure preserves the replacement boundary and freezes uncertain writes (178.372167ms)
+✔ checkpoint directory sync failure preserves the replacement boundary and freezes uncertain writes (253.535459ms)
+✔ file sync failure at the start barrier never dispatches a tool; uncertain replacement remains unknown after reopen (1019.573ms)
+✔ directory sync failure at the start barrier never dispatches a tool; uncertain replacement remains unknown after reopen (844.012541ms)
+✔ uncertain task/checkpoint store replies are unknown effects at the tool boundary, ordinary failures remain ordinary (0.999041ms)
+✔ real Shell → receipt-checked registration → new Thread/process reconstruction → fresh approval → artifact, disable and rollback (8570.395208ms)
+✔ registration refuses a guessed receipt, mismatched command and a real failed test; no catalog is invented (13843.198458ms)
+✔ denying a recipe or disabling it while its preview is open prevents real Shell dispatch (6117.127833ms)
+✔ recipe CAS serializes competing processes/instances and retains bounded prior tested versions (1200.39825ms)
+✔ recipe reads fail closed on symlinks, corruption and command/hash tampering without overwriting data (965.057417ms)
+✔ recipe execution is non-idempotent and a disabled/stale recipe cannot dispatch; listing never executes (254.227708ms)
+✔ recipe commit failure before rename leaves old data; after rename remains unknown and never auto-retries (423.56525ms)
+✔ recipe tools are never remembered and their cards show the exact recipe version (99.561584ms)
+▶ latestOccurrence
+  ✔ selects the most recent daily slot across positive and negative offsets (1.989042ms)
+  ✔ selects a weekly slot on either side of its local execution time (0.186209ms)
+✔ latestOccurrence (3.078334ms)
+▶ nextOccurrence
+  ✔ computes a daily occurrence in a positive offset (0.370042ms)
+  ✔ moves to the next day when the local occurrence has passed exactly (0.177625ms)
+  ✔ handles a negative offset across a UTC day boundary (0.119375ms)
+  ✔ computes a weekly occurrence across the end of a week (0.131708ms)
+  ✔ keeps a weekly occurrence on the same local day when it is still ahead (0.231291ms)
+  ✔ advances a weekly occurrence by seven days at the exact instant (0.213125ms)
+  ✔ accepts the time, offset, and weekday boundaries (0.188791ms)
+  ✔ rejects malformed times and offsets (0.556417ms)
+  ✔ rejects an out-of-range weekly weekday and invalid afterUtc (0.211167ms)
+✔ nextOccurrence (2.86075ms)
+▶ natural-language reminder path
+  ✔ selects the task tool, confirms time/repeat/text, and reads the result back in Chinese (1348.206333ms)
+✔ natural-language reminder path (1349.30475ms)
+▶ reminder speech
+  ✔ distant absolute reminder dates include the local year in confirmation and readback (22.532625ms)
+  ✔ reads a saved one-time reminder back as plain Chinese (1.226375ms)
+  ✔ shows time, repeat, and text on the confirmation card (1.46075ms)
+  ✔ builds the confirmation card from its fields, and the text only from those fields (1.3225ms)
+✔ reminder speech (27.729333ms)
+▶ resolveWorkspace
+  ✔ returns the real absolute path for a directory (5.454458ms)
+  ✔ rejects missing paths and regular files (3.142208ms)
+✔ resolveWorkspace (10.092042ms)
+▶ resume observation
+  ✔ binds the printed and injected Git status to the inspected checkpoint version (3.3725ms)
+  ✔ does not confuse no checkpoint with a later checkpoint (0.202416ms)
+✔ resume observation (4.986584ms)
+✔ round timing counts tool-only and no-output separately from visible-text median samples (4.649416ms)
+✔ Controller RSS requests are workspace-bound, read-only when querying, revision-checked and idle-only (398.726917ms)
+✔ empty RSS batch completes durably without model or notification, including restart accounting (1489.180583ms)
+✔ RSS identities prefer feed ID, then URL, then title/date; ordinary prompts grant nothing (3.102125ms)
+✔ first baseline, no repeat, new item, restart and delivery-before-dedupe (2080.534917ms)
+✔ partial failure remains visible, failed feeds do not initialize; all-failed advances nothing (847.736375ms)
+✔ authorization is explicit, series-bound, revocable, and URLs are public; stale edits fail (600.310916ms)
+✔ bad RSS files and symlinks fail honestly; reads do not create storage (110.704666ms)
+✔ worker executes one no-tool RSS Run and persists authoritative manifest before dedupe (874.832959ms)
+✔ revocation during a fetch stops the next request and never stages stale authorization (667.918375ms)
+✔ scheduled safe-retry reuses the frozen batch without fetching twice (821.008792ms)
+✔ real feed parser/transport bounds reach digest; no article requests or fabricated no-new summary (543.275291ms)
+▶ composeExtensions
+  ✔ uses a hook provided by a single extension as is (0.772125ms)
+  ✔ omits hooks no extension provides (0.544334ms)
+  ✔ returns the first denial and does not ask later extensions (0.504459ms)
+  ✔ allows only when every extension allows (0.15ms)
+  ✔ passes a hook rejection through instead of turning it into a decision (0.423166ms)
+  ✔ uses the first after-call decision and skips later extensions (0.1635ms)
+  ✔ keeps command order and rejects duplicate names (0.17525ms)
+✔ composeExtensions (4.007084ms)
+✔ Controller saves a pinned Skill schedule; the existing worker delivers once into inbox and JSONL without global data/tools (2529.656917ms)
+✔ A saved Skill rejects changed pinned source before model startup and preserves a failed inbox result (857.396083ms)
+✔ Scheduling rejects unknown/hash-mismatched/memory Skills and oversized or forged input without a Run or task (311.17275ms)
+✔ Recurring Skill pause/resume/cancel only changes scheduling; a cancelled occurrence never executes (935.67125ms)
+✔ Worker recovery installs a matching saved outcome but interrupts an unaccounted Skill attempt without model replay (1391.061708ms)
+✔ Production worker process loads trusted config, owns the workspace lock, and preserves the Skill result after process restart (3039.512917ms)
+✔ paid dispatch guard permits equal input in separate manual/scheduled invocations, but refuses same-invocation retry (30.802209ms)
+﹣ opt-in real model: manual and scheduled registered Skill use the production loop and persist a truthful inbox result (0.223334ms) # SKIP
+✔ desktop scheduling operation ID survives real scheduling validation and Store reopen (244.338958ms)
+✔ scheduled Skill declaration pins exact id/hash, survives recurring/list projection, and rejects forged privileges (209.36175ms)
+✔ worker shares pinned preparation, rejects changed packages, config mismatch and unconfigured invocation without a Run (11.777417ms)
+✔ shared memory packages are not exposed to scheduled invocation (8.589417ms)
+✔ worker resolves relative workspace from config directory without opening unrelated module executables (10.119666ms)
+▶ searchFilesInWorkspace
+  ✔ searches case-sensitive literals in sorted depth-first order with one match per LF or CRLF line (30.972959ms)
+  ✔ skips excluded paths, non-files, oversized data, invalid UTF-8, and NUL-containing files (12.283708ms)
+  ✔ returns frozen failures for invalid queries and explicit invalid search roots (6.584584ms)
+  ✔ propagates an already-aborted signal (2.8885ms)
+  ✔ stops at the match budget and counts excluded entries toward traversal (1626.9635ms)
+  ✔ keeps the serialized UTF-8 success result within the shared 64 KiB limit (6.082417ms)
+  ✔ rejects a match whose non-truncated result envelope would exceed 64 KiB (3.889959ms)
+✔ searchFilesInWorkspace (1692.122583ms)
+▶ createSearchFilesTool
+  ✔ exposes the frozen input and output contract (6.790209ms)
+✔ createSearchFilesTool (7.120958ms)
+▶ Skill catalog
+  ✔ loads an explicitly registered text package without tools or inherited context (16.245542ms)
+  ✔ wraps builtin memory instructions with only the existing prepare/stage tools (0.510209ms)
+  ✔ loads memory packages but does not permit tool or step-budget escalation (13.023958ms)
+  ✔ rejects text tool requests and unknown manifest fields instead of granting capabilities (11.157ms)
+  ✔ binds exact instruction bytes and normalized manifest metadata into a deterministic hash (10.681667ms)
+  ✔ rejects relative registration paths, duplicate registrations and mismatched manifest ids (5.871834ms)
+  ✔ rejects workspace packages, symlink packages and paths resolving into a workspace (6.748958ms)
+  ✔ rejects symlink instruction and manifest files (16.588958ms)
+  ✔ bounds loaded packages and both file sizes, and rejects invalid UTF-8 or empty instructions (17.220791ms)
+  ✔ never discovers workspace skills or reads scripts/assets and accepts an empty catalog (6.712125ms)
+  ✔ normalizes builtin and external metadata equally and allows only bounded limits (1.39325ms)
+✔ Skill catalog (108.719541ms)
+✔ Steer revokes old file preview, replans inside the same Run, refreshes Memory and survives restart (6175.705792ms)
+✔ accepted Steer is retained as unapplied when cancelled during model generation (1919.148542ms)
+✔ startup closes accepted-only steering as interrupted without invoking the model (577.875625ms)
+✔ Steer does not rewrite WorkTask acceptance or let the model accept human quality (4373.038666ms)
+﹣ real configured model accepts Steer at file confirmation and preserves the original within one Run (0.899792ms) # SKIP
+✔ task lifecycle acceptance (mock): command → worker → inbox → ack → restart (2940.879333ms)
+✔ unified controller inbox reads actual deterministic reminders and explicit ack removes them (663.703417ms)
+▶ task instructions
+  ✔ local-clock Demo: midnight reference uses the Beijing calendar date (2026-10-13T00:30+08:00) (66.821542ms)
+  ✔ local-clock Demo: midnight reference uses the Beijing calendar date (2026-11-01T00:30+08:00) (0.420666ms)
+  ✔ local-clock Demo: midnight reference uses the Beijing calendar date (2027-01-01T00:30+08:00) (0.230209ms)
+  ✔ formats the actual timezone offset, including UTC, fractional offsets and DST (6.702375ms)
+  ✔ gives the model a verifiable current-time context and task contract (1.693125ms)
+  ✔ refreshes the injected current time for each model context (0.942125ms)
+✔ task instructions (81.749667ms)
+▶ task notification copy
+  ✔ keeps reminder prompt and saved result private on the lock screen (3.411333ms)
+  ✔ uses a reminder status title and keeps all results out of the lock screen (0.379792ms)
+  ✔ omits a long reminder from both title and body instead of treating clipping as privacy (0.193416ms)
+  ✔ uses a status sentence when the run did not complete (0.21675ms)
+✔ task notification copy (5.888083ms)
+▶ desktop frontmost hint
+  ✔ suppresses only a fresh hint and ignores a missing, expired, or far-future file (123.451959ms)
+✔ desktop frontmost hint (123.926709ms)
+✔ notification links contain only a bounded id and workspace digest, with no authority (6.212792ms)
+﹣ native launchd: restart killed worker, deliver overdue reminder once, retain unread result (0.8205ms) # SKIP
+▶ WorkspaceTaskStore
+  ✔ does not let simultaneous cancellation hide a cancel-only persistence outcome (570.514459ms)
+  ✔ does not let simultaneous cancellation hide a file persistence outcome (472.166417ms)
+  ✔ does not let simultaneous cancellation hide a directory persistence outcome (448.108416ms)
+  ✔ a failed claim file sync freezes further claims; reopening only sees the unchanged scheduled task (454.522416ms)
+  ✔ restore preserves failed attempt history but disables its scheduled safe retry and pending notification (373.368708ms)
+  ✔ idle claims do not replace or sync the unchanged task file (360.324584ms)
+  ✔ pages tied task timestamps without dropping older results or writing on reads (5023.289417ms)
+  ✔ persists approved arrangements and a deterministic outcome without inventing a Run (432.355125ms)
+  ✔ coalesces a typed recurring arrangement to the latest missed slot and retains legacy timing (627.824792ms)
+  ✔ rejects mismatched source grants and deterministic outcomes for model tasks (464.893542ms)
+  ✔ cancels a scheduled retry without invalidating its persisted attempts (1061.044958ms)
+  ✔ retains bounded execution attempts and original schedule across retries (2094.520959ms)
+  ✔ persists outcome intent before atomic finish and retries only the notification (1495.3075ms)
+  ✔ rejects inconsistent v4 attempt and notification data without rewriting it (133.614375ms)
+  ✔ records an in-flight notification after acknowledgement without redelivering (561.073417ms)
+  ✔ persists foreground omission as omitted, not as an OS submission or a failure (596.563542ms)
+  ✔ persists create/list/get/cancel through a fresh store instance (284.273625ms)
+  ✔ reschedules a scheduled one-time task under the store lock, including after its old due time (414.605167ms)
+  ✔ rejects invalid reschedules without changing tasks (1168.83725ms)
+  ✔ does not reschedule a recurring series or a scheduled task associated with it (807.047125ms)
+  ✔ serializes reschedule and claim so exactly one wins (467.939833ms)
+  ✔ creates, pauses, resumes, and cancels a fixed-offset recurring task (789.293166ms)
+  ✔ claims one overdue recurring occurrence and skips missed periods (1009.293625ms)
+  ✔ reads v1 files and upgrades them on the first write (359.584708ms)
+  ✔ filters grouped statuses before limiting and projects bounded results and errors (20.382292ms)
+  ✔ keeps list queries read-only (198.897375ms)
+  ✔ reads v1 without writing and upgrades it on the first successful mutation (260.726875ms)
+  ✔ reads v2 without writing and upgrades it to v4 on the first successful mutation (210.052834ms)
+  ✔ filters inbox items after combining status and recurring-task filters (18.720583ms)
+  ✔ acknowledges terminal tasks idempotently and rejects non-inbox states (890.976917ms)
+  ✔ creates, pauses, resumes, cancels, and lists recurring task plans (1727.620125ms)
+  ✔ claims one overdue recurring occurrence atomically and preserves later plan changes (341.392334ms)
+  ✔ keeps acknowledgement independent of recurring execution and crash recovery (1207.913416ms)
+  ✔ leaves the recurring plan for the next claim after an interruption (451.772417ms)
+  ✔ rejects invalid future times, prompts, files, and versions (4.919375ms)
+  ✔ claims due tasks in deterministic order and enforces terminal transitions (1763.101833ms)
+  ✔ serializes real concurrent process updates and releases after SIGKILL (1250.648542ms)
+  ✔ interrupts a blocked advisory-lock wait with AbortSignal (158.517709ms)
+✔ WorkspaceTaskStore (28983.314542ms)
+﹣ live scheduled workspace brief: Memory + checkpoint → worker → inbox → ack (1.458791ms) # SKIP
+▶ task-worker workspace snapshot
+  ✔ reads once using only task.prompt and retains the selected version for later steps (23.010375ms)
+  ✔ selects a bounded snapshot from larger storage without reading pending candidates or private Memory (1609.697792ms)
+  ✔ treats absent Memory and checkpoint as an empty, valid snapshot (3.938458ms)
+  ✔ includes only active workspace Memory and the current checkpoint version (303.660583ms)
+  ✔ rejects a damaged Memory source instead of sending a partial snapshot (6.081417ms)
+  ✔ drops this series before applying the five-item cap and recomputes truncated (0.385459ms)
+✔ task-worker workspace snapshot (1949.811875ms)
+✔ no-new-user memory Demo: a due reminder creates no model Run and leaves saved memory unchanged (599.275666ms)
+✔ persisted terminal result survives worker restart and only notification is retried (1034.59925ms)
+✔ dedicated Todoist arrangements enforce one planning query, not prompt-based extra grants (122.0055ms)
+▶ durable desktop notification adapter
+  ✔ waits for OS submission and never includes prompt/result (0.74425ms)
+  ✔ propagates rejection so the worker can persist failed delivery (0.575333ms)
+  ✔ clickable submission uses argv and read-only scoped URL, never a shell command or private body (3.031583ms)
+  ✔ uses a private reminder title and skips submission while the desktop is frontmost (18.044667ms)
+✔ durable desktop notification adapter (23.033792ms)
+▶ task-worker CLI arguments
+  ✔ accepts explicit home and optional project, including pnpm's separator (1.524708ms)
+  ✔ rejects implicit workspace context and unknown options (0.630667ms)
+✔ task-worker CLI arguments (2.599375ms)
+▶ task-worker startup validation
+  ✔ requires explicit --home before accessing default or environment storage (590.556542ms)
+  ✔ fails before claiming due tasks when the DeepSeek key is missing (2331.2875ms)
+  ✔ fails before claiming due tasks when the token is missing (2405.17325ms)
+  ✔ fails before claiming due tasks when the planning time zone is invalid (2652.4325ms)
+✔ task-worker startup validation (7980.172209ms)
+▶ task-worker process lock
+  ✔ rejects a second worker and releases after SIGKILL (1295.379125ms)
+✔ task-worker process lock (1295.76475ms)
+✔ health writes serialize and heartbeat cannot revive a stopped worker (42.090583ms)
+✔ missing health is empty and corrupt health never appears healthy (9.680458ms)
+✔ health ownership uses the worker lock, not a recent heartbeat (144.634333ms)
+✔ service explicitly records external Skill config without copying its body or credentials (31.317416ms)
+✔ service only installs explicitly, keeps secrets external, and reports actual launchctl state (35.592042ms)
+✔ service rejects unsupported platform, relative paths and symlink install targets (5.387542ms)
+✔ missing executable inputs and uncertain launchctl status never install or delete a service (5.676458ms)
+✔ service stop waits for actual launchd disappearance before deleting its definition (106.056708ms)
+▶ Stage 7-4 Todoist worker composition
+  ✔ preserves the plain-text worker with no tools when Todoist is disabled (39.428042ms)
+  ✔ injects one captured workspace reference without adding tools or persisting it (15.822917ms)
+  ✔ narrows Todoist daily-plan instructions only when workspace context is also enabled (11.88575ms)
+  ✔ passes the complete query result through the production worker agent (590.176292ms)
+  ✔ passes the truncated query result through the production worker agent (617.716166ms)
+  ✔ passes the empty query result through the production worker agent (542.134959ms)
+  ✔ passes the auth query result through the production worker agent (554.80875ms)
+✔ Stage 7-4 Todoist worker composition (2373.866167ms)
+▶ task worker
+  ✔ rejects an unconfigured scheduled Skill instead of falling back to the responder (2.328125ms)
+  ✔ does not extend safe responder retries to scheduled Skills (1.16175ms)
+  ✔ delivers a reminder deterministically without model or global source access (1.067334ms)
+  ✔ binds Todoist to its declared source and never inherits workspace context (0.547875ms)
+  ✔ finishes an empty RSS snapshot without model or successful notification (0.313667ms)
+  ✔ requires an actual successful planning receipt before delivering a typed Todoist report (0.771667ms)
+  ✔ records the invocation id and outcome before the terminal write (0.622417ms)
+  ✔ reconciles a durable outcome without executing the task again (0.160875ms)
+  ✔ only retries transient model failures for an explicit safe profile (1.670042ms)
+  ✔ retries only notification submission for an already terminal task (0.251375ms)
+  ✔ records foreground omission separately from OS submission (0.172083ms)
+  ✔ records OS acceptance as submitted without claiming user acknowledgement (0.159042ms)
+  ✔ stops the worker when linking a Run fails instead of silently executing untracked (0.478041ms)
+  ✔ does not replay a crashed running task with no durable outcome (0.108167ms)
+  ✔ runs one due task with a new plain-text request and finishes it (0.269667ms)
+  ✔ loads workspace context once after claim and passes that snapshot to the run (0.376209ms)
+  ✔ fails a claimed task before model execution when workspace context cannot be read (0.222667ms)
+  ✔ maps cancellation of the current run to interrupted without replay (6.71525ms)
+  ✔ records runtime startup failure and continues only after terminal write (0.315334ms)
+  ✔ does not notify when the durable terminal write fails (0.587959ms)
+  ✔ notifies once after a rejected run is durably marked failed (0.248792ms)
+✔ task worker (20.499ms)
+✔ desktop browser CLI calls require individual approvals and execute only the confirmed offline fixture (9824.145333ms)
+✔ telegram browser CLI calls require individual approvals and execute only the confirmed offline fixture (13415.787375ms)
+✔ terminal target/config boundaries reject writable config, foreign directory and Docker coexistence (97.670166ms)
+▶ queryTodoistTasks
+  ✔ filters identity and state, normalizes dates, deduplicates, and sorts (71.955083ms)
+  ✔ uses frozen day-level view boundaries in the planning time zone (4.507708ms)
+  ✔ marks a fifth-page cursor as incomplete without fetching a sixth page (4.179833ms)
+  ✔ returns the longest sorted prefix within count and byte budgets (10.477583ms)
+  ✔ fails the whole query for a mid-pagination HTTP error or invalid date (3.987375ms)
+  ✔ rejects invalid input locally and preserves abort semantics (2.072542ms)
+✔ queryTodoistTasks (98.89325ms)
+▶ remembered conversation grants
+  ✔ remembers a read-risk tool by name across Runs, for the granting agent only (5.132334ms)
+  ✔ remembers file writes per directory without subdirectories or other file tools (2.886042ms)
+  ✔ remembers web_fetch per exact origin (1.408208ms)
+  ✔ never offers to remember shell, computer, recipe, memory or non-read tools (0.605292ms)
+  ✔ does not remember plain allows or denials (0.697166ms)
+  ✔ is neither used nor offered in a Telegram Run (0.40425ms)
+  ✔ keeps the web_search denial latch ahead of a remembered origin (0.291709ms)
+  ✔ accepts r in the terminal only when a grant is offered (0.419166ms)
+  ✔ lists and forgets single grants through /permissions (1.675875ms)
+✔ remembered conversation grants (15.391459ms)
+{"historyBeforeBytes":36928228,"historyAfterBytes":215673,"cursorPreserved":true,"summaryPreserved":true,"freshApprovalRequired":true,"oldToolsReplayed":0,"model":"scripted","electron":"not_run"}
+✔ physical compact preserves memory cursor, exact quotes and valid summary; reopen requires fresh tool approval (3464.824542ms)
+✔ an active Run blocks physical compaction in another process, without blocking its own save or restoring authority (716.820416ms)
+✔ cross-process append and snapshot cleanup share one lock without losing summaries or latest messages (899.385166ms)
+✔ real y/n wait: banner with 'has not run yet' is written before the preview (14.881583ms)
+✔ pomodoro_start is auto-allowed: no 'has not run yet' banner and no confirmation output (12.115791ms)
+▶ resolveTuiModuleConfig
+  ✔ rejects v1 before legacy-field parsing with an explicit offline upgrade command (56.453375ms)
+  ✔ rejects legacy configuration fields and requires the offline importer (24.087542ms)
+  ✔ keeps local Computer Use opt-in with an external config and trusted executable (46.164166ms)
+  ✔ loads and normalizes a Docker shell sandbox configuration (13.832083ms)
+  ✔ requires a relative existing directory workspace for a shell sandbox (26.561625ms)
+  ✔ rejects missing, symlinked, and non-directory writable sandbox paths (29.762375ms)
+  ✔ requires shell.sandbox to be enabled and keeps its config outside the workspace (22.357125ms)
+  ✔ loads persistent file authorization rules with the configured workspace (13.409792ms)
+  ✔ rejects invalid persistent authorization tools and paths (19.040625ms)
+  ✔ rejects persistent authorization when the config file is inside the workspace (11.832958ms)
+  ✔ rejects an outside config symlink that resolves into the workspace (6.473875ms)
+  ✔ uses strict config modules with omitted modules disabled (51.1345ms)
+  ✔ enables the public web reader without requiring a workspace (15.128458ms)
+  ✔ validates an explicitly enabled context-compaction budget (9.367833ms)
+  ✔ reads explicit context modes without changing their input budgets or independent summary chunks (16.589625ms)
+  ✔ rejects invalid context mode thresholds, summary chunks and input budgets beyond the provider window (43.092458ms)
+  ✔ rejects an enabled context budget with no room for recent history (10.976875ms)
+  ✔ keeps web search opt-in inside the web module (23.484917ms)
+  ✔ keeps feed reading opt-in and requires the web module (20.636959ms)
+  ✔ resolves workspace relative to the config file directory (10.390333ms)
+  ✔ supports memory auto consolidation only when memory is enabled (28.421458ms)
+  ✔ requires workspace for workspace modules but allows Todoist alone (10.001292ms)
+  ✔ keeps checkpoint independently disabled by default and requires projectDirectory when enabled (9.85225ms)
+  ✔ rejects unknown keys, modules, versions, and bare module booleans (26.814375ms)
+  ✔ enables shell only with an explicit config and requires workspace (8.276625ms)
+  ✔ rejects malformed JSON and does not fall back to legacy settings (12.04325ms)
+  ✔ preserves the legacy CLI behavior and only uses its passed timezone (14.696708ms)
+  ✔ rejects config mode combined with module selection arguments (3.884416ms)
+  ✔ keeps the primary run at 8 steps unless config sets a bounded maxSteps (11.292ms)
+  ✔ bounds the primary Run timeout independently of maxSteps (32.759542ms)
+  ✔ bounds the Shell command timeout without changing the Run budget (32.974125ms)
+✔ resolveTuiModuleConfig (669.07875ms)
+▶ fetchWebPage
+  ✔ fetches one public URL with GET and returns provenance (73.337583ms)
+  ✔ rejects private, localhost, credentials, and non-http targets before fetching (2.951916ms)
+  ✔ rejects a hostname resolving to a private address (0.814625ms)
+  ✔ allows a public hostname whose DNS answer is Clash fake-ip (0.881583ms)
+  ✔ allows a public hostname whose IPv4-mapped DNS answer is Clash fake-ip (3.696208ms)
+  ✔ still blocks a fake-ip address used as the URL host (0.331542ms)
+  ✔ still blocks a hostname that also resolves to RFC1918 (0.462292ms)
+  ✔ revalidates every redirect and blocks a private redirect target (0.620625ms)
+  ✔ does not follow a redirect outside the authorized origins (1.501083ms)
+  ✔ stops after five redirects (1.599042ms)
+  ✔ extracts HTML and marks a response truncated at the text budget (3.832834ms)
+  ✔ truncates at the text budget without splitting a multi-byte character (7.091666ms)
+  ✔ drops the whole multi-byte character when the budget lands inside its sequence (4.596917ms)
+  ✔ keeps a complete multi-byte character that ends exactly at the text budget (1.782875ms)
+  ✔ marks a body beyond the raw response budget as truncated (1.775ms)
+  ✔ returns explicit HTTP and content-type failures (0.788375ms)
+  ✔ maps the request deadline to TIMEOUT (14.381042ms)
+✔ fetchWebPage (124.071625ms)
+▶ fetchFeedDocument
+  ✔ preserves XML mislabeled as HTML, including content beyond the page text cap (2.52825ms)
+  ✔ signals the 512 KiB raw cap without pretending a partial feed is complete (1.732875ms)
+  ✔ rejects a non-UTF-8 feed without attempting to transcode (1.065542ms)
+  ✔ blocks a private redirect before making a second request (2.127125ms)
+✔ fetchFeedDocument (7.982166ms)
+▶ feed item URL validation
+  ✔ rejects non-HTTP, credentialed, local and private IP targets (0.46225ms)
+  ✔ checks DNS and retains the fake-IP resolver exception (1.170458ms)
+✔ feed item URL validation (2.052958ms)
+✔ forwards search, failed page, and successful page results through one Run (355.570958ms)
+✔ does not contact Exa when web_search is denied (55.557083ms)
+✔ does not fetch a page after web_search is denied in the same step (98.932208ms)
+▶ webSearch through keyless Exa MCP
+  ✔ sends one tools/call without credentials and maps bounded discovery results (93.545917ms)
+  ✔ accepts JSON RPC, empty results, and caps returned links (2.379708ms)
+  ✔ filters invalid URLs and distinguishes malformed RPC from tool errors (3.043792ms)
+  ✔ validates input and maps HTTP, network, timeout, and caller cancellation (7.359625ms)
+✔ webSearch through keyless Exa MCP (108.86ms)
+▶ work summary contract
+  ✔ accepts a bounded summary and reports its UTF-8 byte size (2.647042ms)
+  ✔ rejects empty required text and malformed evidence (0.654334ms)
+  ✔ rejects a coverage position that moves backward or changes its message (0.337333ms)
+  ✔ rejects a summary over the configured byte cap without changing the value (1.560667ms)
+  ✔ does not treat a null next step as an invalid empty value (0.356833ms)
+  ✔ looks up one complete turn by message id or turn number without mutation (0.628958ms)
+  ✔ keeps the first user goal and later user constraints without treating prose as completed (0.932208ms)
+  ✔ classifies tool results by execution fact and preserves evidence message ids (1.339625ms)
+  ✔ classifies TOOL_OUTCOME_UNKNOWN as unknown rather than a completed or failed receipt (0.535417ms)
+  ✔ keeps short write receipts and omits file or page bodies from completed facts (2.856917ms)
+  ✔ shrinks an oversized omitted transcript until the summary fits (0.825667ms)
+  ✔ rejects unknown local history selectors (0.222917ms)
+✔ work summary contract (15.628792ms)
+✔ delivery draft uses bounded successful receipts and only the latest owned primary Run (2.504375ms)
+✔ artifact display is bounded, scoped, symlink-safe, and explicitly separate from acceptance (26.659833ms)
+✔ Controller display queries are read-only, version-bound, survive restart and do not call the model (7979.700166ms)
+✔ corrects missing multiple tests in the same Run using one confirmed batch and persists both checks (8806.307458ms)
+✔ explicit readback criteria reject missing, pre-write, stale and denied reads without weakening legacy tasks (983.852292ms)
+✔ completion checks reject unknown/foreign receipts, human-only contracts and unavailable tools (805.447583ms)
+✔ WorkTask finish check: correct (6491.0185ms)
+✔ WorkTask finish check: readback (7711.177791ms)
+✔ WorkTask finish check: deny (3480.548084ms)
+✔ WorkTask finish check: exhaust (4577.900042ms)
+✔ WorkTask finish check: manual (5280.498916ms)
+✔ WorkTask finish check: chat (3754.399166ms)
+▶ WorkTask context
+  ✔ injects the bounded contract without treating it as evidence or permission (1.661042ms)
+  ✔ refuses an oversized contract instead of truncating acceptance criteria (0.830209ms)
+  ✔ labels the latest reconciliation as an unverified human report (0.718958ms)
+✔ WorkTask context (4.978333ms)
+✔ continuation binds only the latest owned primary receipt and preserves unknown effects (2.245833ms)
+✔ bounded prior delivery enters task context as a reference, never evidence or permission (7.063625ms)
+✔ projects persisted completion reasons only from the latest owned Run (2.599292ms)
+✔ before-dispatch gate waits for approval persistence and never gates a failed write (1.442833ms)
+✔ post-recovery absence check fails on a created file or dangling symlink (14.71175ms)
+✔ crash fixture never grants Shell, foreign paths or replayed write on continuation (0.543875ms)
+Crash evidence directory: /var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-work-task-crash-2jU0fR
+scripted: before-dispatch
+scripted: unrecorded-write
+✖ real process kills preserve not_started/unknown/completed and never replay during recovery (scripted model) (21355.274084ms)
+▶ work task eval cases
+  ✔ freezes six unique cases across the three promised task categories (1.893542ms)
+  ✔ links every hard failure to one required check with evidence requirements (0.5385ms)
+  ✔ produces checks that fit AcceptanceCaseResult without claiming unobserved work (2.327208ms)
+✔ work task eval cases (6.385791ms)
+▶ WorkTask restart recovery
+  ✔ allows only one controller to own a workspace Thread until its lease is released (384.227875ms)
+  ✔ classifies missing, foreign, consolidation, and unknown receipts as needs_review (0.971125ms)
+  ✔ keeps a genuinely live receipt running and pauses every settled receipt without unknown effects (0.627875ms)
+  ✔ uses the latest Run for recovery because older receipts are bounded audit history (0.353875ms)
+  ✔ recovers running tasks beyond the Store's default twenty-item page (5095.647ms)
+  ✔ settles only this Thread's running tasks and is idempotent after the first recovery (926.297292ms)
+  ✔ does not settle a different latest Run when recovery used a stale task snapshot (506.116375ms)
+  ✔ surfaces a settle write failure and converges when startup recovery is retried (516.032167ms)
+  ✔ requires explicit human reconciliation and never continues a still-unknown outcome (911.17375ms)
+  ✔ allows cancellation while preserving a still-unknown human report (1338.132583ms)
+✔ WorkTask restart recovery (9682.579042ms)
+✔ explicit rework uses a fresh approved Run and never accepts a prior write as the new delivery (16521.776125ms)
+✔ invalidates old test receipts after dispatched Shell, file or computer effects, even failed Shell (4.992375ms)
+✔ checks real Shell mutations and rechecks direct store acceptance instead of trusting supplied evidence (632.763083ms)
+✔ runs a fail-fast multi-test batch with literal quoting, persists matching evidence and restores both criteria (992.536375ms)
+✔ does not invent a combined command across cwd boundaries or exceed the evidence size limit (0.55875ms)
+▶ WorkTaskStore
+  ✔ a failed beginRun file sync blocks further execution admission until reopening (394.3035ms)
+  ✔ returns delivery for changes once under CAS, preserves the last delivery but invalidates acceptance (1614.347708ms)
+  ✔ does not reopen a completed or cancelled task for changes (1204.457458ms)
+  ✔ persists a task lifecycle and completes only after delivery and required evidence (1152.694042ms)
+  ✔ enforces revision, state, verification, evidence, and Run ownership contracts (1747.8185ms)
+  ✔ fails closed for malformed and symlinked storage without replacing it (460.651125ms)
+  ✔ rejects aggregate limits before writing and clears prior acceptance on replacement delivery (2332.995083ms)
+  ✔ rejects caller-supplied evidence instead of trusting an unverified delivery snapshot (2782.045291ms)
+  ✔ reads version-one tasks written before reconciliation history existed (238.424041ms)
+✔ WorkTaskStore (11933.166125ms)
+✔ workspace task read Demo: trusted embedded list/get complete without approvals or foreign data (1192.276167ms)
+✔ workspace task read Demo: symlinked task directory cannot expose another workspace (446.303167ms)
+✔ workspace task read policy trusts built-in object identity, primary agent and exact workspace, never risk/name alone (1.857125ms)
+✔ workspace task read Demo: TUI keeps per-call approval without the embedding opt-in (1804.23175ms)
+✔ workspace task read Demo: create/reschedule/cancel/ack/files/Shell remain per-call approval (3327.267375ms)
+▶ writeFileToWorkspace
+  ✔ partial write with cleanup success is an ordinary failure (44.155375ms)
+  ✔ partial write with cleanup failure stops as unknown (53.318417ms)
+  ✔ creates an empty and a UTF-8 file and reports normalized bytes (31.572042ms)
+  ✔ does not overwrite an existing file or directory (15.179917ms)
+  ✔ requires an existing directory parent and rejects symlink components (119.46475ms)
+  ✔ rejects absolute, outside, NUL, NUL-content, lone-surrogate, and oversized inputs (28.3385ms)
+  ✔ propagates an already-aborted signal without creating a file (5.950541ms)
+✔ writeFileToWorkspace (302.1265ms)
+▶ createWriteFileTool
+  ✔ exposes the authorized input and structured output contract (27.394458ms)
+✔ createWriteFileTool (27.864958ms)
+✔ reviewed migration retains decisions and metadata, rejects source drift and historical-only rows (9.265958ms)
+✔ real JSONL source validation, complete tar rollback and a separate migrated copy preserve bytes and counts (4392.615541ms)
+✔ offline CLI dry-run, exact-byte backup, upgrade and SHA-proven rollback preserve other settings (4158.288833ms)
+✔ rollback refuses changed configuration and corrupted backup without overwriting (2854.905917ms)
+✔ upgrade refuses ambiguous format and a held cooperating config lock (2365.469041ms)
+✔ null grants stay empty and existing b2 declarations preserve permissions and base exactly (2571.311542ms)
+✔ approved repair preserves every memory field except progress ownership and the mistaken progress (25.194875ms)
+✔ CLI refuses unapproved SHA without creating locks, backups or any data mutation (1081.103792ms)
+✔ dry-run, full private backup/rehearsal/rollback, offline read and exact replay preserve IDs, sources, bytes and scope mapping (1238.384375ms)
+✔ source drift and undeclared scope fail without creating a target (90.834666ms)
+✔ every persisted interruption requires explicit recovery, never marks incomplete data successful, then replay is write-free (7010.561333ms)
+✔ CLI requires explicit home, defaults to dry-run and recovers an actual killed child only on explicit invocation (5724.619542ms)
+✔ cutover CLI admits only absent or empty default home under explicit flag; simulated HOME never reaches daily data (31117.222208ms)
+✔ offline dry-run is read-only; upgrade preserves all sources and counts, cold opens v7, and rollback restores exact SHA and mode (2490.603334ms)
+✔ unknown preference is listed without content and blocks upgrade until an exact explicit mapping is provided (1390.161792ms)
+✔ additional approved note maps to Serika; suppression needs its own scope and document chunks cannot disagree (13.857542ms)
+✔ legacy validation rejects new/unknown fields and normalizes only old schema defaults (6.117708ms)
+✔ held lock, symlink, hardlink, changed current bytes and corrupt backup fail without overwriting (2997.25425ms)
+✔ moved project reports an absolute CLI command, rebinds all v7 associations and rolls back both exact SHAs (3956.78925ms)
+✔ existing target associations stop rebind without merging, including inactive entries and progress-only targets (13999.105791ms)
+✔ partial two-file commit rolls back, while drift, corrupt backup, links and a held lock refuse overwrites (11336.656ms)
+✔ a registered project without memory can rebind and rollback without creating memory (2083.631333ms)
+▶ RFC 8785 canonical hash
+  ✔ is independent of object insertion order (2.521958ms)
+  ✔ keeps the stored jcs-sha256:v1 format stable (2.497833ms)
+  ✔ rejects non-finite JSON numbers (0.698792ms)
+✔ RFC 8785 canonical hash (20.767666ms)
+▶ JsonlAgentStore
+  ✔ reuses a read-only snapshot and decodes only appended records, invalidating on replacement (215.1745ms)
+  ✔ holds the append lease for the whole Run and releases it only at a terminal transition (125.816542ms)
+  ✔ resumes pending chunk transactions and Unicode EOF lines without treating them as committed sources (229.458375ms)
+  ✔ cleans redundant snapshots under a host lock without changing message sources or opaque companions (308.58425ms)
+  ✔ does not replace snapshots without a cross-process host lock or erase a corrupt history during cleanup (41.652625ms)
+  ✔ skips an over-capacity checkpoint without blocking continuation or deleting logical messages (33.441541ms)
+  ✔ reports unconfirmed append sync as uncertain and freezes writes until reopen (15.594708ms)
+  ✔ freezes Run admission after a pre-append repair failure, retaining committed messages (23.401125ms)
+  ✔ treats a close failure after append as uncertain rather than acknowledging or admitting another Run (23.426875ms)
+  ✔ persists opaque context-compaction records without changing transcripts (44.671542ms)
+  ✔ skips unknown v2 record types when reading compaction records (55.358917ms)
+  ✔ skips malformed opaque compaction records while retaining transcript reads (28.494083ms)
+  ✔ restores the latest committed transcript after reopen (58.456917ms)
+  ✔ ignores a truncated final line (80.481917ms)
+  ✔ does not truncate a writer's pending bytes during read-only queries (42.26975ms)
+  ✔ commits even complete JSON only at newline and repairs it before a new append (81.039125ms)
+  ✔ does not expose a complete compaction tail before its newline (67.212292ms)
+  ✔ serializes recovery, snapshot and compaction appends across store instances (685.90675ms)
+  ✔ repairs a large UTF-8 pending tail when appending a compaction (26.926666ms)
+  ✔ recovers a first torn record without inventing a committed snapshot (34.590084ms)
+  ✔ skips unknown record versions (23.710166ms)
+  ✔ rejects corruption before the final line (29.460791ms)
+  ✔ keeps a >16 MiB conversation in bounded delta records and appends only new material (1713.872ms)
+  ✔ ignores a complete but uncommitted chunk group, and detects committed checksum/base corruption (243.539375ms)
+✔ JsonlAgentStore (4243.797417ms)
+✔ exclusion companions survive append, locked cleanup and reopen; corrupt exclusions fail model reads closed (321.378583ms)
+▶ DefaultAgentRuntime
+  ✔ passes beforeToolExecute through to the agent loop (13.474584ms)
+  ✔ excludes a pending tool confirmation from the total run timeout (80.798416ms)
+  ✔ resumes the remaining run timeout after confirmation (128.756375ms)
+  ✔ still cancels while a tool confirmation has paused the timeout (1.46025ms)
+  ✔ does not save when model context preparation fails (2.9ms)
+  ✔ does not save when context preparation is cancelled (0.945125ms)
+  ✔ does not save when context preparation reaches the run timeout (22.035292ms)
+  ✔ rejects an already aborted request before creating a run (2.107041ms)
+  ✔ cancels a run aborted while creating it without entering the loop (1.517292ms)
+  ✔ keeps the first stop reason when cancellation and timeout compete (38.697334ms)
+  ✔ keeps a run timeout when cancellation arrives afterwards (11.478541ms)
+  ✔ does not save when cancelled before the commit boundary (3.432125ms)
+  ✔ does not turn a late cancellation during save into a cancelled result (1.206417ms)
+  ✔ persists a completed run and contiguous events (1.039958ms)
+  ✔ rejects concurrent active runs on one thread (0.857333ms)
+  ✔ rejects a run unless it contains exactly one new user message (0.416333ms)
+  ✔ loads the committed transcript before the next run (0.641792ms)
+  ✔ does not overwrite the transcript when the next run fails (0.793333ms)
+  ✔ does not save a truncated model response (102.107541ms)
+  ✔ keeps a completed result when its notification fails (2.116167ms)
+  ✔ rejects when finalization fails after saving the transcript (1.382542ms)
+✔ DefaultAgentRuntime (425.984709ms)
+✔ steer mailbox is bounded, idempotent and rejects conflicting caller ids (7.692917ms)
+✔ admission reserves before persistence, acknowledgement waits and terminal close resolves accepted-only requests (1.183917ms)
+✔ failure to persist acceptance fails the Run path and never acknowledges a lost request (0.869125ms)
+{"testHomeGuard":"failed","evidence":"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-FRYnni/home/write-guard-8Dru3E/result.json","violations":1,"changes":0,"metadataUnchanged":true}
+✔ fails the whole command on a node write, using a temporary protected fixture (232.571459ms)
+{"testHomeGuard":"failed","evidence":"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-test-US4Zt1/home/write-guard-QrexTJ/result.json","violations":0,"changes":0,"metadataUnchanged":false}
+✔ fails the whole command on a shell write, using a temporary protected fixture (76.763292ms)
+{"testHomeGuard":"passed","evidence":"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-home-guard-pass-Va1FzR/home/write-guard-37bfLQ/result.json","violations":0,"changes":0,"metadataUnchanged":true}
+✔ requires an explicit temporary home and preserves successful isolated commands (485.610875ms)
+ℹ tests 1225
+ℹ suites 108
+ℹ pass 1217
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 7
+ℹ todo 0
+ℹ duration_ms 293782.99075
+
+✖ failing tests:
+
+test at packages/assistant/dist/work-task-crash-acceptance.test.js:48:1
+✖ real process kills preserve not_started/unknown/completed and never replay during recovery (scripted model) (21355.274084ms)
+  AssertionError [ERR_ASSERTION]: {"root":"/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/runloom-work-task-crash-2jU0fR","mode":"scripted","scenarios":["before-dispatch","unrecorded-write","recorded-write"],"passed":false,"results":[{"scenario":"before-dispatch","passed":true,"failure":null},{"scenario":"unrecorded-write","passed":false,"failure":"Error: Fixture child exceeded its boundary timeout"}],"evidence":"Real SIGKILL of fixture-owned process; local receipt-boundary fault injection; production Controller/file tools/leases","electronAcceptance":"not_run","taskQuality":"not_accepted","retry":"No whole-case retry; original unknown receipt retained"}
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/assistant/dist/work-task-crash-acceptance.test.js:51:16)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+{"testHomeGuard":"failed","evidence":"/private/tmp/s197-boundary-work/full-home/write-guard-hrNh7J/result.json","violations":0,"changes":201,"metadataUnchanged":false}
+[ELIFECYCLE] Command failed with exit code 1.
+{"testHomeGuard":"failed","evidence":"/private/tmp/s197-boundary-work/full-home/write-guard-iCplXt/result.json","violations":0,"changes":201,"metadataUnchanged":false}
+[ELIFECYCLE] Test failed. See above for more details.

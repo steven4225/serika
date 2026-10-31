@@ -1,0 +1,114 @@
+{
+  "batchId": "d5a887cd-6976-41e1-ad2a-ed41c83e44f7",
+  "startedAt": "2026-10-31T08:31:21.729Z",
+  "sourceCommit": "935294e7004176645448882a8179bf142030e854",
+  "sourceWorktreeDirty": false,
+  "verification": "real-telegram-original-node-desktop-runtime-real-model-isolated-herdr-pi",
+  "platform": "darwin",
+  "node": "v26.4.0",
+  "scriptSha256": "3c9fdea5ed8b748f721eee79612bb67c8a671715a0fb5d71eec5f4c4ed555a13",
+  "model": "deepseek/deepseek-v4.1-flash-fast",
+  "capUsd": 0.25,
+  "maxRequests": 24,
+  "maxRuns": 1,
+  "pricePerMillionUsd": {
+    "input": 0.32,
+    "output": 1.16,
+    "cacheRead": 0.03
+  },
+  "priceBasis": "Frozen desktop c9a16383 script rates; not invoice verified",
+  "credentialSource": "/Users/a1-6/.config/serika/v2-daily.env",
+  "credentialsWrittenToDisk": false,
+  "calls": [],
+  "cases": [],
+  "errors": [
+    {
+      "stage": "isolated-host-stop",
+      "name": "ClientDestroyedError"
+    }
+  ],
+  "approvalEvents": [],
+  "transport": [
+    {
+      "direction": "inbound-envelope",
+      "at": "2026-10-31T08:32:37.503Z",
+      "updateId": 414513485,
+      "messageId": 656
+    }
+  ],
+  "costUsd": 0,
+  "status": "failed",
+  "isolatedRoot": "/private/tmp/tg-quC2af",
+  "daily": {
+    "pid": 36769,
+    "enabledBefore": true,
+    "connectionBefore": "online",
+    "configSha256Before": "0d38545bd21c11381e8cc91444511df07135a4bfc6cc2349c510769aea833292",
+    "historicalUnknownDeliveriesBefore": 3,
+    "pauseAttemptedAt": "2026-10-31T08:31:30.201Z",
+    "pausedAt": "2026-10-31T08:31:30.236Z",
+    "transportOffsetAcknowledged": true,
+    "configSha256After": "0d38545bd21c11381e8cc91444511df07135a4bfc6cc2349c510769aea833292",
+    "restoredAt": "2026-10-31T08:32:39.916Z",
+    "enabledAfter": true,
+    "connectionAfter": "online",
+    "ownerUnchanged": true,
+    "historicalUnknownDeliveriesAfter": 3
+  },
+  "fixture": {
+    "statePath": "/private/tmp/tg-quC2af/herdr-fixture/herdr-state.json",
+    "root": "/private/tmp/tg-quC2af/herdr-fixture",
+    "work": "/private/tmp/tg-quC2af/herdr-fixture/workspace",
+    "target": {
+      "authorizedDirectory": "/private/tmp/tg-quC2af/herdr-fixture/workspace",
+      "session": "w-83ae148e",
+      "paneId": "w1:p1",
+      "terminalId": "term_65f1ebcd5f0771"
+    },
+    "env": {
+      "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+      "HOME": "/private/tmp/tg-quC2af/herdr-fixture/H",
+      "XDG_CONFIG_HOME": "/private/tmp/tg-quC2af/herdr-fixture/H/.config",
+      "XDG_CACHE_HOME": "/private/tmp/tg-quC2af/herdr-fixture/H/.cache",
+      "HERDR_CONFIG_PATH": "/private/tmp/tg-quC2af/herdr-fixture/H/.config/herdr/config.toml",
+      "SHELL": "/bin/sh",
+      "TERM": "xterm-256color",
+      "LANG": "en_US.UTF-8",
+      "PI_CODING_AGENT_DIR": "/private/tmp/tg-quC2af/herdr-fixture/pi",
+      "PI_CODING_AGENT_SESSION_DIR": "/private/tmp/tg-quC2af/herdr-fixture/pi/sessions",
+      "PI_OFFLINE": "1",
+      "PI_TELEMETRY": "0"
+    },
+    "piSession": "/private/tmp/tg-quC2af/herdr-fixture/pi-session.jsonl"
+  },
+  "secondPi": {
+    "target": {
+      "authorizedDirectory": "/private/tmp/tg-quC2af/herdr-fixture/workspace",
+      "session": "w-83ae148e",
+      "paneId": "w1:p2",
+      "terminalId": "term_65f1ebd11e7ca2"
+    },
+    "piSession": "/private/tmp/tg-quC2af/herdr-fixture/pi-second.jsonl"
+  },
+  "lastPollOffset": 414513485,
+  "stopReason": "unexpected-telegram-inbound",
+  "failure": {
+    "name": "AssertionError",
+    "message": "Stopped: unexpected-telegram-inbound"
+  },
+  "telegramStore": {
+    "version": 1,
+    "workspace": "/private/tmp/tg-quC2af/profile",
+    "enabled": true,
+    "botId": 8797046945,
+    "offset": 414513485,
+    "owner": null,
+    "inputs": [],
+    "deliveries": [],
+    "routes": []
+  },
+  "isolatedTelegramStoppedAt": "2026-10-31T08:32:37.510Z",
+  "realModelCalls": 0,
+  "unresolvedReservedUsd": 0,
+  "finishedAt": "2026-10-31T08:32:39.917Z"
+}

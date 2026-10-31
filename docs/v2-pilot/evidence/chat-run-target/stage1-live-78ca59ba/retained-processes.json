@@ -1,0 +1,24 @@
+{
+  "id": "c2657271-3f14-49f5-a8d0-b1c785133b3a",
+  "observedAt": "2026-10-31T02:57:58.544652+00:00",
+  "isolatedRoot": "/private/tmp/c-RD0jp2",
+  "rootExists": true,
+  "electron": [
+    {
+      "pid": 76274,
+      "alive": false
+    },
+    {
+      "pid": 76608,
+      "alive": false
+    }
+  ],
+  "herdrServer": {
+    "session": "w-bf1bb63b",
+    "pid": 76530,
+    "alive": true,
+    "phase": "ready",
+    "unknown": false
+  },
+  "action": "read-only liveness observation; retained after failure, no target control"
+}

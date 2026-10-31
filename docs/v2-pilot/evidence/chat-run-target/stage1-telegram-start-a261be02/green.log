@@ -1,0 +1,44 @@
+✖ live observer permits the first paired Telegram task to start and records its unique Run (1531.101459ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1724.47625
+
+✖ failing tests:
+
+test at apps/desktop/scripts/chat-run-target-telegram-profile.test.mjs:95:1
+✖ live observer permits the first paired Telegram task to start and records its unique Run (1531.101459ms)
+  AssertionError [ERR_ASSERTION]: node:internal/assert/utils:135
+      throw new ERR_INVALID_ARG_TYPE(
+            ^
+  
+  TypeError [ERR_INVALID_ARG_TYPE]: The "message" argument must be one of type string or function. Received undefined
+      at innerFail (node:internal/assert/utils:135:11)
+      at innerOk (node:internal/assert/utils:169:5)
+      at strict.ok (node:assert:197:3)
+      at file:///Users/a1-6/Code/agents/serika-chat-run-target/[eval1]:44:14 {
+    code: 'ERR_INVALID_ARG_TYPE'
+  }
+  
+  Node.js v26.4.0
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/scripts/chat-run-target-telegram-profile.test.mjs:146:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+{"testHomeGuard":"failed","evidence":"/private/tmp/s197-start-fix/green-home/write-guard-MFoM0j/result.json","violations":0,"changes":3,"metadataUnchanged":false}

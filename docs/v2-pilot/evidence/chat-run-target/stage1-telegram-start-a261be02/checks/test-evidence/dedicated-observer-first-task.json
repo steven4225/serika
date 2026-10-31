@@ -1,0 +1,48 @@
+{
+  "auditId": "1bb4a62d-0b7e-4f1a-b3f1-8a4f8c9f9a06",
+  "inputs": [
+    {
+      "key": "42:2",
+      "updateId": 2,
+      "text": "请处理本次离线任务。",
+      "receivedAt": "2026-11-01T00:30+08:00",
+      "state": "finished",
+      "runId": "82797c36-b3c9-442a-b999-2d4d59e6f2a0",
+      "taskId": null
+    }
+  ],
+  "deliveries": [
+    {
+      "key": "binding:d41dc6a6-4f60-4e7d-bf7d-bb13198ad9e2",
+      "chatId": 42,
+      "text": "已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。工具仍逐次确认。例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。",
+      "parts": [
+        {
+          "text": "已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。工具仍逐次确认。例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。",
+          "state": "submitted",
+          "messageId": 1
+        }
+      ],
+      "state": "submitted",
+      "messageId": 1
+    },
+    {
+      "key": "result:42:2",
+      "chatId": 42,
+      "text": "offline-complete",
+      "parts": [
+        {
+          "text": "offline-complete",
+          "state": "submitted",
+          "messageId": 2
+        }
+      ],
+      "state": "submitted",
+      "messageId": 2
+    }
+  ],
+  "modelCalls": 1,
+  "networkCalls": 0,
+  "exceptions": [],
+  "observedRunId": "82797c36-b3c9-442a-b999-2d4d59e6f2a0"
+}

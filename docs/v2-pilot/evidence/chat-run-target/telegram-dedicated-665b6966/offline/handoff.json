@@ -1,0 +1,189 @@
+{
+  "before": {
+    "storeOffset": 414513485,
+    "requiredOffset": 414513486,
+    "confirmedOffset": 414513485,
+    "confirmed": false,
+    "blockedBy": []
+  },
+  "after": {
+    "storeOffset": 414513485,
+    "requiredOffset": 414513486,
+    "confirmedOffset": 414513486,
+    "confirmed": true,
+    "blockedBy": []
+  },
+  "blocked": {
+    "storeOffset": 414513485,
+    "requiredOffset": 414513486,
+    "confirmedOffset": 999999999,
+    "confirmed": false,
+    "blockedBy": [
+      {
+        "updateId": 414513485,
+        "failedPredicates": [
+          "owner_chat_matches",
+          "text_matches_phase"
+        ]
+      }
+    ]
+  },
+  "later": {
+    "at": "2026-10-31T15:00:05.548Z",
+    "pollId": "offline-poll",
+    "indexInPoll": 0,
+    "phase": "pairing",
+    "sourceOwner": {
+      "userId": 42,
+      "chatId": 42,
+      "threadId": "daily-thread"
+    },
+    "updateSha256": "ac9f637141f1b887defc77de523d4960ae7e49403f5339a418ef34e6b87d6e6f",
+    "update": {
+      "update_id": 414513485,
+      "message": {
+        "message_id": 656,
+        "date": 1,
+        "chat": {
+          "id": 42,
+          "type": "private"
+        },
+        "from": {
+          "id": 42,
+          "is_bot": false
+        },
+        "text": "/start 3935B76A82"
+      }
+    },
+    "normalizedText": "/start 3935B76A82",
+    "predicates": [
+      {
+        "id": "update_object_valid",
+        "expected": "object",
+        "actual": "object",
+        "passed": true
+      },
+      {
+        "id": "update_id_valid",
+        "expected": "nonnegative safe integer",
+        "actual": 414513485,
+        "passed": true
+      },
+      {
+        "id": "message_present",
+        "expected": true,
+        "actual": true,
+        "passed": true
+      },
+      {
+        "id": "message_id_valid",
+        "expected": "positive safe integer",
+        "actual": 656,
+        "passed": true
+      },
+      {
+        "id": "owner_user_matches",
+        "expected": 42,
+        "actual": 42,
+        "passed": true
+      },
+      {
+        "id": "owner_chat_matches",
+        "expected": 42,
+        "actual": 42,
+        "passed": true
+      },
+      {
+        "id": "chat_private",
+        "expected": "private",
+        "actual": "private",
+        "passed": true
+      },
+      {
+        "id": "sender_is_human",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "not_forwarded",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "not_via_bot",
+        "expected": false,
+        "actual": false,
+        "passed": true
+      },
+      {
+        "id": "text_is_string",
+        "expected": "string",
+        "actual": "string",
+        "passed": true
+      },
+      {
+        "id": "text_matches_phase",
+        "expected": "/start 3935B76A82",
+        "actual": "/start 3935B76A82",
+        "passed": true
+      },
+      {
+        "id": "single_task_message",
+        "expected": "first task",
+        "actual": 656,
+        "passed": true
+      },
+      {
+        "id": "handoff_response_empty",
+        "expected": 0,
+        "actual": 1,
+        "passed": false
+      }
+    ],
+    "accepted": false,
+    "failedPredicate": "handoff_response_empty",
+    "failedPredicates": [
+      "handoff_response_empty"
+    ],
+    "safeToAcknowledge": false,
+    "forwarded": false,
+    "bindingBefore": {
+      "owner": null,
+      "pairing": {
+        "code": "3935B76A82",
+        "proposed": null
+      },
+      "botId": 100,
+      "threadId": "isolated-thread",
+      "offset": 414513485,
+      "runId": null
+    },
+    "bindingAfter": {
+      "owner": null,
+      "pairing": {
+        "code": "3935B76A82",
+        "proposed": null
+      },
+      "botId": 100,
+      "threadId": "isolated-thread",
+      "offset": 414513485,
+      "runId": null
+    }
+  },
+  "laterBlocked": {
+    "storeOffset": 414513485,
+    "requiredOffset": 414513486,
+    "confirmedOffset": 999999999,
+    "confirmed": false,
+    "blockedBy": [
+      {
+        "updateId": 414513485,
+        "failedPredicates": [
+          "handoff_response_empty"
+        ]
+      }
+    ]
+  }
+}

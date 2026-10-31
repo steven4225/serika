@@ -19,11 +19,14 @@ import {readFileSync,appendFileSync,writeFileSync} from 'node:fs';
 const argv=process.argv.slice(2), mode=JSON.parse(readFileSync(${JSON.stringify(stateFile)},'utf8'));
 if (Object.keys(process.env).some(k=>k.startsWith('HERDR_') || k==='API_KEY')) { console.error('unexpected environment'); process.exit(1); }
 appendFileSync(${JSON.stringify(log)},JSON.stringify(argv)+'\\n');
+if(mode==='server-not-running' || mode==='discovery' && argv[1]==='broken') { console.error(JSON.stringify({error:{code:'server_not_running',message:'password='+${JSON.stringify(secret)}}})); process.exit(1); }
+if(mode==='invalid-json') { console.log('password='+${JSON.stringify(secret)}); process.exit(0); }
+if(mode==='invalid-metadata') { console.log('{}'); process.exit(0); }
 if(argv[3]==='prompt' && (argv[0]!=='--session'||argv[1]!=='offline'||argv[2]!=='agent'||argv[4]!=='w1:p1'||argv.length!==6)) { console.error('unknown option: '+argv[6]); process.exit(2); }
-const identity={pane_id:'w1:p1',terminal_id:mode==='replaced'?'replacement':'terminal-1'};
-const agent={...identity,agent:mode==='wrong-kind'?'codex':'pi',agent_status:mode==='busy'?'working':'idle',state_change_seq:3};
-if(argv[0]==='session') console.log(JSON.stringify({sessions:[{name:'offline',running:true}]}));
-else if(argv[2]==='pane') console.log(JSON.stringify({result:argv[3]==='list'?{type:'pane_list',panes:[{...identity,terminal_title_stripped:'password='+${JSON.stringify(secret)}}]}:{type:'pane_info',pane:identity}}));
+const identity={pane_id:argv[4]==='w1:p2'?'w1:p2':'w1:p1',terminal_id:argv[4]==='w1:p2'?'terminal-2':mode==='replaced'?'replacement':'terminal-1'};
+const agent={...identity,agent:mode==='wrong-kind'||argv[4]==='w1:p2'?'codex':'pi',agent_status:mode==='busy'?'working':mode==='state-unknown'?'unknown':'idle',state_change_seq:3};
+if(argv[0]==='session') console.log(JSON.stringify({sessions:[{name:'offline',running:true},...(mode==='discovery'?[{name:'broken',running:true},{name:'stopped',running:false}]:[])]}));
+else if(argv[2]==='pane') console.log(JSON.stringify({result:argv[3]==='list'?{type:'pane_list',panes:[{...identity,terminal_title_stripped:'password='+${JSON.stringify(secret)}},...(mode==='discovery'?[{pane_id:'w1:p2',terminal_id:'terminal-2',terminal_title_stripped:'Other agent'}]:[])]}:{type:'pane_info',pane:identity}}));
 else if(argv[3]==='read') { process.stdout.write('answer\\npassword='+${JSON.stringify(secret)}+'\\nAuthorization: Bearer '+${JSON.stringify(secret)}); if(mode==='replace-after-read') writeFileSync(${JSON.stringify(stateFile)},JSON.stringify('replaced')); }
 else if(argv[3]==='prompt' && mode==='unknown') { console.error('password='+${JSON.stringify(secret)}); process.exit(1); }
 else if(argv[3]==='prompt' && mode==='cancel') setTimeout(()=>console.log(JSON.stringify({result:{type:'agent_prompted',agent}})),60000);
@@ -98,7 +101,9 @@ it("Herdr sending failure is unknown once, with stderr suppressed and no automat
 it("Herdr cancellation before dispatch sends nothing; cancellation after input dispatch stays unknown", async () => {
   const f = await fixture();
   try {
-    assert.equal((await f.client.execute(f.target, { action: "prompt", text: "task" }, AbortSignal.abort())).ok, false);
+    const cancelled = await f.client.execute(f.target, { action: "prompt", text: "task" }, AbortSignal.abort());
+    assert.equal(cancelled.ok, false);
+    if (!cancelled.ok) assert.equal(cancelled.error.code, "HERDR_CANCELLED");
     await assert.rejects(readFile(join(f.root, "calls.jsonl")), { code: "ENOENT" });
     await f.set("cancel");
     const abort = new AbortController();
@@ -109,5 +114,58 @@ it("Herdr cancellation before dispatch sends nothing; cancellation after input d
     abort.abort();
     await rejected;
     assert.deepEqual((await f.calls()).map(argv => argv[3]), ["get", "get", "prompt"]);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+
+it("Herdr pre-dispatch failures retain safe server, JSON and metadata reasons", async () => {
+  const f = await fixture();
+  try {
+    for (const [mode, code] of [["server-not-running", "HERDR_SERVER_NOT_RUNNING"], ["invalid-json", "HERDR_INVALID_JSON"], ["invalid-metadata", "HERDR_INVALID_METADATA"]]) {
+      await f.set(mode!);
+      const result = await f.client.execute(f.target, { action: "prompt", text: "task" });
+      assert.equal(result.ok, false);
+      if (!result.ok) assert.equal(result.error.code, code);
+      assert.ok(!JSON.stringify(result).includes(f.secret));
+    }
+    assert.ok(!(await f.calls()).some(argv => ["prompt", "send-keys", "read"].includes(argv[3]!)));
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+
+it("Herdr discovery checks running candidates and reports safe per-session and identity failures without reading or dispatch", async () => {
+  const f = await fixture();
+  try {
+    await f.set("discovery");
+    const result = await f.client.discover();
+    assert.deepEqual(result.candidates, [{ target: f.target, title: "password=[REDACTED]", status: "idle", stateChangeSeq: 3 }]);
+    assert.deepEqual(result.failures.map(item => [item.session, item.paneId, item.error.code]), [
+      ["offline", "w1:p2", "HERDR_NOT_PI"], ["broken", undefined, "HERDR_SERVER_NOT_RUNNING"], ["stopped", undefined, "HERDR_SESSION_NOT_RUNNING"],
+    ]);
+    assert.ok(!JSON.stringify(result).includes(f.secret));
+    const calls = await f.calls();
+    assert.ok(!calls.some(argv => argv[1] === "stopped" || ["prompt", "send-keys", "read", "wait"].includes(argv[3]!)));
+    await f.set("state-unknown");
+    const unknown = await f.client.discover();
+    assert.equal(unknown.candidates.length, 0);
+    assert.equal(unknown.failures[0]?.error.code, "HERDR_STATE_UNKNOWN");
+    const count = (await f.calls()).length;
+    const cancelled = await f.client.discover(AbortSignal.abort());
+    assert.equal(cancelled.failures[0]?.error.code, "HERDR_CANCELLED");
+    assert.equal((await f.calls()).length, count);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+it("Herdr discovery rejects forbidden binaries and distinguishes a process that never spawned", async () => {
+  const f = await fixture();
+  try {
+    const forbidden = new HerdrClient({ cwd: f.root, authorizedDirectory: f.root, env: { PATH: join(f.root, "bin") } });
+    assert.equal((await forbidden.discover()).failures[0]?.error.code, "HERDR_BINARY_FORBIDDEN");
+    await assert.rejects(readFile(join(f.root, "calls.jsonl")), { code: "ENOENT" });
+    await writeFile(join(f.root, "bin", "herdr"), "#!/nonexistent-serika-herdr-interpreter\n");
+    const failed = await f.client.execute(f.target, { action: "prompt", text: "task" });
+    assert.equal(failed.ok, false);
+    if (!failed.ok) assert.equal(failed.error.code, "HERDR_SPAWN_FAILED");
+    await assert.rejects(readFile(join(f.root, "calls.jsonl")), { code: "ENOENT" });
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });

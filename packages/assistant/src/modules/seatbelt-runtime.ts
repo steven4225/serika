@@ -40,7 +40,7 @@ async function probe(options: { binary: string; temp: string }): Promise<{ loade
 }
 
 export async function resolveSeatbeltRuntime(options: {
-  home: string; protectedPaths: readonly string[]; configPath?: string; searchPath?: string;
+  home: string; protectedPaths: readonly string[]; configPath?: string; searchPath?: string; nodeExecutable?: string;
   probe?: typeof probe;
 }): Promise<SeatbeltRuntime> {
   const forbidden = [...options.protectedPaths, options.home, ...[".serika", "Library"].map(name => join(userInfo().homedir, name))];
@@ -64,7 +64,8 @@ export async function resolveSeatbeltRuntime(options: {
     }
     throw new Error("Seatbelt runtime missing");
   };
-  const node = await find("node");
+  const node = options.nodeExecutable ? await canonical(options.nodeExecutable) : await find("node");
+  await access(node, constants.X_OK);
   let git = await find("git");
   const temp = await mkdtemp(join(await realpath(tmpdir()), "serika-runtime-"));
   try {

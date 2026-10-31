@@ -1,0 +1,17 @@
+{
+  "id": "4d44c90d-b6a0-46f5-bc4e-53c36fe3380d",
+  "root": "/private/tmp/serika-chat-run-target-telegram-test-runtime/herdr-fixture",
+  "parentRoot": "/private/tmp/serika-chat-run-target-telegram-test-runtime",
+  "createdAt": "2026-10-31T15:38:12.308Z",
+  "phase": "server-spawned",
+  "unknown": false,
+  "home": "/private/tmp/serika-chat-run-target-telegram-test-runtime/herdr-fixture/H",
+  "piDirectory": "/private/tmp/serika-chat-run-target-telegram-test-runtime/herdr-fixture/pi",
+  "work": "/private/tmp/serika-chat-run-target-telegram-test-runtime/herdr-fixture/workspace",
+  "piSession": "/private/tmp/serika-chat-run-target-telegram-test-runtime/herdr-fixture/pi-session.jsonl",
+  "model": "deepseek/deepseek-v4.1-flash-fast",
+  "proxyURL": "http://127.0.0.1:56176/pi/v1",
+  "operations": [],
+  "session": "w-4d44c90d",
+  "serverPid": 7021
+}

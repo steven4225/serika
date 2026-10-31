@@ -1,0 +1,16 @@
+{
+  "kind": "approval",
+  "stage": "unique-pi",
+  "value": {
+    "approvalId": "66936c47-d651-44f3-ab3e-5938f5feff9d",
+    "toolCallId": "call_00_ySn1PlV8cdCrLnyJV59l7451",
+    "toolName": "read_file",
+    "input": {
+      "path": "/private/tmp/c-hK00jh/herdr-fixture/workspace/answer.json"
+    },
+    "preview": "\nTool: read_file\nPath: \"/private/tmp/c-hK00jh/herdr-fixture/workspace/answer.json\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ",
+    "remember": {
+      "label": "本次对话内不再询问 read_file"
+    }
+  }
+}

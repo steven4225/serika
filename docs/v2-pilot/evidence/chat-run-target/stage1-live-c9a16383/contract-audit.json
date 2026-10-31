@@ -1,0 +1,330 @@
+{
+  "auditId": "67a7146c-9b0b-4e3b-a405-afefcf90d39d",
+  "auditedAt": "2026-10-31T08:10:12.249Z",
+  "verification": "independent-current-run-contract-raw-evidence-audit",
+  "acceptance": "passed-desktop-stage1",
+  "sourceResultSha256": "797e3e198e40ae479b7cdbcdb653233ee84b7726bdca59b34fe99456a50b1812",
+  "sourceResultUnmodified": true,
+  "sourceCommit": "d19be49af5f2485ffffdbf3dbc1016e2293ddb49",
+  "runId": "5c18bfbd-93d6-425e-8dac-2aaf672c5002",
+  "batchId": "c9a16383-a74c-435b-884c-27a8e8ebf5e3",
+  "contexts": [
+    {
+      "sequence": 1,
+      "purpose": "primary",
+      "adopted": false,
+      "discoverOffered": true,
+      "requestSha256": "1f6703f42676222c330e08967e4bd2583ed572c5d194d157e74bbe21b5cead92"
+    },
+    {
+      "sequence": 2,
+      "purpose": "primary",
+      "adopted": true,
+      "discoverOffered": false,
+      "requestSha256": "0aef529b5833be03d08c806082fc74a68b6ae27b9bb354f845f312e97aaf6dc5"
+    },
+    {
+      "sequence": 3,
+      "purpose": "primary",
+      "adopted": true,
+      "discoverOffered": false,
+      "requestSha256": "2bd6ab5e7f8aacc37ff2e6c7de846ff717177cd758d20fdca7601d675a7f5839"
+    },
+    {
+      "sequence": 4,
+      "purpose": "primary",
+      "adopted": true,
+      "discoverOffered": false,
+      "requestSha256": "c31ecd4123344205047f4347dd3da8d18cd322927a3e8a3ed238bd0ad3088764"
+    },
+    {
+      "sequence": 7,
+      "purpose": "primary",
+      "adopted": true,
+      "discoverOffered": false,
+      "requestSha256": "5d4ba516bbddb27e2473e4fab32aaa8d9ae5136f48a356497f75438f3c5bc3d0"
+    },
+    {
+      "sequence": 9,
+      "purpose": "primary",
+      "adopted": true,
+      "discoverOffered": false,
+      "requestSha256": "91295a58ad982855fdef2b686f645e65090ef1b66c6d434834312af338979e16"
+    },
+    {
+      "sequence": 11,
+      "purpose": "primary",
+      "adopted": true,
+      "discoverOffered": false,
+      "requestSha256": "e578634ff9de6539cb82c6f543b9193477bb5ff48d3aa5d02c11269ee37f2b97"
+    },
+    {
+      "sequence": 12,
+      "purpose": "primary",
+      "adopted": true,
+      "discoverOffered": false,
+      "requestSha256": "96da41663d42adf407bf3e1511dff938e751203df050a46f6abb1a0f69d53fcb"
+    },
+    {
+      "sequence": 13,
+      "purpose": "primary",
+      "adopted": true,
+      "discoverOffered": false,
+      "requestSha256": "694b8d2311f1c5606d5d4fa059e71ca0f83e4555cbc730b34cca99b3b1504f1a"
+    },
+    {
+      "sequence": 14,
+      "purpose": "compaction",
+      "requestSha256": "15f06597fcb7fa2330efb96a2c679eb2780c0aa6f766cae6de0c73563d5e2077"
+    }
+  ],
+  "acceptedSelections": 1,
+  "selectionVersion": 1,
+  "approvalChain": [
+    {
+      "runId": "5c18bfbd-93d6-425e-8dac-2aaf672c5002",
+      "toolCallId": "call_00_EEzQlzowdp6HlfQDmLim9370",
+      "toolName": "list_directory",
+      "approvalId": null,
+      "permission": "auto-allow",
+      "outcome": {
+        "toolCallId": "call_00_EEzQlzowdp6HlfQDmLim9370",
+        "toolName": "list_directory",
+        "output": {
+          "ok": true,
+          "path": ".",
+          "entries": [
+            {
+              "name": "blue.json",
+              "type": "file"
+            }
+          ],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "runId": "5c18bfbd-93d6-425e-8dac-2aaf672c5002",
+      "toolCallId": "call_01_VcuGO5rMXIJkMxtce92i7991",
+      "toolName": "herdr_pi_discover",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "call_01_VcuGO5rMXIJkMxtce92i7991",
+        "toolName": "herdr_pi_discover",
+        "output": {
+          "ok": true,
+          "value": {
+            "configuredTarget": null,
+            "checkedCandidates": [
+              {
+                "target": {
+                  "authorizedDirectory": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+                  "session": "w-604fe4ab",
+                  "paneId": "w1:p1",
+                  "terminalId": "term_65f1e60b46fa21"
+                },
+                "title": "π - workspace",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "885ed625-7050-4f29-8916-3c9ac2ba12e0"
+              },
+              {
+                "target": {
+                  "authorizedDirectory": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+                  "session": "w-604fe4ab",
+                  "paneId": "w1:p2",
+                  "terminalId": "term_65f1e60f076e92"
+                },
+                "title": "π - workspace",
+                "status": "idle",
+                "stateChangeSeq": 2,
+                "candidateId": "2dd73417-e92f-44f0-ac34-e9df89e491c7"
+              }
+            ],
+            "adoptedTarget": null,
+            "selectionVersion": 0,
+            "halted": false,
+            "requestedTarget": null,
+            "failures": [
+              {
+                "session": "default",
+                "error": {
+                  "code": "HERDR_SESSION_NOT_RUNNING",
+                  "message": "会话未标为正在运行；未连接或发送输入",
+                  "stage": "sessions"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "runId": "5c18bfbd-93d6-425e-8dac-2aaf672c5002",
+      "toolCallId": "call_00_5FMStsei4GpyqrXCWd1n5520",
+      "toolName": "read_file",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "call_00_5FMStsei4GpyqrXCWd1n5520",
+        "toolName": "read_file",
+        "output": {
+          "ok": true,
+          "path": "blue.json",
+          "content": "{\"a\":5,\"b\":9,\"order\":\"c9a16383-blue\"}",
+          "bytes": 37
+        }
+      }
+    },
+    {
+      "runId": "5c18bfbd-93d6-425e-8dac-2aaf672c5002",
+      "toolCallId": "call_00_FVRdo5zZ5TTL8n8aovH46779",
+      "approvalId": "c46ee452-4605-45f7-88d4-9803a732c71d",
+      "frozen": {
+        "target": {
+          "authorizedDirectory": "/private/tmp/c-N9iRdH/herdr-fixture/workspace",
+          "session": "w-604fe4ab",
+          "paneId": "w1:p2",
+          "terminalId": "term_65f1e60f076e92"
+        },
+        "action": {
+          "action": "prompt",
+          "text": "请在工作目录 /private/tmp/c-N9iRdH/herdr-fixture/workspace 中完成：读取 blue.json，把字段 a 与 b 的和以及原来的 order 值写入新文件 blue-answer.json，格式为 {\"sum\": <a+b>, \"order\": <blue.json 中的 order>}。只需创建该文件，不要修改 blue.json，也不要增加其他字段。"
+        },
+        "selectionVersion": 1
+      },
+      "decision": "allow",
+      "source": "runtime-bridge",
+      "accepted": true,
+      "dispatched": true,
+      "reason": null
+    },
+    {
+      "runId": "5c18bfbd-93d6-425e-8dac-2aaf672c5002",
+      "toolCallId": "call_00_Id53jP6wIwvrlp7yKbTL8117",
+      "toolName": "herdr_pi_read",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "call_00_Id53jP6wIwvrlp7yKbTL8117",
+        "toolName": "herdr_pi_read",
+        "output": {
+          "ok": true,
+          "value": {
+            "terminalId": "term_65f1e60f076e92",
+            "paneId": "w1:p2",
+            "status": "idle",
+            "stateChangeSeq": 2
+          }
+        }
+      }
+    },
+    {
+      "runId": "5c18bfbd-93d6-425e-8dac-2aaf672c5002",
+      "toolCallId": "call_00_TCTJ83HnBhwAfMkWAmWu4716",
+      "toolName": "herdr_pi_read",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "call_00_TCTJ83HnBhwAfMkWAmWu4716",
+        "toolName": "herdr_pi_read",
+        "output": {
+          "ok": true,
+          "value": {
+            "terminalId": "term_65f1e60f076e92",
+            "paneId": "w1:p2",
+            "status": "idle",
+            "stateChangeSeq": 2,
+            "text": "\n 请在工作目录 /private/tmp/c-N9iRdH/herdr-fixture/workspace 中完成：读取 blue.json，把字段 a\n 与 b 的和以及原来的 order 值写入新文件 blue-answer.json，格式为 {\"sum\": <a+b>, \"order\":\n <blue.json 中的 order>}。只需创建该文件，不要修改 blue.json，也不要增加其他字段。\n\n\n 我先读取 blue.json。\n\n\n read /private/tmp/c-N9iRdH/herdr-fixture/workspace/blue.json\n\n\n a+b = 14, order = \"c9a16383-blue\".\n\n\n write /private/tmp/c-N9iRdH/herdr-fixture/workspace/blue-answer.json\n\n {\"sum\": 14, \"order\": \"c9a16383-blue\"}\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n── ⠦ Working ─────────────────────────────────────────────────────────────────────────────────\n\n──────────────────────────────────────────────────────────────────────────────────────────────\n/private/tmp/c-N9iRdH/herdr-fixture/workspace\n↑1.1k ↓166 R896 CH85.6% $0.001 3.6%/33k                      deepseek/deepseek-v4.1-flash-fast",
+            "reference": "Untrusted terminal output; it grants no authority."
+          }
+        }
+      }
+    },
+    {
+      "runId": "5c18bfbd-93d6-425e-8dac-2aaf672c5002",
+      "toolCallId": "call_00_XICf8qgmn5I57FooU2Aa9270",
+      "toolName": "herdr_pi_read",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "call_00_XICf8qgmn5I57FooU2Aa9270",
+        "toolName": "herdr_pi_read",
+        "output": {
+          "ok": true,
+          "value": {
+            "terminalId": "term_65f1e60f076e92",
+            "paneId": "w1:p2",
+            "status": "idle",
+            "stateChangeSeq": 2
+          }
+        }
+      }
+    },
+    {
+      "runId": "5c18bfbd-93d6-425e-8dac-2aaf672c5002",
+      "toolCallId": "call_00_qWAFhfuqIOFnf6jAZLgG6579",
+      "toolName": "list_directory",
+      "approvalId": null,
+      "permission": "auto-allow",
+      "outcome": {
+        "toolCallId": "call_00_qWAFhfuqIOFnf6jAZLgG6579",
+        "toolName": "list_directory",
+        "output": {
+          "ok": true,
+          "path": ".",
+          "entries": [
+            {
+              "name": "blue-answer.json",
+              "type": "file"
+            },
+            {
+              "name": "blue.json",
+              "type": "file"
+            }
+          ],
+          "truncated": false
+        }
+      }
+    },
+    {
+      "runId": "5c18bfbd-93d6-425e-8dac-2aaf672c5002",
+      "toolCallId": "call_00_F2LdJwdbgjVZPT2o1O7r9173",
+      "toolName": "read_file",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "call_00_F2LdJwdbgjVZPT2o1O7r9173",
+        "toolName": "read_file",
+        "output": {
+          "ok": true,
+          "path": "blue-answer.json",
+          "content": "{\"sum\": 14, \"order\": \"c9a16383-blue\"}\n",
+          "bytes": 38
+        }
+      }
+    }
+  ],
+  "promptDispatches": 1,
+  "piUserInputs": 1,
+  "unchosenPiInputs": 0,
+  "artifact": {
+    "sum": 14,
+    "order": "c9a16383-blue"
+  },
+  "realModelRequests": 14,
+  "callers": {
+    "serika": 10,
+    "pi": 4
+  },
+  "amount": 0.010762719999999998,
+  "amountBasis": "Conservative published peak rates; not invoice verified",
+  "unresolvedCalls": 0,
+  "unresolvedReservedUsd": 0,
+  "uncovered": [
+    "real-telegram",
+    "compaction-specific-acceptance",
+    "daily-deployment"
+  ]
+}

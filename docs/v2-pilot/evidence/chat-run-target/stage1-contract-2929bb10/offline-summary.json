@@ -1,0 +1,91 @@
+{
+  "verificationId": "7ec87fd9-ee83-4c29-8481-877998ff4188",
+  "generatedAt": "2026-10-31T07:40:37.628639+00:00",
+  "counts": {
+    "targeted-runtime": {
+      "tests": 91,
+      "pass": 91,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "targeted-desktop-tg": {
+      "tests": 85,
+      "pass": 85,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "full-test": {
+      "tests": 1898,
+      "pass": 1891,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 7
+    }
+  },
+  "guards": [
+    {
+      "runId": "6798721c-0cb3-4bb7-b0e3-c30ceda1fd1b",
+      "status": "passed",
+      "exitCode": 0,
+      "recordConcurrentChanges": true,
+      "metadataUnchanged": false,
+      "violations": 0,
+      "changes": 131,
+      "sourceSha256": "e3b176bfe1d69bb358e7a01aa85f76dea7e89ebd4e077b7f85a51c4900bb0ffe"
+    },
+    {
+      "runId": "ba31b9cf-7b1b-49cb-b05e-2099fb8cd71d",
+      "status": "passed",
+      "exitCode": 0,
+      "recordConcurrentChanges": true,
+      "metadataUnchanged": false,
+      "violations": 0,
+      "changes": 90,
+      "sourceSha256": "157ac0afb8dc97264caf61211c1259f093c2d0bf39a0b03b1594b51d660a6f6a"
+    },
+    {
+      "runId": "e9ed0701-3694-43db-ad62-b1cf6f03cc11",
+      "status": "passed",
+      "exitCode": 0,
+      "recordConcurrentChanges": true,
+      "metadataUnchanged": false,
+      "violations": 0,
+      "changes": 221,
+      "sourceSha256": "46e0eb59b21ad472f82e6dd59f718258f4a630b48169099816fd2ebdae77b7a5"
+    },
+    {
+      "runId": "cfa91286-18df-4f6d-977e-3180512fdb8a",
+      "status": "passed",
+      "exitCode": 0,
+      "recordConcurrentChanges": true,
+      "metadataUnchanged": false,
+      "violations": 0,
+      "changes": 51,
+      "sourceSha256": "07cf0ecbbd042e017520974a20029994f698d3214a16675124ce83498db1797d"
+    },
+    {
+      "runId": "4509b8ed-7f84-4e1a-b9b0-fd6c4f0c1532",
+      "status": "passed",
+      "exitCode": 0,
+      "recordConcurrentChanges": true,
+      "metadataUnchanged": false,
+      "violations": 0,
+      "changes": 102,
+      "sourceSha256": "ea2c30813571ba27d8df6fa2f7dba6c18409ff84497a3e1daab1a4c86f8559d5"
+    },
+    {
+      "runId": "8d540fc6-6434-41fa-b072-4da26f8cc489",
+      "status": "passed",
+      "exitCode": 0,
+      "recordConcurrentChanges": true,
+      "metadataUnchanged": false,
+      "violations": 0,
+      "changes": 221,
+      "sourceSha256": "73e0507e898264ae45d48a062e251c033bf7dbdfa7e51f39a8cac80c873448e7"
+    }
+  ],
+  "realModelRequests": 0,
+  "costUsd": 0
+}

@@ -1,0 +1,53 @@
+{
+  "auditId": "a1bce619-f4bb-4b18-9f0f-3003f11c8fcc",
+  "auditedAt": "2026-10-31T02:57:36.303Z",
+  "verification": "post-run-failure-stop-evidence-audit",
+  "sourceRunId": "78ca59ba-f5bc-4403-ad2f-593a9e6f4d97",
+  "sourceResultSha256": "538c27a804cac3f53df5f23f32f505a1b46a75211ade9731b1e3e766b2d13db2",
+  "sourceResultUnmodified": true,
+  "originalStatus": "failed",
+  "acceptance": "failed-pi-task-incomplete",
+  "realModelRequests": 11,
+  "taskRuns": 2,
+  "amount": 0.0107768,
+  "amountBasis": "Conservative published peak rates; not invoice verified",
+  "unresolvedCalls": 0,
+  "unresolvedReservedUsd": 0,
+  "failureStopGate": "passed",
+  "subsequentModelCalls": 0,
+  "rejected": {
+    "runId": "ae363b55-aae2-455d-974e-01c0a61a627e",
+    "toolCallId": "call_00_DpJMMKgFnOqV9vMrq1cv2347",
+    "occurredAt": "2026-10-31T02:54:28.032Z",
+    "error": {
+      "code": "HERDR_REQUEST_EVIDENCE_INVALID",
+      "message": "明确目标须附本轮用户原话及其中的准确目标标识；否则由用户选择"
+    }
+  },
+  "selection": {
+    "selectionId": "a558edda-3ef8-4ab5-9418-45450188acf6",
+    "candidates": 2,
+    "shownAt": "2026-10-31T02:54:16.632Z",
+    "clearedAt": "2026-10-31T02:54:21.704Z",
+    "adopted": {
+      "requestSequence": 10,
+      "requestSha256": "bf427ec237509342694f1adb3710a9ac45cf14defdfee4445d7fe5c1b79ef1bc",
+      "target": {
+        "authorizedDirectory": "/private/tmp/c-RD0jp2/herdr-fixture/workspace",
+        "session": "w-bf1bb63b",
+        "paneId": "w1:p1",
+        "terminalId": "term_65f1a0693ead11"
+      },
+      "selectionVersion": 1
+    },
+    "recordedDecisionSources": 0,
+    "sourceAttribution": "unobserved; adoption does not identify actor or accepted response"
+  },
+  "controlDispatches": 0,
+  "approvalDecisions": 0,
+  "piModelRequests": 0,
+  "ordinaryCliArtifact": {
+    "total": 56
+  },
+  "retainedIsolatedRoot": "/private/tmp/c-RD0jp2"
+}
