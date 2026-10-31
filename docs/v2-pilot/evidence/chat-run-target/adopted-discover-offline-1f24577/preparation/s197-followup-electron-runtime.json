@@ -1,6 +1,0 @@
-{
-  "version": "44.4.5",
-  "source": "existing-locked-runtime-read-only",
-  "executableSha256": "e06891704834df56f24489e1f971428161ae17312143624af13736255cc0ab34",
-  "dist": "/Users/a1-6/Code/agents/serika-v2/node_modules/.pnpm/electron@44.4.5/node_modules/electron/dist"
-}
