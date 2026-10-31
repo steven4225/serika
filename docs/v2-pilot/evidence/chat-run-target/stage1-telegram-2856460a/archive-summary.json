@@ -1,0 +1,61 @@
+{
+  "auditId": "0a44ff48-38e9-43ee-9d41-5fd96316c295",
+  "at": "2026-10-31T11:40:05.946Z",
+  "verification": "failed-true-telegram-pairing-timeout-no-inbound",
+  "sourceResultSha256": "b9096411f47e68fec25ca9ca27bdb94379bdcaaba8a180786803e8cae951b713",
+  "sourceCommit": "edd5aefc33ee3834695a300f52829864247358b4",
+  "sourceWorktreeDirty": false,
+  "rawResultUnmodified": true,
+  "taskRuns": 0,
+  "modelRequests": 0,
+  "amount": 0,
+  "inboundUpdates": 0,
+  "isolatedBinding": null,
+  "piInputs": [
+    {
+      "path": "/private/tmp/tg-VpxiGx/herdr-fixture/pi-session.jsonl",
+      "present": false,
+      "userInputs": 0
+    },
+    {
+      "path": "/private/tmp/tg-VpxiGx/herdr-fixture/pi-second.jsonl",
+      "present": false,
+      "userInputs": 0
+    }
+  ],
+  "isolatedHostStoppedAt": "2026-10-31T11:38:16.343Z",
+  "isolatedTelegramStoppedAt": "2026-10-31T11:38:16.343Z",
+  "dailyRestoredAt": "2026-10-31T11:38:17.905Z",
+  "transportCursorHandoff": {
+    "storeOffset": 414513487,
+    "requiredOffset": 414513487,
+    "confirmedOffset": 414513487,
+    "confirmed": true,
+    "blockedBy": []
+  },
+  "errors": [],
+  "limitations": [
+    "No Telegram update observed during the pairing window; cannot infer whether a message was sent or why none arrived",
+    "No task, target-selection, approval, dispatch or readback acceptance reached"
+  ],
+  "fixtureRetained": "/private/tmp/tg-VpxiGx/herdr-fixture",
+  "files": {
+    "daily-restoration-check.json": {
+      "sha256": "b2c72b464f736ca101c123d89b85d39c15c90c678bdd27e9bf831b61437a2409",
+      "bytes": 658
+    },
+    "herdr-state.json": {
+      "sha256": "e5a6d10dccb9645b41f20b05632037586a00412d9ce838f3800ac72e7a29f55a",
+      "bytes": 7192
+    },
+    "result.json": {
+      "sha256": "b9096411f47e68fec25ca9ca27bdb94379bdcaaba8a180786803e8cae951b713",
+      "bytes": 4884
+    },
+    "stop-audit.json": {
+      "sha256": "7cedddb85961a86feb08f35bdf1f7c40479ee4b5c22c679d8760d6e95d333b79",
+      "bytes": 3035
+    }
+  },
+  "credentialPrefixMatches": 0
+}

@@ -1,0 +1,151 @@
+{
+  "batchId": "2856460a-f469-4540-a202-854f27255045",
+  "startedAt": "2026-10-31T11:33:06.097Z",
+  "sourceCommit": "edd5aefc33ee3834695a300f52829864247358b4",
+  "sourceWorktreeDirty": false,
+  "verification": "real-telegram-original-node-desktop-runtime-real-model-isolated-herdr-pi",
+  "platform": "darwin",
+  "node": "v26.4.0",
+  "scriptSha256": "29709716a76ff9e826b8ef008291dc16b8b2bc2c19a806aabb76c1484fcd5246",
+  "model": "deepseek/deepseek-v4.1-flash-fast",
+  "capUsd": 0.25,
+  "maxRequests": 24,
+  "maxRuns": 1,
+  "pricePerMillionUsd": {
+    "input": 0.32,
+    "output": 1.16,
+    "cacheRead": 0.03
+  },
+  "priceBasis": "Frozen desktop c9a16383 script rates; not invoice verified",
+  "credentialSource": "/Users/a1-6/.config/serika/v2-daily.env",
+  "credentialsWrittenToDisk": false,
+  "calls": [],
+  "cases": [],
+  "errors": [],
+  "approvalEvents": [],
+  "transport": [],
+  "inboundChecks": [],
+  "costUsd": 0,
+  "status": "failed",
+  "isolatedRoot": "/private/tmp/tg-VpxiGx",
+  "daily": {
+    "pid": 36769,
+    "enabledBefore": true,
+    "connectionBefore": "online",
+    "configSha256Before": "0d38545bd21c11381e8cc91444511df07135a4bfc6cc2349c510769aea833292",
+    "historicalUnknownDeliveriesBefore": 3,
+    "pauseAttemptedAt": "2026-10-31T11:33:14.821Z",
+    "offsetAtPause": 414513487,
+    "pausedAt": "2026-10-31T11:33:14.883Z",
+    "transportOffsetAcknowledged": true,
+    "configSha256After": "0d38545bd21c11381e8cc91444511df07135a4bfc6cc2349c510769aea833292",
+    "restoredAt": "2026-10-31T11:38:17.905Z",
+    "enabledAfter": true,
+    "connectionAfter": "online",
+    "ownerUnchanged": true,
+    "historicalUnknownDeliveriesAfter": 3
+  },
+  "fixture": {
+    "statePath": "/private/tmp/tg-VpxiGx/herdr-fixture/herdr-state.json",
+    "root": "/private/tmp/tg-VpxiGx/herdr-fixture",
+    "work": "/private/tmp/tg-VpxiGx/herdr-fixture/workspace",
+    "target": {
+      "authorizedDirectory": "/private/tmp/tg-VpxiGx/herdr-fixture/workspace",
+      "session": "w-d6ec34ab",
+      "paneId": "w1:p1",
+      "terminalId": "term_65f2146ccc64a1"
+    },
+    "env": {
+      "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+      "HOME": "/private/tmp/tg-VpxiGx/herdr-fixture/H",
+      "XDG_CONFIG_HOME": "/private/tmp/tg-VpxiGx/herdr-fixture/H/.config",
+      "XDG_CACHE_HOME": "/private/tmp/tg-VpxiGx/herdr-fixture/H/.cache",
+      "HERDR_CONFIG_PATH": "/private/tmp/tg-VpxiGx/herdr-fixture/H/.config/herdr/config.toml",
+      "SHELL": "/bin/sh",
+      "TERM": "xterm-256color",
+      "LANG": "en_US.UTF-8",
+      "PI_CODING_AGENT_DIR": "/private/tmp/tg-VpxiGx/herdr-fixture/pi",
+      "PI_CODING_AGENT_SESSION_DIR": "/private/tmp/tg-VpxiGx/herdr-fixture/pi/sessions",
+      "PI_OFFLINE": "1",
+      "PI_TELEMETRY": "0"
+    },
+    "piSession": "/private/tmp/tg-VpxiGx/herdr-fixture/pi-session.jsonl"
+  },
+  "secondPi": {
+    "target": {
+      "authorizedDirectory": "/private/tmp/tg-VpxiGx/herdr-fixture/workspace",
+      "session": "w-d6ec34ab",
+      "paneId": "w1:p2",
+      "terminalId": "term_65f21470a4be82"
+    },
+    "piSession": "/private/tmp/tg-VpxiGx/herdr-fixture/pi-second.jsonl"
+  },
+  "telegramIdentity": {
+    "expectedBotId": 8797046945,
+    "actualBotId": 8797046945,
+    "matches": true
+  },
+  "bindingAtPairingStart": {
+    "owner": null,
+    "gatewayCreated": true,
+    "pairing": {
+      "code": "E5DC0CF764",
+      "expiresAt": "2026-10-31T11:38:16.312Z",
+      "proposed": null
+    },
+    "botId": 8797046945,
+    "threadId": "5fdb6378-fe08-4e3a-b7f2-d1570ed26ea4",
+    "offset": 414513487,
+    "state": "idle",
+    "runId": null
+  },
+  "lastPollOffset": 414513487,
+  "stopReason": "verification-failure",
+  "failure": {
+    "name": "AssertionError",
+    "message": "Timed out: real Telegram pairing"
+  },
+  "telegramStore": {
+    "version": 1,
+    "workspace": "/private/tmp/tg-VpxiGx/profile",
+    "enabled": true,
+    "botId": 8797046945,
+    "offset": 414513487,
+    "owner": null,
+    "inputs": [],
+    "deliveries": [],
+    "routes": []
+  },
+  "bindingBeforeShutdown": {
+    "owner": null,
+    "gatewayCreated": true,
+    "pairing": null,
+    "botId": 8797046945,
+    "threadId": "5fdb6378-fe08-4e3a-b7f2-d1570ed26ea4",
+    "offset": 414513487,
+    "state": "idle",
+    "runId": null
+  },
+  "isolatedHostStoppedAt": "2026-10-31T11:38:16.343Z",
+  "isolatedTelegramStoppedAt": "2026-10-31T11:38:16.343Z",
+  "bindingAfterShutdown": {
+    "owner": null,
+    "gatewayCreated": true,
+    "pairing": null,
+    "botId": 8797046945,
+    "threadId": "5fdb6378-fe08-4e3a-b7f2-d1570ed26ea4",
+    "offset": 414513487,
+    "state": "idle",
+    "runId": null
+  },
+  "transportCursorHandoff": {
+    "storeOffset": 414513487,
+    "requiredOffset": 414513487,
+    "confirmedOffset": 414513487,
+    "confirmed": true,
+    "blockedBy": []
+  },
+  "realModelCalls": 0,
+  "unresolvedReservedUsd": 0,
+  "finishedAt": "2026-10-31T11:38:17.907Z"
+}

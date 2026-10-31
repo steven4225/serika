@@ -1,6 +1,6 @@
 # 聊天发现 CLI 与当前 Run Pi 目标
 
-> 2026-10-31 最新结论：桌面 c9a16383 整链 PASS 沿用；TG 入站 harness 修复已通过离线验证，真实 TG 未重跑、未通过。d5a887cd 隔离侧零请求属实，但事后证据确认恢复日用后重放了同一消息，产生 1 Run／1 请求，估算 $0.009668，已单独补账，旧失败原件不改。当前停在新预算申请。
+> 2026-10-31 最新结论：桌面 c9a16383 整链 PASS 沿用；TG harness 离线修复通过后，真实批次 2856460a 在配对窗口超时，收到 0 条入站更新，0 Run／0 请求／$0。隔离宿主正常退出，日用 TG 已恢复并复核 online，未追加真批。真实 TG 完成定义仍未通过。历史 d5a887cd 恢复日用后重放的 1 Run／1 请求、估算 $0.009668 已单独补账，旧失败原件保留。
 
 ## 1. 改了什么
 
@@ -381,3 +381,13 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 下一批预算申请为 **≤1 宿主 Run／24 次总模型请求／$0.25**，包含 Serika、选中 Pi 与辅助模型请求，全部计入同一上限，沿用已冻结费率并预留费用。渠道仅真实 TG 私聊 + 隔离 Pi，原 Node DesktopRuntime/TelegramGateway；不测桌面整链或日用部署。仅在用户明确回复“继续，允许临时停用并恢复日用 TG 接入”后临停/恢复原日用 TG，取现有外部 env 的必要字段，不重启宿主。
 
 成功须同 runId：发现≥2 idle → TG 短码接受选择恰好一次 → selectionVersion=1 并采用 → 后续请求无 discover → 独立操作批准且 runId/toolCallId/approvalId、冻结目标/正文、决定来源/宿主接受与派发结论完整 → 只发一次 → 本次回读与独立产物一致，未选目标零输入。文件读取等其余批准逐条保留，不算 Pi 操作批准。拒绝、取消、身份/环境变化、任何验证失败、unknown、未结算或预算到顶立即停；unknown 不自动回读/重发/换目标，不追加真 Run，日用恢复必须先确认隔离停止及交接游标。通过后再更新 #197 并停下等用户决定合并；当前不合、不部署、不扩授权。
+
+### 真实 TG 批次 2856460a，2026-10-31
+
+**配对等待超时，失败即停；真实 TG 未通过。** 用户在本对话批准 ≤1 Run／24 请求／$0.25 及临停/恢复日用 TG，明确授权句不作 TG 入站任务。本批未代发授权句或任务，实际收到 0 条 TG 更新。
+
+1. 改了什么：使用干净候选 `edd5aef` 原 harness 运行，未改产品或脚本；仅追加本次原始失败证据与零支出账目。隔离原 Node DesktopRuntime/TelegramGateway、真实 Bot API 和两台 Pi，非 Electron 验收。
+2. 逐条对照：真实配对未完成，隔离 owner=null、inputs=0、inboundChecks=0，确切停止条件为 `Timed out: real Telegram pairing`；没有被拒消息，不能以空数组证明拒因观测真路径已跑过。同 Run 发现、TG 短码选择、采用后工具收窄、独立操作批准、单次派发、回读及产物核查均未到达，不能报阶段完成。两台 Pi 转录核查各为 0 用户输入。隔离宿主/TG 均在 19:38:16 +08:00 停止，日用 TG 在 19:38:17 +08:00 恢复，交接 offset=414513487 已确认；无重复 close 异常，errors=[]。只读 resident 复核原 pid=36769、idle、enabled=true/online、pending=0、review=0、配置 SHA 未变，历史 unknown 仍为 3。完整原件见 [result](evidence/chat-run-target/stage1-telegram-2856460a/result.json)、[stop-audit](evidence/chat-run-target/stage1-telegram-2856460a/stop-audit.json)、[恢复复核](evidence/chat-run-target/stage1-telegram-2856460a/daily-restoration-check.json)、[归档与 Pi 零输入核对](evidence/chat-run-target/stage1-telegram-2856460a/archive-summary.json)。
+3. 前后数字：本批 0 宿主 Run／0 模型请求／$0，未结算 0，账目只追加零支出失败条目；产品/脚本/测试 +0/-0。沿用桌面 PASS、离线 7/7 和 TG 回归 85/85，不重做桌面整链。
+4. 实际命令与退出码：`node --import ./apps/desktop/node_modules/tsx/dist/loader.mjs apps/desktop/scripts/chat-run-target-telegram-live.mjs --run --daily-pid 36769 --output /private/tmp/serika-197-tg-live-20261031-b` exit 1，按失败正常收尾，无强制终止；`node scripts/chat-run-target-telegram-stop-audit.mjs /private/tmp/serika-197-tg-live-20261031-b` exit 0 仅核对失败原件。只读恢复核查与归档 hash/凭据前缀扫描 exit 0，四份原件逐字复制，result SHA 不变。
+5. 偏离与限制：配对窗口内无入站更新，无法从现有证据判断消息是否发送或为何未到达，不能归因用户、网络或产品缺陷。失效配对码已明确撤回使用提示。按失败即停保留 `/private/tmp/tg-VpxiGx` 与 Herdr `w-d6ec34ab` 现场，不自动重跑、清理目标或烧额度。按 Prove It Works 只报告实际恢复与零输入；按 Sequence Work into Verifiable Units 停在配对关口。本批未通过，不更新 #197 为通过状态，不合并、不部署、不扩授权或修改 Seatbelt。
