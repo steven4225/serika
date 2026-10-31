@@ -128,6 +128,38 @@ test("oversized leading assistant and user material is extracted chronologically
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("a deferred oversized fragment is parked and the following ordinary source still advances the cursor", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cm6-oversize-cursor-"));
+  try {
+    const preference = "我喝咖啡不加糖";
+    const store = createMemoryStore(join(root, ".runloom/memory.json"), null);
+    const messages = [msg("huge", "user", "x".repeat(20_000)), msg("later", "user", preference)];
+    const seen = new Set<string>();
+    const model = new MockLanguageModelV3({ doGenerate: async ({ prompt }) => {
+      const text = prompt.flatMap(message => message.role === "user" ? message.content.flatMap(part => part.type === "text" ? [part.text] : []) : []).join("\n");
+      const block = JSON.parse(text.slice("Original block:\n".length).split("\nTask:")[0]!) as Array<{ id: string; text: string }>;
+      for (const item of block) seen.add(item.id);
+      const complete = block.some(item => item.id === "later" && item.text === preference);
+      return { content: [{ type: "text", text: JSON.stringify({ proposals: complete ? [{ operation: "add", scope: "user", category: "preference", text: preference, sourceMessageId: "later", sourceQuote: preference, identity: { subject: "user", attribute: "coffee", value: "不加糖" } }] : [], outcomes: block.filter(item => item.id === "huge" || item.id === "later").map(item => ({ messageId: item.id, status: item.id === "later" && item.text === preference ? "extracted" : "deferred" })) }) }], finishReason: { unified: "stop", raw: undefined },
+        usage: { inputTokens: { total: 100, noCache: 100, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 20, text: 20, reasoning: undefined } }, warnings: [] };
+    } });
+    const extraction = createMemoryExtraction({ store, threadId: "t", getMessages: async () => messages, model, budget: budgets[0]!, updated() {} });
+    extraction.afterMask("later"); extraction.idle();
+    await settle(() => !extraction.diagnostics().running && seen.has("later"));
+    await extraction.pause();
+    const result = await store.readV7!(); assert.ok(result.ok);
+    assert.equal(extraction.diagnostics().failed, 0);
+    assert.equal(result.value.progress[0]?.throughMessageId, "later");
+    assert.equal(result.value.progress[0]?.retry, null);
+    assert.equal(result.value.progress[0]?.pending.some(item => item.messageId === "huge" && item.offset === undefined), true);
+    const saved = result.value.entries.find(entry => entry.state === "active");
+    assert.equal(saved?.text, preference);
+    assert.equal(saved?.sources[0]?.kind, "conversation");
+    if (saved?.sources[0]?.kind === "conversation") assert.equal(saved.sources[0].messageId, "later");
+    await extraction.close();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("background installs one bounded segment per item and folds the fifth into a bounded dated index at both windows", async () => {
   for (const budget of budgets) {
     const root = await mkdtemp(join(tmpdir(), "cm6-layers-"));
