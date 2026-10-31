@@ -25,7 +25,7 @@ function record(overrides: Partial<TaskRecordV4> = {}): TaskRecordV4 {
     id: "task-1",
     prompt: "prepare a plan",
     runAt: "2026-09-12T01:00:00.000Z",
-    status: "scheduled",
+    status: "pending",
     createdAt: "2026-09-11T01:00:00.000Z",
     startedAt: null,
     finishedAt: null,
@@ -40,6 +40,7 @@ function record(overrides: Partial<TaskRecordV4> = {}): TaskRecordV4 {
     notification: null,
     pendingOutcome: null,
     ...overrides,
+    kind: "arrangement",
   };
 }
 
@@ -50,7 +51,7 @@ function list(): TaskListV3 {
         id: "task-1",
         promptPreview: "prepare a plan",
         runAt: "2026-09-12T01:00:00.000Z",
-        status: "scheduled",
+        status: "pending",
         finishedAt: null,
         resultPreview: null,
         error: null,
@@ -78,7 +79,7 @@ function resultList(): TaskListV3 {
         id: "task-failed",
         promptPreview: "publish the release",
         runAt: "2026-09-12T02:00:00.000Z",
-        status: "failed",
+        status: "pending",
         finishedAt: "2026-09-12T02:01:00.000Z",
         resultPreview: null,
         error: { code: "TOOL_FAILED", messagePreview: "upstream unavailable" },
@@ -886,7 +887,7 @@ describe("createTaskModule", () => {
 
   it("renders failed task details with the full error", async () => {
     const failed = record({
-      status: "failed",
+      status: "pending",
       startedAt: "2026-09-12T01:00:10.000Z",
       finishedAt: "2026-09-12T01:01:10.000Z",
       threadId: "thread-1",

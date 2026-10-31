@@ -12,7 +12,8 @@ import { DEFAULT_CONTEXT_BUDGET_CONFIG } from "./context-budget.js";
 import { createDemoModel } from "./demo-model.js";
 import { EXECUTION_RECORD_FILE } from "./execution-record-store.js";
 import { createExecutionRecordStore } from "./execution-record-store.js";
-import { createWorkTaskStore } from "./work-task-store.js";
+import { createWorkTaskStore, workTaskPhase } from "./work-task-store.js"
+import { createTaskStore } from "./task-store.js";
 import { createToolConfirmation, type PendingToolApproval } from "./tool-confirmation.js";
 import { type ScopedMemoryStore } from "./memory-types.js";
 import { createMemoryStore } from "./memory-v7-store.js";
@@ -225,7 +226,7 @@ describe("AssistantController", () => {
     const app = (directory: string): RuntimeApp => appWith({
       directory,
       workspaceRoot: workspace,
-      workTasks: createWorkTaskStore(workspace, { filePath: join(workspace, ".runloom/work-tasks.json") }),
+      workTasks: createWorkTaskStore(createTaskStore(join(dirname(join(workspace, ".runloom/work-tasks.json")), "tasks.json")), { workspace: workspace, }),
       executionRecords: createExecutionRecordStore(directory),
     });
     const first = createAssistantController(app(firstTranscripts));
@@ -255,7 +256,7 @@ describe("AssistantController", () => {
   it("keeps WorkTask completion separate from a successful Run", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "runloom-controller-work-task-"));
     const transcripts = await mkdtemp(join(tmpdir(), "runloom-controller-work-task-records-"));
-    const workTasks = createWorkTaskStore(workspace, { filePath: join(workspace, ".runloom/work-tasks.json"), generateId: () => "task-1"  });
+    const workTasks = createWorkTaskStore(createTaskStore(join(dirname(join(workspace, ".runloom/work-tasks.json")), "tasks.json")), { workspace: workspace,  generateId: () => "task-1"  });
     const executionRecords = createExecutionRecordStore(transcripts);
     let boundTask: { id: string; expectedRevision: number } | undefined;
     const requestedAgents: string[] = [];
@@ -303,14 +304,14 @@ describe("AssistantController", () => {
       await waitFor(() => controller.getSnapshot().state.kind === "idle");
       assert.deepEqual(requestedAgents, [PRIMARY_AGENT_ID], "task instructions must not trigger automatic consolidation");
       const paused = await controller.workTasks.get(created.value.id);
-      assert.equal(paused.ok && paused.value.status, "paused");
+      assert.equal(paused.ok && workTaskPhase(paused.value), "paused");
       assert.equal(paused.ok && paused.value.runIds[0], "work-run-1");
       assert.equal((await controller.runs.get("work-run-1"))?.workTaskId, "task-1");
       if (!paused.ok) return;
       const delivered = await controller.workTasks.submitDelivery({
         id: paused.value.id, expectedRevision: paused.value.revision, summary: "Answer prepared",
       });
-      assert.equal(delivered.ok && delivered.value.status, "awaiting_acceptance");
+      assert.equal(delivered.ok && workTaskPhase(delivered.value), "awaiting_acceptance");
       if (!delivered.ok) return;
       const accepted = await controller.workTasks.recordHumanAcceptance({
         id: delivered.value.id, expectedRevision: delivered.value.revision,
@@ -328,13 +329,12 @@ describe("AssistantController", () => {
     const workspace = await mkdtemp(join(tmpdir(), "runloom-controller-reconcile-"));
     const transcripts = await mkdtemp(join(tmpdir(), "runloom-controller-reconcile-records-"));
     const executionRecords = createExecutionRecordStore(transcripts);
-    const workTasks = createWorkTaskStore(workspace, { filePath: join(workspace, ".runloom/work-tasks.json"), ...({
+    const workTasks = createWorkTaskStore(createTaskStore(join(dirname(join(workspace, ".runloom/work-tasks.json")), "tasks.json")), { workspace: workspace,  ...({
       generateId: (() => {
         const ids = ["task-review", "reconciliation-1"];
         return () => ids.shift() ?? "unexpected-id";
       })(),
-      executionRecords,
-    }) });
+      executionRecords}) });
     let modelRuns = 0;
     try {
       const created = await workTasks.create({
@@ -365,7 +365,7 @@ describe("AssistantController", () => {
       }));
       try {
         const recovered = await controller.workTasks.get(created.value.id);
-        assert.equal(recovered.ok && recovered.value.status, "needs_review");
+        assert.equal(recovered.ok && workTaskPhase(recovered.value), "needs_review");
         if (!recovered.ok) return;
         const bypass = await controller.workTasks.cancel({
           id: recovered.value.id, expectedRevision: recovered.value.revision,
@@ -381,7 +381,7 @@ describe("AssistantController", () => {
           id: recovered.value.id, expectedRevision: recovered.value.revision,
           observedOutcome: "not_applied", decision: "continue", note: "The target file was checked and was not created.",
         });
-        assert.equal(reconciled.ok && reconciled.value.status, "paused");
+        assert.equal(reconciled.ok && workTaskPhase(reconciled.value), "paused");
         assert.equal(reconciled.ok && reconciled.value.reconciliations[0]?.runId, "run-unknown");
         assert.equal(modelRuns, 0);
       } finally {
@@ -397,7 +397,7 @@ describe("AssistantController", () => {
     const workspace = await mkdtemp(join(tmpdir(), "runloom-controller-work-shell-"));
     const transcripts = await mkdtemp(join(tmpdir(), "runloom-controller-work-shell-records-"));
     const executionRecords = createExecutionRecordStore(transcripts);
-    const workTasks = createWorkTaskStore(workspace, { filePath: join(workspace, ".runloom/work-tasks.json"), generateId: () => "task-shell", executionRecords  });
+    const workTasks = createWorkTaskStore(createTaskStore(join(dirname(join(workspace, ".runloom/work-tasks.json")), "tasks.json")), { workspace: workspace,  generateId: () => "task-shell", executionRecords  });
     const command = "pnpm test --filter focused";
     try {
       const created = await workTasks.create({
@@ -473,7 +473,7 @@ describe("AssistantController", () => {
     const workspace = await mkdtemp(join(tmpdir(), "runloom-controller-work-artifact-"));
     const transcripts = await mkdtemp(join(tmpdir(), "runloom-controller-work-artifact-records-"));
     const executionRecords = createExecutionRecordStore(transcripts);
-    const workTasks = createWorkTaskStore(workspace, { filePath: join(workspace, ".runloom/work-tasks.json"), generateId: () => "task-artifact", executionRecords  });
+    const workTasks = createWorkTaskStore(createTaskStore(join(dirname(join(workspace, ".runloom/work-tasks.json")), "tasks.json")), { workspace: workspace,  generateId: () => "task-artifact", executionRecords  });
     await writeFile(join(workspace, "report.md"), "verified report\n");
     try {
       const created = await workTasks.create({
@@ -497,7 +497,7 @@ describe("AssistantController", () => {
         const delivered = await controller.workTasks.submitDelivery({
           id: created.value.id, expectedRevision: 3, summary: "Report ready", artifactRefs: ["report.md"],
         });
-        assert.equal(delivered.ok && delivered.value.status, "awaiting_acceptance");
+        assert.equal(delivered.ok && workTaskPhase(delivered.value), "awaiting_acceptance");
         assert.equal(delivered.ok && delivered.value.acceptance[0]?.status, "failed");
         assert.equal(delivered.ok && delivered.value.delivery?.evidence.length, 0);
       } finally {
@@ -513,7 +513,7 @@ describe("AssistantController", () => {
     const workspace = await mkdtemp(join(tmpdir(), "runloom-controller-work-written-artifact-"));
     const transcripts = await mkdtemp(join(tmpdir(), "runloom-controller-work-written-artifact-records-"));
     const executionRecords = createExecutionRecordStore(transcripts);
-    const workTasks = createWorkTaskStore(workspace, { filePath: join(workspace, ".runloom/work-tasks.json"), generateId: () => "task-written-artifact", executionRecords  });
+    const workTasks = createWorkTaskStore(createTaskStore(join(dirname(join(workspace, ".runloom/work-tasks.json")), "tasks.json")), { workspace: workspace,  generateId: () => "task-written-artifact", executionRecords  });
     await writeFile(join(workspace, "report.md"), "verified report\n");
     try {
       const created = await workTasks.create({

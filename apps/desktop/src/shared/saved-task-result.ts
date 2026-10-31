@@ -2,8 +2,8 @@ import type { TaskRecordV4 } from "@serika/assistant";
 import type { RendererApi } from "./ui-contract.js";
 
 type SavedResultReader = Pick<RendererApi, "getTaskInbox" | "getScheduledTask">;
-const terminal = (task: Pick<TaskRecordV4, "status" | "acknowledgedAt">) =>
-  task.acknowledgedAt === null && ["completed", "failed", "interrupted"].includes(task.status);
+const terminal = (task: { status: string; acknowledgedAt: string | null; error: unknown }) =>
+  task.acknowledgedAt === null && (task.status === "completed" || (task.status === "pending" && task.error !== null));
 
 /** Presentation only: never alters acknowledgement, task status, or history. */
 export function createTaskNoticeDismissals(storage: Pick<Storage, "getItem" | "setItem">, workspaceRoot: string) {

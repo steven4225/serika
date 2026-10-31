@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { TaskListV3, TaskNotification, TaskRecordV4 } from "@serika/assistant";
+import { arrangementDisplayStatus } from "@serika/assistant/browser";
 import { MessageContent } from "./markdown.js";
 import { automationArrangementLabel } from "./automation-schedule.js";
 import { humanFacingTitle } from "../../shared/human-title.js";
@@ -27,9 +28,10 @@ function notificationText(notification: TaskNotification | null): string {
 export function taskResultPresentation(task: TaskRecordV4, now = new Date()): { kind: string; status: string; notification: string; body: string } {
   const kind = automationArrangementLabel(task.arrangement);
   const notification = notificationText(task.notification);
-  const body = task.resultText?.trim() || (task.status === "failed" ? "任务执行失败，详情在收件箱。"
-    : task.status === "interrupted" ? "执行中断，结果尚未确定；不会自动重做。" : "没有保存结果正文，请查看详情。");
-  return { kind, status: scheduleStatusLabel(task.status, task.runAt, now, task.arrangement?.kind), notification, body };
+  const shown = arrangementDisplayStatus(task);
+  const body = task.resultText?.trim() || (shown === "failed" ? "任务执行失败，详情在收件箱。"
+    : shown === "interrupted" ? "执行中断，结果尚未确定；不会自动重做。" : "没有保存结果正文，请查看详情。");
+  return { kind, status: scheduleStatusLabel(shown, task.runAt, now, task.arrangement?.kind), notification, body };
 }
 
 /** One workspace inbox, backed only by existing TaskStore terminal records. */

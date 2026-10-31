@@ -2394,13 +2394,10 @@ List tasks in the configured workspace.
     "status": {
       "type": "string",
       "enum": [
-        "scheduled",
+        "pending",
         "running",
         "completed",
-        "failed",
         "cancelled",
-        "interrupted",
-        "pending",
         "attention"
       ]
     },

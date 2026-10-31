@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { ContextDiagnostics } from "@serika/assistant";
-import type { WorkTask, WorkTaskContinuation } from "../../shared/work-tasks.js";
+import { workTaskPhase, type WorkTask, type WorkTaskContinuation } from "../../shared/work-tasks.js";
 import { preparationLabel } from "../../shared/context-panel.js";
 
 const toolStatus = { requested: "等待确认", not_started: "未执行", started: "执行中", completed: "调用结束", failed: "调用失败", unknown: "效果未知" };
@@ -8,9 +8,9 @@ const runStatus = { running: "正在执行", completed: "本轮正常结束", fa
 
 /** Guidance is a projection, not execution permission or a replacement for acceptance. */
 export function taskRecoveryGuidance(task: WorkTask, data: WorkTaskContinuation): string | null {
-  if (task.status === "needs_review" || data.requiresReview) return "先核对实际效果：打开下方最新回执，对照文件或目标应用；说明哪些已生效、哪些未生效。仍不确定就保持暂停，不要重做。核对后还需另行开始下一轮。";
+  if (workTaskPhase(task) === "needs_review" || data.requiresReview) return "先核对实际效果：打开下方最新回执，对照文件或目标应用；说明哪些已生效、哪些未生效。仍不确定就保持暂停，不要重做。核对后还需另行开始下一轮。";
   if (data.receiptUnavailable) return "最新执行记录不可用。先检查当前文件或目标应用，不要根据上次回复认定成功，也不要直接重复操作。";
-  if (task.status !== "paused" || !data.latestRun) return null;
+  if (workTaskPhase(task) !== "paused" || !data.latestRun) return null;
   const run = data.latestRun;
   if (run.status === "interrupted") return "上次执行被中断，已恢复任务记录，但没有自动续跑。已记录的效果不重做；补充本轮要求后，点击下方“开始下一轮”，助手会先读取当前文件。";
   if (run.status === "timed_out" || run.completion?.reason === "budget_exhausted") return "本轮用完时间或步骤预算，还未完成验收。查看已完成部分，把剩余工作写入补充指令，再开始下一轮；不会自动增加预算。";

@@ -27,7 +27,7 @@ export function projectReminderFeeds(overview: AutomationOverview, now: Date): T
   const clock = reminderClock(now);
   const reminders: TodayFeedReminder[] = [];
   for (const task of overview.scheduled) {
-    if (task.status !== "scheduled" && task.status !== "running") continue;
+    if (!((task.status === "pending" && task.error === null) || task.status === "running")) continue;
     reminders.push({
       eyebrow: eyebrow(task.arrangement?.kind),
       subject: subject(task.promptPreview, "即将到来的安排"),
@@ -59,7 +59,7 @@ export function projectInboxFeeds(list: TaskListV3, now: Date, isDismissed = (_t
     subject: subject(task.resultPreview || task.promptPreview, "定时结果"),
     at: task.finishedAt ?? task.runAt,
     status: scheduleStatusLabel(task.status, task.runAt, now, task.arrangement?.kind),
-    attention: task.status === "failed" || task.status === "interrupted",
+    attention: task.status === "pending" && task.error !== null,
     notification: null,
   }));
 }

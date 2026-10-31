@@ -6,7 +6,7 @@ import { workTaskContinuation } from "./work-task-continuation.js";
 import { createWorkTaskContextMessage } from "./work-task-context.js";
 
 const task: WorkTask = { id: "task", revision: 4, threadId: "thread", goal: "Maintain plan", constraints: [],
-  acceptance: [], status: "paused", runIds: ["old", "latest"], reconciliations: [],
+  acceptance: [], kind: "work", status: "pending", effectReviewRequired: false, acceptanceOpen: false, runIds: ["old", "latest"], reconciliations: [],
   delivery: { summary: "First draft", artifactRefs: ["plan.md"], unresolved: ["check source"], evidence: [] },
   createdAt: "2026-10-04T00:00:00.000Z", updatedAt: "2026-10-04T00:00:00.000Z" };
 const run: ExecutionRunRecord = { runId: "latest", threadId: "thread", workTaskId: "task", phase: "primary", status: "interrupted",
@@ -18,7 +18,7 @@ it("continuation binds only the latest owned primary receipt and preserves unkno
     assert.equal(data.latestRun, null);
     assert.equal(data.receiptUnavailable, true);
   }
-  const data = workTaskContinuation({ ...task, status: "needs_review" }, { ...run, tools: [{
+  const data = workTaskContinuation({ ...task, status: "pending", effectReviewRequired: true }, { ...run, tools: [{
     toolCallId: "edit", toolName: "edit_file", status: "unknown", requestedAt: task.createdAt, startedAt: task.createdAt, finishedAt: null,
     inputPreview: "{}", inputTruncated: false, resultPreview: null, resultTruncated: false, errorPreview: null, shell: null, fileInput: { path: "plan.md" },
   }] });

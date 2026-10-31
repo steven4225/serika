@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdtemp, open, readFile, rm, type FileHandle } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { it } from "node:test";
 import { simulateReadableStream, tool } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
@@ -22,7 +22,7 @@ for (const kind of ["task", "work-task", "checkpoint"] as const) {
       const directory = await mkdtemp(join(tmpdir(), "runloom-store-sync-"));
       try {
         const task = createTaskStore(join(directory, ".runloom/tasks.json"));
-        const workTask = createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json") });
+        const workTask = createWorkTaskStore(createTaskStore(join(dirname(join(directory, ".runloom/work-tasks.json")), "tasks.json")), { workspace: directory, });
         const checkpoint = createCheckpointStore(join(directory, ".runloom/checkpoint.json"));
         const save = (version: number) => {
           if (kind === "task") return task.create({ prompt: `version ${version}`, runAt: "2099-01-01T00:00:00Z" });
@@ -33,7 +33,7 @@ for (const kind of ["task", "work-task", "checkpoint"] as const) {
             status: "active", goal: "save", currentPhase: "test", summary: `version ${version}`, completed: [], inProgress: [], nextActions: [], blockers: [], artifacts: [],
           } });
         };
-        const path = join(directory, kind === "task" ? '.runloom/tasks.json' : kind === "work-task" ? ".runloom/work-tasks.json" : '.runloom/checkpoint.json');
+        const path = join(directory, kind === "checkpoint" ? ".runloom/checkpoint.json" : ".runloom/tasks.json");
         assert((await save(1)).ok);
         const original = await readFile(path);
         const probe = await open(join(directory, "probe"), "w");
@@ -57,7 +57,7 @@ for (const kind of ["task", "work-task", "checkpoint"] as const) {
           assert.equal(blocked.error.code, `${prefix}COMMIT_UNCERTAIN`);
           assert.deepEqual(await readFile(path), saved);
         }
-        const read = kind === "task" ? await createTaskStore(join(directory, ".runloom/tasks.json")).list({}) : kind === "work-task" ? await createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json") }).list({}) : await createCheckpointStore(join(directory, ".runloom/checkpoint.json")).getCurrent();
+        const read = kind === "task" ? await createTaskStore(join(directory, ".runloom/tasks.json")).list({}) : kind === "work-task" ? await createWorkTaskStore(createTaskStore(join(dirname(join(directory, ".runloom/work-tasks.json")), "tasks.json")), { workspace: directory, }).list({}) : await createCheckpointStore(join(directory, ".runloom/checkpoint.json")).getCurrent();
         assert(read.ok, "a new instance can reread the actual committed state without replay");
         assert.deepEqual(await readFile(path), saved);
       } finally { t.mock.restoreAll(); await rm(directory, { recursive: true, force: true }); }

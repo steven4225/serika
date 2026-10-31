@@ -108,7 +108,19 @@ export function validateDreamingDocument(v: unknown): Document {
   if (new Set(archive.map(item => hash(item.source))).size !== archive.length) fail("DREAMING_FILE_INVALID", "Duplicate archived experience");
   return { version: 2, skills, processed, batches, archive };
 }
-function receiptIdentity(task: WorkTask, run: ExecutionRunRecord): string { return hash({ task, run }); }
+function legacyReceipt(task: WorkTask): Omit<WorkTask, "kind" | "effectReviewRequired" | "acceptanceOpen"> {
+  // Source hashes already on disk use the seven-state field order. Kind and the two gates are not new evidence.
+  return {
+    ...(task.creation === undefined ? {} : { creation: task.creation }),
+    id: task.id, revision: task.revision, threadId: task.threadId, goal: task.goal,
+    constraints: task.constraints, acceptance: task.acceptance, status: task.status,
+    runIds: task.runIds, delivery: task.delivery, reconciliations: task.reconciliations,
+    createdAt: task.createdAt, updatedAt: task.updatedAt,
+  };
+}
+function receiptIdentity(task: WorkTask, run: ExecutionRunRecord): string {
+  return hash({ task: legacyReceipt(task), run });
+}
 function experience(task: WorkTask, run: ExecutionRunRecord | null): DreamingExperience | null {
   if (task.status !== "completed" || !task.delivery || task.delivery.unresolved.length || !task.delivery.evidence.length || !run || run.workTaskId !== task.id || run.threadId !== task.threadId || run.phase !== "primary" || run.status !== "completed" || run.runId !== task.runIds.at(-1) || run.memoryReferencesTruncated || run.tools.some(t => ["unknown", "started", "requested"].includes(t.status)) || task.acceptance.some(c => c.required && c.status !== "passed")) return null;
   const human = task.acceptance.filter(c => c.required && c.method === "human" && c.verification.kind === "human" && c.status === "passed" && task.delivery!.evidence.some(e => e.kind === "human" && e.criterionId === c.id && c.evidenceRefs.includes(e.id)));
@@ -189,7 +201,7 @@ export function createDreamingService(options: { filePath: string; workTasks: Wo
         const saved = doc?.archive.find(item => hash(item.source) === hash(s));
         // Absence may mean retention. A changed/missing live task is never repaired
         // with an old acceptance snapshot, and corrupt live reads still propagate.
-        if (!saved || hash(t.value) !== hash(saved.task)) return false;
+        if (!saved || hash(legacyReceipt(t.value)) !== hash(legacyReceipt(saved.task))) return false;
       }
     }
     return true;

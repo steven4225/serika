@@ -27,9 +27,11 @@ import {
 
 const now = new Date(2026, 9, 12, 15, 0, 0);
 const at = (monthDay: number, hour = 10, minute = 30) => new Date(2026, 9, monthDay, hour, minute, 0).toISOString();
-const task = (id: string, goal: string, day: number, status: WorkTask["status"] = "paused"): WorkTask => ({
-  id, revision: 1, threadId: "thread_hidden_alpha", goal, constraints: [], acceptance: [], status,
-  runIds: [], delivery: null, reconciliations: [], createdAt: at(day), updatedAt: at(day),
+const task = (id: string, goal: string, day: number, phase: "paused" | "awaiting_acceptance" | "needs_review" | "ready" | "running" | "completed" | "cancelled" = "paused"): WorkTask => ({
+  id, revision: 1, threadId: "thread_hidden_alpha", goal, constraints: [], acceptance: [], kind: "work",
+  status: phase === "running" || phase === "completed" || phase === "cancelled" ? phase : "pending",
+  effectReviewRequired: phase === "needs_review", acceptanceOpen: phase === "awaiting_acceptance",
+  runIds: phase === "ready" ? [] : ["run"], delivery: null, reconciliations: [], createdAt: at(day), updatedAt: at(day),
 });
 const noop = () => {};
 const page = (overrides: Partial<TasksPageProps> = {}) => renderToStaticMarkup(createElement(TasksPage, {
@@ -117,7 +119,7 @@ describe("tasks page", () => {
   it("keeps a saved reminder on the scheduled list and its id in the detail only", () => {
     const clock = { now, timeZone: "Asia/Shanghai" };
     const view = scheduledTaskRows({
-      scheduled: [{ id: "task_hidden_water", promptPreview: "喝水", status: "scheduled", runAt: at(12, 20), arrangement: { kind: "reminder" } }],
+      scheduled: [{ id: "task_hidden_water", promptPreview: "喝水", status: "pending", runAt: at(12, 20), arrangement: { kind: "reminder" } }],
       recurring: [],
     }, clock);
     const row = view.rows[0];
@@ -137,7 +139,7 @@ describe("tasks page", () => {
   it("shows a cancel failure on the open detail and keeps the list warning", () => {
     const clock = { now, timeZone: "Asia/Shanghai" };
     const view = scheduledTaskRows({
-      scheduled: [{ id: "task_hidden_water", promptPreview: "喝水", status: "scheduled", runAt: at(12, 20), arrangement: { kind: "reminder" } }],
+      scheduled: [{ id: "task_hidden_water", promptPreview: "喝水", status: "pending", runAt: at(12, 20), arrangement: { kind: "reminder" } }],
       recurring: [],
     }, clock);
     const row = view.rows[0];
@@ -158,8 +160,8 @@ describe("tasks page", () => {
     const clock = { now, timeZone: "Asia/Shanghai" };
     const view = scheduledTaskRows({
       scheduled: [
-        { id: "task_hidden_water", promptPreview: "喝水", status: "scheduled", runAt: at(12, 20), arrangement: { kind: "reminder" } },
-        { id: "task_hidden_digest", promptPreview: "邮件今日速览", status: "scheduled", runAt: at(12, 21), arrangement: { kind: "todoist-brief" } },
+        { id: "task_hidden_water", promptPreview: "喝水", status: "pending", runAt: at(12, 20), arrangement: { kind: "reminder" } },
+        { id: "task_hidden_digest", promptPreview: "邮件今日速览", status: "pending", runAt: at(12, 21), arrangement: { kind: "todoist-brief" } },
       ],
       recurring: [{
         id: "task_hidden_rss",
@@ -206,7 +208,7 @@ describe("tasks page", () => {
     assert.match(html, /<summary>验收与核对<\/summary>保留验收/);
     const handoff = planTaskContinueHandoff(item, "");
     assert.equal(handoff.mode, "chat");
-    assert.equal(planTaskContinueHandoff({ ...item, status: "paused" }, "继续写完").mode, "task");
+    assert.equal(planTaskContinueHandoff({ ...item, status: "pending", acceptanceOpen: false, effectReviewRequired: false }, "继续写完").mode, "task");
   });
 });
 

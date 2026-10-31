@@ -7,7 +7,7 @@ import { describe, it, mock } from "node:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { DesktopRuntime } from "./desktop-runtime.js";
-import { ExecutionRecordStore } from "@serika/assistant";
+import { ExecutionRecordStore, workTaskPhase } from "@serika/assistant";
 import type { MainToRenderer } from "../shared/ui-contract.js";
 
 function response(toolName?: string, input?: unknown, text = "收到。") {
@@ -235,7 +235,7 @@ describe("normal desktop memory and history entry", () => {
       await host.shutdown(); host = await DesktopRuntime.create(options);
       assert.equal(host.info().threadId, taskThread);
       const reopened = await host.current.listWorkTasks(); assert.ok(reopened.ok);
-      assert.equal(reopened.value[0]?.id, task.value.id); assert.equal(reopened.value[0]?.status, "ready");
+      assert.equal(reopened.value[0]?.id, task.value.id); assert.equal(reopened.value[0] ? workTaskPhase(reopened.value[0]) : "", "ready");
       assert.equal(calls, 0, "reopening a task is not executing it");
     } finally { await host.shutdown(); await rm(root, { recursive: true, force: true }); }
   });

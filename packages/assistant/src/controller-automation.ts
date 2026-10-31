@@ -33,11 +33,16 @@ export function createAutomationControls(k: ControllerKernel, deps: {
       const diagnostics = automation.diagnostics();
       if (!tasksEnabled) return { ok: true, value: { tasksEnabled, diagnostics, scheduled: [], recurring: [], truncated: false } };
       const tasks = createTaskStore(app.dataPaths!.tasks);
-      const [scheduled, recurring] = await Promise.all([tasks.list({ status: "pending", limit: 50 }), tasks.listRecurring({ limit: 50 })]);
-      if (!scheduled.ok) return scheduled;
+      const [waiting, running, recurring] = await Promise.all([
+        tasks.list({ status: "pending", limit: 50 }),
+        tasks.list({ status: "running", limit: 50 }),
+        tasks.listRecurring({ limit: 50 }),
+      ]);
+      if (!waiting.ok) return waiting;
+      if (!running.ok) return running;
       if (!recurring.ok) return recurring;
-      return { ok: true, value: { tasksEnabled, diagnostics, scheduled: scheduled.value.tasks,
-        recurring: recurring.value.recurringTasks, truncated: scheduled.value.truncated || recurring.value.truncated } };
+      return { ok: true, value: { tasksEnabled, diagnostics, scheduled: [...running.value.tasks, ...waiting.value.tasks],
+        recurring: recurring.value.recurringTasks, truncated: waiting.value.truncated || running.value.truncated || recurring.value.truncated } };
     },
     scheduleSkill: async input => {
       if (!app.dataPaths || !app.moduleConfig?.enabled.task) return { ok: false, error: { code: "TASK_UNAVAILABLE", message: "排期需要启用工作区任务模块" } };

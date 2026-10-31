@@ -61,7 +61,7 @@ Git：本页未重新核对 Git；输入 /resume 查看当前变化。checkpoint
 本地任务：
   未确认终态记录：
   - 无
-  最近创建的 scheduled/running：
+  最近创建的 pending/running：
   - 无
   completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。
 
@@ -131,8 +131,8 @@ Transcript 目录：/tmp/transcripts
   - completed · done · 喝水 · runAt 2026-09-24T01:00:00Z · Run 结束
   - failed · bad · 整理 · runAt 2026-09-24T01:00:00Z · MODEL_TIMEOUT: 超时
   - interrupted · stop · 计划 · runAt 2026-09-24T01:00:00Z · INTERRUPTED: 中断
-  最近创建的 scheduled/running：
-  - scheduled · next · 开会 · runAt 2026-09-24T01:00:00Z
+  最近创建的 pending/running：
+  - pending · next · 开会 · runAt 2026-09-24T01:00:00Z
   completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。
 
 可用入口：
@@ -152,7 +152,7 @@ Transcript 目录：/tmp/transcripts
 
 本地任务：
   未确认终态记录：读取失败（TASK_FILE_INVALID: broken tasks）。
-  最近创建的 scheduled/running：读取失败（TASK_FILE_INVALID: broken tasks）。
+  最近创建的 pending/running：读取失败（TASK_FILE_INVALID: broken tasks）。
   completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。
 
 可用入口：
@@ -172,7 +172,7 @@ Transcript 目录：/tmp/transcripts
 
 本地任务：
   未确认终态记录：读取失败（读取失败）。
-  最近创建的 scheduled/running：读取失败（读取失败）。
+  最近创建的 pending/running：读取失败（读取失败）。
   completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。
 
 可用入口：

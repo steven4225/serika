@@ -3,6 +3,7 @@ import type { WorkTask } from "../../../shared/work-tasks.js";
 import { humanFacingTitle } from "../../../shared/human-title.js";
 import type { ReminderSpeechClock } from "../reminder-copy.js";
 import { localWhen, reminderRows, scheduleStatusLabel, type ReminderDisplayRow } from "../reminder-copy.js";
+import { workTaskPhase } from "../../../shared/work-tasks.js";
 import { taskActions, taskNextAction, taskStatusLabels, taskVerificationSummary } from "../work-task-data.js";
 
 /**
@@ -247,13 +248,13 @@ export function taskArtifactCards(task: WorkTask): TaskArtifactCard[] {
 }
 
 export function taskProgressLines(task: WorkTask): string[] {
-  const lines = [taskStatusLabels[task.status]];
+  const lines = [taskStatusLabels[workTaskPhase(task)]];
   const summary = taskVerificationSummary(task);
   if (summary) lines.push(summary);
   lines.push(`下一步：${taskNextAction(task)}`);
   if (task.delivery?.summary.trim()) lines.push(task.delivery.summary.trim());
   if (task.delivery?.unresolved.length) lines.push(`还有没解决的：${task.delivery.unresolved.join("、")}`);
-  if (task.status === "needs_review") lines.push("上次执行的效果还不确定。先核对，不会自动重做，也不会当成已经成功。");
+  if (workTaskPhase(task) === "needs_review") lines.push("上次执行的效果还不确定。先核对，不会自动重做，也不会当成已经成功。");
   return lines;
 }
 
@@ -302,7 +303,7 @@ export function scheduledTaskRows(input: Parameters<typeof reminderRows>[0], clo
       when: localWhen(task.runAt, clock),
       status: scheduleStatusLabel(task.status, task.runAt, clock.now, task.arrangement?.kind),
       kind: "once",
-      canCancel: task.status === "scheduled",
+      canCancel: task.status === "pending",
     });
   }
   for (const task of input.recurring) {

@@ -16,7 +16,7 @@ test("continuity failure preserves the matching child cause, not just process ex
 });
 
 test("WorkTask continuity requires latest primary ownership and leaves quality unaccepted", () => {
-  const task = { id: "task", threadId: "thread", status: "paused", runIds: ["old", "latest"],
+  const task = { id: "task", threadId: "thread", kind: "work", status: "pending", effectReviewRequired: false, acceptanceOpen: false, runIds: ["old", "latest"],
     acceptance: [{ id: "quality", status: "not_run" }] } as WorkTask;
   const receipt = { runId: "latest", threadId: "thread", workTaskId: "task", phase: "primary", status: "completed",
     tools: [{ status: "completed" }] } as ExecutionRunRecord;

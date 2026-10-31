@@ -315,8 +315,8 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   const checkpointStore = checkpointEnabled
     ? createCheckpointStore(dataPaths!.checkpoint)
     : undefined;
-  const taskStore =
-    taskEnabled ? createTaskStore(dataPaths!.tasks) : undefined;
+  const taskDocument = dataPaths ? createTaskStore(dataPaths.tasks) : undefined;
+  const taskStore = taskEnabled ? taskDocument : undefined;
 
   const add = tool({
     description: "Add two numbers",
@@ -342,7 +342,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   const executionRecords = createExecutionRecordStore(directory);
   const recipes = tuiMode && shellEnabled && projectDirectory ? new RecipeStore(projectDirectory, dataPaths!.recipes) : undefined;
   let usageEnabled = false;
-  const workTasks = workspaceRoot === undefined || !dataPaths ? undefined : createWorkTaskStore(workspaceRoot, { filePath: dataPaths.workTasks, executionRecords });
+  const workTasks = workspaceRoot === undefined || taskDocument === undefined ? undefined : createWorkTaskStore(taskDocument, { workspace: workspaceRoot, executionRecords });
   const executionRecordAdapter = createExecutionRecordAdapter(store, executionRecords, workTasks, agentId => {
     const skill = externalSkills.find(skill => skill.agentId === agentId);
     return agentId === AUTO_CONSOLIDATION_AGENT_ID || skill?.kind === "memory-consolidate" ? "consolidation" : skill || agentId === DREAMING_AGENT_ID ? "skill" : "primary";

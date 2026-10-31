@@ -12,6 +12,7 @@ import { runTaskWorker } from "./task-worker.js";
 
 function task(): TaskRecordV4 {
   return {
+    kind: "arrangement",
     id: "task-1",
     prompt: "Prepare a short study plan",
     runAt: "2026-09-10T00:00:00.000Z",
@@ -83,7 +84,7 @@ function fakeStore(
       if (options.finishResult !== undefined) return options.finishResult;
       const finished: TaskRecordV4 = {
         ...claimedTask,
-        status: outcome.status,
+        status: outcome.status === "completed" ? "completed" : "pending",
         finishedAt: "2026-09-10T00:00:01.000Z",
         runId: outcome.runId,
         resultText: outcome.status === "completed" ? outcome.resultText : null,
@@ -530,7 +531,7 @@ describe("task worker", () => {
       message: "Worker stopped while the task was running",
     });
     assert.equal(notified.length, 1);
-    assert.equal(notified[0]?.status, "interrupted");
+    assert.equal(notified[0]?.status, "pending");
   });
 
   it("records runtime startup failure and continues only after terminal write", async () => {
@@ -632,6 +633,6 @@ describe("task worker", () => {
       },
     });
 
-    assert.deepEqual(order, ["finish:failed", "notify:failed"]);
+    assert.deepEqual(order, ["finish:failed", "notify:pending"]);
   });
 });

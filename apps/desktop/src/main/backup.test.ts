@@ -62,7 +62,7 @@ it("backup only registered assistant data; restoration is an offline copy with s
     assert.equal(history.messageCount, 1); assert.equal(history.preview, "latest"); assert.equal(history.error, undefined);
     const recovered = createTaskStore(join(restored.path, "data/tasks.json"), { now: () => Date.parse("2026-10-20T00:00:00Z") });
     const one = await recovered.get(future.value.id); assert(one.ok && one.value.status === "cancelled");
-    const interrupted = await recovered.get(running.value.id); assert(interrupted.ok && interrupted.value.status === "interrupted");
+    const interrupted = await recovered.get(running.value.id); assert(interrupted.ok && interrupted.value.status === "pending" && interrupted.value.error?.code === "RESTORED_INTERRUPTED");
     assert.equal(interrupted.value.pendingOutcome, null); assert.equal(interrupted.value.retryAt, null); assert.equal(interrupted.value.notification, null);
     const series = await recovered.getRecurring(recurring.value.id); assert(series.ok && series.value?.recurringTask.status === "paused");
     const noDispatch = await recovered.claimNextDue(); assert(noDispatch.ok && noDispatch.value === null);

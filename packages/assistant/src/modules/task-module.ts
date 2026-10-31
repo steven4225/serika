@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
 import type { BeforeToolExecuteInput } from "@serika/core";
 import type { AgentModule, ToolConfirmationCard } from "../module-host.js";
+import { arrangementNeedsAttention } from "../task-lifecycle.js";
 import type {
   CreateTaskInput,
   CreateRecurringTaskInput,
@@ -32,12 +33,10 @@ export type SavedTaskArrangement =
   | { kind: "recurring"; task: RecurringTaskRecord };
 
 const taskStatusSchema = z.enum([
-  "scheduled",
+  "pending",
   "running",
   "completed",
-  "failed",
   "cancelled",
-  "interrupted",
 ]);
 const recurrenceSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -54,13 +53,10 @@ const recurrenceSchema = z.discriminatedUnion("kind", [
 ]);
 const recurringTaskStatusSchema = z.enum(["active", "paused", "cancelled"]);
 const taskListStatusSchema = z.enum([
-  "scheduled",
+  "pending",
   "running",
   "completed",
-  "failed",
   "cancelled",
-  "interrupted",
-  "pending",
   "attention",
 ]);
 
@@ -437,10 +433,7 @@ function renderList(list: TaskListV3): string {
     if (task.status === "completed" && task.resultPreview !== null) {
       lines.push(`Result: ${task.resultPreview || "任务完成，无文本输出"}`);
     }
-    if (
-      (task.status === "failed" || task.status === "interrupted") &&
-      task.error !== null
-    ) {
+    if (arrangementNeedsAttention(task) && task.error !== null) {
       lines.push(`Error: ${task.error.code}: ${task.error.messagePreview}`);
     }
   }
@@ -463,10 +456,7 @@ function renderDetail(record: TaskRecordV3): string {
   if (record.status === "completed") {
     lines.push(`Result: ${record.resultText || "任务完成，无文本输出"}`);
   }
-  if (
-    (record.status === "failed" || record.status === "interrupted") &&
-    record.error !== null
-  ) {
+  if (arrangementNeedsAttention(record) && record.error !== null) {
     lines.push(`Error: ${record.error.code}: ${record.error.message}`);
   }
   return lines.join("\n");
@@ -520,10 +510,7 @@ function renderRecurringDetail(detail: RecurringTaskDetail): string {
     if (latestTask.status === "completed") {
       lines.push(`Latest result: ${latestTask.resultText || "任务完成，无文本输出"}`);
     }
-    if (
-      (latestTask.status === "failed" || latestTask.status === "interrupted") &&
-      latestTask.error !== null
-    ) {
+    if (arrangementNeedsAttention(latestTask) && latestTask.error !== null) {
       lines.push(`Latest error: ${latestTask.error.code}: ${latestTask.error.message}`);
     }
   }

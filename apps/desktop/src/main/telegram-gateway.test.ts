@@ -10,9 +10,8 @@ import { ResidentClient, createResidentPaths, startResidentServer } from "./resi
 import { TelegramGateway } from "./telegram-gateway.js";
 import { TelegramStore } from "./telegram-store.js";
 import { TelegramApiError, createTelegramApi, type TelegramApi, type TelegramUpdate } from "./telegram-api.js";
-import { createTaskStore } from "@serika/assistant";
+import { createTaskStore, formatLocalTaskTime, workTaskPhase } from "@serika/assistant";
 import { RSS_DIGEST_TASK_PROMPT } from "@serika/assistant/testing";
-import { formatLocalTaskTime } from "@serika/assistant";
 
 function response(tool?: { name: string; input: unknown }, text = "已完成请求。", callId = "call-1") {
   return { stream: simulateReadableStream({ chunks: [
@@ -528,7 +527,7 @@ it("approved Telegram arrangement saves the exact destination before worker acti
     const route = f.store.snapshot().routes[0]!;
     assert.equal(route.sourceRunId, f.store.snapshot().inputs.find(x => x.key === "42:2")!.runId);
     assert.equal(route.chatId, 42);
-    const saved = await createTaskStore(join(f.root, "profile", "data/tasks.json")).get(route.id); assert(saved.ok && saved.value?.status === "scheduled");
+    const saved = await createTaskStore(join(f.root, "profile", "data/tasks.json")).get(route.id); assert(saved.ok && saved.value?.status === "pending");
     assert.equal(f.activations(), 1);
     await f.gateway.receive(update(4, `允许 ${code}`));
     assert.equal(f.store.snapshot().routes.length, 1);
@@ -1148,7 +1147,7 @@ it("Task text gets an explicit preview and uses the existing WorkTask, not human
     const input = f.store.snapshot().inputs.find(x => x.key === "42:3")!;
     assert.ok(input.taskId);
     const task = await f.host.current.getWorkTask(input.taskId!);
-    assert.equal(task.ok && task.value.status, "paused", "a text-only task with no automatic criteria must not invent evidence");
+    assert.equal(task.ok && workTaskPhase(task.value), "paused", "a text-only task with no automatic criteria must not invent evidence");
     assert.equal(task.ok && task.value.acceptance[0]?.status, "not_run");
     await until(() => f.sent.some(x => x.includes("仍需你在桌面验收")));
     await f.gateway.receive(update(4, `开始 ${code}`));
@@ -1263,7 +1262,7 @@ it("independent TG authorization runs chat and WorkTasks through real file/Shell
     assert.ok(taskInput.taskId);
     const taskRun = await f.host.channelReceipt(owner.threadId, taskInput.runId!);
     assert.ok(taskRun?.tools.every(tool => !!tool.approvalRequestedAt === false));
-    const task = await f.host.current.getWorkTask(taskInput.taskId!); assert.ok(task.ok); assert.equal(task.value.status, "paused"); // TG creates human-only criteria: no automatic completion evidence was declared.
+    const task = await f.host.current.getWorkTask(taskInput.taskId!); assert.ok(task.ok); assert.equal(workTaskPhase(task.value), "paused"); // TG creates human-only criteria: no automatic completion evidence was declared.
     assert.equal(taskRun?.completion?.reason, "needs_information");
     // Other tools keep their existing per-call approval.
     reset([{ name: "recipe_list", input: {} }]);

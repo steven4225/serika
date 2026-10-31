@@ -167,7 +167,7 @@ export class TelegramGateway {
     } else {
       const record = input.kind === "once" ? await this.host.channelScheduledTask(input.id) : await this.host.channelRecurringTask(input.id);
       if (!record.ok || !record.value || !record.value.arrangement ||
-        !(input.kind === "once" ? ["scheduled", "running"].includes(record.value.status) && !("recurringTaskId" in record.value && record.value.recurringTaskId) : record.value.status === "active")) {
+        !(input.kind === "once" ? (record.value.status === "running" || (record.value.status === "pending" && record.value.error === null)) && !("recurringTaskId" in record.value && record.value.recurringTaskId) : record.value.status === "active")) {
         throw new Error("只能选择当前工作区未结束的安排；不会转发历史结果或未声明来源的任务");
       }
       await this.#saveRoute(input.id, input.kind, input.kind === "once" ? (record.value as { runAt: string }).runAt : new Date(this.now()).toISOString());
@@ -219,7 +219,7 @@ export class TelegramGateway {
             const listed = await this.host.channelScheduledTasks({ recurringTaskId: route.id, limit: 50, ...(before ? { before } : {}) });
             if (!listed.ok) throw new Error("安排结果暂不可读；未标记为已发送");
             for (const task of listed.value.tasks) {
-              if (Date.parse(task.runAt) >= Date.parse(route.fromRunAt) && ["completed", "failed", "interrupted"].includes(task.status)) await this.#collectTask(route, task.id);
+              if (Date.parse(task.runAt) >= Date.parse(route.fromRunAt) && (task.status === "completed" || (task.status === "pending" && task.error !== null))) await this.#collectTask(route, task.id);
             }
             // TaskStore pages descending creation time. Recurring instances are
             // only created when due, so pre-opt-in instances cannot be new sends.
@@ -246,11 +246,11 @@ export class TelegramGateway {
           const result = await this.host.channelScheduledTask(id);
           if (!result.ok) throw new Error("安排结果暂不可读；未标记为已发送");
           const task = result.value;
-          if (!task || task.id !== id || !task.arrangement || !["completed", "failed", "interrupted"].includes(task.status) || !task.finishedAt ||
+          if (!task || task.id !== id || !task.arrangement || (task.status !== "completed" && !(task.status === "pending" && task.error !== null)) || !task.finishedAt ||
             (route.kind === "recurring" ? task.recurringTaskId !== route.id || Date.parse(task.runAt) < Date.parse(route.fromRunAt) : task.recurringTaskId !== null)) return;
           // Under the configured --notify worker, null is the persisted empty RSS outcome.
           if (task.arrangement.kind === "rss-digest" && task.status === "completed" && task.notification === null) return;
-          const label = task.status === "completed" ? "安排已完成" : task.status === "interrupted" ? "安排中断，未自动重做；请回桌面核对" : "安排执行失败";
+          const label = task.status === "completed" ? "安排已完成" : task.attempts.at(-1)?.status === "interrupted" ? "安排中断，未自动重做；请回桌面核对" : "安排执行失败";
           const text = telegramBoundedText(`${label}\n${task.resultText ?? task.error?.message ?? "没有结果正文"}`);
           await this.store.update(data => {
             if (!data.enabled || !data.routes.some(x => x.key === route.key && x.fromRunAt === route.fromRunAt) || data.owner?.chatId !== route.chatId || data.owner.userId !== route.userId || data.deliveries.some(x => x.key === key)) return;
@@ -264,7 +264,7 @@ export class TelegramGateway {
     if (!source || source.state !== "unknown" || !owner || current.info.threadId !== owner.threadId || current.snapshot.state.kind !== "idle") throw new Error("请先在桌面打开 Telegram 对话并完成回执核对，空闲时再报告观察");
     if (source.taskId) {
       const task = await this.host.current.getWorkTask(source.taskId);
-      if (!task.ok || task.value.status === "needs_review" || task.value.status === "running") throw new Error("请先在工作任务中完成未知效果核对；这里不能绕过任务核对");
+      if (!task.ok || task.value.effectReviewRequired || task.value.status === "running") throw new Error("请先在工作任务中完成未知效果核对；这里不能绕过任务核对");
     }
     await this.store.update(next => {
       const saved = next.inputs.find(x => x.key === input.key)!;

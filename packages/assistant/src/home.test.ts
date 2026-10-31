@@ -90,8 +90,8 @@ describe("renderHome", () => {
           truncated: true,
           tasks: [
             { id: "done", status: "completed", promptPreview: "\x1b[31m喝水\x1b[0m", runAt: "2026-09-24T01:00:00Z", finishedAt: null, resultPreview: "Run 结束", error: null, acknowledgedAt: null },
-            { id: "bad", status: "failed", promptPreview: "整理", runAt: "2026-09-24T02:00:00Z", finishedAt: null, resultPreview: null, error: { code: "MODEL_TIMEOUT", messagePreview: "超时" }, acknowledgedAt: null },
-            { id: "stop", status: "interrupted", promptPreview: "计划", runAt: "2026-09-24T03:00:00Z", finishedAt: null, resultPreview: null, error: { code: "INTERRUPTED", messagePreview: "中断" }, acknowledgedAt: null },
+            { id: "bad", status: "pending", settlement: "failed", promptPreview: "整理", runAt: "2026-09-24T02:00:00Z", finishedAt: null, resultPreview: null, error: { code: "MODEL_TIMEOUT", messagePreview: "超时" }, acknowledgedAt: null },
+            { id: "stop", status: "pending", settlement: "interrupted", promptPreview: "计划", runAt: "2026-09-24T03:00:00Z", finishedAt: null, resultPreview: null, error: { code: "INTERRUPTED", messagePreview: "中断" }, acknowledgedAt: null },
           ],
         },
       };
@@ -113,9 +113,9 @@ describe("renderHome", () => {
     assert.match(text, /failed · bad/);
     assert.match(text, /interrupted · stop/);
     assert.match(text, /仅展示前 5 条，另有未展示/);
-    assert.match(text, /最近创建的 scheduled\/running/);
+    assert.match(text, /最近创建的 pending\/running/);
     assert.match(text, /completed 只表示 worker Run 正常结束/);
-    assert.deepEqual(calls, [{ inbox: true, limit: 5 }, { status: "pending", limit: 5 }]);
+    assert.deepEqual(calls, [{ inbox: true, limit: 5 }, { status: "pending", limit: 5 }, { status: "running", limit: 5 }]);
     assert.match(text, /\/task inbox/);
   });
 
@@ -131,7 +131,7 @@ describe("renderHome", () => {
     assert.doesNotMatch(text, /本页未重新核对 Git/);
     assert.match(text, /\/resume/);
     assert.match(text, /未确认终态记录：读取失败（TASK_FILE_INVALID/);
-    assert.match(text, /最近创建的 scheduled\/running：读取失败（TASK_FILE_INVALID/);
+    assert.match(text, /最近创建的 pending\/running：读取失败（TASK_FILE_INVALID/);
     assert.doesNotMatch(text, /没有待办/);
   });
 });

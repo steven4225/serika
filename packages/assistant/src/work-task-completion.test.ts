@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { PassThrough } from "node:stream";
 import { it } from "node:test";
 import { simulateReadableStream } from "ai";
@@ -11,11 +11,12 @@ import { createRuntimeApp } from "./app.js";
 import { createAssistantController } from "./assistant-controller.js";
 import { ExecutionRecordStore } from "./execution-record-store.js";
 import type { ExecutionRunRecord, ExecutionToolRecord } from "./execution-record-store.js";
-import type { WorkTask, WorkTaskStore } from "./work-task-store.js";
+import type { WorkTask, WorkTaskStore } from "./work-task-store.js"
+import { createTaskStore } from "./task-store.js";
 import { createWorkTaskFinishCheck } from "./work-task-completion.js";
 import { verifyAutomaticCriterion } from "./work-task-verification.js";
 import { workTaskTestBatch } from "./work-task-shell-evidence.js";
-import { createWorkTaskStore } from "./work-task-store.js";
+import { createWorkTaskStore, workTaskPhase } from "./work-task-store.js";
 import type { BeforeRunFinishInput } from "@serika/core";
 
 it("corrects missing multiple tests in the same Run using one confirmed batch and persists both checks", { timeout: 20_000 }, async () => {
@@ -76,7 +77,7 @@ it("explicit readback criteria reject missing, pre-write, stale and denied reads
     await writeFile(join(root, "plan.md"), content);
     const digest = createHash("sha256").update(content).digest("hex");
     const time = "2026-10-04T00:00:00.000Z";
-    const task: WorkTask = { id: "task", revision: 1, threadId: "thread", goal: "test", constraints: [], status: "paused", runIds: ["run"], delivery: null, reconciliations: [], createdAt: time, updatedAt: time, acceptance: [] };
+    const task: WorkTask = { id: "task", revision: 1, threadId: "thread", goal: "test", constraints: [], kind: "work", status: "pending", effectReviewRequired: false, acceptanceOpen: false, runIds: ["run"], delivery: null, reconciliations: [], createdAt: time, updatedAt: time, acceptance: [] };
     const write: ExecutionToolRecord = { toolCallId: "write", toolName: "write_file", status: "completed", requestedAt: time, startedAt: time, finishedAt: time,
       inputPreview: "{}", inputTruncated: true, resultPreview: null, resultTruncated: true, errorPreview: null, shell: null,
       fileInput: { path: "plan.md", sha256: digest }, fileWrite: { path: "plan.md", bytes: Buffer.byteLength(content), sha256: digest } };
@@ -98,7 +99,7 @@ it("explicit readback criteria reject missing, pre-write, stale and denied reads
     run.tools = [write, read];
     const verified = await verifyAutomaticCriterion(env, task, criterion);
     assert.equal(verified.status, "passed");
-    const store = createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json"), generateId: () => "task", executionRecords: env.executionRecords  });
+    const store = createWorkTaskStore(createTaskStore(join(dirname(join(root, ".runloom/work-tasks.json")), "tasks.json")), { workspace: root,  generateId: () => "task", executionRecords: env.executionRecords  });
     const created = await store.create({ threadId: "thread", goal: "read back", acceptance: [{ id: "file", description: "file", method: "automatic", required: true, verification: criterion.verification }] });
     assert.ok(created.ok);
     assert.ok((await store.beginRun("task", { expectedRevision: 1, runId: "run" })).ok);
@@ -110,7 +111,7 @@ it("explicit readback criteria reject missing, pre-write, stale and denied reads
     run.tools = [write, read];
     const accepted = await store.recordAcceptance("task", { expectedRevision: 4, criterionId: "file", actor: "automatic", status: "passed", evidence: verified.evidence });
     assert.ok(accepted.ok); assert.equal(accepted.value.status, "completed");
-    const reopened = await createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json") }).get("task");
+    const reopened = await createWorkTaskStore(createTaskStore(join(dirname(join(root, ".runloom/work-tasks.json")), "tasks.json")), { workspace: root, }).get("task");
     assert.ok(reopened.ok); assert.deepEqual(reopened.value.acceptance[0]!.verification, criterion.verification);
     await writeFile(join(root, "plan.md"), "externally changed");
     assert.equal((await verifyAutomaticCriterion(env, task, criterion)).status, "failed");
@@ -120,7 +121,7 @@ it("explicit readback criteria reject missing, pre-write, stale and denied reads
 it("completion checks reject unknown/foreign receipts, human-only contracts and unavailable tools", async () => {
   const time = "2026-10-04T00:00:00.000Z";
   const task: WorkTask = { id: "task", revision: 2, threadId: "thread", goal: "test", constraints: [],
-    status: "running", runIds: ["run"], delivery: null, reconciliations: [], createdAt: time, updatedAt: time,
+    kind: "work", status: "running", effectReviewRequired: false, acceptanceOpen: false, runIds: ["run"], delivery: null, reconciliations: [], createdAt: time, updatedAt: time,
     acceptance: [{ id: "test", description: "test", required: true, method: "automatic", status: "not_run", note: null, evidenceRefs: [], verification: { kind: "shell_exit_zero", command: "node --test", cwd: "." } }] };
   const run: ExecutionRunRecord = { runId: "run", threadId: "thread", workTaskId: "task", phase: "primary", status: "running",
     startedAt: time, finishedAt: null, resultTextPreview: null, resultTextTruncated: false, errorPreview: null, tools: [] };
@@ -149,7 +150,7 @@ it("completion checks reject unknown/foreign receipts, human-only contracts and 
   assert.equal((await verifyAutomaticCriterion({ executionRecords: records, workspaceRoot: undefined }, task, task.acceptance[0]!, { runId: "run", signal: input.signal })).status, "passed");
   const root = await mkdtemp(join(tmpdir(), "runloom-test-order-"));
   try {
-    const store = createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json"), generateId: () => "task", executionRecords: records  });
+    const store = createWorkTaskStore(createTaskStore(join(dirname(join(root, ".runloom/work-tasks.json")), "tasks.json")), { workspace: root,  generateId: () => "task", executionRecords: records  });
     assert.ok((await store.create({ threadId: "thread", goal: "test", acceptance: [{ id: "test", description: "test", required: true, method: "automatic", verification: { kind: "shell_exit_zero", command: "node --test", cwd: "." } }] })).ok);
     assert.ok((await store.beginRun("task", { expectedRevision: 1, runId: "run" })).ok);
     assert.ok((await store.pause("task", 2)).ok);
@@ -221,19 +222,19 @@ for (const scenario of ["correct", "readback", "deny", "exhaust", "manual", "cha
         assert.equal(calls, scenario === "readback" ? 4 : 3); assert.equal(approvals.size, scenario === "readback" ? 2 : 1);
         assert.deepEqual(checks, ["continue", "stop"]);
         assert.deepEqual(result.completion, { reason: "delivered", corrections: 1 });
-        assert.equal(task.value.status, "awaiting_acceptance");
+        assert.equal(workTaskPhase(task.value), "awaiting_acceptance");
         assert.equal(task.value.acceptance[0]!.status, "passed");
         assert.equal(await readFile(join(workspace, "plan.md"), "utf8"), "verified output\n");
       } else if (scenario === "deny") {
         assert.equal(calls, 2); assert.equal(approvals.size, 1);
         assert.deepEqual(result.completion, { reason: "needs_confirmation", corrections: 0 });
         assert.deepEqual(checks, ["stop"]);
-        assert.equal(task.value.status, "paused");
+        assert.equal(workTaskPhase(task.value), "paused");
         await assert.rejects(readFile(join(workspace, "plan.md")), { code: "ENOENT" });
       } else if (scenario === "exhaust") {
         assert.equal(calls, 3); assert.equal(approvals.size, 0);
         assert.deepEqual(result.completion, { reason: "budget_exhausted", corrections: 2 });
-        assert.equal(task.value.status, "paused");
+        assert.equal(workTaskPhase(task.value), "paused");
       } else {
         assert.equal(calls, 1); assert.deepEqual(checks, []); assert.equal(result.completion, undefined);
       }

@@ -48,12 +48,22 @@ function withoutPhase(value: CheckpointSnapshot): CheckpointSnapshot {
 }
 
 function task(overrides: Partial<TaskSummaryV3>): TaskSummaryV3 {
-  return { id: "t", status: "scheduled", promptPreview: "喝水", runAt: "2026-09-24T01:00:00Z", finishedAt: null,
-    resultPreview: null, error: null, acknowledgedAt: null, ...overrides } as TaskSummaryV3;
+  return { id: "t", status: "pending", promptPreview: "喝水", runAt: "2026-09-24T01:00:00Z", finishedAt: null,
+    resultPreview: null, error: null, acknowledgedAt: null, ...overrides };
 }
 
-function tasks(inbox: TaskStoreResult<TaskListV3>, pending: TaskStoreResult<TaskListV3>): Pick<NonNullable<HomeOptions["taskStore"]>, "list"> {
-  return { list: async (input?: TaskListInput) => input?.inbox ? inbox : pending };
+function tasks(
+  inbox: TaskStoreResult<TaskListV3>,
+  waiting: TaskStoreResult<TaskListV3>,
+  running: TaskStoreResult<TaskListV3> = { ok: true, value: { truncated: false, tasks: [] } },
+): Pick<NonNullable<HomeOptions["taskStore"]>, "list"> {
+  return {
+    list: async (input?: TaskListInput) => {
+      if (input?.inbox) return inbox;
+      if (input?.status === "running") return running;
+      return waiting;
+    },
+  };
 }
 
 const SCENARIOS: ReadonlyArray<readonly [name: string, options: HomeOptions]> = [
@@ -74,9 +84,9 @@ const SCENARIOS: ReadonlyArray<readonly [name: string, options: HomeOptions]> = 
     checkpointStore: { getCurrent: async () => ({ ok: false, error: { code: "CHECKPOINT_FILE_INVALID", message: "broken\nfile" } }) },
     taskStore: tasks({ ok: true, value: { truncated: true, tasks: [
       task({ id: "done", status: "completed", promptPreview: "\x1b[31m喝水\x1b[0m", resultPreview: "Run 结束" }),
-      task({ id: "bad", status: "failed", promptPreview: "整理", error: { code: "MODEL_TIMEOUT", messagePreview: "超时" } }),
-      task({ id: "stop", status: "interrupted", promptPreview: "计划", error: { code: "INTERRUPTED", messagePreview: "中断" } }),
-    ] } }, { ok: true, value: { truncated: false, tasks: [task({ id: "next", status: "scheduled", promptPreview: "开会" })] } }) }],
+      task({ id: "bad", status: "pending", settlement: "failed", promptPreview: "整理", error: { code: "MODEL_TIMEOUT", messagePreview: "超时" } }),
+      task({ id: "stop", status: "pending", settlement: "interrupted", promptPreview: "计划", error: { code: "INTERRUPTED", messagePreview: "中断" } }),
+    ] } }, { ok: true, value: { truncated: false, tasks: [task({ id: "next", status: "pending", promptPreview: "开会" })] } }) }],
   ["thrown checkpoint error and task store errors", { ...base, checkpointEnabled: true, taskEnabled: true,
     checkpointStore: { getCurrent: async () => { throw new Error("invalid checkpoint"); } },
     taskStore: tasks({ ok: false, error: { code: "TASK_FILE_INVALID", message: "broken tasks" } } as TaskStoreResult<TaskListV3>,

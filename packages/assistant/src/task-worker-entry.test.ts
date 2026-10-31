@@ -49,6 +49,7 @@ it("dedicated Todoist arrangements enforce one planning query, not prompt-based 
 
 describe("durable desktop notification adapter", () => {
   const task: TaskRecord = {
+    kind: "arrangement",
     id: "task-notification", prompt: "sensitive preference", runAt: "2026-09-30T01:00:00.000Z",
     status: "completed", createdAt: "2026-09-29T01:00:00.000Z", startedAt: "2026-09-30T01:00:00.000Z",
     finishedAt: "2026-09-30T01:01:00.000Z", threadId: "thread", runId: "run", resultText: "private workspace memory", error: null,
@@ -215,7 +216,7 @@ describe("task-worker startup validation", () => {
       assert.match(stderr, expectedError);
       const unchanged = await store.get(created.value.id);
       assert.ok(unchanged.ok);
-      assert.equal(unchanged.value.status, "scheduled");
+      assert.equal(unchanged.value.status, "pending");
       assert.equal(unchanged.value.startedAt, null);
     } finally {
       await rm(root, { recursive: true, force: true });

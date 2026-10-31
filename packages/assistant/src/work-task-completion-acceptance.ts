@@ -11,7 +11,7 @@ import { createAssistantController } from "./assistant-controller.js";
 import { configureCliModel } from "./model-config.js";
 import { createDemoModel } from "./demo-model.js";
 import { getWorkTaskEvalCase, createPendingWorkTaskEvalChecks } from "./work-task-eval-cases.js";
-import type { AcceptanceVerification, WorkTaskResult } from "./work-task-store.js";
+import { workTaskPhase, type AcceptanceVerification, type WorkTaskResult } from "./work-task-store.js";
 import { CONTINUITY_BUDGET } from "./context-continuity-acceptance.js";
 import { deriveCaseStatus, type AcceptanceCaseResult } from "./acceptance/contracts.js";
 import { writeAcceptanceReport } from "./acceptance/report.js";
@@ -104,7 +104,7 @@ export async function runCompletionAcceptance(label: "baseline" | "improved") {
       const primary = controller.getSnapshot().lastPrimaryResult; assert.ok(primary);
       assert.equal(task.runIds.length, 1, "no new Run may be created to correct the task");
       assert.equal(primary.status, "completed", JSON.stringify(primary));
-      if (task.status === "paused") task = value(await controller.workTasks.submitDelivery({ id: task.id, expectedRevision: task.revision,
+      if (workTaskPhase(task) === "paused") task = value(await controller.workTasks.submitDelivery({ id: task.id, expectedRevision: task.revision,
         summary: primary.text || "Evaluation delivery", artifactRefs: verification.filter(item => item.kind === "artifact_exists").map(item => item.path) }));
       assert.ok(task.acceptance.filter(item => item.method === "automatic").every(item => item.status === "passed"));
       assert.equal(task.acceptance.find(item => item.id === "quality")?.status, "not_run");

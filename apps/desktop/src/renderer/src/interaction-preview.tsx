@@ -44,15 +44,22 @@ function shanghaiAt(hour: number, minute: number): string {
   return new Date(`${day}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00+08:00`).toISOString();
 }
 
-function fixtureTask(id: string, status: WorkTask["status"], goal: string, hour: number, minute: number): WorkTask {
-  const updatedAt = shanghaiAt(hour, minute);
-  return { id, revision: 1, threadId: "preview-a", goal, constraints: [], acceptance: [], status, runIds: [], delivery: null, reconciliations: [], createdAt: updatedAt, updatedAt };
+function previewWork(phase: "needs_review" | "paused" | "awaiting_acceptance" | "ready"): Pick<WorkTask, "kind" | "status" | "effectReviewRequired" | "acceptanceOpen" | "runIds"> {
+  if (phase === "needs_review") return { kind: "work", status: "pending", effectReviewRequired: true, acceptanceOpen: false, runIds: ["run"] };
+  if (phase === "awaiting_acceptance") return { kind: "work", status: "pending", effectReviewRequired: false, acceptanceOpen: true, runIds: ["run"] };
+  if (phase === "paused") return { kind: "work", status: "pending", effectReviewRequired: false, acceptanceOpen: false, runIds: ["run"] };
+  return { kind: "work", status: "pending", effectReviewRequired: false, acceptanceOpen: false, runIds: [] };
 }
 
-function waveTask(id: string, status: WorkTask["status"], goal: string, days: number, hour: number, minute: number): WorkTask {
+function fixtureTask(id: string, phase: "needs_review" | "paused" | "awaiting_acceptance" | "ready", goal: string, hour: number, minute: number): WorkTask {
+  const updatedAt = shanghaiAt(hour, minute);
+  return { id, revision: 1, threadId: "preview-a", goal, constraints: [], acceptance: [], ...previewWork(phase), delivery: null, reconciliations: [], createdAt: updatedAt, updatedAt };
+}
+
+function waveTask(id: string, phase: "needs_review" | "paused" | "awaiting_acceptance" | "ready", goal: string, days: number, hour: number, minute: number): WorkTask {
   const updatedAt = daysAgo(days, hour, minute);
   return {
-    id, revision: 2, threadId: "thread_hidden_preview", goal, constraints: [], status, runIds: [], reconciliations: [],
+    id, revision: 2, threadId: "thread_hidden_preview", goal, constraints: [], ...previewWork(phase), reconciliations: [],
     createdAt: updatedAt, updatedAt,
     acceptance: [{ id: "file", description: "留下今日说明", method: "automatic", verification: { kind: "artifact_exists", path: "notes/morning.md", requireReadback: true }, required: true, status: "passed", evidenceRefs: [], note: null }],
     delivery: id === "task_hidden_wake" ? { summary: "起床啦。先喝口水，慢慢坐起来，今天的事等清醒了再想。", artifactRefs: ["notes/morning.md"], evidence: [], unresolved: [] } : null,
@@ -87,7 +94,7 @@ function briefOverview() {
       id: "fixture-water",
       promptPreview: "喝水",
       runAt: shanghaiAt(20, 30),
-      status: "scheduled" as const,
+      status: "pending" as const,
       finishedAt: null,
       resultPreview: null,
       error: null,
@@ -120,10 +127,10 @@ function briefInbox() {
       id: `fixture-inbox-${index}`,
       promptPreview: subject,
       runAt: shanghaiAt(hour, minute),
-      status: "interrupted" as const,
+      status: "pending" as const,
       finishedAt: shanghaiAt(hour, minute),
       resultPreview: null,
-      error: null,
+      error: { code: "INTERRUPTED", messagePreview: "中断" },
       acknowledgedAt: null,
       arrangement: { kind: "reminder" as const, source: "none" as const, notification: "always" as const, declarationVersion: 1 as const },
     })),
@@ -149,13 +156,15 @@ const api = {
   getScheduledTask: async (id: string) => ({
     ok: true as const,
     value: taskFixture ? {
+      kind: "arrangement" as const,
       id, prompt: "起床提醒", runAt: daysAgo(0, 10, 53), status: "completed" as const,
       createdAt: daysAgo(0, 10, 53), startedAt: daysAgo(0, 10, 53), finishedAt: daysAgo(0, 10, 53),
       threadId: null, runId: null, resultText: "起床啦。先喝口水，慢慢坐起来。", error: null, recurringTaskId: null,
       acknowledgedAt: null, attempts: [], retryAt: null, notification: null, pendingOutcome: null,
       arrangement: { kind: "reminder" as const, source: "none" as const, notification: "always" as const, declarationVersion: 1 as const },
     } : {
-      id, prompt: "喝水", runAt: shanghaiAt(20, 30), status: "interrupted" as const,
+      kind: "arrangement" as const,
+      id, prompt: "喝水", runAt: shanghaiAt(20, 30), status: "pending" as const,
       createdAt: shanghaiAt(8, 10), startedAt: null, finishedAt: shanghaiAt(8, 10),
       threadId: null, runId: null, resultText: null, error: null, recurringTaskId: null,
       acknowledgedAt: shanghaiAt(8, 11), attempts: [], retryAt: null, notification: null, pendingOutcome: null,

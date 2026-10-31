@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { crashFixtureAllows, gateAfterApprovalReceipt, runWorkTaskCrashAcceptance, verifyCrashArtifactAbsent } from "./work-task-crash-acceptance.js";
+import { workTaskPhase } from "./work-task-store.js";
 
 test("before-dispatch gate waits for approval persistence and never gates a failed write", async () => {
   let commit!: () => void, gateCalls = 0;
@@ -64,7 +65,7 @@ test("real process kills preserve not_started/unknown/completed and never replay
         }
         if (scenario === "unrecorded-write") {
           assert.equal(after.oldReceipt.tools[0].status, "unknown");
-          assert.equal(after.task.status, "awaiting_acceptance"); assert.equal(after.task.runIds.length, 2);
+          assert.equal(workTaskPhase(after.task), "awaiting_acceptance"); assert.equal(after.task.runIds.length, 2);
         } else assert.equal(after.modelRequests, 0);
       }
     } finally { await rm(report.root, { recursive: true, force: true }); }

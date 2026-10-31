@@ -1,5 +1,7 @@
 # 架构第 6 步任务重做：草案与静态检查
 
+本稿只记录 2026-10-26 的文档静态检查。四项取舍已于 2026-10-31 确认；6a 的实现记录是 [architecture-v2-step6a.md](architecture-v2-step6a.md)。下面各段保持当时的检查结果。
+
 ## 改了什么
 
 新增 [任务重做草案](../architecture-v2-step6-task-draft.md)，基线 `07aebb4`。先盘点 WorkTask、TaskStore、worker、创建、验收和恢复，再比较“统一 Store”与“仅聚合展示”两种形状；推荐前者。INDEX 增加入口，记忆计划链接到待确认草案。

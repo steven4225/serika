@@ -117,7 +117,7 @@ export function presentReminderConfirmation(approval: Pick<PendingApproval, "rem
 
 /** Future reminders stay "set"; a due reminder must not still sound unscheduled. */
 export function scheduleStatusLabel(status: string, runAt: string | null | undefined, now: Date, kind?: string): string {
-  if (status === "scheduled") {
+  if (status === "scheduled" || status === "pending") {
     const time = typeof runAt === "string" ? Date.parse(runAt) : Number.NaN;
     if (Number.isFinite(time) && time <= now.getTime()) return "已到点，尚未执行";
     return kind === "reminder" || kind === undefined ? "已设好，到点提醒" : "尚未到点";
@@ -187,7 +187,7 @@ export function reminderRows(input: {
       when: formatOnceWhen(task.runAt, clock),
       status: scheduleStatusLabel(task.status, task.runAt, clock.now, "reminder"),
       kind: "once",
-      canCancel: task.status === "scheduled",
+      canCancel: task.status === "pending",
     });
   }
   for (const task of input.recurring) {
@@ -233,7 +233,7 @@ export function inboxPrimaryLine(task: {
  */
 export function presentHomeTaskItem(item: Pick<HomeItem, "text" | "task" | "taskList">, clock: ReminderSpeechClock): { primary: string; detail: string | null } {
   if (item.taskList === "pending") {
-    return { primary: item.text.trim().replaceAll("最近创建的 scheduled/running", "即将到来的提醒"), detail: null };
+    return { primary: item.text.trim().replaceAll("最近创建的 pending/running", "即将到来的提醒"), detail: null };
   }
   const task = item.task;
   if (task === undefined) return { primary: item.text, detail: null };

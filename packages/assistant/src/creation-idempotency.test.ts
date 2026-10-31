@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { createTaskStore } from "./task-store.js";
 import { createWorkTaskStore } from "./work-task-store.js";
 
@@ -40,12 +40,12 @@ test("work task create is atomic and replayable across Store instances, Thread a
   const root = await mkdtemp(join(tmpdir(), "work-idem-"));
   try {
     const input = { threadId: "t", goal: "report", operationId: "work-1", acceptance: [{ id: "human", description: "review", method: "human" as const, verification: { kind: "human" as const }, required: true }] };
-    const [a, b] = await Promise.all([createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json") }).create(input), createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json") }).create(input)]);
+    const [a, b] = await Promise.all([createWorkTaskStore(createTaskStore(join(dirname(join(root, ".runloom/work-tasks.json")), "tasks.json")), { workspace: root, }).create(input), createWorkTaskStore(createTaskStore(join(dirname(join(root, ".runloom/work-tasks.json")), "tasks.json")), { workspace: root, }).create(input)]);
     assert.ok(a.ok && b.ok); assert.equal(a.value.id, b.value.id);
-    const before = await readFile(join(root, ".runloom/work-tasks.json"), "utf8");
-    const restarted = createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json") });
+    const before = await readFile(join(root, ".runloom/tasks.json"), "utf8");
+    const restarted = createWorkTaskStore(createTaskStore(join(dirname(join(root, ".runloom/work-tasks.json")), "tasks.json")), { workspace: root, });
     const replay = await restarted.create(input); assert.ok(replay.ok); assert.equal(replay.value.id, a.value.id);
-    assert.equal(await readFile(join(root, ".runloom/work-tasks.json"), "utf8"), before);
+    assert.equal(await readFile(join(root, ".runloom/tasks.json"), "utf8"), before);
     assert.equal((await restarted.create({ ...input, threadId: "another-thread" })).ok, false);
     assert.equal((await restarted.create({ ...input, goal: "different" })).ok, false);
   } finally { await rm(root, { recursive: true, force: true }); }

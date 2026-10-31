@@ -11,14 +11,14 @@ import { createRuntimeApp } from "./app.js";
 import { createAssistantController } from "./assistant-controller.js";
 import { workTaskDeliveryDraft, workTaskFileReceipts, readWorkTaskArtifact } from "./work-task-artifacts.js";
 import type { ExecutionRunRecord, ExecutionToolRecord } from "./execution-record-store.js";
-import type { WorkTask } from "./work-task-store.js";
+import { workTaskPhase, type WorkTask } from "./work-task-store.js";
 
 const time = "2026-10-03T00:00:00.000Z";
 const content = "结论：先验证再推进。\n";
 const hash = createHash("sha256").update(content).digest("hex");
 const task: WorkTask = { id: "task", revision: 2, threadId: "thread", goal: "写文档", constraints: [],
   acceptance: [{ id: "artifact", description: "文档", required: true, method: "automatic", verification: { kind: "artifact_exists", path: "notes/plan.md" }, status: "not_run", note: null, evidenceRefs: [] }],
-  status: "paused", runIds: ["old", "run"], delivery: null, reconciliations: [], createdAt: time, updatedAt: time };
+  kind: "work", status: "pending", effectReviewRequired: false, acceptanceOpen: false, runIds: ["old", "run"], delivery: null, reconciliations: [], createdAt: time, updatedAt: time };
 const tool: ExecutionToolRecord = { toolCallId: "write", toolName: "write_file", status: "completed", requestedAt: time, startedAt: time, finishedAt: time,
   inputPreview: "truncated", inputTruncated: true, resultPreview: null, resultTruncated: true, errorPreview: null, shell: null,
   fileInput: { path: "notes/plan.md", sha256: hash }, fileWrite: { path: "notes/plan.md", bytes: Buffer.byteLength(content), sha256: hash } };
@@ -118,9 +118,9 @@ it("Controller display queries are read-only, version-bound, survive restart and
     await idle;
     const paused = await current.workTasks.get(created.value.id);
     assert.ok(paused.ok);
-    assert.equal(paused.value.status, "awaiting_acceptance");
+    assert.equal(workTaskPhase(paused.value), "awaiting_acceptance");
     const input = { id: paused.value.id, expectedRevision: paused.value.revision };
-    const beforeTasks = await readFile(join(workspace, ".runloom/work-tasks.json"));
+    const beforeTasks = await readFile(join(workspace, ".runloom/tasks.json"));
     const beforeJournal = await readFile(join(root, "transcripts/execution-records.json"));
     const draft = await current.workTasks.getDeliveryDraft(input);
     assert.ok(draft.ok);
@@ -140,7 +140,7 @@ it("Controller display queries are read-only, version-bound, survive restart and
     const stale = await current.workTasks.getArtifact({ ...input, expectedRevision: 1, path: "notes/plan.md" });
     assert.ok(!stale.ok);
     assert.equal(stale.error.code, "WORK_TASK_REVISION_CONFLICT");
-    assert.deepEqual(await readFile(join(workspace, ".runloom/work-tasks.json")), beforeTasks);
+    assert.deepEqual(await readFile(join(workspace, ".runloom/tasks.json")), beforeTasks);
     assert.deepEqual(await readFile(join(root, "transcripts/execution-records.json")), beforeJournal);
     assert.equal(calls, 2);
     await writeFile(join(root, "transcripts/execution-records.json"), "broken receipt file");

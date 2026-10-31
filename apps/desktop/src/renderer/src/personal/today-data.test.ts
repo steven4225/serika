@@ -3,12 +3,15 @@ import { describe, it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AppInfo } from "../../../shared/ui-contract.js";
-import type { WorkTask } from "../../../shared/work-tasks.js";
+import { workTaskPhase, type WorkTask, type WorkTaskPhase } from "../../../shared/work-tasks.js";
 import { todayClock, todayMemorySummary, todayTaskSummary } from "./today-data.js";
 import { TodayPanel, type TodayPanelProps } from "./today.js";
 
 const info = { threadId: "current", workTasks: true, memory: { enabled: true, autoConsolidate: true } } as AppInfo;
-const task = (status: WorkTask["status"]): WorkTask => ({ id: status, revision: 1, threadId: "thread", goal: `任务 ${status}`, constraints: [], acceptance: [], status, runIds: [], delivery: null, reconciliations: [], createdAt: "2026-10-08T00:00:00.000Z", updatedAt: "2026-10-08T00:00:00.000Z" });
+const task = (phase: WorkTaskPhase): WorkTask => ({ id: phase, revision: 1, threadId: "thread", goal: `任务 ${phase}`, constraints: [], acceptance: [], kind: "work",
+  status: phase === "running" || phase === "completed" || phase === "cancelled" ? phase : "pending",
+  effectReviewRequired: phase === "needs_review", acceptanceOpen: phase === "awaiting_acceptance",
+  runIds: phase === "ready" ? [] : ["run"], delivery: null, reconciliations: [], createdAt: "2026-10-08T00:00:00.000Z", updatedAt: "2026-10-08T00:00:00.000Z" });
 const noop = () => undefined;
 function render(overrides: Partial<TodayPanelProps> = {}) {
   return renderToStaticMarkup(createElement(TodayPanel, { info, tasks: [], tasksLoading: false, tasksError: null,
@@ -23,14 +26,15 @@ describe("personal Today view", () => {
     assert.equal(todayClock(new Date("2026-10-08T12:00:00Z")).greeting, "晚上好");
   });
   it("projects only supplied tasks and preserves unknown and pending acceptance rather than claiming success", () => {
-    const tasks = ["ready", "running", "paused", "needs_review", "awaiting_acceptance", "completed", "cancelled"].map(status => task(status as WorkTask["status"]));
+    const tasks = (["ready", "running", "paused", "needs_review", "awaiting_acceptance", "completed", "cancelled"] as const).map(task);
     const summary = todayTaskSummary(info, tasks, false, null);
     assert.equal(summary.state, "ready");
     if (summary.state !== "ready") return;
     assert.deepEqual([summary.ongoing, summary.awaiting, summary.completed], [3, 2, 1]);
-    assert.equal(summary.current?.status, "needs_review");
+    assert.equal(summary.current ? workTaskPhase(summary.current) : "", "needs_review");
     assert.equal(summary.currentStatus, "效果待核对");
-    assert.equal(tasks[3]!.status, "needs_review");
+    assert.equal(tasks[3]!.effectReviewRequired, true);
+    assert.equal(tasks[3]!.status, "pending");
     const html = render({ tasks });
     assert.match(html, /仅当前会话已加载的任务/);
     assert.match(html, /效果待核对/);

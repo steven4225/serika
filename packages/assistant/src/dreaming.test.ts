@@ -16,9 +16,9 @@ async function fixture() {
   const tasks: WorkTask[] = [], runs = new Map<string, ExecutionRunRecord>();
   function add(id: string) {
     const runId = `run-${id}`, stamp = "2026-10-01T00:00:00.000Z";
-    tasks.push({ id, revision: 5, threadId: `thread-${id}`, goal: "整理项目复盘，先结论再列可执行步骤", constraints: [], status: "completed", runIds: [runId], reconciliations: [], createdAt: stamp, updatedAt: stamp,
+    tasks.push({ id, revision: 5, threadId: `thread-${id}`, goal: "整理项目复盘，先结论再列可执行步骤", constraints: [], kind: "work", status: "completed", effectReviewRequired: false, acceptanceOpen: false, runIds: [runId], reconciliations: [], createdAt: stamp, updatedAt: stamp,
       acceptance: [{ id: "quality", description: "复盘简明且步骤能执行", method: "human", verification: { kind: "human" }, required: true, status: "passed", evidenceRefs: [`human-${id}`], note: "已核对结论与两条步骤，符合要求" }],
-      delivery: { summary: "先写一行结论，再写两条可执行步骤", artifactRefs: [], unresolved: [], evidence: [{ id: `human-${id}`, kind: "human", criterionId: "quality", acceptedAt: stamp }] } });
+      delivery: { summary: "先写一行结论，再写两条可执行步骤", artifactRefs: [], evidence: [{ id: `human-${id}`, kind: "human", criterionId: "quality", acceptedAt: stamp }], unresolved: [] } });
     runs.set(runId, { runId, threadId: `thread-${id}`, workTaskId: id, phase: "primary", status: "completed", startedAt: stamp, finishedAt: stamp, resultTextPreview: "done", resultTextTruncated: false, errorPreview: null, tools: [] });
   }
   add("task-a"); add("task-b");

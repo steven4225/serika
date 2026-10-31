@@ -7,7 +7,7 @@ import type { WorkTask } from "../../shared/work-tasks.js";
 let task: WorkTask = { id: "fixture-task", revision: 1, threadId: "fixture-thread", goal: "保留章节并修改下一步",
   constraints: [], acceptance: [{ id: "human", method: "human", verification: { kind: "human" }, required: true,
     description: "核对修改", status: "not_run", evidenceRefs: [], note: null }],
-  status: "ready", runIds: [], delivery: null, reconciliations: [], createdAt: "2026-10-04T00:00:00.000Z", updatedAt: "2026-10-04T00:00:00.000Z" };
+  kind: "work", status: "pending", effectReviewRequired: false, acceptanceOpen: false, runIds: [], delivery: null, reconciliations: [], createdAt: "2026-10-04T00:00:00.000Z", updatedAt: "2026-10-04T00:00:00.000Z" };
 const listeners = new Set<(message: MainToRenderer) => void>();
 let attempts = 0;
 let mode: "conflict" | "failed" | "lost" | "started" = "conflict";
@@ -27,7 +27,7 @@ export function WorkTaskFlowPreview() {
     <h1>隔离任务界面回归</h1>
     <p>模拟 IPC；不读取工作区、不运行模型、不代表原生验收。</p>
     <button onClick={() => refresh()}>模拟版本刷新</button>
-    <button onClick={() => { task = { ...task, status: "paused" }; refresh(); }}>模拟本轮暂停</button>
+    <button onClick={() => { task = { ...task, status: "pending", runIds: ["run"] }; refresh(); }}>模拟本轮暂停</button>
     <select aria-label="模拟启动结果" value={mode} onChange={event => { mode = event.target.value as typeof mode; setVersion(value => value + 1); }}>
       <option value="conflict">版本冲突</option><option value="failed">启动失败</option><option value="lost">结果未收到</option><option value="started">启动成功</option>
     </select>

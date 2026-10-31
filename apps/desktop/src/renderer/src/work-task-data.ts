@@ -1,7 +1,7 @@
 import type { AppInfo, ExecutionRunRecord } from "../../shared/ui-contract.js";
-import type { WorkTask, WorkTaskStatus, WorkTaskInputs } from "../../shared/work-tasks.js";
+import { workTaskPhase, type WorkTask, type WorkTaskPhase, type WorkTaskInputs } from "../../shared/work-tasks.js";
 
-export const taskStatusLabels: Record<WorkTaskStatus, string> = {
+export const taskStatusLabels: Record<WorkTaskPhase, string> = {
   ready: "待开始", running: "正在执行", paused: "本轮结束 · 未验收", needs_review: "效果待核对",
   awaiting_acceptance: "交付待验收", completed: "验收通过", cancelled: "任务已取消",
 };
@@ -9,13 +9,13 @@ export const taskStatusLabels: Record<WorkTaskStatus, string> = {
 export const criterionStatusLabels = { passed: "通过", failed: "未通过", blocked: "被阻断", not_run: "尚未验收" };
 
 export function selectCurrentTask(tasks: readonly WorkTask[]): WorkTask | null {
-  return tasks.find(task => task.status === "needs_review") ?? tasks.find(task => task.status === "running") ??
-    tasks.find(task => task.status === "awaiting_acceptance") ?? tasks.find(task => !["completed", "cancelled"].includes(task.status)) ?? tasks[0] ?? null;
+  return tasks.find(task => workTaskPhase(task) === "needs_review") ?? tasks.find(task => task.status === "running") ??
+    tasks.find(task => workTaskPhase(task) === "awaiting_acceptance") ?? tasks.find(task => !["completed", "cancelled"].includes(task.status)) ?? tasks[0] ?? null;
 }
 
 /** Startup preference never hides an unresolved effect or an in-flight task. No mutation/execution. */
 export function restoredTaskId(tasks: readonly WorkTask[], savedId: string | null): string | null {
-  const urgent = tasks.find(task => task.status === "needs_review") ?? tasks.find(task => task.status === "running");
+  const urgent = tasks.find(task => workTaskPhase(task) === "needs_review") ?? tasks.find(task => task.status === "running");
   if (urgent) return urgent.id;
   const saved = tasks.find(task => task.id === savedId);
   if (saved && ["completed", "cancelled"].includes(saved.status)) {
@@ -26,13 +26,14 @@ export function restoredTaskId(tasks: readonly WorkTask[], savedId: string | nul
 }
 
 export function taskActions(task: WorkTask) {
+  const phase = workTaskPhase(task);
   return {
-    run: task.status === "ready" || task.status === "paused",
-    delivery: task.status === "paused" || task.status === "awaiting_acceptance",
-    accept: task.status === "awaiting_acceptance" && task.delivery !== null,
-    rework: task.status === "awaiting_acceptance",
-    reconcile: task.status === "needs_review",
-    cancel: ["ready", "paused", "awaiting_acceptance"].includes(task.status),
+    run: phase === "ready" || phase === "paused",
+    delivery: phase === "paused" || phase === "awaiting_acceptance",
+    accept: phase === "awaiting_acceptance" && task.delivery !== null,
+    rework: phase === "awaiting_acceptance",
+    reconcile: phase === "needs_review",
+    cancel: phase === "ready" || phase === "paused" || phase === "awaiting_acceptance",
   };
 }
 
@@ -80,7 +81,8 @@ export const TASK_TEMPLATES: Record<TaskTemplateId, { label: string; draft: Task
 };
 
 export function taskNextAction(task: WorkTask): string {
-  switch (task.status) {
+  const phase = workTaskPhase(task);
+  switch (phase) {
     case "ready": return "开始执行";
     case "running": return "查看本轮进度";
     case "paused": return "检查产物并交付，或继续一轮";
@@ -88,12 +90,16 @@ export function taskNextAction(task: WorkTask): string {
     case "awaiting_acceptance": return "查看验收结果";
     case "completed": return "查看已验收产物";
     case "cancelled": return "查看任务记录";
+    default: {
+      const unreachable: never = phase;
+      return unreachable;
+    }
   }
 }
 
 /** Only persisted acceptance is delivery evidence, never the latest assistant reply. */
 export function taskVerificationSummary(task: WorkTask): string | null {
-  if (task.status !== "awaiting_acceptance" && task.status !== "completed") return null;
+  if (workTaskPhase(task) !== "awaiting_acceptance" && task.status !== "completed") return null;
   const required = task.acceptance.filter(item => item.required);
   const automatic = required.filter(item => item.method === "automatic");
   const failed = automatic.filter(item => item.status === "failed" || item.status === "blocked");

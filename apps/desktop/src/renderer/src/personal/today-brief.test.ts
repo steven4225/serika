@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AppInfo } from "../../../shared/ui-contract.js";
-import type { WorkTask } from "../../../shared/work-tasks.js";
+import { type WorkTask, type WorkTaskPhase } from "../../../shared/work-tasks.js";
 import type { TaskListV3 } from "@serika/assistant";
 import { TodayPanel, type TodayPanelProps } from "./today.js";
 import { buildTodayBrief, inboxNotificationNote, nextBriefSlot, visibleBriefCards, type BriefContinueTarget, type TodayBriefFeeds, type TodayFeedInbox } from "./today-brief.js";
@@ -16,8 +16,11 @@ import { readAppSource } from "../../test-support/app-source.js";
 const info = { threadId: "thread_abc12345", workTasks: true, memory: { enabled: true, autoConsolidate: true }, workspaceRoot: "/workspace" } as AppInfo;
 const now = new Date("2026-10-08T01:00:00Z");
 const offFeeds: TodayBriefFeeds = { reminders: [], remindersState: "ready", inbox: [], inboxState: "ready", worker: { ok: true, registered: false, running: false, rssEnabled: false }, workerState: "ready" };
-const task = (status: WorkTask["status"], goal = `任务 ${status}`, updatedAt = "2026-10-08T00:30:00.000Z"): WorkTask => ({
-  id: `task_abc12345-${status}`, revision: 1, threadId: "thread_abc12345", goal, constraints: [], acceptance: [], status, runIds: ["run_abc12345"], delivery: null, reconciliations: [], createdAt: updatedAt, updatedAt,
+const task = (phase: WorkTaskPhase, goal = `任务 ${phase}`, updatedAt = "2026-10-08T00:30:00.000Z"): WorkTask => ({
+  id: `task_abc12345-${phase}`, revision: 1, threadId: "thread_abc12345", goal, constraints: [], acceptance: [], kind: "work",
+  status: phase === "running" || phase === "completed" || phase === "cancelled" ? phase : "pending",
+  effectReviewRequired: phase === "needs_review", acceptanceOpen: phase === "awaiting_acceptance",
+  runIds: phase === "ready" ? [] : ["run_abc12345"], delivery: null, reconciliations: [], createdAt: updatedAt, updatedAt,
 });
 const noop = () => undefined;
 
@@ -133,7 +136,7 @@ describe("today brief stream", () => {
     assert.match(omitted, /没有向系统提交/);
     assert.match(submitted, /已提交系统通知/);
     assert.notEqual(omitted.includes("没有向系统提交"), submitted.includes("没有向系统提交"));
-    const projected = projectInboxFeeds({ tasks: [{ id: "task_abc12345", promptPreview: "task_abc12345 喝水", runAt: "2026-10-08T00:20:00.000Z", status: "failed", finishedAt: "2026-10-08T00:20:00.000Z", resultPreview: null, error: null, acknowledgedAt: null }], truncated: false } as TaskListV3, now);
+    const projected = projectInboxFeeds({ tasks: [{ id: "task_abc12345", promptPreview: "task_abc12345 喝水", runAt: "2026-10-08T00:20:00.000Z", status: "pending", finishedAt: "2026-10-08T00:20:00.000Z", resultPreview: null, error: { code: "FAILED", messagePreview: "失败" }, acknowledgedAt: null }], truncated: false } as TaskListV3, now);
     assert.equal(projected[0]?.notification, null);
     assert.equal(projected[0]?.subject, "喝水");
     assert.equal(projected[0]?.attention, true);

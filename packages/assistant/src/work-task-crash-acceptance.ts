@@ -15,7 +15,8 @@ import { createAssistantController } from "./assistant-controller.js";
 import { createDemoModel } from "./demo-model.js";
 import { configureCliModel } from "./model-config.js";
 import { createExecutionRecordStore, ExecutionRecordError } from "./execution-record-store.js";
-import { createWorkTaskStore, type WorkTaskResult } from "./work-task-store.js";
+import { createWorkTaskStore, workTaskPhase, type WorkTaskResult } from "./work-task-store.js"
+import { createTaskStore } from "./task-store.js";
 
 export const CRASH_SCENARIOS = ["before-dispatch", "unrecorded-write", "recorded-write"] as const;
 type Scenario = typeof CRASH_SCENARIOS[number];
@@ -173,7 +174,7 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
     const recovered = await controller.runs.get(boundary.receipt.runId); assert.ok(recovered);
     assert.equal(recovered.status, "interrupted");
     assert.equal(recovered.tools[0]!.status, scenario === "before-dispatch" ? "not_started" : scenario === "unrecorded-write" ? "unknown" : "completed");
-    assert.equal(task.status, scenario === "unrecorded-write" ? "needs_review" : "paused");
+    assert.equal(workTaskPhase(task), scenario === "unrecorded-write" ? "needs_review" : "paused");
     assert.deepEqual(task.runIds, boundary.task.runIds);
     assert.equal(controller.getSnapshot().pendingApproval, null);
     assert.equal(modelRequests, 0); assert.equal(approvals.length, 0);
@@ -190,7 +191,7 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
       assert.equal(await readFile(join(config.authorizedDirectories[0].path, ARTIFACT), "utf8"), CONTENT);
       task = value(await controller.workTasks.reconcile({ id: task.id, expectedRevision: task.revision,
         observedOutcome: "applied", decision: "continue", note: "Fixture operator checked exact isolated disk bytes. Programmatic test of human-report API; not acceptance evidence or a real user GUI review." }));
-      assert.equal(task.status, "paused"); assert.equal(modelRequests, 0);
+      assert.equal(workTaskPhase(task), "paused"); assert.equal(modelRequests, 0);
       assert.equal((await controller.runs.get(recovered.runId))?.tools[0]?.status, "unknown", "human report must not repair the unknown receipt");
     }
     task = value(await controller.workTasks.submitDelivery({ id: task.id, expectedRevision: task.revision,
@@ -200,10 +201,10 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
     assert.deepEqual(task.delivery!.evidence, []); assert.equal(modelRequests, 0);
     await save(root, "blocked-acceptance.json", task);
     task = value(await controller.workTasks.requestChanges({ id: task.id, expectedRevision: task.revision }));
-    assert.equal(task.status, "paused"); assert.equal(modelRequests, 0);
+    assert.equal(workTaskPhase(task), "paused"); assert.equal(modelRequests, 0);
     if (scenario === "unrecorded-write") {
       await run(task.id, task.revision, `这是人工核对报告之后显式开的新 Run。不要重放旧 write_file。先 read_file ${ARTIFACT} 核对当前磁盘，然后 edit_file 在唯一的 <!-- continue-here --> 标记前追加一行 RESUMED_AFTER_REVIEW，保留其余原文，最后 read_file 核对。只用 path/oldText/newText 参数。质量不得自己接受。`);
-      task = value(await controller.workTasks.get(taskId)); assert.equal(task.status, "awaiting_acceptance");
+      task = value(await controller.workTasks.get(taskId)); assert.equal(workTaskPhase(task), "awaiting_acceptance");
       const latest = await controller.runs.get(task.runIds.at(-1)!); assert.ok(latest);
       assert.notEqual(latest.runId, recovered.runId); assert.equal(latest.workTaskId, taskId);
       assert.ok(latest.tools.every((tool) => tool.status !== "unknown" && tool.toolName !== "write_file"));
@@ -220,7 +221,7 @@ async function child(root: string, scenario: Scenario, mode: ModelMode, recoveri
       assert.equal(JSON.parse(latest.tools[2]!.resultPreview!).content, disk.toString());
       task = value(await controller.workTasks.submitDelivery({ id: task.id, expectedRevision: task.revision,
         summary: "Explicit new Run read, edited and read back current disk; quality still not accepted.", artifactRefs: [ARTIFACT] }));
-      assert.equal(task.status, "awaiting_acceptance"); assert.equal(task.acceptance.find((c) => c.id === "artifact")!.status, "passed");
+      assert.equal(workTaskPhase(task), "awaiting_acceptance"); assert.equal(task.acceptance.find((c) => c.id === "artifact")!.status, "passed");
       assert.equal(task.acceptance.find((c) => c.id === "quality")!.status, "not_run");
       const delivered = value(await controller.workTasks.get(taskId));
       assert.ok(delivered.delivery!.evidence.length === 1 && delivered.delivery!.evidence.every((e) => e.kind === "artifact" && e.runId === latest.runId));
@@ -242,7 +243,7 @@ async function waitForKilledChildLeases(root: string) {
   for (let attempt = 0; attempt < 100; attempt++) {
     let workLease, executionLease;
     try {
-      workLease = await createWorkTaskStore(join(root, "workspace"), { filePath: join(join(root, "workspace"), ".runloom/work-tasks.json") }).claimThread(THREAD);
+      workLease = await createWorkTaskStore(createTaskStore(join(dirname(join(join(root, "workspace"), ".runloom/work-tasks.json")), "tasks.json")), { workspace: join(root, "workspace"), }).claimThread(THREAD);
       executionLease = await createExecutionRecordStore(join(root, "transcripts")).claimThread(THREAD);
       return;
     } catch (error) {
@@ -287,11 +288,11 @@ async function scenario(root: string, fault: Scenario, mode: ModelMode) {
           modelAlias: "mock-never-run", model: contenderModel, env: {}, output, cwd: root });
         const contender = createAssistantController(app);
         try {
-          const tasks = JSON.parse(await readFile(join(root, "workspace/.runloom/work-tasks.json"), "utf8"));
+          const tasks = JSON.parse(await readFile(join(root, "workspace/.runloom/tasks.json"), "utf8"));
           const journal = await readFile(join(root, "transcripts/execution-records.json"));
           const blocked = await contender.workTasks.get(tasks.tasks[0].id); assert.equal(blocked.ok, false);
           assert.ok(!blocked.ok && blocked.error.message.includes("already controlled"));
-          const stillRunning = JSON.parse(await readFile(join(root, "workspace/.runloom/work-tasks.json"), "utf8"));
+          const stillRunning = JSON.parse(await readFile(join(root, "workspace/.runloom/tasks.json"), "utf8"));
           assert.deepEqual(stillRunning, tasks);
           assert.deepEqual(await readFile(join(root, "transcripts/execution-records.json")), journal);
           assert.equal(contenderRequests, 0);

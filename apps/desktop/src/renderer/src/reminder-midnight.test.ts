@@ -108,7 +108,7 @@ for (const [relative, expectedRunAt] of [
       assert.equal(saved.value.runAt, expectedRunAt);
       assert.equal(saved.value.prompt, "开会");
       assert.equal(saved.value.arrangement?.kind, "reminder");
-      assert.equal(saved.value.status, "scheduled");
+      assert.equal(saved.value.status, "pending");
       assert.ok((await readFile(join(workspace, ".runloom/tasks.json"), "utf8")).includes(expectedRunAt));
     } finally {
       await controller.shutdown();
