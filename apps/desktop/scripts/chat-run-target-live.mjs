@@ -6,6 +6,7 @@ import { mkdir, mkdtemp, readFile, writeFile, rm, access } from 'node:fs/promise
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
+import { existsSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { _electron as electron, expect } from 'playwright/test';
 import { setup, addPi, cleanup } from './chat-run-target-live-herdr.mjs';
@@ -16,16 +17,20 @@ const hash = value => createHash('sha256').update(value).digest('hex');
 const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
 const model = 'deepseek/deepseek-v4.1-flash-fast', capUsd = .25, maxRequests = 24, maxRuns = 2;
 const price = { input: .32, output: 1.16, cacheRead: .03 };
+const envIndex = process.argv.indexOf('--env-file');
+assert.ok(envIndex < 0 || process.argv[envIndex + 1], '--env-file requires an explicitly authorized external file');
+const testEnv = resolve(envIndex < 0 ? '/Users/a1-6/.serika-test.env' : process.argv[envIndex + 1]);
+assert.ok(!testEnv.startsWith(repo + '/'), 'Test credentials must be outside the repository');
 if (!process.argv.includes('--run')) {
   console.log(JSON.stringify({ mode: 'zero-request-preflight', model, capUsd, maxRequests, maxRuns,
-    credentialPresent: 'not-inspected', credentialsWrittenToDisk: false, realModelCalls: 0,
+    credentialFilePresent: existsSync(testEnv), credentialContentsInspected: false, credentialsWrittenToDisk: false, realModelCalls: 0,
     scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))) }));
   process.exit(0);
 }
-const source = parseEnv(await readFile('/Users/a1-6/.serika-test.env', 'utf8'));
+const source = parseEnv(await readFile(testEnv, 'utf8'));
 assert.ok(source.COMMAND_CODE_API_KEY);
-assert.equal(source.COMMAND_CODE_BASE_URL, 'https://api.commandcode.ai/provider/v1');
-assert.equal(source.COMMAND_CODE_MODEL_ID, model);
+assert.ok(source.COMMAND_CODE_BASE_URL === 'https://api.commandcode.ai/provider/v1', 'Test endpoint differs from the approved provider');
+assert.ok(source.COMMAND_CODE_MODEL_ID === model, 'Test model differs from the approved budget');
 const credentials = { key: source.COMMAND_CODE_API_KEY, base: source.COMMAND_CODE_BASE_URL };
 for (const key of Object.keys(source)) delete source[key];
 const outputIndex = process.argv.indexOf('--output');
@@ -39,7 +44,7 @@ const report = { runId: randomUUID(), startedAt: new Date().toISOString(), sourc
   verification: 'real-electron-real-model-real-isolated-herdr-pi', platform: process.platform, model,
   scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))), capUsd, maxRequests, maxRuns, pricePerMillionUsd: price,
   priceBasis: 'Conservative published peak rates; not invoice verified', priceSource: 'https://commandcode.ai/models/deepseek-v4-1-flash-fast',
-  credentialSource: 'test-only-model-fields-in-process-only', credentialsWrittenToDisk: false,
+  credentialSource: 'explicitly-authorized-env-model-fields-in-process-only', credentialsWrittenToDisk: false,
   calls: [], cases: [], launches: [], errors: [], screenshots: [], approvalEvents: [], costUsd: 0, status: 'running', isolatedRoot: root };
 let stage = 'startup', frozen = false, running, page, fixture, pendingId;
 const requests = new Set();
@@ -122,7 +127,7 @@ async function launch(name, pi) {
     contextCompaction: { enabled: true, contextWindowTokens: 32768, maxOutputTokens: 4096, safetyMarginTokens: 2048, keepRecentTokens: 8192, summaryMaxOutputTokens: 2048 },
     modelContextWindows: [{ provider: 'openai-compatible.chat', modelId: model, contextWindowTokens: 32768 }] }), { mode: 0o600 });
   await writeFile(envFile, `RUNLOOM_MODEL=command-code\nCOMMAND_CODE_MODEL_ID=${model}\nCOMMAND_CODE_BASE_URL=${local}/serika/v1\nCOMMAND_CODE_API_KEY=local-proxy\n`, { mode: 0o600 });
-  const env = { ...baseEnv, ...(pi?.env ?? {}), HOME: home, XDG_CONFIG_HOME: join(home, '.config'), XDG_CACHE_HOME: join(home, '.cache'),
+  const env = { ...baseEnv, PATH: '/usr/bin:/bin:/usr/sbin:/sbin', ...(pi?.env ?? {}), HOME: home, XDG_CONFIG_HOME: join(home, '.config'), XDG_CACHE_HOME: join(home, '.cache'),
     RUNLOOM_MODEL: 'command-code', RUNLOOM_CONFIG: configPath, RUNLOOM_ENV_FILE: envFile, RUNLOOM_USER_DATA: join(dir, 'profile'),
     RUNLOOM_TRANSCRIPTS: join(dir, 'transcripts'), RUNLOOM_THREAD: name, RUNLOOM_DESKTOP_TEST: '1' };
   running = await electron.launch({ args: [join(repo, 'apps/desktop/out/main/index.js'), '--home', join(home, '.serika')], cwd: work, env, timeout: 30000 });
@@ -155,7 +160,7 @@ async function decide(kind, value) {
   catch (error) { if (error.code === 'ENOENT') return false; throw error; }
   if (kind === 'selection') {
     assert.ok(Number.isSafeInteger(decision.index) && decision.index >= 0 && decision.index < value.candidates.length);
-    const row = { kind, value, decision, runId: report.cases.at(-1).runId, source: 'user-decision-file-original-preload-selection', status: 'attempting', at: new Date().toISOString() };
+    const row = { kind, value, decision, runId: report.cases.at(-1).runId, source: 'authorized-isolated-test-decision-file-original-preload-selection', status: 'attempting', at: new Date().toISOString() };
     report.cases.at(-1).decisions.push(row); await save();
     row.response = await page.evaluate(input => window.runloom.selectHerdrTarget(input), { selectionId: value.selectionId, candidateId: value.candidates[decision.index].candidateId });
     row.status = row.response.accepted ? 'accepted' : 'rejected'; await save();
@@ -246,10 +251,14 @@ try {
   assert.deepEqual(report.errors, []); report.status = 'passed';
 } catch (error) {
   report.status = 'failed'; report.failure = { name: error.name, message: error.message.slice(0, 1500) };
+  try {
+    const state = JSON.parse(await readFile(join(root, 'herdr-fixture/herdr-state.json'), 'utf8'));
+    if (state.unknown) { report.unknownEffect = true; frozen = true; report.stopReason = 'unknown-fixture-operation'; }
+  } catch (stateError) { if (stateError.code !== 'ENOENT') throw stateError; }
   if (report.cases.at(-1)?.status === 'running') report.cases.at(-1).status = 'failed';
   if (running) await shot('failure').catch(() => {});
 } finally {
-  if (running) {
+  if (running && !report.unknownEffect) {
     const snapshot = await page.evaluate(() => window.runloom.snapshot()).catch(() => undefined);
     if (snapshot?.state.kind !== 'idle') await page.evaluate(() => window.runloom.cancel()).catch(() => {});
     await stop();
@@ -263,7 +272,7 @@ try {
   if (fixture) {
     const state = JSON.parse(await readFile(fixture.statePath, 'utf8'));
     await writeFile(join(output, 'herdr-state.json'), JSON.stringify(state, null, 2) + '\n');
-    for (const [index, file] of (state.piSessions ?? []).entries()) {
+    for (const [index, file] of (report.unknownEffect ? [] : state.piSessions ?? []).entries()) {
       try { await writeFile(join(output, `pi-${index + 1}.jsonl`), await readFile(file)); }
       catch (error) { if (error.code !== 'ENOENT') throw error; }
     }

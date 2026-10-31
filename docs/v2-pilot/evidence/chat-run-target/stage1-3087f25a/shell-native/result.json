@@ -1,0 +1,26 @@
+{
+  "id": "132c1c8e-26ef-4110-b229-732c8905fd93",
+  "startedAt": "2026-10-30T18:25:19.618Z",
+  "verification": "isolated-native-resident-equivalent-minimal-environment",
+  "platform": "darwin",
+  "arch": "arm64",
+  "runtime": "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+  "status": "passed",
+  "expectedPathOnlyFailure": "Seatbelt runtime missing",
+  "result": {
+    "ok": true,
+    "exitCode": 0,
+    "signal": null,
+    "termination": "exited",
+    "cancelled": false,
+    "timedOut": false,
+    "output": "Error opening /private/var/select/sh: Operation not permitted\n",
+    "truncated": false
+  },
+  "artifact": {
+    "total": 56
+  },
+  "artifactSha256": "9d575ec2bf0ff2380d3206a18031d38ee16b7882a3f4da8bdcd7b16d5d8c6c3b",
+  "artifactPath": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-197-shell-scope-o4ABt8/workspace/answer.json",
+  "finishedAt": "2026-10-30T18:25:19.796Z"
+}

@@ -108,8 +108,8 @@
 - [x] 复现发现后模型可直接结束的缺口，记录失败。
 - [x] Ground：跟踪 terminal tool → AgentLoop → afterToolCall → Controller → desktop/TG；Sketch：确定等待与身份契约。
 - [x] Agree：采用下述已获本轮范围授权的协议；Implement：只改选择推进、对应指引和观察器；Scrap：若契约不适配先记录再重画，禁止补第二循环。
-- [ ] 定向回归 → typecheck → 全测 → 干净源码的隔离 Electron；关口失败停止向后推进，修复仍留原失败。
-- [ ] 提交真实批 Run/请求/费用上限、渠道、断言与停止条件，等待用户“继续”。
+- [x] 定向回归 → typecheck → 全测 → 干净源码的隔离 Electron；专项首批失败保留，修观察器后另批 6/6，标准 8/8。
+- [x] 提交真实批 Run/请求/费用上限、渠道、断言与停止条件；用户已批准本批并明确允许仅用日用 env 的模型连接。
 - [ ] 获准后隔离真实验收，逐项核对完成定义；更新既有 #197 后停止，不合并、不切日用。
 
 **Before / After / Demo**：目前多候选 discover 后模型可结束，用户看不到选择。修后 discover 返回后宿主立即等待选择，选定后同 Run 再向模型提供当前采用状态，控制另批。五分钟入口为隔离桌面聊天或 TG 假 API：已有两个 idle Pi，请求生成小文件；发现后模型请求数保持不变，卡/短码有效一次，选择后同 runId 续跑，批准一次 prompt，fixture 仅一条输入，回读和独立解析产物匹配；拒绝、取消或替换身份必须零派发。
@@ -130,10 +130,33 @@
 
 1. 改了什么：`foreground-herdr.ts` 把选择等待迁到既有 afterToolCall；read/control 未采用时明确未派发。刷新同身份保留采用；refresh 或执行前核对发现身份变化均撤销冻结调用并要求重选。能力提示、桌面卡与 TG 文案同步。Shell 复用可信启动 Node，仍经可执行、canonical、protected path 与 dyld 核对，策略和环境白名单无变更。审批观察记录原事件、精确决定来源、accepted 与双向结论，独立文件读取不能伪装自动允许。
 2. 逐条对照：桌面/Controller 假模型已证明发现后停在第一个模型请求、工具已 completed 后才待选、同 Run 一次选择、同身份刷新不重选、批准后单次派发与独立文件核查；取消选择、拒绝、待批取消、身份替换与剩余总预算均有零派发回归。TG 离线 API 已证明 discover 后短码等待、同 Run 单次选择与独立批准、准确正文及取消短码零派发；真实 TG 未测。真实模型证据链仍待新批，不以旧失败或本轮假模型代替。
-3. Shell 分支结论：最小启动 PATH 下，仅按 PATH 发现报 `Seatbelt runtime missing`；同环境下修后原 Runner 执行写入，外部解析 `total=56`，exit 0。native 等价启动环境已通过，Electron 等价启动环境尚待关口。旧日用回执只有 SANDBOX_UNAVAILABLE，不能证明本次复现是其唯一历史原因。现有策略下可修的路径已建立；未声称日用 Shell 已恢复。原 `/private/var/select/sh` 的权限拒绝提示仍保留，未为消除此提示改策略。
-4. 命令：定向回归先失败 `3 !== 1`，修后相关 20 项通过，新增待批取消与执行失败后重选专项 2/2；TG 3/3，observer unit 1/1。初轮 `pnpm typecheck`、`pnpm test` 退出 0，总计 1898 项，1891 pass / 7 skip / 0 fail / 0 cancelled；最终文案后的全套与隔离 Electron 将另行记录。原始预期失败、一次仪器挂在旧 bridge 导致记录为空、一次 nullable Run ID typecheck 失败均保留本地，不改历史结果。
+3. Shell 分支结论：最小启动 PATH 下，仅按 PATH 发现报 `Seatbelt runtime missing`；同环境下修后原 Runner 执行写入，外部解析 `total=56`，exit 0。native 与真实 Electron 的隔离等价最小 PATH 环境均通过，外部独立解析产物均为 `total=56`。旧日用回执只有 SANDBOX_UNAVAILABLE，不能证明本次复现是其唯一历史原因。现有策略下可修的路径已建立；未声称日用 Shell 已恢复。原 `/private/var/select/sh` 的权限拒绝提示仍保留，未为消除此提示改策略。
+4. 命令：定向回归先失败 `3 !== 1`，修后相关 20 项通过，新增待批取消与执行失败后重选专项 2/2；TG 3/3，observer unit 1/1。最终 `pnpm typecheck`、`pnpm test` 均退出 0，总计 1898 项，1891 pass / 7 skip / 0 fail / 0 cancelled，来源为干净提交 `f203924`。真实 Electron + 假模型专项复验 6/6、标准冒烟 8/8，来源为干净提交 `541aa14`；两次提交间仅验证脚本和报告变化，产品源码相同。原始预期失败、一次仪器挂在旧 bridge 导致记录为空、一次 nullable Run ID typecheck 失败均保留本地，不改历史结果。
 5. 偏离和待办：测试与验收脚本新增行数多于产品，是本轮明确要求桌面/TG、预算、身份失效、审批双向结论及真实 Shell 产物的覆盖所需；不改变旧权限/副作用预期，不删除测试。修改旧 fixture 为先 discover 再 control，并相应增加工具/模型步计数；compaction 检查移到实际 bulk 后的请求，原断言保留。检查过旧约束 Tool side-effect invariants、Thin TUI confirmation、Shell sandbox、Trusted desktop foreground autonomy、Compact desktop execution display。审核复现的 sole replacement 与 file approval 来源漏洞已补回归。按 Fix Root Causes 修宿主边界，按 Prove It Works 核查真实 Shell 产物；审核 trail reviewed inline，真实模型与真实 TG 仍未覆盖。
 
-**待批准真实批方案**：仅隔离桌面，2 个任务 Run / 总计最多 24 次上游模型请求（含 Serika、Pi 与任何辅助请求）/ $0.25 硬上限，任一达到即停，不补新 Run、不沿用旧剩余。模型拟沿用 `deepseek/deepseek-v4.1-flash-fast`，测试连接字段仅从测试专用 `~/.serika-test.env` 在进程内读取，未读取、未验证内容；不自动借用日用密钥。第一 Run 使用与日用安全策略等价的隔离 Seatbelt Shell，执行并外部解析 `total=56`，禁止 terminal/host fallback。第二 Run 在独占隔离 Herdr 内先有两个 idle Pi，普通请求触发发现、宿主阻断、一次 accepted 选择、核对采用、同 runId、独立控制批准、冻结目标/正文一致、仅一条 Pi 输入、回读并外部核查文件。真实 TG 和真实压缩不在本批覆盖，不能据此报告通过。任何断言、审批来源、费用结算或运输失败均保存原失败并停止；unknown 立即冻结模型代理，不自动回读、重发、换目标或控制清理。预算尚未批准，等待用户“继续”。
+**待批准真实批方案**：仅隔离桌面，2 个任务 Run / 总计最多 24 次上游模型请求（含 Serika、Pi 与任何辅助请求）/ $0.25 硬上限，任一达到即停，不补新 Run、不沿用旧剩余。模型拟沿用 `deepseek/deepseek-v4.1-flash-fast`，测试连接字段仅从测试专用 `~/.serika-test.env` 或显式 `--env-file` 在进程内读取。零请求预检只查文件存在，默认文件当前不存在；未读连接内容，不自动借用日用密钥。第一 Run 使用与日用安全策略等价的隔离 Seatbelt Shell，执行并外部解析 `total=56`，禁止 terminal/host fallback。第二 Run 在独占隔离 Herdr 内先有两个 idle Pi，普通请求触发发现、宿主阻断、一次 accepted 选择、核对采用、同 runId、独立控制批准、冻结目标/正文一致、仅一条 Pi 输入、回读并外部核查文件。真实 TG 和真实压缩不在本批覆盖，不能据此报告通过。任何断言、审批来源、费用结算或运输失败均保存原失败并停止；unknown 立即冻结模型代理，不自动回读、重发、换目标或控制清理。预算尚未批准，等待用户“继续”。
 
 Electron 专项首批 `a3770778` 保留 failed：前五项通过，原 Shell completed 事件为 exit 0，但观察器先等 running 再读一次 snapshot，快速 Run 已结束导致取到空 runId，getRun 返回 ok=false；独立 Shell 产物断言未到达，不能算该项通过。修复仅从原 preload run() 的接受响应取得 runId，后续复验另用目录/编号，不改首批结果。隔离目录先 canonicalize，使夹具声明的既有 workspace autonomy 确实生效；因此独立 read_file 按原规则自动允许并单记，Pi control 卡仍需批准。此前夹具的 /var 别名使声明未生效，旧测试曾多出 file approval；本次不修改产品权限来保持这个夹具错误。
+
+
+#### 阶段 1 离线关口汇总
+
+阶段 1 尚未完成。本轮真实模型请求为 0、费用为 0；真实批等待预算批准及测试连接文件。真实 TG 与真实压缩不在拟定批次中，保持未验收。现有 #197 尚未推送本轮提交，按工序在真实验收后更新。
+
+| 关口 | 命令及退出码 | 原始证据 |
+| --- | --- | --- |
+| typecheck、全测 | `node scripts/chat-run-target-verify.mjs /private/tmp/serika-197-stage1-final-offline`，0；内部两阶段均 0 | [1891 pass / 7 skip](evidence/chat-run-target/stage1-3087f25a/offline/result.json) |
+| 专项 Electron 首批 | `node scripts/test-home.mjs --home /private/tmp/serika-197-feature-guard -- node apps/desktop/scripts/chat-run-target-smoke.mjs --output /private/tmp/serika-197-stage1-feature`，1 | [原 failed，未改绿](evidence/chat-run-target/stage1-3087f25a/feature-first-failed/result.json) |
+| 专项 Electron 复验 | `node scripts/test-home.mjs --home /private/tmp/serika-197-feature-r2-guard -- node apps/desktop/scripts/chat-run-target-smoke.mjs --output /private/tmp/serika-197-stage1-feature-r2`，0 | [6/6，原 preload / IPC](evidence/chat-run-target/stage1-3087f25a/feature-r2/result.json) |
+| 标准 Electron | `python3 /private/tmp/serika-197-stage1-trail/run-standard.py`，0；内部原标准 smoke 退出 0 | [8/8，含重启与 Memory SHA](evidence/chat-run-target/stage1-3087f25a/standard/result.json)、[wrapper](evidence/chat-run-target/stage1-3087f25a/standard/wrapper.json) |
+| native Shell | `node scripts/chat-run-target-shell-probe.mjs /private/tmp/serika-197-shell-final`，0 | [真实 Seatbelt、外部产物 56](evidence/chat-run-target/stage1-3087f25a/shell-native/result.json) |
+| 真批预检 | `node apps/desktop/scripts/chat-run-target-live.mjs`，0；`node --check apps/desktop/scripts/chat-run-target-live.mjs`，0 | [未读凭据内容、零请求](evidence/chat-run-target/stage1-3087f25a/live-preflight-final.json) |
+
+Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0，但 metadataUnchanged=false，不能报告日用元数据未变。标准脚本 SHA 仍为 `dc93b146f85165710071944d59108a36898c7a60aac37605950aa2264dcbb994`。截图已检查，隔离 Electron 已退出、临时运行目录已清理。
+
+本轮相对 `71f9c3d` 的产品变更为 `+47 / -25`，测试与验证为 `+406 / -85`，文档与证据不计入。测试量较大用于复现并核对桌面、TG、身份变化、预算和审批副作用边界。专项两次命令外层均设置 `SERIKA_B2_RECORD_CONCURRENT_HOME=1`。
+
+完整审批观察已在假模型关口核对：发现多候选后宿主等待、有效选择一次、同 Run 采用、独立控制审批、冻结目标和正文、accepted 决定来源、仅一次派发、回读与外部文件核查。拒绝、取消、身份替换均有零新增派发证据；read 自动授权单记。完整原件、首次失败、TG 离线日志及两档压缩回归见 [汇总](evidence/chat-run-target/stage1-3087f25a/summary.json)。最终 hash、截图 hash、源码差异和代码量由 [finalize.py](evidence/chat-run-target/stage1-3087f25a/finalize.py) 核查并写入 [verification.json](evidence/chat-run-target/stage1-3087f25a/verification.json)。该核查只扫描常见密钥前缀，未读取真实密钥，不能声称已按真实密钥值扫描。
+
+
+真实批启动前，用户已明确授权使用日用 env 的模型连接，并回复“继续”批准既定预算。只读取该文件的模型连接字段，不复制日用数据。真批脚本使用最小启动 PATH，决定文件记录 Codex 在本批授权下的选择与批准来源；unknown 后不再 snapshot、cancel、关闭测试应用或读 Pi transcript，保留现场。凭据预检仅输出存在及端点/模型是否匹配，未输出值。

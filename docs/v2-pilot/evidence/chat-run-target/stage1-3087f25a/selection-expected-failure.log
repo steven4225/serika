@@ -1,0 +1,28 @@
+✖ discovery blocks the next model request until one host choice, then refresh keeps the adopted identity (2430.075583ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2596.015416
+
+✖ failing tests:
+
+test at packages/assistant/dist/foreground-herdr.test.js:73:1
+✖ discovery blocks the next model request until one host choice, then refresh keeps the adopted identity (2430.075583ms)
+  AssertionError [ERR_ASSERTION]: no model continuation while choice is pending
+  
+  3 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/assistant/dist/foreground-herdr.test.js:91:16)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

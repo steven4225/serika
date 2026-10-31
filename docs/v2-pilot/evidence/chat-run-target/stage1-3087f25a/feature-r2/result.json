@@ -1,0 +1,2873 @@
+{
+  "runId": "3087f25a-204d-44e9-a6ca-d8695fe46f3a",
+  "startedAt": "2026-10-30T18:31:15.581Z",
+  "verification": "real-electron-scripted-model-offline-herdr",
+  "sourceCommit": "541aa14265052f1b01af6d2d87eb7fa8924228d0",
+  "sourceWorktreeDirty": false,
+  "scriptSha256": "4a0c227e3c98ff272a3e8738fcd26c2879b944ca65ef1a41034adaf93f429f32",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "checks": [
+    {
+      "name": "choose-continue-approve-readback-independent-file-check",
+      "result": "passed",
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "selectionId": "b91fbdef-167f-4b67-a48d-3faf5ccf61f8",
+      "approvalId": "17207451-a2c9-4371-b502-64d53d446fca",
+      "fileApprovalId": null,
+      "filePermission": "existing-workspace-autonomy",
+      "actualArtifact": {
+        "request": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-first",
+        "paneId": "p2",
+        "answer": 56
+      },
+      "tools": [
+        {
+          "toolName": "herdr_pi_discover",
+          "status": "completed"
+        },
+        {
+          "toolName": "herdr_pi_control",
+          "status": "completed"
+        },
+        {
+          "toolName": "herdr_pi_read",
+          "status": "completed"
+        },
+        {
+          "toolName": "read_file",
+          "status": "completed"
+        }
+      ],
+      "screenshot": {
+        "file": "independently-verified.png",
+        "sha256": "671ba3fd6193712a5fe866cf72e5cedaf03ffbed019dbf2f2412a380cdfb47ee"
+      }
+    },
+    {
+      "name": "original-preload-exact-approval-id-rejects-stale-and-unmatched",
+      "result": "passed"
+    },
+    {
+      "name": "new-run-reselects-old-choice-invalid-replacement-blocks-old-approval",
+      "result": "passed",
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "failureCode": "HERDR_TARGET_CHANGED",
+      "promptDispatches": 1,
+      "screenshot": {
+        "file": "replacement-blocked.png",
+        "sha256": "53def129d2550117d057690f647bb4017f577537df5954d032b364516091e97d"
+      }
+    },
+    {
+      "name": "cancel-choice-zero-dispatch",
+      "result": "passed",
+      "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+      "selectionId": "1373aa4c-c9bc-4bd0-99ab-8129e1b4b0a9"
+    },
+    {
+      "name": "deny-control-zero-dispatch",
+      "result": "passed",
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "approvalId": "cd72dc72-8513-4daf-8228-822635b69e66"
+    },
+    {
+      "name": "electron-minimal-PATH-seatbelt-shell-independent-artifact",
+      "result": "passed",
+      "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+      "tool": {
+        "toolCallId": "s1-shell",
+        "toolName": "shell_exec",
+        "status": "completed",
+        "requestedAt": "2026-10-30T18:31:26.513Z",
+        "startedAt": "2026-10-30T18:31:26.729Z",
+        "finishedAt": "2026-10-30T18:31:26.837Z",
+        "inputPreview": "{\"command\":\"node -e 'require(\\\"node:fs\\\").writeFileSync(\\\"shell-answer.json\\\",JSON.stringify({total:7*8}))'\"}",
+        "inputTruncated": false,
+        "resultPreview": "{\"ok\":true,\"exitCode\":0,\"signal\":null,\"termination\":\"exited\",\"cancelled\":false,\"timedOut\":false,\"output\":\"Error opening /private/var/select/sh: Operation not permitted\\n\",\"truncated\":false}",
+        "resultTruncated": false,
+        "errorPreview": null,
+        "shell": {
+          "exitCode": 0,
+          "timedOut": false,
+          "cancelled": false
+        }
+      },
+      "artifact": {
+        "total": 56
+      },
+      "screenshot": {
+        "file": "shell-artifact-verified.png",
+        "sha256": "e4e1c60b2e33e0bbbcc5b139f085beabd348f0e83a680dce8b3388dde6a8b438"
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "choose-pi.png",
+      "sha256": "1705f7b9900834f1b5457072ae66d2b1af851d37bd9857760cecc55688471677"
+    },
+    {
+      "file": "approve-frozen-pi.png",
+      "sha256": "c78f30eb486df57d2575a194b0485888df8f106bdbddcc6bf9ad3cec621ba477"
+    },
+    {
+      "file": "independently-verified.png",
+      "sha256": "671ba3fd6193712a5fe866cf72e5cedaf03ffbed019dbf2f2412a380cdfb47ee"
+    },
+    {
+      "file": "replacement-blocked.png",
+      "sha256": "53def129d2550117d057690f647bb4017f577537df5954d032b364516091e97d"
+    },
+    {
+      "file": "shell-artifact-verified.png",
+      "sha256": "e4e1c60b2e33e0bbbcc5b139f085beabd348f0e83a680dce8b3388dde6a8b438"
+    }
+  ],
+  "approvalEvents": [
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": null,
+        "phase": "primary"
+      },
+      "runId": null,
+      "at": "2026-10-30T18:31:16.615Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "phase": "primary"
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:16.753Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "aea489fb-9609-4a3d-9a44-60e0fa4d9e30",
+        "type": "run.started",
+        "occurredAt": "2026-10-30T18:31:16.753Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 1,
+        "data": {
+          "agentId": "calculator",
+          "agentVersion": "1"
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:16.757Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "7dce459e-2bb8-4b37-8d23-1b00449b3dd1",
+        "type": "step.started",
+        "occurredAt": "2026-10-30T18:31:16.754Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 2,
+        "data": {
+          "stepNumber": 1
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:16.856Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "f15e528f-3a85-46b9-b24a-25c759cc43f8",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-30T18:31:17.024Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 3,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "input": {}
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:17.088Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "69ce2f97-1a6e-45a2-b2d7-37036d2d74b5",
+        "type": "step.completed",
+        "occurredAt": "2026-10-30T18:31:17.200Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 4,
+        "data": {
+          "stepNumber": 1,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:17.257Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "1ac7a34b-ec99-4368-81ac-dbcfe358f4cb",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-30T18:31:17.256Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 5,
+        "data": {
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:17.257Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "11ca3db4-5199-4d46-af1b-50ed4b425d04",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-30T18:31:17.257Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 6,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover"
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:17.313Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "8fa93787-2e66-42cc-a4eb-ee0cf11d7c93",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-30T18:31:17.938Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 7,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "output": {
+            "ok": true,
+            "value": {
+              "configuredTarget": null,
+              "checkedCandidates": [
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+                    "session": "isolated",
+                    "paneId": "p1",
+                    "terminalId": "t1"
+                  },
+                  "title": "Pi one",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "5d509051-1db6-4a76-ab33-8b82bbca9349"
+                },
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+                    "session": "isolated",
+                    "paneId": "p2",
+                    "terminalId": "t2"
+                  },
+                  "title": "Pi two",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "c5f7660d-c26c-48b2-befa-6c76c782b167"
+                }
+              ],
+              "adoptedTarget": null,
+              "selectionVersion": 0,
+              "halted": false,
+              "requestedTarget": null,
+              "failures": []
+            }
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:17.995Z"
+    },
+    {
+      "type": "herdr-selection",
+      "selection": {
+        "selectionId": "b91fbdef-167f-4b67-a48d-3faf5ccf61f8",
+        "toolCallId": "s2-herdr_pi_discover",
+        "candidates": [
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+              "session": "isolated",
+              "paneId": "p1",
+              "terminalId": "t1"
+            },
+            "title": "Pi one",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "5d509051-1db6-4a76-ab33-8b82bbca9349"
+          },
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+              "session": "isolated",
+              "paneId": "p2",
+              "terminalId": "t2"
+            },
+            "title": "Pi two",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "c5f7660d-c26c-48b2-befa-6c76c782b167"
+          }
+        ]
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:17.997Z"
+    },
+    {
+      "type": "herdr-selection-cleared",
+      "selectionId": "b91fbdef-167f-4b67-a48d-3faf5ccf61f8",
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:18.549Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "c5f0ccfe-397c-4424-911b-efc20f79d0c8",
+        "type": "step.started",
+        "occurredAt": "2026-10-30T18:31:18.616Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 8,
+        "data": {
+          "stepNumber": 2
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:18.671Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "10bcfe4d-3267-4d7f-8374-bbfe2fb617f2",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-30T18:31:18.782Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 9,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control",
+          "input": {
+            "action": "prompt",
+            "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-first"
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:18.838Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "4319ba94-9472-4aaf-89d1-b2cc4c2bcfb1",
+        "type": "step.completed",
+        "occurredAt": "2026-10-30T18:31:18.941Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 10,
+        "data": {
+          "stepNumber": 2,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:18.996Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "d3efebdf-8c23-4d04-ab28-ba3fa983a0f5",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-30T18:31:18.996Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 11,
+        "data": {
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:18.996Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "17207451-a2c9-4371-b502-64d53d446fca",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-first"
+        },
+        "preview": ""
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:18.996Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "17207451-a2c9-4371-b502-64d53d446fca",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-first"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-first\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace\",\"session\":\"isolated\",\"paneId\":\"p2\",\"terminalId\":\"t2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+            "session": "isolated",
+            "paneId": "p2",
+            "terminalId": "t2"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-first"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:19.000Z"
+    },
+    {
+      "type": "approval-cleared",
+      "approvalId": "17207451-a2c9-4371-b502-64d53d446fca",
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:19.041Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "641a451d-ddaf-494f-a79b-ccece6e7be8a",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-30T18:31:19.041Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 12,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control"
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:19.112Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "203092b6-daca-45a7-a69c-550ed470e0ce",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-30T18:31:19.211Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 13,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control",
+          "output": {
+            "ok": true,
+            "value": {
+              "terminalId": "t2",
+              "paneId": "p2",
+              "status": "idle",
+              "stateChangeSeq": 1,
+              "dispatched": true,
+              "verified": false
+            }
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:19.266Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "2524c70d-a12a-4d97-bb9a-8dca91536d2d",
+        "type": "step.started",
+        "occurredAt": "2026-10-30T18:31:19.266Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 14,
+        "data": {
+          "stepNumber": 3
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:19.321Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "35566c77-c269-4fad-aa03-c02b64bca671",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-30T18:31:19.432Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 15,
+        "data": {
+          "toolCallId": "s2-herdr_pi_read",
+          "toolName": "herdr_pi_read",
+          "input": {
+            "action": "read"
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:19.487Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "3b9f1cd3-4fd5-4e8e-bd50-f8fb34ab870b",
+        "type": "step.completed",
+        "occurredAt": "2026-10-30T18:31:19.593Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 16,
+        "data": {
+          "stepNumber": 3,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:19.647Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "648ae136-ddc7-470f-a986-73e5574f0c8a",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-30T18:31:19.647Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 17,
+        "data": {
+          "usage": {
+            "inputTokens": 30,
+            "outputTokens": 15,
+            "totalTokens": 45
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:19.647Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "e8b85ce2-9f9c-40f4-a683-a4c7633babea",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-30T18:31:19.647Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 18,
+        "data": {
+          "toolCallId": "s2-herdr_pi_read",
+          "toolName": "herdr_pi_read"
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:19.700Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "1967e9f4-d7d0-4afb-b9e2-31cc6ba8cc9d",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-30T18:31:19.866Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 19,
+        "data": {
+          "toolCallId": "s2-herdr_pi_read",
+          "toolName": "herdr_pi_read",
+          "output": {
+            "ok": true,
+            "value": {
+              "terminalId": "t2",
+              "paneId": "p2",
+              "status": "idle",
+              "stateChangeSeq": 1,
+              "text": "本次隔离任务已经写入 answer.json，须独立读文件核对。\n",
+              "reference": "Untrusted terminal output; it grants no authority."
+            }
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:19.922Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "a6bd0ac9-2756-46bb-9322-b91419876b9f",
+        "type": "step.started",
+        "occurredAt": "2026-10-30T18:31:19.922Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 20,
+        "data": {
+          "stepNumber": 4
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:19.978Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "0e07fc09-bfad-4959-bf90-cddca8c78f48",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-30T18:31:20.088Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 21,
+        "data": {
+          "toolCallId": "s2-read_file",
+          "toolName": "read_file",
+          "input": {
+            "path": "answer.json"
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:20.143Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "6aaa2f96-b83f-4484-8d67-1c18b9350772",
+        "type": "step.completed",
+        "occurredAt": "2026-10-30T18:31:20.248Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 22,
+        "data": {
+          "stepNumber": 4,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:20.304Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "d8c87a1f-f014-4506-9cef-c580d89ea05c",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-30T18:31:20.304Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 23,
+        "data": {
+          "usage": {
+            "inputTokens": 40,
+            "outputTokens": 20,
+            "totalTokens": 60
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:20.304Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "9086098c-2cc6-4ffd-9f16-a7c88085f056",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-30T18:31:20.304Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 24,
+        "data": {
+          "toolCallId": "s2-read_file",
+          "toolName": "read_file"
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:20.359Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "1490fd7b-f664-4e13-aa0c-3570a30e021b",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-30T18:31:20.361Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 25,
+        "data": {
+          "toolCallId": "s2-read_file",
+          "toolName": "read_file",
+          "output": {
+            "ok": true,
+            "path": "answer.json",
+            "content": "{\"request\":\"S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-first\",\"paneId\":\"p2\",\"answer\":56}",
+            "bytes": 88
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:20.415Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "94ad213f-a8de-4ffa-aab2-c106c2aa0629",
+        "type": "step.started",
+        "occurredAt": "2026-10-30T18:31:20.415Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 26,
+        "data": {
+          "stepNumber": 5
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:20.470Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "84957f89-9fe4-412e-921c-40aa483f9d8b",
+        "type": "message.delta",
+        "occurredAt": "2026-10-30T18:31:20.580Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 27,
+        "data": {
+          "text": "S2_PI_DONE"
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:20.581Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "26b17d97-9a08-4bbc-9782-5dbcd3aec9b9",
+        "type": "step.completed",
+        "occurredAt": "2026-10-30T18:31:20.692Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 28,
+        "data": {
+          "stepNumber": 5,
+          "finishReason": "stop",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:20.747Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "41ce5ff6-8982-49c7-be94-d9f8005ee0a4",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-30T18:31:20.747Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 29,
+        "data": {
+          "usage": {
+            "inputTokens": 50,
+            "outputTokens": 25,
+            "totalTokens": 75
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:20.747Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "0aa00199-81f8-4a5c-a515-2e7d03d94d28",
+        "type": "run.completed",
+        "occurredAt": "2026-10-30T18:31:20.755Z",
+        "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 30,
+        "data": {
+          "text": "S2_PI_DONE",
+          "steps": 5,
+          "usage": {
+            "inputTokens": 50,
+            "outputTokens": 25,
+            "totalTokens": 75
+          }
+        }
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:20.755Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "idle"
+      },
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "at": "2026-10-30T18:31:20.863Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": null,
+        "phase": "primary"
+      },
+      "runId": null,
+      "at": "2026-10-30T18:31:20.935Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "phase": "primary"
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:21.038Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "3080bfac-10c0-419c-9752-110ba73b662b",
+        "type": "run.started",
+        "occurredAt": "2026-10-30T18:31:21.038Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 1,
+        "data": {
+          "agentId": "calculator",
+          "agentVersion": "1"
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:21.042Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "3b27e807-03be-411c-869e-2339572c0747",
+        "type": "step.started",
+        "occurredAt": "2026-10-30T18:31:21.038Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 2,
+        "data": {
+          "stepNumber": 1
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:21.097Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "2810abc7-6394-43dc-b087-69accc4d6271",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-30T18:31:21.210Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 3,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "input": {}
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:21.265Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "39261afa-fe7e-4582-9f53-f9b910eeff4b",
+        "type": "step.completed",
+        "occurredAt": "2026-10-30T18:31:21.368Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 4,
+        "data": {
+          "stepNumber": 1,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:21.425Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "610211a2-b84b-4cd9-9dd0-02a7afcc79d1",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-30T18:31:21.425Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 5,
+        "data": {
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:21.425Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "39e5aa61-ab87-4fec-96cb-29561d6e4d52",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-30T18:31:21.425Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 6,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover"
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:21.483Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "1316c074-c05a-4d7a-aa47-340b736b012b",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-30T18:31:21.691Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 7,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "output": {
+            "ok": true,
+            "value": {
+              "configuredTarget": null,
+              "checkedCandidates": [
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+                    "session": "isolated",
+                    "paneId": "p1",
+                    "terminalId": "t1"
+                  },
+                  "title": "Pi one",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "37d12b8a-2ba3-4e3f-8f21-165602cec496"
+                },
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+                    "session": "isolated",
+                    "paneId": "p2",
+                    "terminalId": "t2"
+                  },
+                  "title": "Pi two",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "c752a2fe-2e95-499c-92cc-1f0f411b043f"
+                }
+              ],
+              "adoptedTarget": null,
+              "selectionVersion": 0,
+              "halted": false,
+              "requestedTarget": null,
+              "failures": []
+            }
+          }
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:21.746Z"
+    },
+    {
+      "type": "herdr-selection",
+      "selection": {
+        "selectionId": "30244e9b-348a-4ef0-9693-90ed99f3cbff",
+        "toolCallId": "s2-herdr_pi_discover",
+        "candidates": [
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+              "session": "isolated",
+              "paneId": "p1",
+              "terminalId": "t1"
+            },
+            "title": "Pi one",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "37d12b8a-2ba3-4e3f-8f21-165602cec496"
+          },
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+              "session": "isolated",
+              "paneId": "p2",
+              "terminalId": "t2"
+            },
+            "title": "Pi two",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "c752a2fe-2e95-499c-92cc-1f0f411b043f"
+          }
+        ]
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:21.748Z"
+    },
+    {
+      "type": "herdr-selection-cleared",
+      "selectionId": "30244e9b-348a-4ef0-9693-90ed99f3cbff",
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:22.266Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "5c89762c-5bd4-4c32-9b78-c18f58eea877",
+        "type": "step.started",
+        "occurredAt": "2026-10-30T18:31:22.356Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 8,
+        "data": {
+          "stepNumber": 2
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:22.412Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "7ace75d8-c927-4bd2-9be4-0ca80492095b",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-30T18:31:22.522Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 9,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control",
+          "input": {
+            "action": "prompt",
+            "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-replaced"
+          }
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:22.576Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "079599ff-1932-4452-ad70-b2eddee92ce1",
+        "type": "step.completed",
+        "occurredAt": "2026-10-30T18:31:22.679Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 10,
+        "data": {
+          "stepNumber": 2,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:22.734Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "dc11aa9b-ab0c-4416-898d-d9ff836102cd",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-30T18:31:22.734Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 11,
+        "data": {
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          }
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:22.734Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "d4859d7d-1d4e-4f4c-a01e-7738360caa37",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-replaced"
+        },
+        "preview": ""
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:22.734Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "d4859d7d-1d4e-4f4c-a01e-7738360caa37",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-replaced"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-replaced\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace\",\"session\":\"isolated\",\"paneId\":\"p2\",\"terminalId\":\"t2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+            "session": "isolated",
+            "paneId": "p2",
+            "terminalId": "t2"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-replaced"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:22.737Z"
+    },
+    {
+      "type": "approval-cleared",
+      "approvalId": "d4859d7d-1d4e-4f4c-a01e-7738360caa37",
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:22.760Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "7ceb60c1-2978-4306-ad29-dfe96cd3d473",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-30T18:31:22.760Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 12,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control"
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:22.846Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "655b0120-9df8-44e5-8760-01ac7aed96ea",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-30T18:31:22.879Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 13,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control",
+          "output": {
+            "ok": false,
+            "error": {
+              "code": "HERDR_TARGET_CHANGED",
+              "message": "Herdr 终端已关闭或替换，请重新选择目标"
+            }
+          }
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:22.934Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "fdaa4f5c-9a5e-4811-8375-1d7de1d562d7",
+        "type": "step.started",
+        "occurredAt": "2026-10-30T18:31:22.934Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 14,
+        "data": {
+          "stepNumber": 3
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:22.989Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "f1b723ed-8799-408f-83ef-568714b82211",
+        "type": "message.delta",
+        "occurredAt": "2026-10-30T18:31:23.101Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 15,
+        "data": {
+          "text": "S2_PI_STOPPED"
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:23.101Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "ca63362b-52f5-4266-ad62-1b9f1ac3951d",
+        "type": "step.completed",
+        "occurredAt": "2026-10-30T18:31:23.210Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 16,
+        "data": {
+          "stepNumber": 3,
+          "finishReason": "stop",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:23.265Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "47aa3a07-a4bd-426c-ba37-f0afbd039bd9",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-30T18:31:23.265Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 17,
+        "data": {
+          "usage": {
+            "inputTokens": 30,
+            "outputTokens": 15,
+            "totalTokens": 45
+          }
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:23.265Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "80f9815e-90d1-415f-a342-d9180630f1ee",
+        "type": "run.completed",
+        "occurredAt": "2026-10-30T18:31:23.271Z",
+        "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 18,
+        "data": {
+          "text": "S2_PI_STOPPED",
+          "steps": 3,
+          "usage": {
+            "inputTokens": 30,
+            "outputTokens": 15,
+            "totalTokens": 45
+          }
+        }
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:23.271Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "idle"
+      },
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "at": "2026-10-30T18:31:23.383Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": null,
+        "phase": "primary"
+      },
+      "runId": null,
+      "at": "2026-10-30T18:31:23.445Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+        "phase": "primary"
+      },
+      "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+      "at": "2026-10-30T18:31:23.549Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "05a2c1bc-333d-42e4-9071-ab5904b71363",
+        "type": "run.started",
+        "occurredAt": "2026-10-30T18:31:23.548Z",
+        "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 1,
+        "data": {
+          "agentId": "calculator",
+          "agentVersion": "1"
+        }
+      },
+      "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+      "at": "2026-10-30T18:31:23.553Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "06b47f4d-c110-49da-9ecb-61e9b5a2d109",
+        "type": "step.started",
+        "occurredAt": "2026-10-30T18:31:23.549Z",
+        "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 2,
+        "data": {
+          "stepNumber": 1
+        }
+      },
+      "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+      "at": "2026-10-30T18:31:23.606Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "1561f3d6-1587-4a44-9a4a-142785cf9da5",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-30T18:31:23.716Z",
+        "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 3,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "input": {}
+        }
+      },
+      "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+      "at": "2026-10-30T18:31:23.772Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "cd37ae4e-37ae-46d2-91cc-883b7892fdc6",
+        "type": "step.completed",
+        "occurredAt": "2026-10-30T18:31:23.878Z",
+        "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 4,
+        "data": {
+          "stepNumber": 1,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+      "at": "2026-10-30T18:31:23.934Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "8eb058e2-2355-4271-8f25-1b984bc17d91",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-30T18:31:23.934Z",
+        "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 5,
+        "data": {
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+      "at": "2026-10-30T18:31:23.934Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "4d94448c-91a6-4373-ab52-f9b35cd2074b",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-30T18:31:23.934Z",
+        "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 6,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover"
+        }
+      },
+      "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+      "at": "2026-10-30T18:31:23.989Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "5b0a3dad-b0d5-4af4-b867-95e1658cb9d8",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-30T18:31:24.184Z",
+        "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 7,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "output": {
+            "ok": true,
+            "value": {
+              "configuredTarget": null,
+              "checkedCandidates": [
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+                    "session": "isolated",
+                    "paneId": "p1",
+                    "terminalId": "t1"
+                  },
+                  "title": "Pi one",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "81f1a647-9005-4d0a-82c6-ec6f1a8af48f"
+                },
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+                    "session": "isolated",
+                    "paneId": "p2",
+                    "terminalId": "replacement-t2"
+                  },
+                  "title": "Pi two",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "d80b43d8-f9b1-4887-88af-a0cc44db515d"
+                }
+              ],
+              "adoptedTarget": null,
+              "selectionVersion": 0,
+              "halted": false,
+              "requestedTarget": null,
+              "failures": []
+            }
+          }
+        }
+      },
+      "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+      "at": "2026-10-30T18:31:24.239Z"
+    },
+    {
+      "type": "herdr-selection",
+      "selection": {
+        "selectionId": "1373aa4c-c9bc-4bd0-99ab-8129e1b4b0a9",
+        "toolCallId": "s2-herdr_pi_discover",
+        "candidates": [
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+              "session": "isolated",
+              "paneId": "p1",
+              "terminalId": "t1"
+            },
+            "title": "Pi one",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "81f1a647-9005-4d0a-82c6-ec6f1a8af48f"
+          },
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+              "session": "isolated",
+              "paneId": "p2",
+              "terminalId": "replacement-t2"
+            },
+            "title": "Pi two",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "d80b43d8-f9b1-4887-88af-a0cc44db515d"
+          }
+        ]
+      },
+      "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+      "at": "2026-10-30T18:31:24.241Z"
+    },
+    {
+      "type": "herdr-selection-cleared",
+      "selectionId": "1373aa4c-c9bc-4bd0-99ab-8129e1b4b0a9",
+      "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+      "at": "2026-10-30T18:31:24.245Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "d594cec8-1368-4250-a2de-8a36de5db030",
+        "type": "run.failed",
+        "occurredAt": "2026-10-30T18:31:24.249Z",
+        "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 8,
+        "data": {
+          "error": {
+            "code": "RUN_LIMIT_EXCEEDED",
+            "message": "HERDR_TARGET_SELECTION_CANCELLED: 已取消本轮目标选择，没有发送输入",
+            "retryable": false,
+            "phase": "runtime"
+          }
+        }
+      },
+      "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+      "at": "2026-10-30T18:31:24.249Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "idle"
+      },
+      "runId": "1ab28e32-09dc-4e4c-aa58-cd43326449e6",
+      "at": "2026-10-30T18:31:24.361Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": null,
+        "phase": "primary"
+      },
+      "runId": null,
+      "at": "2026-10-30T18:31:24.395Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "phase": "primary"
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:24.499Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "73da692e-cf60-4c3a-ab44-f94e1773bb13",
+        "type": "run.started",
+        "occurredAt": "2026-10-30T18:31:24.499Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 1,
+        "data": {
+          "agentId": "calculator",
+          "agentVersion": "1"
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:24.504Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "b076384a-26bc-4f8b-82da-6154d5324271",
+        "type": "step.started",
+        "occurredAt": "2026-10-30T18:31:24.499Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 2,
+        "data": {
+          "stepNumber": 1
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:24.556Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "14970273-3847-42ed-b3b4-557ac46d787c",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-30T18:31:24.669Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 3,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "input": {}
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:24.724Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "18487b34-ddc8-4d95-828a-b44cd7d56708",
+        "type": "step.completed",
+        "occurredAt": "2026-10-30T18:31:24.827Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 4,
+        "data": {
+          "stepNumber": 1,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:24.882Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "29a0fe08-39b6-4946-9184-2fef97f589f4",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-30T18:31:24.882Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 5,
+        "data": {
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:24.882Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "3807cf26-e01a-496c-a52e-8ce6da489881",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-30T18:31:24.882Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 6,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover"
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:24.937Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "9f1d6465-d723-4e58-931d-e505a6cee784",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-30T18:31:25.133Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 7,
+        "data": {
+          "toolCallId": "s2-herdr_pi_discover",
+          "toolName": "herdr_pi_discover",
+          "output": {
+            "ok": true,
+            "value": {
+              "configuredTarget": null,
+              "checkedCandidates": [
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+                    "session": "isolated",
+                    "paneId": "p1",
+                    "terminalId": "t1"
+                  },
+                  "title": "Pi one",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "bb07a60a-3df3-493b-b1c9-14668c603b3e"
+                },
+                {
+                  "target": {
+                    "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+                    "session": "isolated",
+                    "paneId": "p2",
+                    "terminalId": "replacement-t2"
+                  },
+                  "title": "Pi two",
+                  "status": "idle",
+                  "stateChangeSeq": 1,
+                  "candidateId": "5a4f370d-c836-47b4-b28b-d01b088d9eea"
+                }
+              ],
+              "adoptedTarget": null,
+              "selectionVersion": 0,
+              "halted": false,
+              "requestedTarget": null,
+              "failures": []
+            }
+          }
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:25.188Z"
+    },
+    {
+      "type": "herdr-selection",
+      "selection": {
+        "selectionId": "90cda121-34c1-4809-ad07-b6564e607d6e",
+        "toolCallId": "s2-herdr_pi_discover",
+        "candidates": [
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+              "session": "isolated",
+              "paneId": "p1",
+              "terminalId": "t1"
+            },
+            "title": "Pi one",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "bb07a60a-3df3-493b-b1c9-14668c603b3e"
+          },
+          {
+            "target": {
+              "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+              "session": "isolated",
+              "paneId": "p2",
+              "terminalId": "replacement-t2"
+            },
+            "title": "Pi two",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "candidateId": "5a4f370d-c836-47b4-b28b-d01b088d9eea"
+          }
+        ]
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:25.190Z"
+    },
+    {
+      "type": "herdr-selection-cleared",
+      "selectionId": "90cda121-34c1-4809-ad07-b6564e607d6e",
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:25.211Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "8b410552-a8e1-4310-a01d-ebec3f72de9e",
+        "type": "step.started",
+        "occurredAt": "2026-10-30T18:31:25.278Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 8,
+        "data": {
+          "stepNumber": 2
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:25.334Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "30d76b2e-b950-42df-a1b6-fa107fe41820",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-30T18:31:25.445Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 9,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control",
+          "input": {
+            "action": "prompt",
+            "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-denied"
+          }
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:25.502Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "60266101-ea86-40a1-bc17-01685fa8962f",
+        "type": "step.completed",
+        "occurredAt": "2026-10-30T18:31:25.608Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 10,
+        "data": {
+          "stepNumber": 2,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:25.661Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "635e80b3-3c0c-4842-9a99-0bd332f8c45e",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-30T18:31:25.661Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 11,
+        "data": {
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          }
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:25.661Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "cd72dc72-8513-4daf-8228-822635b69e66",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-denied"
+        },
+        "preview": ""
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:25.661Z"
+    },
+    {
+      "type": "approval",
+      "approval": {
+        "approvalId": "cd72dc72-8513-4daf-8228-822635b69e66",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-denied"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-denied\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace\",\"session\":\"isolated\",\"paneId\":\"p1\",\"terminalId\":\"t1\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+            "session": "isolated",
+            "paneId": "p1",
+            "terminalId": "t1"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-denied"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:25.665Z"
+    },
+    {
+      "type": "approval-cleared",
+      "approvalId": "cd72dc72-8513-4daf-8228-822635b69e66",
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:25.670Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "3398c9c8-46da-4abb-8dbf-3b937acb7059",
+        "type": "tool.call.failed",
+        "occurredAt": "2026-10-30T18:31:25.670Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 12,
+        "data": {
+          "toolCallId": "s2-herdr_pi_control",
+          "toolName": "herdr_pi_control",
+          "error": {
+            "code": "TOOL_DENIED",
+            "message": "User denied this tool call",
+            "retryable": false,
+            "phase": "tool"
+          }
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:25.774Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "ec71be3f-d7d4-4018-8f57-a5b9c3123b5b",
+        "type": "step.started",
+        "occurredAt": "2026-10-30T18:31:25.774Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 13,
+        "data": {
+          "stepNumber": 3
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:25.829Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "800ce259-3456-4f11-9e6d-558d51c9736c",
+        "type": "message.delta",
+        "occurredAt": "2026-10-30T18:31:25.944Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 14,
+        "data": {
+          "text": "S2_PI_STOPPED"
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:25.944Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "6f4b17bc-5f97-408a-a9a4-7368922d19cf",
+        "type": "step.completed",
+        "occurredAt": "2026-10-30T18:31:26.052Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 15,
+        "data": {
+          "stepNumber": 3,
+          "finishReason": "stop",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:26.107Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "f44b1db6-f6df-408a-9860-0587ec60b780",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-30T18:31:26.107Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 16,
+        "data": {
+          "usage": {
+            "inputTokens": 30,
+            "outputTokens": 15,
+            "totalTokens": 45
+          }
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:26.107Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "1ca3b869-0a70-472e-90f5-3a9a7162172b",
+        "type": "run.completed",
+        "occurredAt": "2026-10-30T18:31:26.116Z",
+        "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 17,
+        "data": {
+          "text": "S2_PI_STOPPED",
+          "steps": 3,
+          "usage": {
+            "inputTokens": 30,
+            "outputTokens": 15,
+            "totalTokens": 45
+          }
+        }
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:26.116Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "idle"
+      },
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "at": "2026-10-30T18:31:26.225Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": null,
+        "phase": "primary"
+      },
+      "runId": null,
+      "at": "2026-10-30T18:31:26.245Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "running",
+        "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+        "phase": "primary"
+      },
+      "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+      "at": "2026-10-30T18:31:26.344Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "6bccfa95-7669-45a0-8441-e86fd0d372db",
+        "type": "run.started",
+        "occurredAt": "2026-10-30T18:31:26.344Z",
+        "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 1,
+        "data": {
+          "agentId": "calculator",
+          "agentVersion": "1"
+        }
+      },
+      "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+      "at": "2026-10-30T18:31:26.347Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "220a2327-29a0-4bd8-93b9-4377e94c7ac4",
+        "type": "step.started",
+        "occurredAt": "2026-10-30T18:31:26.344Z",
+        "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 2,
+        "data": {
+          "stepNumber": 1
+        }
+      },
+      "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+      "at": "2026-10-30T18:31:26.400Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "0343e818-f4e8-4c3e-83e0-a5897aaf4f55",
+        "type": "tool.call.requested",
+        "occurredAt": "2026-10-30T18:31:26.513Z",
+        "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 3,
+        "data": {
+          "toolCallId": "s1-shell",
+          "toolName": "shell_exec",
+          "input": {
+            "command": "node -e 'require(\"node:fs\").writeFileSync(\"shell-answer.json\",JSON.stringify({total:7*8}))'"
+          }
+        }
+      },
+      "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+      "at": "2026-10-30T18:31:26.569Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "6c5c9f81-1d0d-4378-914b-9a15e5f0cedb",
+        "type": "step.completed",
+        "occurredAt": "2026-10-30T18:31:26.674Z",
+        "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 4,
+        "data": {
+          "stepNumber": 1,
+          "finishReason": "tool-calls",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+      "at": "2026-10-30T18:31:26.729Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "e9a8aa25-a687-495a-9a1d-7aadf745a543",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-30T18:31:26.729Z",
+        "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 5,
+        "data": {
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+      "at": "2026-10-30T18:31:26.730Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "e69fb6fa-0047-4e5f-b648-714898d17e17",
+        "type": "tool.call.started",
+        "occurredAt": "2026-10-30T18:31:26.729Z",
+        "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 6,
+        "data": {
+          "toolCallId": "s1-shell",
+          "toolName": "shell_exec"
+        }
+      },
+      "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+      "at": "2026-10-30T18:31:26.784Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "2637283c-0c64-46e9-a852-83c0b9477022",
+        "type": "tool.call.completed",
+        "occurredAt": "2026-10-30T18:31:26.837Z",
+        "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 7,
+        "data": {
+          "toolCallId": "s1-shell",
+          "toolName": "shell_exec",
+          "output": {
+            "ok": true,
+            "exitCode": 0,
+            "signal": null,
+            "termination": "exited",
+            "cancelled": false,
+            "timedOut": false,
+            "output": "Error opening /private/var/select/sh: Operation not permitted\n",
+            "truncated": false
+          }
+        }
+      },
+      "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+      "at": "2026-10-30T18:31:26.892Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "57252b9a-b0ad-41a7-8a81-1fb0f73dfa71",
+        "type": "step.started",
+        "occurredAt": "2026-10-30T18:31:26.892Z",
+        "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 8,
+        "data": {
+          "stepNumber": 2
+        }
+      },
+      "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+      "at": "2026-10-30T18:31:26.947Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "9b42bcff-471b-429a-8b26-ba0abc365599",
+        "type": "message.delta",
+        "occurredAt": "2026-10-30T18:31:27.063Z",
+        "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 9,
+        "data": {
+          "text": "离线冒烟回复完成。"
+        }
+      },
+      "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+      "at": "2026-10-30T18:31:27.063Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "0ec02474-ee0a-4df7-b123-5e16ec1c162b",
+        "type": "step.completed",
+        "occurredAt": "2026-10-30T18:31:27.172Z",
+        "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 10,
+        "data": {
+          "stepNumber": 2,
+          "finishReason": "stop",
+          "usage": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 15
+          }
+        }
+      },
+      "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+      "at": "2026-10-30T18:31:27.227Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "ef69d34c-015e-4dd5-aae7-46299ff23ccf",
+        "type": "usage.updated",
+        "occurredAt": "2026-10-30T18:31:27.226Z",
+        "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 11,
+        "data": {
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          }
+        }
+      },
+      "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+      "at": "2026-10-30T18:31:27.227Z"
+    },
+    {
+      "type": "event",
+      "phase": "primary",
+      "event": {
+        "id": "2a8a8d69-9bc9-4f46-9387-adfc61b2484c",
+        "type": "run.completed",
+        "occurredAt": "2026-10-30T18:31:27.235Z",
+        "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+        "threadId": "chat-run-target-smoke",
+        "sequence": 12,
+        "data": {
+          "text": "离线冒烟回复完成。",
+          "steps": 2,
+          "usage": {
+            "inputTokens": 20,
+            "outputTokens": 10,
+            "totalTokens": 30
+          }
+        }
+      },
+      "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+      "at": "2026-10-30T18:31:27.235Z"
+    },
+    {
+      "type": "state",
+      "state": {
+        "kind": "idle"
+      },
+      "runId": "60334c2c-0223-4594-b2d9-2adabb514471",
+      "at": "2026-10-30T18:31:27.344Z"
+    }
+  ],
+  "decisions": [
+    {
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "approvalId": "unmatched-probe",
+      "toolCallId": null,
+      "value": null,
+      "decision": "allow",
+      "source": "original-preload-confirm",
+      "at": "2026-10-30T18:31:19.039Z",
+      "status": "rejected",
+      "response": {
+        "accepted": false
+      }
+    },
+    {
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "approvalId": "17207451-a2c9-4371-b502-64d53d446fca",
+      "toolCallId": "s2-herdr_pi_control",
+      "value": {
+        "approvalId": "17207451-a2c9-4371-b502-64d53d446fca",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-first"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-first\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace\",\"session\":\"isolated\",\"paneId\":\"p2\",\"terminalId\":\"t2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+            "session": "isolated",
+            "paneId": "p2",
+            "terminalId": "t2"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-first"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "decision": "allow",
+      "source": "original-preload-confirm",
+      "at": "2026-10-30T18:31:19.040Z",
+      "status": "accepted",
+      "response": {
+        "accepted": true
+      }
+    },
+    {
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "approvalId": "17207451-a2c9-4371-b502-64d53d446fca",
+      "toolCallId": null,
+      "value": null,
+      "decision": "allow",
+      "source": "original-preload-confirm",
+      "at": "2026-10-30T18:31:22.757Z",
+      "status": "rejected",
+      "response": {
+        "accepted": false
+      }
+    },
+    {
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "approvalId": "d4859d7d-1d4e-4f4c-a01e-7738360caa37",
+      "toolCallId": "s2-herdr_pi_control",
+      "value": {
+        "approvalId": "d4859d7d-1d4e-4f4c-a01e-7738360caa37",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-replaced"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-replaced\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace\",\"session\":\"isolated\",\"paneId\":\"p2\",\"terminalId\":\"t2\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+            "session": "isolated",
+            "paneId": "p2",
+            "terminalId": "t2"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-replaced"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "decision": "allow",
+      "source": "original-preload-confirm",
+      "at": "2026-10-30T18:31:22.760Z",
+      "status": "accepted",
+      "response": {
+        "accepted": true
+      }
+    },
+    {
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "approvalId": "cd72dc72-8513-4daf-8228-822635b69e66",
+      "toolCallId": "s2-herdr_pi_control",
+      "value": {
+        "approvalId": "cd72dc72-8513-4daf-8228-822635b69e66",
+        "toolCallId": "s2-herdr_pi_control",
+        "toolName": "herdr_pi_control",
+        "input": {
+          "action": "prompt",
+          "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-denied"
+        },
+        "preview": "\nTool: herdr_pi_control\n{\n  \"action\": \"prompt\",\n  \"text\": \"S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-denied\"\n}\n本 Run 已采用且已冻结的 Herdr 目标 {\"authorizedDirectory\":\"/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace\",\"session\":\"isolated\",\"paneId\":\"p1\",\"terminalId\":\"t1\"}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] ",
+        "herdr": {
+          "target": {
+            "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+            "session": "isolated",
+            "paneId": "p1",
+            "terminalId": "t1"
+          },
+          "action": {
+            "action": "prompt",
+            "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-denied"
+          },
+          "selectionVersion": 1
+        }
+      },
+      "decision": "deny",
+      "source": "original-preload-confirm",
+      "at": "2026-10-30T18:31:25.670Z",
+      "status": "accepted",
+      "response": {
+        "accepted": true
+      }
+    }
+  ],
+  "selections": [
+    {
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "selectionId": "b91fbdef-167f-4b67-a48d-3faf5ccf61f8",
+      "candidateId": "c5f7660d-c26c-48b2-befa-6c76c782b167",
+      "source": "original-preload-selection",
+      "status": "accepted",
+      "response": {
+        "accepted": true
+      }
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "status": "passed",
+  "configSha256Before": "2164412cfe530fc524809349fc5789aa9d368fdfa3cdaef5dca5b15728ccf00d",
+  "artifactHashes": {
+    "out/main/index.js": "2bfa19bbfe16404b79ce9bf089922d118c2f88bd64a4fd25d425fe789393a5dd",
+    "out/preload/index.cjs": "1001a6b85f82a25f42428f97643258cbff80115e7f9489cad7a209fdaa1d7a36",
+    "out/renderer/index.html": "bdabe7615d53b3219d0be4caabb44b4cfb6c8c4075a38c058b5d0c5e1b6099bb"
+  },
+  "main": {
+    "electron": "44.4.5",
+    "pid": 62940,
+    "userData": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/profile",
+    "home": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/home"
+  },
+  "renderer": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Serika/44.4.5 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+    "url": "file:///Users/a1-6/Code/agents/serika-chat-run-target/apps/desktop/out/renderer/index.html"
+  },
+  "approvalChain": [
+    {
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "toolCallId": "s2-herdr_pi_discover",
+      "toolName": "herdr_pi_discover",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "s2-herdr_pi_discover",
+        "toolName": "herdr_pi_discover",
+        "output": {
+          "ok": true,
+          "value": {
+            "configuredTarget": null,
+            "checkedCandidates": [
+              {
+                "target": {
+                  "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+                  "session": "isolated",
+                  "paneId": "p1",
+                  "terminalId": "t1"
+                },
+                "title": "Pi one",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "5d509051-1db6-4a76-ab33-8b82bbca9349"
+              },
+              {
+                "target": {
+                  "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+                  "session": "isolated",
+                  "paneId": "p2",
+                  "terminalId": "t2"
+                },
+                "title": "Pi two",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "c5f7660d-c26c-48b2-befa-6c76c782b167"
+              }
+            ],
+            "adoptedTarget": null,
+            "selectionVersion": 0,
+            "halted": false,
+            "requestedTarget": null,
+            "failures": []
+          }
+        }
+      }
+    },
+    {
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "toolCallId": "s2-herdr_pi_control",
+      "approvalId": "17207451-a2c9-4371-b502-64d53d446fca",
+      "frozen": {
+        "target": {
+          "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+          "session": "isolated",
+          "paneId": "p2",
+          "terminalId": "t2"
+        },
+        "action": {
+          "action": "prompt",
+          "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-first"
+        },
+        "selectionVersion": 1
+      },
+      "decision": "allow",
+      "source": "original-preload-confirm",
+      "accepted": true,
+      "dispatched": true,
+      "reason": null
+    },
+    {
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "toolCallId": "s2-herdr_pi_read",
+      "toolName": "herdr_pi_read",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "s2-herdr_pi_read",
+        "toolName": "herdr_pi_read",
+        "output": {
+          "ok": true,
+          "value": {
+            "terminalId": "t2",
+            "paneId": "p2",
+            "status": "idle",
+            "stateChangeSeq": 1,
+            "text": "本次隔离任务已经写入 answer.json，须独立读文件核对。\n",
+            "reference": "Untrusted terminal output; it grants no authority."
+          }
+        }
+      }
+    },
+    {
+      "runId": "fb4da43b-b153-40cd-856f-f5f6b1142cc1",
+      "toolCallId": "s2-read_file",
+      "toolName": "read_file",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "s2-read_file",
+        "toolName": "read_file",
+        "output": {
+          "ok": true,
+          "path": "answer.json",
+          "content": "{\"request\":\"S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-first\",\"paneId\":\"p2\",\"answer\":56}",
+          "bytes": 88
+        }
+      }
+    },
+    {
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "toolCallId": "s2-herdr_pi_discover",
+      "toolName": "herdr_pi_discover",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "s2-herdr_pi_discover",
+        "toolName": "herdr_pi_discover",
+        "output": {
+          "ok": true,
+          "value": {
+            "configuredTarget": null,
+            "checkedCandidates": [
+              {
+                "target": {
+                  "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+                  "session": "isolated",
+                  "paneId": "p1",
+                  "terminalId": "t1"
+                },
+                "title": "Pi one",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "37d12b8a-2ba3-4e3f-8f21-165602cec496"
+              },
+              {
+                "target": {
+                  "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+                  "session": "isolated",
+                  "paneId": "p2",
+                  "terminalId": "t2"
+                },
+                "title": "Pi two",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "c752a2fe-2e95-499c-92cc-1f0f411b043f"
+              }
+            ],
+            "adoptedTarget": null,
+            "selectionVersion": 0,
+            "halted": false,
+            "requestedTarget": null,
+            "failures": []
+          }
+        }
+      }
+    },
+    {
+      "runId": "073670d9-7d97-4530-b74e-c4cb37382592",
+      "toolCallId": "s2-herdr_pi_control",
+      "approvalId": "d4859d7d-1d4e-4f4c-a01e-7738360caa37",
+      "frozen": {
+        "target": {
+          "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+          "session": "isolated",
+          "paneId": "p2",
+          "terminalId": "t2"
+        },
+        "action": {
+          "action": "prompt",
+          "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-replaced"
+        },
+        "selectionVersion": 1
+      },
+      "decision": "allow",
+      "source": "original-preload-confirm",
+      "accepted": true,
+      "dispatched": false,
+      "reason": "HERDR_TARGET_CHANGED"
+    },
+    {
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "toolCallId": "s2-herdr_pi_discover",
+      "toolName": "herdr_pi_discover",
+      "approvalId": null,
+      "permission": "read-auto",
+      "outcome": {
+        "toolCallId": "s2-herdr_pi_discover",
+        "toolName": "herdr_pi_discover",
+        "output": {
+          "ok": true,
+          "value": {
+            "configuredTarget": null,
+            "checkedCandidates": [
+              {
+                "target": {
+                  "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+                  "session": "isolated",
+                  "paneId": "p1",
+                  "terminalId": "t1"
+                },
+                "title": "Pi one",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "bb07a60a-3df3-493b-b1c9-14668c603b3e"
+              },
+              {
+                "target": {
+                  "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+                  "session": "isolated",
+                  "paneId": "p2",
+                  "terminalId": "replacement-t2"
+                },
+                "title": "Pi two",
+                "status": "idle",
+                "stateChangeSeq": 1,
+                "candidateId": "5a4f370d-c836-47b4-b28b-d01b088d9eea"
+              }
+            ],
+            "adoptedTarget": null,
+            "selectionVersion": 0,
+            "halted": false,
+            "requestedTarget": null,
+            "failures": []
+          }
+        }
+      }
+    },
+    {
+      "runId": "24cebb06-1b22-41c5-83e3-ea86c071bdf1",
+      "toolCallId": "s2-herdr_pi_control",
+      "approvalId": "cd72dc72-8513-4daf-8228-822635b69e66",
+      "frozen": {
+        "target": {
+          "authorizedDirectory": "/private/var/folders/z8/lnxfbycd69n_nh_fwzg1gtmw0000gn/T/serika-run-target-smoke-PRoAtc/workspace",
+          "session": "isolated",
+          "paneId": "p1",
+          "terminalId": "t1"
+        },
+        "action": {
+          "action": "prompt",
+          "text": "S2 pi 3087f25a-204d-44e9-a6ca-d8695fe46f3a-denied"
+        },
+        "selectionVersion": 1
+      },
+      "decision": "deny",
+      "source": "original-preload-confirm",
+      "accepted": true,
+      "dispatched": false,
+      "reason": "TOOL_DENIED"
+    }
+  ],
+  "configSha256After": "2164412cfe530fc524809349fc5789aa9d368fdfa3cdaef5dca5b15728ccf00d",
+  "electronStopped": true,
+  "temporaryDirectoryRemoved": true
+}
