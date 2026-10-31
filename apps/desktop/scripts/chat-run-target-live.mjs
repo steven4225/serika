@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, writeFile, rm, access } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseEnv } from 'node:util';
+import { isDeepStrictEqual, parseEnv } from 'node:util';
 import { existsSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { _electron as electron, expect } from 'playwright/test';
@@ -151,6 +151,18 @@ async function launch(name, pi) {
   await expect(page.getByPlaceholder('和 Serika 聊天')).toBeEnabled();
   await observeApprovals({ page, onEvent: event => {
     report.approvalEvents.push({ stage, ...event });
+    if (event.type === 'approval-decision' || event.type === 'herdr-selection-decision') {
+      const item = report.cases.at(-1);
+      if (item) {
+        const selection = event.type === 'herdr-selection-decision';
+        item.hostDecisions.push({ kind: selection ? 'selection' : 'approval', runId: event.runId,
+          value: selection ? event.selection : event.approval, input: event.input,
+          toolCallId: selection ? event.selection?.toolCallId : event.approval?.toolCallId,
+          approvalId: event.approval?.approvalId, decision: event.input.decision,
+          source: event.source, response: { accepted: event.accepted }, at: event.decidedAt, observedAt: event.at });
+      }
+      if (!event.accepted) { frozen = true; report.stopReason = 'host-rejected-decision'; }
+    }
     if (event.type === 'event' && event.event.type === 'tool.call.failed' && event.event.data.error.code === 'TOOL_OUTCOME_UNKNOWN') {
       report.unknownEffect = true; frozen = true; report.stopReason = 'unknown-external-effect';
     }
@@ -160,9 +172,6 @@ async function launch(name, pi) {
       report.rejectedToolResult = { runId: event.event.runId, toolCallId: event.event.data.toolCallId,
         error: event.event.data.error ?? event.event.data.output.error };
     }
-    if (report.status === 'running' && event.type === 'approval-cleared' && !report.cases.at(-1)?.decisions.some(row => row.value.approvalId === event.approvalId)) {
-      report.stopReason = 'approval-cleared-without-recorded-decision'; frozen = true;
-    }
     return save();
   } });
   report.launches.push({ name, main: await running.evaluate(({ app }) => ({ electron: process.versions.electron, pid: process.pid, userData: app.getPath('userData'), home: app.getPath('home') })),
@@ -170,6 +179,7 @@ async function launch(name, pi) {
   await save(); return { work, configPath };
 }
 async function decide(kind, value) {
+  assert.ok(!frozen, 'Stopped batch cannot submit a decision');
   const id = kind === 'selection' ? value.selectionId : value.approvalId;
   if (pendingId !== id) {
     pendingId = id; await writeFile(join(output, 'pending.json'), JSON.stringify({ kind, stage, value }, null, 2) + '\n');
@@ -180,11 +190,11 @@ async function decide(kind, value) {
   catch (error) { if (error.code === 'ENOENT') return false; throw error; }
   if (kind === 'selection') {
     assert.ok(Number.isSafeInteger(decision.index) && decision.index >= 0 && decision.index < value.candidates.length);
-    const row = { kind, value, decision, runId: report.cases.at(-1).runId, source: 'authorized-isolated-test-decision-file-original-preload-selection', status: 'attempting', at: new Date().toISOString() };
+    const row = { kind, value, decision, runId: report.cases.at(-1).runId, source: 'authorized-isolated-test-decision-file-native-button', actor: 'codex-under-current-batch-user-authorization', status: 'attempting', at: new Date().toISOString() };
     report.cases.at(-1).decisions.push(row); await save();
-    row.response = await page.evaluate(input => window.runloom.selectHerdrTarget(input), { selectionId: value.selectionId, candidateId: value.candidates[decision.index].candidateId });
-    row.status = row.response.accepted ? 'accepted' : 'rejected'; await save();
-    assert.equal(row.response.accepted, true, 'Original host selection was not accepted');
+    assert.ok(!frozen);
+    await page.locator(`[data-selection-id="${value.selectionId}"] button[data-candidate-id="${value.candidates[decision.index].candidateId}"]`).click();
+    row.status = 'click-submitted'; await save();
     return true;
   } else {
     assert.equal(decision.decision, 'allow');
@@ -196,19 +206,26 @@ async function decide(kind, value) {
     return true;
   }
 }
-async function run(name, prompt, target) {
+async function run(name, prompt) {
   assert.ok(report.cases.length < maxRuns && !frozen);
   stage = name; pendingId = undefined;
-  const item = { name, prompt, startedAt: new Date().toISOString(), decisions: [], status: 'running' }; report.cases.push(item); await save();
+  const item = { name, prompt, startedAt: new Date().toISOString(), decisions: [], hostDecisions: [], status: 'running' }; report.cases.push(item); await save();
   await page.getByPlaceholder('和 Serika 聊天').fill(prompt); await page.getByRole('button', { name: '发送消息', exact: true }).click();
   const deadline = Date.now() + 600000;
   let seenRunning = false;
   while (Date.now() < deadline) {
+    if (frozen) throw new Error('Model spending frozen; no further task action');
     const snapshot = await page.evaluate(() => window.runloom.snapshot());
+    if (frozen) throw new Error('Model spending frozen; no further task action');
     if (snapshot.state.kind !== 'idle') { seenRunning = true; item.runId = snapshot.state.runId; }
     if (snapshot.pendingHerdrSelection) await decide('selection', snapshot.pendingHerdrSelection);
     else if (snapshot.pendingApproval?.preview) {
-      if (snapshot.pendingApproval.herdr && target) assert.deepEqual(snapshot.pendingApproval.herdr.target, target);
+      if (snapshot.pendingApproval.herdr) {
+        const selected = item.hostDecisions.filter(row => row.kind === 'selection' && row.response.accepted);
+        assert.equal(selected.length, 1, 'Control approval needs one host-accepted selection');
+        const candidate = selected[0].value.candidates.find(row => row.candidateId === selected[0].input.candidateId);
+        assert.ok(candidate); assert.deepEqual(snapshot.pendingApproval.herdr.target, candidate.target);
+      }
       await decide('approval', snapshot.pendingApproval);
     }
     if (frozen) throw new Error('Model spending frozen; no further task action');
@@ -230,13 +247,14 @@ async function verifyPi(item, target, sessionFile, before, file, expected) {
   const controls = item.receipt.tools.filter(tool => tool.toolName === 'herdr_pi_control');
   assert.equal(controls.length, 1); assert.equal(controls[0].status, 'completed');
   item.approvalChain = approvalChain({ runId: item.runId, receipt: item.receipt, events: report.approvalEvents,
-    decisions: item.decisions.filter(row => row.kind === 'approval').map(row => ({ ...row, decision: row.decision.decision })) });
-  const approved = item.decisions.filter(decision => decision.value.herdr);
+    decisions: item.hostDecisions.filter(row => row.kind === 'approval') });
+  const approved = item.hostDecisions.filter(decision => decision.value?.herdr && decision.response.accepted);
   item.actualArtifact = JSON.parse(await readFile(file, 'utf8'));
   const transcript = await messages(sessionFile); item.piUserMessagesAdded = transcript.length - before;
   await save();
   assert.equal(approved.length, 1); assert.deepEqual(approved[0].value.herdr.target, target);
-  assert.equal(approved[0].status, 'accepted'); assert.equal(transcript.length, before + 1);
+  assert.equal(approved[0].value.herdr.selectionVersion, 1, 'Unchanged target must retain the original adoption');
+  assert.equal(approved[0].response.accepted, true); assert.equal(transcript.length, before + 1);
   const text = transcript.at(-1).message.content.filter(part => part.type === 'text').map(part => part.text).join('\n');
   assert.equal(text, approved[0].value.herdr.action.text);
   const artifact = JSON.parse(await readFile(file, 'utf8')); assert.deepEqual(artifact, expected);
@@ -252,7 +270,7 @@ try {
   assert.ok(first.receipt.tools.some(tool => tool.toolName === 'shell_exec' && tool.shell?.exitCode === 0));
   assert.ok(!first.receipt.tools.some(tool => tool.toolName === 'terminal_exec'), 'Shell acceptance cannot use terminal fallback');
   first.approvalChain = approvalChain({ runId: first.runId, receipt: first.receipt, events: report.approvalEvents,
-    decisions: first.decisions.filter(row => row.kind === 'approval').map(row => ({ ...row, decision: row.decision.decision })) });
+    decisions: first.hostDecisions.filter(row => row.kind === 'approval') });
   first.status = 'passed'; first.actualArtifact = { total: 56 }; await save(); await stop();
 
   fixture = await setup(root, local + '/pi/v1', model); report.fixture = fixture; await save();
@@ -260,16 +278,37 @@ try {
   const other = await addPi(fixture.statePath); report.secondPi = other; await save();
   const current = await launch('blue', fixture);
   await writeFile(join(fixture.work, 'blue.json'), JSON.stringify({ a: 5, b: 9, order: nonce + '-blue' }));
-  const third = await run('multiple-pi', '请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。', other.target);
-  assert.equal(third.decisions.filter(decision => decision.kind === 'selection').length, 1);
-  const selection = third.decisions.find(decision => decision.kind === 'selection');
-  assert.equal(selection.status, 'accepted'); assert.equal(selection.runId, third.runId);
-  assert.deepEqual(selection.value.candidates[selection.decision.index].target, other.target);
-  await verifyPi(third, other.target, other.piSession, 0, join(fixture.work, 'blue-answer.json'), { sum: 14, order: nonce + '-blue' });
+  const third = await run('multiple-pi', '请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。');
+  const selections = third.hostDecisions.filter(row => row.kind === 'selection' && row.response.accepted);
+  assert.equal(selections.length, 1);
+  const selection = selections[0]; assert.equal(selection.runId, third.runId);
+  assert.ok(selection.value.candidates.length >= 2);
+  const candidate = selection.value.candidates.find(row => row.candidateId === selection.input.candidateId);
+  assert.ok(candidate);
+  assert.ok(report.approvalEvents.some(row => row.type === 'herdr-selection-click' && row.runId === third.runId &&
+    row.selectionId === selection.input.selectionId && row.candidateId === selection.input.candidateId), 'Missing native button click');
+  const shown = report.approvalEvents.filter(row => row.type === 'herdr-selection' && row.runId === third.runId && row.selection.selectionId === selection.input.selectionId);
+  assert.equal(shown.length, 1);
+  assert.equal(shown[0].selection.toolCallId, selection.toolCallId);
+  assert.equal(third.receipt.tools.filter(row => row.toolName === 'herdr_pi_discover').length, 1, 'Adopted target must continue without redundant discovery');
+  assert.ok(!report.calls.some(row => row.stage === 'multiple-pi' && row.startedAt > shown[0].at && row.startedAt < selection.at), 'Model advanced while host selection was pending');
+  third.selectionChain = { runId: third.runId, toolCallId: selection.toolCallId, selectionId: selection.input.selectionId,
+    source: selection.source, accepted: selection.response.accepted, target: candidate.target,
+    shownAt: shown[0].at, acceptedAt: selection.at,
+    click: report.approvalEvents.find(row => row.type === 'herdr-selection-click' && row.selectionId === selection.input.selectionId && row.candidateId === selection.input.candidateId),
+    actor: third.decisions.some(row => row.kind === 'selection' && row.status === 'click-submitted' && row.value.selectionId === selection.input.selectionId && row.value.candidates[row.decision.index].candidateId === selection.input.candidateId)
+      ? 'codex-under-current-batch-user-authorization' : 'native-ui-actor-unattributed' };
+  const chosen = [fixture, other].find(row => isDeepStrictEqual(row.target, candidate.target));
+  assert.ok(chosen, 'Selected target is outside this isolated fixture');
+  await verifyPi(third, candidate.target, chosen.piSession, 0, join(fixture.work, 'blue-answer.json'), { sum: 14, order: nonce + '-blue' });
+  const unchosen = [fixture, other].find(row => row !== chosen);
+  third.unchosenPiUserMessages = (await messages(unchosen.piSession)).length;
+  assert.equal(third.unchosenPiUserMessages, 0, 'Unselected Pi received input');
   assert.equal(hash(await readFile(current.configPath)), report.launches.at(-1).configSha256Before); await stop();
 
   assert.deepEqual(report.errors, []); report.status = 'passed';
 } catch (error) {
+  frozen = true; report.stopReason ??= 'verification-failure';
   report.status = 'failed'; report.failure = { name: error.name, message: error.message.slice(0, 1500) };
   try {
     const state = JSON.parse(await readFile(join(root, 'herdr-fixture/herdr-state.json'), 'utf8'));

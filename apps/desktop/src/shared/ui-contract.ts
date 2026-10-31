@@ -162,8 +162,10 @@ export type MainToRenderer =
   | { type: "module-notification"; moduleId: string; message: string }
   | { type: "approval"; approval: PendingApproval }
   | { type: "approval-cleared"; approvalId: string }
+  | { type: "approval-decision"; runId: string | null; input: ConfirmInput; approval: PendingApproval | null; accepted: boolean; source: "desktop-ipc"; decidedAt: string }
   | { type: "herdr-selection"; selection: PendingHerdrSelection }
   | { type: "herdr-selection-cleared"; selectionId: string }
+  | { type: "herdr-selection-decision"; runId: string | null; input: SelectHerdrTargetInput; selection: PendingHerdrSelection | null; accepted: boolean; source: "desktop-ipc"; decidedAt: string }
   | { type: "steer"; steer: AssistantSteerRecord }
   | { type: "event"; phase: RunPhase; event: AgentEvent }
   | { type: "result"; phase: RunPhase; result: RunResult }

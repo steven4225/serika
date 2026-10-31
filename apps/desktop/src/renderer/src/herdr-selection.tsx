@@ -25,7 +25,7 @@ export function HerdrSelectionCard({ selection, onError }: {
       setDecidingId(current => current === id ? null : current);
     }
   };
-  return <section className="card approval" aria-label="本轮 Pi 目标选择" aria-live="polite">
+  return <section className="card approval" aria-label="本轮 Pi 目标选择" aria-live="polite" data-selection-id={selection.selectionId}>
     <div className="card-head"><strong>选择本轮使用的 Pi</strong><span className="hint">仅本轮</span></div>
     <p className="hint">候选刚核对，尚未采用。选择后继续当前任务，发送输入另行确认。</p>
     <p className="hint">临时句柄不是真实身份；刷新句柄不表示目标消失。</p>
@@ -38,7 +38,7 @@ export function HerdrSelectionCard({ selection, onError }: {
         <dt>终端</dt><dd>{candidate.target.terminalId}</dd>
         <dt>目录</dt><dd>{candidate.target.authorizedDirectory}</dd>
       </dl></details>
-      <button type="button" className="allow" disabled={deciding} onClick={() => void choose(candidate.candidateId)}>
+      <button type="button" className="allow" data-candidate-id={candidate.candidateId} disabled={deciding} onClick={() => void choose(candidate.candidateId)}>
         {deciding ? "正在提交选择…" : "本轮使用"}
       </button>
     </div>)}</div>

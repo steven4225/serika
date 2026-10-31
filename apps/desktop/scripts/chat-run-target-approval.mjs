@@ -27,15 +27,24 @@ export async function observeApprovals({ page, onEvent }) {
     window.stopLiveApprovalObservation?.();
     let runId = (await window.runloom.snapshot()).state.runId;
     const approvals = new Map();
-    window.stopLiveApprovalObservation = window.runloom.onMessage(message => {
+    const click = event => {
+      const button = event.target.closest?.('button[data-candidate-id]');
+      const card = button?.closest('[data-selection-id]');
+      if (card) void window.observeLiveApproval({ type: 'herdr-selection-click', runId,
+        selectionId: card.dataset.selectionId, candidateId: button.dataset.candidateId,
+        isTrusted: event.isTrusted, at: new Date().toISOString() });
+    };
+    document.addEventListener('click', click, true);
+    const unsubscribe = window.runloom.onMessage(message => {
       if (message.type === 'state' && message.state.kind === 'running') runId = message.state.runId;
       if (message.type === 'event' && message.phase === 'primary') runId = message.event.runId;
       if (message.type === 'approval') approvals.set(message.approval.approvalId, runId);
-      if (['state', 'approval', 'approval-cleared', 'event', 'herdr-selection', 'herdr-selection-cleared'].includes(message.type)) {
-        void window.observeLiveApproval({ ...message, runId: message.type === 'event' ? message.event.runId :
+      if (['state', 'approval', 'approval-cleared', 'approval-decision', 'event', 'herdr-selection', 'herdr-selection-cleared', 'herdr-selection-decision'].includes(message.type)) {
+        void window.observeLiveApproval({ ...message, runId: message.type.endsWith('-decision') ? message.runId : message.type === 'event' ? message.event.runId :
           message.type === 'approval-cleared' ? approvals.get(message.approvalId) ?? runId : runId, at: new Date().toISOString() });
       }
     });
+    window.stopLiveApprovalObservation = () => { unsubscribe(); document.removeEventListener('click', click, true); };
   });
 }
 
@@ -49,14 +58,14 @@ export function approvalChain({ runId, receipt, decisions, events }) {
     const cards = events.filter(row => row.type === 'approval' && row.runId === runId && row.approval.toolCallId === tool.toolCallId);
     if (cards.length || tool.approvalRequestedAt) {
       assert.equal(accepted.length, 1, 'An observed approval needs exactly one accepted decision source');
-      assert.equal(accepted[0].source, 'original-preload-confirm');
+      assert.ok(['original-preload-confirm', 'desktop-ipc'].includes(accepted[0].source));
       assert.ok(cards.some(card => card.approval.approvalId === accepted[0].approvalId), 'Accepted ID lacks original approval event');
     }
     if (tool.toolName === 'herdr_pi_control') {
       assert.equal(accepted.length, 1, 'Each control conclusion needs exactly one accepted host decision');
       const decision = accepted[0], output = end.data.output;
       assert.ok(decision.value?.herdr, 'Missing frozen identity and action');
-      assert.equal(decision.source, 'original-preload-confirm');
+      assert.ok(['original-preload-confirm', 'desktop-ipc'].includes(decision.source));
       const requested = raw.find(event => event.type === 'tool.call.requested' && event.data.toolCallId === tool.toolCallId);
       assert.ok(requested, 'Missing original requested action');
       assert.deepEqual(requested.data.input, decision.value.herdr.action, 'Requested and approved bodies differ');

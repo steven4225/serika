@@ -155,7 +155,7 @@ export class ForegroundHerdrTargets {
       if (failed) return { kind: "stop" as const, message: `${failed.error.code}: ${failed.error.message}` };
     }
     const decision = await next?.(input);
-    return decision ?? { kind: "feedback" as const, text: `Current Run Pi target after host selection: ${JSON.stringify(this.snapshot())}. candidateId is a temporary handle, not identity. Checked metadata alone is not adoption. Refreshing handles does not mean the target disappeared.` };
+    return decision ?? { kind: "feedback" as const, text: `Current Run Pi target after host selection: ${JSON.stringify(this.snapshot())}. When adoptedTarget is present, continue directly with herdr_pi_read or herdr_pi_control; the host supplies that target. Do not rediscover with requested identifiers copied from this host state: requested requires identifiers actually present in the user's original request. candidateId is a temporary handle, not identity. Checked metadata alone is not adoption. Refreshing handles does not mean the target disappeared.` };
   }
   async #choose(run: RunTarget, input: Pick<AfterToolCallInput, "toolCallId" | "signal">): Promise<Failure | undefined> {
     if (!run.candidates.length) return failure("HERDR_NO_PI_TARGET", "未发现已核对的 Pi 目标；请查看发现失败原因，不会启动服务或改发其他终端");

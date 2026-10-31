@@ -202,6 +202,7 @@ export class RuntimeBridge {
   readonly #output: TeeOutput;
   readonly #identity: BridgeIdentity;
   readonly #shell = new ShellProgressBuffer();
+  readonly #send: Send;
   readonly #unsubscribe: () => void;
 
   constructor(
@@ -215,6 +216,7 @@ export class RuntimeBridge {
     this.#controller = controller;
     this.#identity = identity;
     this.#output = output;
+    this.#send = send;
     this.#unsubscribe = controller.subscribe((event) => {
       if (event.type === "state" && event.state.kind === "running" && event.state.phase === "primary" && event.state.runId === null) this.#shell.clear();
       if (event.type === "shell-progress") this.#shell.apply(event.progress);
@@ -385,15 +387,27 @@ export class RuntimeBridge {
     if (typeof input !== "object" || input === null || typeof input.approvalId !== "string" ||
       (input.decision !== "allow" && input.decision !== "deny") ||
       (input.remember !== undefined && input.remember !== true)) return { accepted: false };
-    return { accepted: this.#controller.confirm({ approvalId: input.approvalId, decision: input.decision,
-      ...(input.remember === true ? { remember: true } : {}) }) };
+    const snapshot = this.#controller.getSnapshot();
+    const request: ConfirmInput = { approvalId: input.approvalId, decision: input.decision,
+      ...(input.remember === true ? { remember: true } : {}) };
+    const accepted = this.#controller.confirm(request);
+    this.#send({ type: "approval-decision", runId: snapshot.state.kind === "running" ? snapshot.state.runId : null,
+      input: request, approval: snapshot.pendingApproval?.approvalId === request.approvalId ? snapshot.pendingApproval : null,
+      accepted, source: "desktop-ipc", decidedAt: new Date().toISOString() });
+    return { accepted };
   }
 
   selectHerdrTarget(input: import("@serika/assistant").SelectHerdrTargetInput): ConfirmResponse {
     if (typeof input !== "object" || input === null || Array.isArray(input) ||
       Object.keys(input).some(key => key !== "selectionId" && key !== "candidateId") ||
       typeof input.selectionId !== "string" || !(input.candidateId === null || typeof input.candidateId === "string")) return { accepted: false };
-    return { accepted: this.#controller.selectHerdrTarget({ selectionId: input.selectionId, candidateId: input.candidateId }) };
+    const snapshot = this.#controller.getSnapshot();
+    const request = { selectionId: input.selectionId, candidateId: input.candidateId };
+    const accepted = this.#controller.selectHerdrTarget(request);
+    this.#send({ type: "herdr-selection-decision", runId: snapshot.state.kind === "running" ? snapshot.state.runId : null,
+      input: request, selection: snapshot.pendingHerdrSelection?.selectionId === request.selectionId ? snapshot.pendingHerdrSelection : null,
+      accepted, source: "desktop-ipc", decidedAt: new Date().toISOString() });
+    return { accepted };
   }
 
   command(line: string): Promise<CommandResponse> {

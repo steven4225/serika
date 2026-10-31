@@ -249,6 +249,8 @@ export function receiveMessage(current: RuntimeState, message: MainToRenderer): 
     case "task-result-available":
     case "identity-changed":
     case "module-notification":
+    case "approval-decision":
+    case "herdr-selection-decision":
     case "steer":
     case "event":
     case "shell-progress":
@@ -589,6 +591,8 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
             store.refreshOpenTrace();
             return;
           case "approval-cleared":
+          case "approval-decision":
+          case "herdr-selection-decision":
           case "herdr-selection":
           case "herdr-selection-cleared":
             return;
