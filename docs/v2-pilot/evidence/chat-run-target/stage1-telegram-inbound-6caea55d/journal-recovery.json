@@ -1,0 +1,19 @@
+{
+  "auditId": "466dbd0e-3111-4e65-aece-6925308fe122",
+  "recoveredAt": "2026-10-31T09:25:53.638Z",
+  "source": "post-failure-daily-Telegram-journal-targeted-record-not-original-Bot-API-update",
+  "networkRequests": 0,
+  "updateId": 414513485,
+  "messageId": 656,
+  "matchedRecords": 1,
+  "records": [
+    {
+      "recordSha256": "02b0ac1680403a5d1ea724a24d139c25608de66356ef35c3562c68b6a1bdafa9",
+      "text": "继续，允许临时停用并恢复日用 TG 接入。",
+      "state": "finished",
+      "receivedAt": "2026-10-31T16:32+08:00",
+      "runId": "94c5e58f-8199-4168-987b-43db4b829904",
+      "keyMatchesCurrentOwner": true
+    }
+  ]
+}

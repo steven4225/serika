@@ -16,6 +16,8 @@ import { ResidentClient } from '../src/main/resident-transport.ts';
 import { configureCliModel } from '@serika/assistant';
 import { setup, addPi, cleanup } from './chat-run-target-live-herdr.mjs';
 import { approvalChain } from './chat-run-target-approval.mjs';
+import { inspectTelegramInbound, redactTelegramEvidence, telegramHandoff } from './chat-run-target-telegram-inbound.mjs';
+import { writeTelegramStopAudit } from '../../../scripts/chat-run-target-telegram-stop-audit.mjs';
 
 const repo = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -43,11 +45,11 @@ const report = { batchId: randomUUID(), startedAt: new Date().toISOString(), sou
   verification: 'real-telegram-original-node-desktop-runtime-real-model-isolated-herdr-pi', platform: process.platform, node: process.version,
   scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))), model, capUsd, maxRequests, maxRuns, pricePerMillionUsd: price,
   priceBasis: 'Frozen desktop c9a16383 script rates; not invoice verified', credentialSource: envFile, credentialsWrittenToDisk: false,
-  calls: [], cases: [], errors: [], approvalEvents: [], transport: [], costUsd: 0, status: 'running', isolatedRoot: root };
-let frozen = false, stage = 'preparation', fixture, secondPi, host, gateway, store, daily, dailyBefore, dailyPaused = false;
+  calls: [], cases: [], errors: [], approvalEvents: [], transport: [], inboundChecks: [], costUsd: 0, status: 'running', isolatedRoot: root };
+let frozen = false, stage = 'preparation', fixture, secondPi, host, gateway, store, daily, dailyBefore, dailyData, dailyPaused = false;
 let lastPollOffset = -1, activeInbound, expectedPairing, expectedPrompt, taskMessageId, runId;
 let saving = Promise.resolve();
-const save = () => { const value = JSON.stringify(report, null, 2) + '\n'; saving = saving.then(() => writeFile(join(output, 'result.json'), value)); return saving; };
+const save = () => { const value = JSON.stringify(redactTelegramEvidence(report, [credentials.key, credentials.telegram, credentials.proxy]), null, 2) + '\n'; saving = saving.then(() => writeFile(join(output, 'result.json'), value)); return saving; };
 const tell = value => console.log(JSON.stringify(value));
 const stop = reason => { frozen = true; report.stopReason ??= reason; };
 const pending = new Set();
@@ -109,10 +111,18 @@ async function waitFor(check, name, ms = 300000) {
   while (!await check()) { assert.ok(!frozen, `Stopped: ${report.stopReason}`); assert.ok(Date.now() < deadline, `Timed out: ${name}`); await delay(100); }
   assert.ok(!frozen, `Stopped: ${report.stopReason}`);
 }
+function bindingSnapshot() {
+  const status = gateway?.status(), data = store.snapshot(), state = host.current.snapshot().state;
+  const owner = data.owner && { userId: data.owner.userId, chatId: data.owner.chatId, threadId: data.owner.threadId };
+  return { owner, gatewayCreated: !!gateway, pairing: status?.pairing ? { code: status.pairing.code, expiresAt: status.pairing.expiresAt, proposed: status.pairing.proposed && {
+    userId: status.pairing.proposed.userId, chatId: status.pairing.proposed.chatId } } : null, botId: data.botId, threadId: host.info().threadId,
+    offset: data.offset, state: state.kind, runId: state.kind === 'running' ? state.runId : null };
+}
 function observe(message) {
   const currentId = message.type === 'event' ? message.event.runId : message.runId ?? host?.current.snapshot().state.runId ?? runId;
   if (message.type === 'state' && message.state.kind === 'running' && message.state.runId) {
     if (runId && runId !== message.state.runId) stop('unexpected-additional-run'); runId ??= message.state.runId;
+    if (report.cases[0]) report.cases[0].runId ??= runId;
   }
   if (['approval', 'approval-cleared', 'approval-decision', 'herdr-selection', 'herdr-selection-cleared', 'herdr-selection-decision', 'event', 'result'].includes(message.type)) {
     report.approvalEvents.push({ ...message, runId: currentId, at: new Date().toISOString() });
@@ -145,7 +155,6 @@ try {
   const configBefore = hash(await readFile(identity.env.RUNLOOM_CONFIG));
   report.daily = { pid: dailyPid, enabledBefore: true, connectionBefore: dailyBefore.connection, configSha256Before: configBefore,
     historicalUnknownDeliveriesBefore: dailyBefore.unknownDeliveries };
-  const dailyData = JSON.parse(await readFile(join(identity.applicationHome, 'resident/telegram.json'), 'utf8'));
   await new Promise(done => server.listen(0, '127.0.0.1', done));
   const local = `http://127.0.0.1:${server.address().port}`;
   fixture = await setup(root, local + '/pi/v1', model); report.fixture = fixture;
@@ -159,26 +168,46 @@ try {
   const configured = configureCliModel(() => { throw new Error('Mock forbidden'); }, env);
   host = await DesktopRuntime.create({ applicationHome, cwd: fixture.work, env, ...configured, modelId: model, send: observe });
   store = new TelegramStore(join(applicationHome, 'resident/telegram.json'), applicationHome); await store.load();
-  await store.update(data => { data.offset = dailyData.offset; });
   const realApi = createTelegramApi(credentials.telegram, fetch, credentials.proxy ? { proxyUrl: credentials.proxy } : {});
   const api = {
-    identity: signal => realApi.identity(signal), webhook: signal => realApi.webhook(signal), close: () => realApi.close(), answerCallback: () => { throw new Error('Use text shortcodes for this batch'); },
+    identity: async signal => {
+      const value = await realApi.identity(signal);
+      report.telegramIdentity = { expectedBotId: dailyData.botId, actualBotId: value.id, matches: dailyData.botId === value.id };
+      await save(); if (!report.telegramIdentity.matches) stop('telegram-bot-identity-mismatch');
+      assert.ok(report.telegramIdentity.matches); return value;
+    },
+    webhook: signal => realApi.webhook(signal), close: () => realApi.close(), answerCallback: () => { throw new Error('Use text shortcodes for this batch'); },
     updates: async (offset, signal) => {
       assert.ok(!frozen);
       let updates;
       try { updates = await realApi.updates(offset, signal); }
-      catch (error) { if (!signal.aborted) stop('telegram-poll-failed'); throw error; }
+      catch (error) { if (!signal.aborted) { report.pollFailure = { code: error.code ?? error.name, outcome: error.outcome ?? 'unknown' }; stop('telegram-poll-failed'); await save(); } throw error; }
+      const pollId = randomUUID();
+      if (!Array.isArray(updates)) {
+        report.inboundChecks.push(inspectTelegramInbound({ update: updates, context: { pollId, indexInPoll: 0, owner: dailyBefore.owner, pollResponseIsArray: false },
+          binding: bindingSnapshot(), secrets: [credentials.key, credentials.telegram, credentials.proxy] }));
+        report.pollFailure = { code: 'INVALID_UPDATES_ARRAY', outcome: 'unknown' }; stop('telegram-poll-invalid-response'); await save();
+        throw new assert.AssertionError({ message: 'Inbound rejected: updates_response_array' });
+      }
       lastPollOffset = offset; report.lastPollOffset = offset;
-      for (const update of updates) {
-        const m = update.message;
-        report.transport.push({ direction: 'inbound-envelope', at: new Date().toISOString(), updateId: update.update_id, messageId: m?.message_id });
-        try {
-        assert.ok(m && m.from?.id === dailyBefore.owner.userId && m.chat.id === dailyBefore.owner.chatId && m.chat.type === 'private' && !m.from.is_bot, 'Unexpected inbound; no task admitted');
-        assert.ok(m.text === `/start ${expectedPairing}` || m.text === expectedPrompt || /^(?:选择\s+[A-F0-9]{10}\s+[1-9][0-9]*|取消选择\s+[A-F0-9]{10}|(?:允许|拒绝)\s+[A-F0-9]{10})$/i.test(m.text), 'Unexpected text; no additional Run permitted');
-        if (m.text === expectedPrompt) { assert.ok(!taskMessageId || taskMessageId === m.message_id, 'A second task message is not authorized'); taskMessageId ??= m.message_id; }
-        } catch (error) { stop('unexpected-telegram-inbound'); await save(); throw error; }
-        report.transport.push({ direction: 'inbound', at: new Date().toISOString(), offset, update: { update_id: update.update_id,
-          message: { message_id: m.message_id, date: m.date, chat: m.chat, from: { id: m.from.id, is_bot: m.from.is_bot }, text: m.text } } });
+      let projectedTaskMessageId = taskMessageId;
+      const records = updates.map((update, indexInPoll) => {
+        const record = inspectTelegramInbound({ update, context: { pollId, indexInPoll,
+          owner: dailyBefore.owner, pairingCode: expectedPairing, taskText: expectedPrompt, taskMessageId: projectedTaskMessageId }, binding: bindingSnapshot(),
+          secrets: [credentials.key, credentials.telegram, credentials.proxy] });
+        if (record.accepted && record.phase === 'task') projectedTaskMessageId ??= update.message.message_id;
+        return record;
+      });
+      report.inboundChecks.push(...records);
+      const rejected = records.find(record => !record.accepted);
+      if (rejected) {
+        for (const record of records) record.blockedByUpdateId = rejected.update?.update_id ?? null;
+        stop('unexpected-telegram-inbound'); await save();
+        throw new assert.AssertionError({ message: `Inbound rejected: ${rejected.failedPredicate}` });
+      }
+      for (const record of records) {
+        if (record.phase === 'task') taskMessageId ??= record.update.message.message_id;
+        report.transport.push({ direction: 'inbound', at: record.at, offset, update: record.update });
       }
       await save(); return updates;
     },
@@ -190,16 +219,27 @@ try {
   };
   gateway = new TelegramGateway(host, store, api); host.attachTelegram(gateway); await gateway.initialize();
   const receive = gateway.receive.bind(gateway);
-  gateway.receive = async update => { activeInbound = update; try { return await receive(update); } finally { activeInbound = undefined; } };
+  gateway.receive = async update => {
+    activeInbound = update;
+    const record = report.inboundChecks.findLast(row => row.update?.update_id === update.update_id);
+    assert.ok(record?.accepted); record.bindingBefore = bindingSnapshot(); record.forwarded = true; await save();
+    try { return await receive(update); }
+    finally { record.bindingAfter = bindingSnapshot(); activeInbound = undefined; await save(); }
+  };
   report.daily.pauseAttemptedAt = new Date().toISOString(); dailyPaused = true; await save();
   const paused = await daily.setTelegramEnabled(false); assert.equal(paused.enabled, false); assert.equal(paused.connection, 'disabled');
-  report.daily.pausedAt = new Date().toISOString(); await save();
+  dailyData = JSON.parse(await readFile(join(identity.applicationHome, 'resident/telegram.json'), 'utf8'));
+  assert.deepEqual(dailyData.owner, dailyBefore.owner); await store.update(data => { data.offset = dailyData.offset; });
+  report.daily.offsetAtPause = dailyData.offset; report.daily.pausedAt = new Date().toISOString(); await save();
   stage = 'pairing'; await gateway.setEnabled(true); assert.equal(gateway.status().connection, 'online');
   expectedPairing = gateway.beginPairing().pairing.code;
+  report.bindingAtPairingStart = bindingSnapshot(); await save();
   tell({ pending: 'telegram-pairing', botUsername: gateway.status().botUsername, command: `/start ${expectedPairing}`, output });
   await waitFor(() => gateway.status().pairing?.proposed, 'real Telegram pairing');
   assert.equal(gateway.status().pairing.proposed.userId, dailyBefore.owner.userId); assert.equal(gateway.status().pairing.proposed.chatId, dailyBefore.owner.chatId);
+  report.pairingConfirmation = { before: bindingSnapshot() }; await save();
   await gateway.confirmPairing(expectedPairing);
+  report.pairingConfirmation.after = bindingSnapshot(); await save();
   report.pairing = { originalGatewayAccepted: true, ownerMatchesDaily: true, threadId: store.snapshot().owner.threadId };
   const nonce = report.batchId.slice(0, 8); await writeFile(join(fixture.work, 'blue.json'), JSON.stringify({ a: 5, b: 9, order: nonce + '-blue' }));
   expectedPrompt = '请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。';
@@ -242,27 +282,45 @@ try {
   tell({ status: 'failed', stopReason: report.stopReason, failure: report.failure });
 } finally {
   if (host && store && runId) {
-    try { report.cases[0].receipt ??= await host.channelReceipt(store.snapshot().owner.threadId, runId); }
+    try { report.cases[0].runId ??= runId; report.cases[0].receipt ??= await host.channelReceipt(store.snapshot().owner.threadId, runId); }
     catch (error) { report.errors.push({ stage: 'local-receipt', name: error.name }); }
   }
   if (store) { report.telegramStore = store.snapshot(); report.lastPollOffset = lastPollOffset; }
-  try { if (gateway) { await gateway.close(); report.isolatedTelegramStoppedAt = new Date().toISOString(); } }
-  catch (error) { stop('isolated-channel-stop-failed'); report.status = 'failed'; report.errors.push({ stage: 'isolated-stop', name: error.name }); }
-  try { if (host) { if (host.current.snapshot().state.kind !== 'idle') host.current.cancel(); await host.shutdown(); } }
-  catch (error) { report.status = 'failed'; report.errors.push({ stage: 'isolated-host-stop', name: error.name }); }
+  report.bindingBeforeShutdown = host && store ? bindingSnapshot() : null;
+  try {
+    if (host) { if (host.current.snapshot().state.kind !== 'idle') host.current.cancel(); await host.shutdown(); report.isolatedHostStoppedAt = new Date().toISOString(); }
+    if (gateway) { assert.equal(gateway.status().connection, 'disabled'); report.isolatedTelegramStoppedAt = new Date().toISOString(); }
+  } catch (error) { stop('isolated-host-stop-failed'); report.status = 'failed'; report.errors.push({ stage: 'isolated-host-stop', name: error.name }); }
+  report.bindingAfterShutdown = gateway && store ? bindingSnapshot() : null;
   if (dailyPaused) {
     try {
       assert.ok(!gateway || report.isolatedTelegramStoppedAt, 'Cannot restore while isolated polling may still run');
-      if (store && lastPollOffset < store.snapshot().offset) {
+      report.transportCursorHandoff = telegramHandoff({ storeOffset: store?.snapshot().offset ?? 0, records: report.inboundChecks, confirmedOffset: lastPollOffset });
+      assert.deepEqual(report.transportCursorHandoff.blockedBy, [], 'Unowned/malformed update requires manual handoff; do not discard it');
+      if (!report.transportCursorHandoff.confirmed) {
+        assert.ok(!report.unknownTransport && !report.pollFailure, 'Uncertain transport requires manual handoff');
         const ackApi = createTelegramApi(credentials.telegram, fetch, credentials.proxy ? { proxyUrl: credentials.proxy } : {});
         try {
-          const offset = store.snapshot().offset;
+          const offset = report.transportCursorHandoff.requiredOffset;
+          report.transportCursorHandoff.ackAttemptedAt = new Date().toISOString(); await save();
           const held = await ackApi.updates(offset, new AbortController().signal);
-          report.transportCursorHandoff = { offset, confirmedAt: new Date().toISOString(), unacknowledgedLaterUpdates: held.length, forwardedToModel: false };
+          const handoffPollId = randomUUID();
+          const heldRecords = (Array.isArray(held) ? held : [held]).map((update, indexInPoll) => inspectTelegramInbound({ update,
+            context: { pollId: handoffPollId, indexInPoll, owner: dailyBefore.owner, pairingCode: expectedPairing, taskText: expectedPrompt,
+              handoffResponseSize: Array.isArray(held) ? held.length : 'non-array', pollResponseIsArray: Array.isArray(held) },
+            binding: bindingSnapshot(), secrets: [credentials.key, credentials.telegram, credentials.proxy] }));
+          report.inboundChecks.push(...heldRecords);
+          report.transportCursorHandoff.ackResponseAt = new Date().toISOString();
+          report.transportCursorHandoff.responseIsArray = Array.isArray(held);
+          report.transportCursorHandoff.returnedUpdates = Array.isArray(held) ? held.length : null; await save();
+          assert.ok(Array.isArray(held) && held.length === 0, 'Handoff returned pending updates; diagnostics saved, manual handoff required');
+          report.transportCursorHandoff = { ...report.transportCursorHandoff, offset, confirmedAt: new Date().toISOString(), unacknowledgedLaterUpdates: held.length, forwardedToModel: false };
           lastPollOffset = offset;
         } finally { await ackApi.close(); }
       }
-      report.daily.transportOffsetAcknowledged = !store || lastPollOffset >= store.snapshot().offset;
+      Object.assign(report.transportCursorHandoff, telegramHandoff({ storeOffset: store?.snapshot().offset ?? 0, records: report.inboundChecks, confirmedOffset: lastPollOffset }));
+      assert.equal(report.transportCursorHandoff.confirmed, true);
+      report.daily.transportOffsetAcknowledged = true;
       const restored = await daily.setTelegramEnabled(dailyBefore.enabled);
       assert.equal(restored.enabled, dailyBefore.enabled); assert.equal(restored.connection, 'online'); assert.deepEqual(restored.owner, dailyBefore.owner);
       const args = execFileSync('ps', ['-p', String(report.daily.pid), '-o', 'args='], { encoding: 'utf8' }).trim().split(/\s+/);
@@ -270,7 +328,7 @@ try {
       report.daily.configSha256After = hash(await readFile(identity.env.RUNLOOM_CONFIG)); assert.equal(report.daily.configSha256After, report.daily.configSha256Before);
       report.daily.restoredAt = new Date().toISOString(); report.daily.enabledAfter = restored.enabled; report.daily.connectionAfter = restored.connection; report.daily.ownerUnchanged = true;
       report.daily.historicalUnknownDeliveriesAfter = restored.unknownDeliveries;
-    } catch (error) { stop('daily-restore-failed'); report.status = 'failed'; report.daily.restoreFailed = true; report.errors.push({ stage: 'daily-restore', name: error.name }); }
+    } catch (error) { stop('daily-restore-failed'); report.status = 'failed'; report.daily.restoreFailed = true; report.errors.push({ stage: 'daily-restore', name: error.name, condition: error instanceof assert.AssertionError ? error.message : error.code ?? 'Private exception details withheld' }); }
   }
   daily?.detach();
   if (server.listening) await new Promise(done => server.close(done)); await Promise.all([...pending]);
@@ -284,6 +342,6 @@ try {
     if (!frozen && report.cleanup?.phase === 'cleaned') { await rm(root, { recursive: true, force: true }); await assert.rejects(access(root), { code: 'ENOENT' }); report.temporaryDirectoryRemoved = true; }
   }
   report.realModelCalls = report.calls.length; report.unresolvedReservedUsd = report.calls.filter(c => c.status !== 'returned').reduce((sum, c) => sum + c.reservedUsd, 0);
-  report.finishedAt = new Date().toISOString(); await save(); tell({ status: report.status, requests: report.realModelCalls, costUsd: report.costUsd, dailyRestored: !!report.daily?.restoredAt, output });
+  report.finishedAt = new Date().toISOString(); await save(); if (report.status === 'failed') await writeTelegramStopAudit({ directory: output }); tell({ status: report.status, requests: report.realModelCalls, costUsd: report.costUsd, dailyRestored: !!report.daily?.restoredAt, output });
 }
 if (report.status !== 'passed') process.exitCode = 1;

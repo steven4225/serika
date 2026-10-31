@@ -1,6 +1,6 @@
 # 聊天发现 CLI 与当前 Run Pi 目标
 
-> 2026-10-31 最新结论：桌面 c9a16383 整链 PASS 沿用；真实 TG d5a887cd 在配对前入站校验失败，0 宿主任务 Run、0 模型请求、$0，已停并恢复日用 TG。TG 完成定义仍未通过。
+> 2026-10-31 最新结论：桌面 c9a16383 整链 PASS 沿用；TG 入站 harness 修复已通过离线验证，真实 TG 未重跑、未通过。d5a887cd 隔离侧零请求属实，但事后证据确认恢复日用后重放了同一消息，产生 1 Run／1 请求，估算 $0.009668，已单独补账，旧失败原件不改。当前停在新预算申请。
 
 ## 1. 改了什么
 
@@ -345,3 +345,39 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 3. 实际用量 0 宿主任务 Run / 0 模型请求 / $0，未结算 0；费用账只增加本次零支出失败尝试，不改变累计费用。产品增删为 0；验证脚本新增 526 行、删除 0 行，不含文档与证据；验证脚本及报告用于真实 TG 原路径留证，既有全测、离线 TG、假模型、隔离 Electron 结论按用户要求沿用，不重跑桌面或全套关口。
 4. `node --check` 两个预备脚本及零请求 import 预检均 exit 0。准备时 `git diff --check` 发现报告末尾空行，删除多余空行后 exit 0，未进行真实调用。真实命令 `node --import ./apps/desktop/node_modules/tsx/dist/loader.mjs apps/desktop/scripts/chat-run-target-telegram-live.mjs --run --daily-pid 36769 --output /private/tmp/serika-197-tg-live-20261031-a` 写出 failed。finally 重复 close Telegram dispatcher 导致 `ClientDestroyedError`，日用恢复已完成；宿主残留进程 pid=96438 随后 SIGTERM 退出 143，未改原 result。`node scripts/chat-run-target-telegram-stop-audit.mjs /private/tmp/serika-197-tg-live-20261031-a 96438` exit 0 仅表示失败停止、零派发与恢复事实核对，不是业务通过。
 5. 偏离和观察缺口：首次入站校验只归档 envelope，未归档被拒 payload 或确切失败谓词，无法区分账号、消息类型、文本不符，不能归因为用户发错、TG 产品配对缺陷或网络问题。预备整链 auditor 也未被业务证据执行证明，其中 TG multipart 的投递核对仍需按原 parts/messageId 对照，不能声称该检查器已可验收。本轮不修后复验。按 Prove It Works 核对原件及现场，按 Sequence Work into Verifiable Units 停在失败关口；reviewed inline，未使用额外审核模型。注意事项为入站诊断缺口、重复 close 导致进程收尾失败，以及未运行的整链检查器。保留 `/private/tmp/tg-quC2af`、Herdr `w-83ae148e` / pid=96476 现场，无自动目标清理。不合并、不部署日用、不改权限、沙箱或 Seatbelt。
+
+### TG 入站可观测修复协议，2026-10-31
+
+本节先于修复代码写入。当前只修验收 harness，不发真实 TG/模型请求，不改日用接入，不重跑桌面链。任务顺序为：已读 AGENTS/pstack 与相关原则 → 定位原谓词并恢复指定 update 的已有本地记录 → 原条件零网络复现 → 写下诊断/关闭/游标契约 → 最小 harness 修复及原网关离线证明 → 报新预算并等待指定授权。按 bug-fix playbook 的复现、查因、实现、同路径验证执行；只读代理审核 harness，敏感本地记录由主线程定点读取；不进行真实重跑。
+
+接口草图为 `inspectTelegramInbound({update, context, binding, redact}) -> {update, normalizedText, predicates, failedPredicate, bindingBefore, bindingAfter, forwarded}`。每个 update 在交网关前归档脱敏全文、poll/批内位置、逐项 expected/actual/pass、当前 owner/proposed/thread/offset/run；任一失败先写 result，再停止并最终写入独立 stop-audit。被拒项 bindingAfter 即未转交时的实际状态；通过项在原 receive 前后各取实际状态。保留所有失败条件，不仅记录第一项，不裁剪正文。相较仅在 catch 打异常，这种记录能区分账号、类型、文本、阶段及批内阻断，不需要改产品规则。消息文本与原网关一样 trim，配对/任务/控制按当前阶段匹配，undefined 不能当作任务。
+
+关闭由 `DesktopRuntime.shutdown()` 单一拥有，harness 不再先 close 同一 gateway。恢复前交接游标取原 store.offset 与全部已观察更新的 max(update_id+1)，记录请求和真实确认回应，必须确认后才恢复日用。被拒且未进 receive 的当前 owner 私聊文本也必须计入交接；不归档或转交其他日用内容。无法确认身份/游标的更新使恢复阻断并报告，不盲目丢弃或把测试控制文本交日用执行。
+
+历史补充证据单独归档，不改 d5a887cd 原 result/stop-audit：恢复后的日用记录保存 update=414513485/message=656 的文本“继续，允许临时停用并恢复日用 TG 接入。”，足以复现原文本白名单拒绝；它不是配对命令。恢复后同一记录又绑定日用 Run 94c5e58f-8199-4168-987b-43db4b829904，已有回执显示 completed、1 个主模型步骤、无工具，原隔离代理零请求不能覆盖该额外请求。新证据是事后本地 journal/receipt，不冒充旧 Bot API payload。旧批具体原始 first-failed predicate 与消息发出时间仍不可重造；不推断用户错误、thread 错乱或 token 争用。最小修复保持拒绝此非配对消息，并防止恢复后重放。
+
+重跑前同时消除已知 harness 检查器误判：原网关 `#parts/#flush` 保存 HTML 分片及每片 messageId，整链 auditor 应逐片匹配相同 chatId/messageId/正文/HTML 和 submitted 状态，禁止拿未编码原文匹配最后一片回执。用离线原网关配对发送取得实际 parts/transport，证明旧比较失败、新比较通过及缺片拒绝；此项不改变产品投递或 TG 权限。原网关本身的整链真 TG 仍须下一批证明。
+
+审批数量按控制链的冻结快照计数，与 live driver 一致；read_file 的逐次批准继续由完整 approvalChain 与 TG 来源检查核对，不混算成第二次 Pi 控制批准。离线同时覆盖文件批准与控制批准，旧全审批计数断言应复现误红。
+
+### TG 入站修复离线结果与下一批预算，2026-10-31
+
+1. 改了什么：仅修改验收脚本。`telegram-inbound.mjs` 逐条保存脱敏全文、全部谓词及 expected/actual、首个失败条件、转交标记、绑定前后状态；失败自动写 stop-audit。live 按阶段校验并与原网关一致 trim；关闭仅由宿主拥有。交接游标包含未转交的被拒消息，只有已确认的当前 owner 消息可确认游标；身份不符、运输未知或确认返回新消息时保留全文并阻断自动恢复。success auditor 逐片核对 HTML 投递，并将独立文件批准与单次控制批准分别计数。查过旧约束的 Tool side-effect invariants、模型用量估算、Trusted desktop foreground autonomy/TG 信任，未改产品、审批规则或 Seatbelt。
+2. 逐条验收对照见下表。新证据 [verification](evidence/chat-run-target/stage1-telegram-inbound-6caea55d/verification.json)、[原条件复现](evidence/chat-run-target/stage1-telegram-inbound-6caea55d/before.json)、[拒绝原件对](evidence/chat-run-target/stage1-telegram-inbound-6caea55d/offline-reviewed/rejection/stop-audit.json)、[历史恢复证据](evidence/chat-run-target/stage1-telegram-inbound-6caea55d/journal-recovery.json)、[日用回执摘录](evidence/chat-run-target/stage1-telegram-inbound-6caea55d/daily-replay-recovery.json) 与 archive-summary 绑定 hash。
+
+| 本轮要求 | 结果与证据 |
+| --- | --- |
+| 拒因可复现、全文/谓词/绑定落盘 | 已做：恢复出的指定 update/message 文本执行原谓词，得到 `Unexpected text; no additional Run permitted`；新 `recovered non-pairing text persists...` 保存完整脱敏消息、`text_matches_phase` 及 before/after，result 与 stop-audit 原件 hash 可核验。原始 Bot API payload 与历史 first-failed 谓词仍缺，不能从新 fixture 补造。 |
+| owner/thread/token 争用等归因 | 已做定点核查：journal 指定记录匹配当前 owner，消息文本不符本身足以复现拒绝；现有证据不支持归因用户错误、产品配对缺陷或 token 争用。原 gateway 离线实际接受 trim 后配对并建立绑定。 |
+| 重复 close 与恢复重放 | 已做：原 gateway + 实际 ProxyAgent 在禁止网络 transport 下，宿主 shutdown 后 dispatcher close=1、模型/网络=0，子进程正常退出。`handoff` 用例证明旧 offset 414513485 不足，须确认到 414513486；陌生/畸形及交接返回新消息阻断恢复。真实 Bot API 交接未重测。 |
+| 审计误红及早失败计账 | 已做：生产 formatter 的 HTML 转义/多片两例旧比较均 false，新核对通过、缺片拒绝；控制+文件两个独立批准均保留结论，控制数=1；早失败 receipt 中的 runId 也计入 stop-audit。 |
+| 历史零费用说法纠正 | 隔离侧仍为 0；恢复日用后同消息进入 `94c5e58f-8199-4168-987b-43db4b829904`，completed、1 主模型步骤、0 工具。按冻结费率由实际用量复算 $0.009668，非账单核验，单独补账。本轮新真 Run/请求/费用=0。旧 result/stop-audit 均未改绿或重写。 |
+| 真 TG 完成定义 | 没做：本轮只到离线关口，未临停日用或调用真实 TG。真实短码→同 Run 采用→无 discover→独立控制批准→一次派发→回读/产物仍待下批；桌面 PASS 保留。 |
+
+3. 前后数字：产品代码 +0/-0，harness +207/-97，测试 +175/-0，不含文档/证据。测试超过产品行数，因为本次修复与复现均在验证脚本。入站/审批最终 7/7，受影响 TG 回归 85/85；两次写入守卫 passed、违规 0；先一次 changes=104、metadataUnchanged=false，最终一次 changes=0、metadataUnchanged=true，不以最终结果覆盖先一次的元数据变化。证据源码为 e6804b5 加 verification 中各脚本 SHA，sourceWorktreeDirty=true，属于离线修复证据，不能冒充干净候选真链。
+4. 实际命令和退出码：`node scripts/test-home.mjs --home /private/tmp/serika-197-tg-inbound-guard -- /bin/sh -c 'node --test apps/desktop/scripts/chat-run-target-telegram-inbound.test.mjs apps/desktop/scripts/chat-run-target-approval.test.mjs && pnpm --filter @serika/desktop exec tsx --test src/main/telegram-herdr-selection.test.ts src/main/telegram-gateway.test.ts'` exit 0，早一版局部 6/6 与 TG 85/85；最终追加检查后，经 final-guard 执行两个局部测试文件为 7/7、exit 0。`pnpm typecheck` exit 0；七个脚本 `node --check`、live 零请求 import preflight、两对 stop-audit CLI 核查、`git diff --check` 均 exit 0，原始 stdout/命令在新证据中。首次新增子进程测试曾因 `ai/test` 解析路径错误失败，停止该验证、修成包内 createRequire.resolve 后通过，未改业务断言或重跑真批。
+5. 偏离和下一步：按当前用户范围沿用既有全测/假模型/隔离 Electron，不重跑桌面整链。按 Fix Root Causes 保留拒绝非配对文本并修交接重放；按 Prove It Works 保存原件对、实际网关关闭与生产 formatter 证据。只读代理最终核对源码，无额外 Serika 调用。完整 success auditor 尚未在真实 TG 成功原件上执行，不能宣称真链通过。
+
+下一批预算申请为 **≤1 宿主 Run／24 次总模型请求／$0.25**，包含 Serika、选中 Pi 与辅助模型请求，全部计入同一上限，沿用已冻结费率并预留费用。渠道仅真实 TG 私聊 + 隔离 Pi，原 Node DesktopRuntime/TelegramGateway；不测桌面整链或日用部署。仅在用户明确回复“继续，允许临时停用并恢复日用 TG 接入”后临停/恢复原日用 TG，取现有外部 env 的必要字段，不重启宿主。
+
+成功须同 runId：发现≥2 idle → TG 短码接受选择恰好一次 → selectionVersion=1 并采用 → 后续请求无 discover → 独立操作批准且 runId/toolCallId/approvalId、冻结目标/正文、决定来源/宿主接受与派发结论完整 → 只发一次 → 本次回读与独立产物一致，未选目标零输入。文件读取等其余批准逐条保留，不算 Pi 操作批准。拒绝、取消、身份/环境变化、任何验证失败、unknown、未结算或预算到顶立即停；unknown 不自动回读/重发/换目标，不追加真 Run，日用恢复必须先确认隔离停止及交接游标。通过后再更新 #197 并停下等用户决定合并；当前不合、不部署、不扩授权。

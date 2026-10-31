@@ -253,8 +253,22 @@
       "evidenceSha256": "d6d2856f4fd10b4f331b99084cdbd9790dc55ddf3c974e6d09ac4a8802a6528d",
       "acceptance": "failed-before-telegram-pairing",
       "audit": "chat-run-target/stage1-telegram-d5a887cd/stop-audit.json"
+    },
+    {
+      "step": "chat-run-target-stage1-telegram-daily-replay-recovered",
+      "runId": "94c5e58f-8199-4168-987b-43db4b829904",
+      "parentBatchId": "d5a887cd-6976-41e1-ad2a-ed41c83e44f7",
+      "realModelRequests": 1,
+      "taskRuns": 1,
+      "amount": 0.009668,
+      "amountBasis": "Recovered existing daily usage at frozen d5a887cd harness rates; not invoice verified",
+      "unresolvedCalls": 0,
+      "unresolvedReservedUsd": 0,
+      "evidence": "chat-run-target/stage1-telegram-inbound-6caea55d/supplemental-cost.json",
+      "evidenceSha256": "fa84df599ad4d993b77fd9c92ad77995bfd5228d491af91c7315419fcbd5c830",
+      "acceptance": "historical-unintended-daily-replay-not-telegram-acceptance"
     }
   ],
-  "total": 2.158678239999999,
-  "knownTotal": 2.1449710399999993
+  "total": 2.168346239999999,
+  "knownTotal": 2.1546390399999993
 }

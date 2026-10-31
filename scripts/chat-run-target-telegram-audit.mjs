@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { approvalChain } from '../apps/desktop/scripts/chat-run-target-approval.mjs';
+import { assertTelegramDelivery } from '../apps/desktop/scripts/chat-run-target-telegram-delivery.mjs';
 
 const directory = resolve(process.argv[2]);
 const sha = value => createHash('sha256').update(value).digest('hex');
@@ -46,14 +47,13 @@ assert.equal(shown.length, 1);
 assert.equal(shown[0].selection.toolCallId, selection.toolCallId);
 assert.equal(shown[0].selection.selectionId, selection.input.selectionId);
 const inbound = report.transport.filter(row => row.direction === 'inbound');
-const selectionMessage = inbound.filter(row => /^选择\s/.test(row.update.message.text));
+const selectionMessage = inbound.filter(row => /^选择\s/.test(row.update.message.text.trim()));
 assert.equal(selectionMessage.length, 1);
-const selectedCode = /^选择\s+([A-F0-9]{10})\s+([1-9][0-9]*)$/i.exec(selectionMessage[0].update.message.text);
+const selectedCode = /^选择\s+([A-F0-9]{10})\s+([1-9][0-9]*)$/i.exec(selectionMessage[0].update.message.text.trim());
 assert.ok(selectedCode);
 assert.equal(selection.value.candidates[Number(selectedCode[2]) - 1].candidateId, selected.candidateId);
 const card = report.telegramStore.deliveries.find(row => row.key === `selection:${selection.input.selectionId}:${selectedCode[1].toUpperCase()}`);
-assert.equal(card?.state, 'submitted');
-assert.ok(report.transport.some(row => row.direction === 'outbound' && row.status === 'submitted' && row.messageId === card.messageId && row.text === card.text));
+assertTelegramDelivery({ delivery: card, transport: report.transport });
 assert.equal(selection.telegramInbound.updateId, selectionMessage[0].update.update_id);
 assert.equal(selection.telegramInbound.text, selectionMessage[0].update.message.text);
 assert.equal(selectionMessage[0].update.message.from.id, report.telegramStore.owner.userId);
@@ -62,20 +62,19 @@ assert.equal(report.telegramStore.inputs.filter(row => row.runId && !row.steerId
 const task = report.telegramStore.inputs.find(row => row.runId === pi.runId);
 assert.equal(task.state, 'finished');
 assert.equal(task.text, pi.prompt);
-assert.equal(inbound.filter(row => row.update.message.text === pi.prompt).length, 1);
+assert.equal(inbound.filter(row => row.update.message.text.trim() === pi.prompt).length, 1);
 assert.equal(report.telegramStore.deliveries.find(row => row.key === `result:${task.key}`)?.state, 'submitted');
 assert.ok(report.lastPollOffset >= report.telegramStore.offset || report.transportCursorHandoff?.offset >= report.telegramStore.offset);
 for (const decision of pi.hostDecisions.filter(row => row.kind === 'approval')) {
   assert.equal(decision.response.accepted, true);
   const source = inbound.find(row => row.update.update_id === decision.telegramInbound?.updateId);
   assert.ok(source);
-  const allow = /^允许\s+([A-F0-9]{10})$/i.exec(source.update.message.text);
+  const allow = /^允许\s+([A-F0-9]{10})$/i.exec(source.update.message.text.trim());
   assert.ok(allow);
   assert.equal(source.update.message.from.id, report.telegramStore.owner.userId);
   assert.equal(source.update.message.chat.id, report.telegramStore.owner.chatId);
   const preview = report.telegramStore.deliveries.find(row => row.key === `approval:${decision.approvalId}:${allow[1].toUpperCase()}`);
-  assert.equal(preview?.state, 'submitted');
-  assert.ok(report.transport.some(row => row.direction === 'outbound' && row.status === 'submitted' && row.messageId === preview.messageId && row.text === preview.text));
+  assertTelegramDelivery({ delivery: preview, transport: report.transport });
   assert.equal(decision.telegramInbound.text, source.update.message.text);
 }
 assert.equal(report.calls.filter(call => call.startedAt > shown[0].at && call.startedAt < selection.at).length, 0);
@@ -128,7 +127,7 @@ assert.equal(pi.receipt.tools.filter(tool => tool.toolName === 'herdr_pi_discove
 const controls = pi.receipt.tools.filter(tool => tool.toolName === 'herdr_pi_control');
 assert.equal(controls.length, 1);
 const chain = approvalChain({ runId: pi.runId, receipt: pi.receipt, events: report.approvalEvents, decisions: pi.hostDecisions.filter(row => row.kind === 'approval') });
-const approved = chain.filter(row => row.approvalId);
+const approved = chain.filter(row => row.frozen);
 assert.equal(approved.length, 1);
 assert.equal(approved[0].dispatched, true);
 assert.deepEqual(approved[0].frozen.target, selected.target);
