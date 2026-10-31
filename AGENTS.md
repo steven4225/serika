@@ -88,7 +88,7 @@
 
 - 每个步骤只交一份报告，写进 `docs/v2-pilot/` 下对应文件，尽量控制在一屏表格以内。不为每步另写设计文档，不把计划内容抄进报告。
 - 报告固定五段：改了什么（文件和原因）→ **逐条对照验收项**（每项标“已做 + 测试名”或“没做 + 原因”，不许漏项不提）→ 前后数字（产品和测试代码各自的行数变化、计划里的指标）→ 实际命令和退出码 → 与计划不符的地方及理由。没有实测数字，不能写“已改善”“全过”。
-- 这份 AGENTS.md 不是变更日志：功能说明不写进来，全文控制在 12 KB 以内。新约束要先得到用户同意。
+- 这份 AGENTS.md 不是变更日志：功能说明不写进来，全文控制在 14 KB 以内。新约束要先得到用户同意。
 - 不提交密钥、`.env`、生成物、依赖目录、编辑器状态和 Obsidian 元数据。`evals/inbox/` 不进 git；其他 eval 材料提交前去掉个人信息。
 
 ## 6. 固定的产品约定
@@ -128,4 +128,14 @@
 ## Stable hashes
 
 - Stable content hashes (for example compaction prefix hashes) use the versioned `jcs-sha256:v1` protocol over RFC 8785 canonical JSON via `hashCanonicalJson` in `@serika/core`. Never change the output format of an existing version; persisted hashes depend on it.
+
+## 7. Agent PR
+
+Codex／Cursor 的产品行为 PR 遵守本节。第 4 节试点步骤要求提交的冒烟证据仍只随该步骤，不塞进产品行为 PR。
+
+1. **证据不进产品 PR。** 不提交 `docs/v2-pilot/evidence/**`、原始 live 结果 JSON、日志或截图。证据留在本地或单独的非产品路径；PR 说明只写短摘要。
+2. **一张脸。** 一个 PR 只含 desktop、telegram、harness/docs 之一。不要再交 #197 那种整链产品加证据合订。
+3. **不连环补。** feat 合并后 48 小时内不为同一主题再开 fix PR。未完成的收进合并前的同一个 PR。
+4. **CI 如实。** CI 为 `disabled_manually` 时必须写明。本地绿不等于远端检查绿。
+5. **已采用后的 discover。** 真 TG 验收须断言软继续：结果含 `HERDR_TARGET_ALREADY_ADOPTED`（或同等文案）且 Run 继续。只扫到没有 `TOOL_NOT_FOUND` 不算通过；#198 之后软路径仍可能带上该 code。
 
