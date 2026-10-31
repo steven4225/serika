@@ -10,3 +10,7 @@
   - **Demo:** How can the user personally verify the result within five minutes? Specify the entry point, necessary preconditions, steps, and observable pass/fail result.
 - If no concrete five-minute Demo can be given, the task must not enter development. Clarify the user outcome first.
 - Code changes, passing unit tests, test counts, and an assistant's success claim do not substitute for the user-observable Demo.
+
+## Product PR
+
+- 产品行为 PR 以仓库根目录 `AGENTS.md` 第 7 节为准。
