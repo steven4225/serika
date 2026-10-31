@@ -1,0 +1,77 @@
+{
+  "runId": "a6e3de5b-741f-4aa9-a175-f8efc782f286",
+  "startedAt": "2026-10-31T15:54:36.049Z",
+  "verification": "offline-build-and-repository-tests",
+  "platform": "darwin",
+  "sourceCommit": "96201cfc7e54677f6f4329e072513ff08fe071a2",
+  "sourceWorktreeDirty": true,
+  "scriptSha256": "ee87e9e15ddf38e3f9d37ee6603402786c380bb2aa058a00f97295c8fd1837de",
+  "realModelCalls": 0,
+  "costUsd": 0,
+  "phases": [
+    {
+      "name": "herdr-start-connect",
+      "command": [
+        "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "apps/desktop/scripts/chat-run-target-telegram-herdr-check.mjs",
+        "--output",
+        "/private/tmp/s197-socket-work/verification/herdr"
+      ],
+      "startedAt": "2026-10-31T15:54:36.081Z",
+      "log": "herdr-start-connect.log",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "02d8888a88c2707196e72dd76fe30173fc62e219c7fc18c01c05c6589f0b279f",
+      "finishedAt": "2026-10-31T15:54:45.007Z",
+      "counts": {
+        "tests": 0,
+        "pass": 0,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "name": "typecheck",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "startedAt": "2026-10-31T15:54:45.007Z",
+      "log": "typecheck.log",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "finishedAt": "2026-10-31T15:54:45.905Z",
+      "counts": {
+        "tests": 0,
+        "pass": 0,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "name": "full-test",
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "startedAt": "2026-10-31T15:54:45.906Z",
+      "log": "full-test.log",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "44b5186c636bf1c7e3d0a3e24364dd6b05d2f3ce4157405d452cb419deadf89d",
+      "finishedAt": "2026-10-31T16:01:07.551Z",
+      "counts": {
+        "tests": 1907,
+        "pass": 1900,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 7
+      }
+    }
+  ],
+  "status": "passed",
+  "finishedAt": "2026-10-31T16:01:07.553Z"
+}

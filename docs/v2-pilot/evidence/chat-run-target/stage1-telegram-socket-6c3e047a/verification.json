@@ -1,0 +1,113 @@
+{
+  "auditId": "a53bb381-8181-4c1e-aad4-eb0ff17600b4",
+  "at": "2026-10-31T16:01:34.938Z",
+  "sourceCommit": "96201cfc7e54677f6f4329e072513ff08fe071a2",
+  "sourceWorktreeDirty": true,
+  "verification": "socket-path-fix-offline-real-herdr-and-repository-checks",
+  "status": "passed",
+  "realModelCalls": 0,
+  "telegramCalls": 0,
+  "costUsd": 0,
+  "before": {
+    "status": "failed",
+    "reproduced": true,
+    "error": "new isolated server did not become ready; preserve target for inspection",
+    "serverLog": "Error: Custom { kind: InvalidInput, error: \"local socket name length exceeds capacity of sun_path of sockaddr_un\" }\n",
+    "retainedRuntime": "/private/tmp/serika-chat-run-target-telegram-repro-dcDUXP"
+  },
+  "native": {
+    "batchId": "6c3e047a-af83-4138-9569-c3124944a420",
+    "status": "passed",
+    "runtimeRoot": "/private/tmp/s197-tg",
+    "modelProxyRequests": 0,
+    "leaseAcquired": true,
+    "concurrentHostRejected": true,
+    "leaseReleasedAndReacquired": true
+  },
+  "phases": [
+    {
+      "name": "herdr-start-connect",
+      "command": [
+        "/opt/homebrew/Cellar/node/26.4.0/bin/node",
+        "apps/desktop/scripts/chat-run-target-telegram-herdr-check.mjs",
+        "--output",
+        "/private/tmp/s197-socket-work/verification/herdr"
+      ],
+      "startedAt": "2026-10-31T15:54:36.081Z",
+      "log": "herdr-start-connect.log",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "02d8888a88c2707196e72dd76fe30173fc62e219c7fc18c01c05c6589f0b279f",
+      "finishedAt": "2026-10-31T15:54:45.007Z",
+      "counts": {
+        "tests": 0,
+        "pass": 0,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "name": "typecheck",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "startedAt": "2026-10-31T15:54:45.007Z",
+      "log": "typecheck.log",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "9834572e462d69df3215a9b0f75b8b6bcdf01cf9b6f54757eb69cec5ddc0c609",
+      "finishedAt": "2026-10-31T15:54:45.905Z",
+      "counts": {
+        "tests": 0,
+        "pass": 0,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "name": "full-test",
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "startedAt": "2026-10-31T15:54:45.906Z",
+      "log": "full-test.log",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "44b5186c636bf1c7e3d0a3e24364dd6b05d2f3ce4157405d452cb419deadf89d",
+      "finishedAt": "2026-10-31T16:01:07.551Z",
+      "counts": {
+        "tests": 1907,
+        "pass": 1900,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 7
+      }
+    }
+  ],
+  "notes": [
+    "The aggregate execution predates the final phase-order adjustment and explicit lease assertions. The unchanged repository tests completed on the same worktree; final-herdr separately exercises the final native checker and its exact script hash.",
+    "Desktop c9a16383 and Telegram 74ccfd3f original evidence remains unchanged. No desktop end-to-end, real Telegram, real model, merge or deployment was run."
+  ],
+  "sourceFiles": [
+    {
+      "path": "apps/desktop/scripts/chat-run-target-telegram-profile.mjs",
+      "sha256": "a782642f1d4126d971cfe82a31396f9cfd3f6103f1f791f7ff8f84bd95ce38a4"
+    },
+    {
+      "path": "apps/desktop/scripts/chat-run-target-telegram-herdr-check.mjs",
+      "sha256": "14dfee7c21bbebf5df22cf8f01b5c1030d157cd34a3fb68dc260449ca0c89135"
+    },
+    {
+      "path": "apps/desktop/scripts/chat-run-target-telegram-test.env.example",
+      "sha256": "7a6a90a62dd1a8ecb5403b3f5f6f6145f8f5d7daacc4969cf11498b59d7f9f6c"
+    },
+    {
+      "path": "scripts/chat-run-target-verify.mjs",
+      "sha256": "4fda6fdd69c5f471e72572cff1e0c562de404d2e0dac98256e8bd324e48edbaa"
+    }
+  ]
+}

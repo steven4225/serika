@@ -1,0 +1,31 @@
+{
+  "id": "b6a1a31f-635e-4f10-9812-fb303fefa182",
+  "startedAt": "2026-10-31T15:53:16.453Z",
+  "root": "/private/tmp/serika-chat-run-target-telegram-repro-dcDUXP",
+  "verification": "real-herdr-long-path-reproduction",
+  "realModelCalls": 0,
+  "telegramCalls": 0,
+  "status": "failed",
+  "error": "new isolated server did not become ready; preserve target for inspection",
+  "state": {
+    "id": "f1c8f622-de32-4c53-a379-6ba55e671fcd",
+    "root": "/private/tmp/serika-chat-run-target-telegram-repro-dcDUXP/herdr-fixture",
+    "parentRoot": "/private/tmp/serika-chat-run-target-telegram-repro-dcDUXP",
+    "createdAt": "2026-10-31T15:53:16.455Z",
+    "phase": "server-spawned",
+    "unknown": false,
+    "home": "/private/tmp/serika-chat-run-target-telegram-repro-dcDUXP/herdr-fixture/H",
+    "piDirectory": "/private/tmp/serika-chat-run-target-telegram-repro-dcDUXP/herdr-fixture/pi",
+    "work": "/private/tmp/serika-chat-run-target-telegram-repro-dcDUXP/herdr-fixture/workspace",
+    "piSession": "/private/tmp/serika-chat-run-target-telegram-repro-dcDUXP/herdr-fixture/pi-session.jsonl",
+    "model": "deepseek/deepseek-v4.1-flash-fast",
+    "proxyURL": "http://127.0.0.1:1/pi/v1",
+    "operations": [],
+    "session": "w-f1c8f622",
+    "serverPid": 13036
+  },
+  "serverLog": "Error: Custom { kind: InvalidInput, error: \"local socket name length exceeds capacity of sun_path of sockaddr_un\" }\n",
+  "serverAlive": false,
+  "reproduced": true,
+  "finishedAt": "2026-10-31T15:53:32.406Z"
+}

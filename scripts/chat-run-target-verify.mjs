@@ -18,14 +18,18 @@ const home = await mkdtemp(join(tmpdir(), 'serika-chat-target-verification-home-
 const env = Object.fromEntries(['PATH', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'TMPDIR', 'SHELL'].flatMap(name => process.env[name] ? [[name, process.env[name]]] : []));
 Object.assign(env, { HOME: home, SERIKA_TEST_HOME: home, SERIKA_B2_RECORD_CONCURRENT_HOME: '1' });
 const save = () => writeFile(join(output, 'result.json'), JSON.stringify(report, null, 2) + '\n');
-for (const [name, args] of [['typecheck', ['typecheck']], ['full-test', ['test']]]) {
+for (const [name, command] of [
+  ['typecheck', ['pnpm', 'typecheck']],
+  ['herdr-start-connect', [process.execPath, 'apps/desktop/scripts/chat-run-target-telegram-herdr-check.mjs', '--output', join(output, 'herdr')]],
+  ['full-test', ['pnpm', 'test']],
+]) {
   const log = join(output, `${name}.log`), fd = openSync(log, 'w');
-  const row = { name, command: ['pnpm', ...args], startedAt: new Date().toISOString(), log: `${name}.log` };
+  const row = { name, command, startedAt: new Date().toISOString(), log: `${name}.log` };
   report.phases.push(row);
   await save();
   console.log(JSON.stringify({ phase: name, status: 'running', output }));
   try {
-    const child = spawn('pnpm', args, { cwd: repo, env, stdio: ['ignore', fd, fd] });
+    const child = spawn(command[0], command.slice(1), { cwd: repo, env, stdio: ['ignore', fd, fd] });
     const result = await new Promise((done, fail) => { child.once('error', fail); child.once('close', (exitCode, signal) => done({ exitCode, signal })); });
     Object.assign(row, result);
   } finally { closeSync(fd); }

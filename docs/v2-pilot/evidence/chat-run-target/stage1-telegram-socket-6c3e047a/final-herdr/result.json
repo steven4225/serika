@@ -1,0 +1,64 @@
+{
+  "batchId": "6c3e047a-af83-4138-9569-c3124944a420",
+  "startedAt": "2026-10-31T15:57:13.949Z",
+  "verification": "real-herdr-start-connect-two-offline-pi",
+  "sourceCommit": "96201cfc7e54677f6f4329e072513ff08fe071a2",
+  "sourceWorktreeDirty": true,
+  "platform": "darwin",
+  "node": "v26.4.0",
+  "scriptSha256": "14dfee7c21bbebf5df22cf8f01b5c1030d157cd34a3fb68dc260449ca0c89135",
+  "runtimeRoot": "/private/tmp/s197-tg",
+  "profileRoot": "/private/tmp/s197p-h7vneG",
+  "status": "passed",
+  "modelProxyRequests": 0,
+  "realModelCalls": 0,
+  "telegramCalls": 0,
+  "costUsd": 0,
+  "leaseAcquired": true,
+  "secondPi": {
+    "target": {
+      "authorizedDirectory": "/private/tmp/s197-tg/herdr-fixture/workspace",
+      "session": "w-82fc3aac",
+      "paneId": "w1:p2",
+      "terminalId": "term_65f24f7a0ddbc2"
+    },
+    "piSession": "/private/tmp/s197-tg/herdr-fixture/pi-second.jsonl"
+  },
+  "workspaceList": {
+    "id": "cli:workspace:list",
+    "result": {
+      "type": "workspace_list",
+      "workspaces": [
+        {
+          "active_tab_id": "w1:t1",
+          "agent_status": "idle",
+          "focused": true,
+          "label": "Serika isolated wiring",
+          "number": 1,
+          "pane_count": 2,
+          "tab_count": 1,
+          "workspace_id": "w1"
+        }
+      ]
+    }
+  },
+  "serverPid": 28732,
+  "concurrentHostRejected": true,
+  "initialObservation": {
+    "ok": true,
+    "value": {
+      "terminalId": "term_65f24f76526611",
+      "paneId": "w1:p1",
+      "status": "idle",
+      "stateChangeSeq": 1
+    }
+  },
+  "cleanup": {
+    "statePath": "/private/tmp/s197-tg/herdr-fixture/herdr-state.json",
+    "phase": "cleaned",
+    "session": "w-82fc3aac",
+    "retainedFixture": "/private/tmp/s197-tg/herdr-fixture"
+  },
+  "leaseReleasedAndReacquired": true,
+  "finishedAt": "2026-10-31T15:57:22.648Z"
+}

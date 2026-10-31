@@ -1,6 +1,6 @@
 # 聊天发现 CLI 与当前 Run Pi 目标
 
-> 2026-10-31 最新结论：桌面 c9a16383 整链 PASS 沿用；专用测试 Bot `@serika197_test_4225_bot` 的身份/API、账号 ID 取得及准备消息游标确认完成，配置预检通过。随后正式验收批 74ccfd3f 在隔离 Herdr 启动时触发 Unix socket 路径过长，失败即停，尚未创建 TG 网关或模型 Run，0 Run／0 模型请求／$0。现场和失败原件保留，未重试。专用 profile 离线 10/10/typecheck 沿用；真实 TG 完成定义仍未通过，历史失败原件不变，日用未接管或临停。
+> 2026-11-01 最新结论：专用 TG 默认 runtime 已缩短为 `/private/tmp/s197-tg`；真实 Herdr 启动、连接、两个 offline Pi 就绪及 profile 租约取得/互斥/释放后重取均通过，typecheck 与全测 1900 pass／7 skip／0 fail。桌面 c9a16383 整链 PASS、采用后契约收窄与专用测试 Bot 方向沿用。74ccfd3f 仍为 socket 启动失败、0 Run／0 请求／$0，原现场和归档 hash 不变。真实 TG 完成定义仍未通过，新批等待“继续”；未临停日用、未合并或部署。
 
 ## 1. 改了什么
 
@@ -447,3 +447,23 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 3. 数字：本批 0 宿主 Run／0 上游模型请求／$0／未结算 0，cases/transport/inboundChecks 均空，网关与测试绑定尚未建立，Pi 创建/输入均 0。测试 profile 租约已释放，失败 runtime 原样保留，未追加调用或清理命令。产品/harness/测试代码 `+0/-0`；只增加证据、报告和零费用账目。桌面 PASS 与已接受离线关口沿用，无桌面重跑。
 4. 命令与退出码：live `--check-settings` exit 0；`node --import ./apps/desktop/node_modules/tsx/dist/loader.mjs apps/desktop/scripts/chat-run-target-telegram-live.mjs --run --env-file /Users/a1-6/.config/serika/chat-run-target-telegram-test.env --output /private/tmp/serika-197-tg-dedicated-live-f18c092a` exit 1。原 stop-audit CLI、result/stop-audit 原件 SHA 核对、旧三批 result hash 核对及归档凭据前缀扫描均 exit 0。原 Herdr state 与日志逐字复制；`kill(pid,0)` 只读核对失败服务进程已退出，没有发送终止信号。
 5. 偏离与下一步：前轮离线 gateway 测试未启动真实 Herdr 服务，未覆盖固定长路径导致的 socket 启动失败，不能以 10/10 推断完整 fixture 可用。setup 未返回，所以原 stop-audit.fixtureRetained=null；现场的实际 state/log 单独归档并在 archive-summary 绑定 hash，不补造原 result 字段或改绿。按 Prove It Works 保留真实失败，按失败即停不换目录重跑本批。下一步应先缩短隔离 runtime 路径并离线验证真实服务启动，再启动新真批；本轮只更新 #197 后停止，不合并、不部署、不扩授权/Seatbelt。
+
+### 74ccfd3f socket 修复范围，2026-10-31
+
+本批只缩短专用 TG 默认隔离 runtime，并把真实 Herdr 启动、连接和两个 offline Pi 就绪检查加入离线验证入口。沿用 `setup/addPi/cleanup` 与原 HerdrClient，不增加 socket override，不修改 HOME 归属、工作区授权、选择/审批/unknown 停止契约。原失败 runtime 与证据保留，桌面 c9a16383 PASS 沿用。离线使用合成配置和拒绝请求的本机代理，不读取真实测试 env、不连接 TG、不调用模型；只在全部连接和就绪检查通过后清理本次创建的目标，失败保留现场。完成离线后只报下一真 TG 批预算，不启动真批、不合并、不部署。
+
+### socket 修复离线结果与 TG 预算，2026-11-01
+
+1. 改了什么：`telegram-profile.mjs` 与 env 模板仅缩短默认 runtime，失败目录不复用、不移动。新增 `chat-run-target-telegram-herdr-check.mjs` 使用合成设置、原 `setup/addPi/cleanup` 与拒绝请求的 loopback 代理；总离线入口按 typecheck → 真 Herdr → 全测执行。没有修改产品代码、socket override、HOME 归属、授权、Seatbelt、选择或审批协议。
+2. 逐条对照：新长路径独立复现原 `sun_path` 错误，服务已退出、无 workspace/Pi 操作，复现现场保留；短默认路径下真 Herdr 的 `workspace list` 成功，服务器存活，原 HerdrClient 读取两个 Pi 就绪。profile 租约已取得，运行时第二宿主被拒绝，释放后成功重取。清理只用于本次成功且 idle/done 的目标；异常路径不清理。最终专项 [result](evidence/chat-run-target/stage1-telegram-socket-6c3e047a/final-herdr/result.json)、[真实 state](evidence/chat-run-target/stage1-telegram-socket-6c3e047a/final-herdr/herdr-state.json) 与 [总核对](evidence/chat-run-target/stage1-telegram-socket-6c3e047a/verification.json)。74ccfd3f 和桌面 c9a16383 的 52 个归档文件未变；原失败 runtime 的 state/log 与归档 hash 一致，见 [integrity](evidence/chat-run-target/stage1-telegram-socket-6c3e047a/integrity.json)。真实 TG 配对及后续整链本轮没做，等待授权。
+3. 数字：产品代码 `+0/-0`；harness 默认配置与模板 `+2/-2`；验证脚本 `+79/-3`。验证代码多于配置改动，用于补上这次确实漏掉的外部进程启动/连接与租约检查。macOS、Node 26.4.0、Herdr 0.8.2 下本轮 0 真实模型请求、0 TG 请求、$0；代理请求也为 0。全测 1907 tests、1900 pass、7 skip、0 fail/cancelled。未新增模型 Run，未向 Pi 输入任务。
+4. 命令与退出码：独立长路径复现脚本 exit 0，表示已复现失败，原失败结果仍为 failed；`node scripts/chat-run-target-verify.mjs /private/tmp/s197-socket-work/verification` exit 0，内部真实 Herdr、typecheck、pnpm test 均 exit 0。该总入口执行后仅调整 phase 顺序及输出路径限制，并补显式租约断言；最终 `node apps/desktop/scripts/chat-run-target-telegram-herdr-check.mjs --output /private/tmp/s197-socket-work/final-herdr` exit 0，证据绑定最终脚本 hash。零请求 `--check-settings` exit 0，确认真实测试配置当前使用短 runtime；语法检查、`git diff --check`、原件 hash 核对均 exit 0。
+5. 偏离与边界：遵照本轮“不重做桌面整链”，没有重跑桌面整链或标准 Electron smoke，旧 PASS 只沿用原证据；不以本次 Node/假 API 全测替代真实 TG。全测 write guard 为 passed、violations=0，同时观察到并发元数据变化，`metadataUnchanged=false`，不声称日用元数据完全没变。没有修改失败证据、已确认不变量或锁实现。按 Laziness Protocol 仅缩短已有根路径，按 Fix Root Causes 真复现后修路径，按 Prove It Works 启动实际服务并验证连接/租约。改动留在独立工作树，未提交/推送。
+
+五分钟 Demo：本机已装 Herdr/Pi 且 runtime 已构建，`/private/tmp/s197-tg` 没有保留现场时，在本工作树运行最终专项命令并使用新的仓库外 output。约十秒后 result 应为 passed，含真实 workspace_list、两个目标、leaseAcquired/concurrentHostRejected/leaseReleasedAndReacquired=true、modelProxyRequests=0；任一不满足即失败并保留现场。不要删除原失败目录来满足前置条件。
+
+下一批预算提案仍为 **≤1 宿主 Run／24 次总上游模型请求／$0.25 本地上限**，含 Serika、压缩及选中 Pi，沿用冻结脚本费率与预留核算，非账单核验。仅使用专用测试 Bot 与既有测试 env，不临停日用同 Bot；原 TG 配对、发现≥2、一次短码选择、同 Run 采用且采用后无 discover、独立操作审批、单次派发、未选目标零输入、准确回读及独立产物核查完成定义保持。验证失败、拒绝/取消、目标或环境变化、unknown、用量/运输不确定或预算上限立即冻结；unknown 后不自动回读、重发、换目标或控制清理。若再发生基建失败，停下等用户决定是否先合桌面。本轮只报预算，等待用户“继续”，不启动真批、不合并、不部署或扩权。
+
+### 新 TG 批次启动授权，2026-11-01
+
+用户“继续”批准上述 ≤1 宿主 Run／24 总请求／$0.25 批次，并在本对话明确确认手机已打开专用 Bot、已就绪。先将 socket 修复和离线证据提交为真实验收的干净源码，再运行原 dedicated-test-bot harness；不重跑桌面、不接管日用、不合并或部署。离线证据中的 sourceWorktreeDirty=true 保留，不回写为干净；新真实批独立记录实际提交、随机编号和费用。

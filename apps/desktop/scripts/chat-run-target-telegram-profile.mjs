@@ -28,7 +28,7 @@ export function telegramTestSettings({ source, envFile, forbiddenBotId }) {
   assert.ok(source.COMMAND_CODE_MODEL_ID === 'deepseek/deepseek-v4.1-flash-fast', 'Unsupported test model');
   assert.ok(source.COMMAND_CODE_API_KEY && source.TELEGRAM_BOT_TOKEN, 'Test model and Bot credentials are required');
   const profileRoot = resolve(source.SERIKA_TG_TEST_PROFILE_ROOT || join(homedir(), '.serika-test/chat-run-target-telegram'));
-  const runtimeRoot = resolve(source.SERIKA_TG_TEST_RUNTIME_ROOT || '/private/tmp/serika-chat-run-target-telegram-test-runtime');
+  const runtimeRoot = resolve(source.SERIKA_TG_TEST_RUNTIME_ROOT || '/private/tmp/s197-tg');
   assert.ok(inside(join(homedir(), '.serika-test'), profileRoot) || inside('/private/tmp', profileRoot), 'Profile must be an isolated test path');
   assert.ok(inside('/private/tmp', runtimeRoot), 'Runtime must be isolated under /private/tmp');
   assert.ok(profileRoot !== runtimeRoot && !inside(runtimeRoot, profileRoot) && !inside(profileRoot, runtimeRoot), 'Persistent profile and disposable runtime must be separate');
