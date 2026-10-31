@@ -10,7 +10,7 @@ import { createAssistantController, type AssistantController } from "./assistant
 
 const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
   outputTokens: { total: 1, text: 1, reasoning: undefined } };
-async function fixture(options: { mode?: string; stale?: boolean; windowTokens?: number; totalTimeoutMs?: number; onRequest?: (index: number) => Promise<void>; calls: { name: string; input: unknown }[] }) {
+async function fixture(options: { source?: "desktop" | "telegram"; mode?: string; stale?: boolean; windowTokens?: number; totalTimeoutMs?: number; onRequest?: (index: number) => Promise<void>; calls: { name: string; input: unknown }[] }) {
   const root = await realpath(await mkdtemp("/private/tmp/serika-run-target-"));
   const directory = join(root, "work"), bin = join(root, "bin"), home = join(root, "home"), log = join(root, "calls.jsonl"), state = join(root, "state.json");
   await Promise.all([mkdir(directory), mkdir(bin), mkdir(home)]);
@@ -64,9 +64,13 @@ else {if(a[3]==='prompt')writeFileSync(${JSON.stringify(join(directory, "answer.
   const calls = async (): Promise<string[][]> => (await readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line));
   const run = async (text = "使用现有 Pi 完成小任务并核对产物") => {
     const done = new Promise<void>(resolve => { const off = controller.subscribe(event => { if (event.type === "state" && event.state.kind === "idle") { off(); resolve(); } }); });
-    const start = await controller.run(text, { desktopEntry: true });
-    assert.ok(start.ok); await done;
-    return start.runId;
+    // The real embedding host keeps the process alive while the mock stream settles.
+    const keepAlive = setInterval(() => {}, 1000);
+    try {
+      const start = await controller.run(text, options.source === "telegram" ? { source: "telegram" } : { desktopEntry: true });
+      assert.ok(start.ok); await done;
+      return start.runId;
+    } finally { clearInterval(keepAlive); }
   };
   return { root, directory, app, controller, calls, run, set, requests, contracts,
     cleanup: async () => { await controller.shutdown(); await rm(root, { recursive: true, force: true }); } };
@@ -147,6 +151,49 @@ it("unbound multi-target choice keeps the original Run, freezes approval, sends 
     assert.ok(calls.filter(a => a[3] === "prompt").every(a => a[4] === "p2"));
     assert.equal(calls.filter(a => a[0] === "session").length, 2, "one discovery per Run, no rediscovery for readback");
   } finally { remove(); await f.cleanup(); }
+});
+
+for (const source of ["desktop", "telegram"] as const) it(`${source} adopted discover hallucination is unexecuted feedback in the same Run with current-only model context`, async () => {
+  const f = await fixture({ source, calls: [{ name: "herdr_pi_discover", input: {} },
+    { name: "herdr_pi_discover", input: { refresh: true } }, { name: "herdr_pi_read", input: { action: "get" } },
+    prompt, { name: "herdr_pi_read", input: { action: "read" } }, { name: "read_file", input: { path: "answer.json" } }] });
+  let choices = 0, approvals = 0;
+  const off = f.controller.subscribe(event => {
+    if (event.type === "herdr-selection") {
+      choices++;
+      f.controller.selectHerdrTarget({ selectionId: event.selection.selectionId, candidateId: event.selection.candidates[1]!.candidateId });
+    }
+    if (event.type === "approval" && event.approval.preview) {
+      if (event.approval.toolName === "herdr_pi_control") approvals++;
+      f.controller.confirm({ approvalId: event.approval.approvalId, decision: "allow" });
+    }
+  });
+  try {
+    const id = await f.run();
+    assert.equal(f.controller.getSnapshot().lastPrimaryResult?.status, "completed");
+    const receipt = await f.controller.runs.get(id);
+    assert.equal(receipt?.tools[1]?.startedAt, null);
+    assert.match(receipt?.tools[1]?.errorPreview ?? "", /HERDR_TARGET_ALREADY_ADOPTED/);
+    assert.equal(choices, 1); assert.equal(approvals, 1);
+    assert.ok(f.contracts.slice(1).every(names => !names.includes("herdr_pi_discover")));
+    const afterChoice: { role: string; content: unknown }[] = JSON.parse(f.requests[1]!);
+    const system = afterChoice.filter(message => message.role === "system").map(message => String(message.content)).join("\n");
+    const capabilityLine = system.split("\n").find(line => line.startsWith('{"modules":'));
+    assert.ok(capabilityLine);
+    assert.ok(!JSON.parse(capabilityLine).tools.includes("herdr_pi_discover"));
+    assert.match(f.requests[1]!, /Historical discovery; superseded by host adoption/);
+    assert.match(f.requests[2]!, /HERDR_TARGET_ALREADY_ADOPTED/);
+    const saved = await f.app.store.getMessages("thread");
+    const discovery = saved.flatMap(message => message.parts).find(part => part.type === "dynamic-tool" && part.toolCallId === "call-1");
+    assert.ok(discovery?.type === "dynamic-tool" && discovery.state === "output-available");
+    assert.match(JSON.stringify(discovery.output), /"adoptedTarget":null/);
+    assert.ok(!JSON.stringify(saved).includes("Historical discovery; superseded by host adoption"));
+    const calls = await f.calls();
+    assert.equal(calls.filter(args => args[0] === "session").length, 1);
+    assert.equal(calls.filter(args => args[3] === "prompt").length, 1);
+    assert.ok(calls.filter(args => args[3] === "prompt").every(args => args[4] === "p2"));
+    assert.deepEqual(JSON.parse(await readFile(join(f.directory, "answer.json"), "utf8")), { sum: 15 });
+  } finally { off(); await f.cleanup(); }
 });
 
 it("adopted discovery rejects stale same-response selectors without changing adoption or weakening source evidence", async () => {
