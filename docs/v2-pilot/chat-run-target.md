@@ -318,3 +318,12 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 3. 数字：实际 1 宿主任务 Run、14 次上游请求，其中主模型 9、Pi 4、compactor 1，均 returned。按原批准的脚本峰时费率估算 `$0.01076272`，非账单核验；未结算调用和预留费用均为 0。费用仅追加一次到 cost-ledger。相对候选 `d19be49`，本次产品改动 0，新增审计脚本 137 行，测试/验收内容未因真实运行结果修改。
 4. 实际命令与退出码：隔离 guard 下 `pnpm build` 退出 0；`node …/chat-run-target-live.mjs --pi-only --env-file /Users/a1-6/.config/serika/v2-daily.env --run --output /private/tmp/serika-197-contract-live-c6009e35/live` 退出 0；`node scripts/chat-run-target-contract-audit.mjs …/live` 退出 0。两份 guard passed、零违规，metadataUnchanged=false，不声称日用元数据未变。14 对原始请求/响应、截图、result 的 SHA-256 和累计费用均独立核对，密钥常见前缀扫描零命中。产品与先前全测/假模型候选相同，本次未重复全测或追加真调用。
 5. 偏离与观察限制：一次最初只读提取器误把第 14 个 compactor 请求当主请求，访问必填 tools 报 KeyError，已暂停结论并只读确认用途；正式审计明确要求每个主请求含 tools，仅识别到的 compactor 可无 tools，其费用仍计入总额。独立复核的附加严格毫秒先后断言也不适用，宿主决定与 tool.startedAt 均为 `08:06:53.207Z`；Pi 唯一实际输入为 `08:06:53.605Z`，晚于批准。未改原始时间，未臆造审批 AgentEvent sequence，未追加 Run。只读复核最终未发现桌面完成定义缺口。按最小改动/实物核查原则保留上述原件和 verified=false，以完整链条作结论；本轮只更新原 #197，不合并、不部署日用。
+### 真实 Telegram 补验协议，2026-10-31
+
+本节先于 TG 验收脚本写入。桌面 c9a16383 的 PASS 及既有离线关口沿用。本批仅补真实 TG，最多 1 宿主 Run、24 总模型请求、$0.25 本地核算，包含 Pi 与辅助请求；费用沿用桌面脚本的冻结费率，非账单核验。用户已明确允许从 `/Users/a1-6/.config/serika/v2-daily.env` 在进程内取所需连接字段，并临时停用及恢复日用 TG 接入；不替换或重启日用宿主。
+
+执行顺序为：本地确认日用空闲及 TG 当前状态 → 原 resident API 关闭日用 TG 并等待轮询结束 → 原 DesktopRuntime、TelegramStore、TelegramGateway 与 Bot API 在独立临时目录启动 → 用户真实私聊 `/start <配对码>`，核对与日用已绑定账号一致后原 confirmPairing 接受 → 用户发送本批任务一次 → discover 至少两个 idle Pi → TG `选择 <短码> <序号>` 一次 → 原 selectHerdrTarget 接受且同 Run 采用 → 后续主请求不含 discover、read/control 取宿主目标 → TG 独立批准冻结操作 → 派发一次 → 原 Run 回读和独立读取产物 → 外部核对 Pi JSONL 与本批文件 → 关闭隔离 TG，核对停止后恢复原日用 TG。日用绑定、权限及配置不复制到隔离授权；隔离绑定走真实配对，不手造入站更新或成功回执。
+
+留证包含真实 Bot API 收发的消息号与入站更新、原 runtime-bridge 的选择/审批 accepted、runId/toolCallId/approvalId、冻结完整身份/正文/version、原工具结果、全部模型请求/响应及 SHA-256、用量、Pi 转录和产物。只归档当前配对及任务的消息，排除无关历史。Telegram 的 submitted 仅证明 API 接收，入站选择及批准另证用户动作。read_file 若需确认仍经 TG 逐次批准，不启用 TG 目录免确认授权。
+
+成功必须同 runId、有效选择恰好一次、selectionVersion=1、采用后无 discover、独立操作批准恰好一次、控制派发恰好一次、冻结/批准/发送一致、未选目标零输入、回读含本批随机标识、外部产物精确一致，且每个 accepted 审批有派发或明确未派发结论。失败、拒绝、取消、身份变化、unknown、费用或运输不确定、预算触顶立即冻结，无新 Run。unknown 后不自动回读、重发、换目标或控制清理；通道隔离与日用恢复仍按原设置 API 完成，不重放隔离期间消息。已处理消息的 TG 游标须由真实 getUpdates 回应确认；必要时仅作一次通道交接确认，不转交其中新消息、不调用模型或工具，确认未知则停止恢复并报告，避免日用重放。日用现有 3 条历史 unknown 投递只记数量，不复制、不重发，不归入本批结果。失败原件保持失败。本批无桌面链重跑、真实 Shell、日用部署、合并或 Seatbelt/授权修改。

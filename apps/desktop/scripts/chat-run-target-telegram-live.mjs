@@ -1,0 +1,289 @@
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { createHash, randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { mkdir, mkdtemp, readFile, writeFile, rm, access } from 'node:fs/promises';
+import { join, resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual, parseEnv } from 'node:util';
+import { existsSync } from 'node:fs';
+import { setTimeout as delay } from 'node:timers/promises';
+import { DesktopRuntime } from '../src/main/desktop-runtime.ts';
+import { TelegramGateway } from '../src/main/telegram-gateway.ts';
+import { TelegramStore } from '../src/main/telegram-store.ts';
+import { createTelegramApi } from '../src/main/telegram-api.ts';
+import { ResidentClient } from '../src/main/resident-transport.ts';
+import { configureCliModel } from '@serika/assistant';
+import { setup, addPi, cleanup } from './chat-run-target-live-herdr.mjs';
+import { approvalChain } from './chat-run-target-approval.mjs';
+
+const repo = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
+const hash = value => createHash('sha256').update(value).digest('hex');
+const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
+const arg = name => { const i = process.argv.indexOf(name); assert.ok(i >= 0 && process.argv[i + 1], `Missing ${name}`); return process.argv[i + 1]; };
+const model = 'deepseek/deepseek-v4.1-flash-fast', capUsd = .25, maxRequests = 24, maxRuns = 1;
+const price = { input: .32, output: 1.16, cacheRead: .03 };
+const envFile = '/Users/a1-6/.config/serika/v2-daily.env';
+if (!process.argv.includes('--run')) {
+  console.log(JSON.stringify({ mode: 'zero-request-preflight', importsLoaded: true, envFilePresent: existsSync(envFile), model, capUsd, maxRequests, maxRuns,
+    modelCalls: 0, telegramCalls: 0, scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))) }));
+  process.exit(0);
+}
+assert.equal(git('status', '--porcelain'), '', 'Commit the harness before live evidence');
+const output = resolve(arg('--output')); assert.ok(output.startsWith('/private/tmp/')); await mkdir(output);
+const root = await mkdtemp('/private/tmp/tg-');
+const source = parseEnv(await readFile(envFile, 'utf8'));
+assert.equal(source.COMMAND_CODE_BASE_URL, 'https://api.commandcode.ai/provider/v1');
+assert.equal(source.COMMAND_CODE_MODEL_ID, model);
+assert.ok(source.COMMAND_CODE_API_KEY && source.TELEGRAM_BOT_TOKEN);
+const credentials = { key: source.COMMAND_CODE_API_KEY, base: source.COMMAND_CODE_BASE_URL,
+  telegram: source.TELEGRAM_BOT_TOKEN, proxy: source.TELEGRAM_PROXY_URL };
+for (const key of Object.keys(source)) delete source[key];
+const report = { batchId: randomUUID(), startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
+  verification: 'real-telegram-original-node-desktop-runtime-real-model-isolated-herdr-pi', platform: process.platform, node: process.version,
+  scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))), model, capUsd, maxRequests, maxRuns, pricePerMillionUsd: price,
+  priceBasis: 'Frozen desktop c9a16383 script rates; not invoice verified', credentialSource: envFile, credentialsWrittenToDisk: false,
+  calls: [], cases: [], errors: [], approvalEvents: [], transport: [], costUsd: 0, status: 'running', isolatedRoot: root };
+let frozen = false, stage = 'preparation', fixture, secondPi, host, gateway, store, daily, dailyBefore, dailyPaused = false;
+let lastPollOffset = -1, activeInbound, expectedPairing, expectedPrompt, taskMessageId, runId;
+let saving = Promise.resolve();
+const save = () => { const value = JSON.stringify(report, null, 2) + '\n'; saving = saving.then(() => writeFile(join(output, 'result.json'), value)); return saving; };
+const tell = value => console.log(JSON.stringify(value));
+const stop = reason => { frozen = true; report.stopReason ??= reason; };
+const pending = new Set();
+const server = createServer((req, res) => { const work = request(req, res); pending.add(work); void work.finally(() => pending.delete(work)); });
+async function request(req, res) {
+  let row;
+  try {
+    assert.ok(['/serika/v1/chat/completions', '/pi/v1/chat/completions'].includes(req.url));
+    const chunks = []; for await (const chunk of req) chunks.push(chunk);
+    const body = JSON.parse(Buffer.concat(chunks).toString()); assert.equal(body.model, model);
+    for (const message of body.messages ?? []) {
+      if (message.role !== 'tool' || typeof message.content !== 'string') continue;
+      let result; try { result = JSON.parse(message.content); } catch { continue; }
+      if (result?.ok === false) { stop('non-success-tool-result'); if (result.error?.code === 'TOOL_OUTCOME_UNKNOWN') report.unknownEffect = true; }
+    }
+    const caller = req.url.startsWith('/pi/') ? 'pi' : 'serika';
+    const system = body.messages.filter(m => m.role === 'system').map(m => m.content).join('\n');
+    if (caller === 'serika' && !system.startsWith('You are a context compactor.')) {
+      const names = body.tools?.map(tool => tool.function.name); assert.ok(names?.includes('herdr_pi_read') && names.includes('herdr_pi_control'));
+      assert.equal(names.includes('herdr_pi_discover'), !report.cases[0]?.hostDecisions.some(d => d.kind === 'selection' && d.response.accepted));
+    }
+    const maxOutput = body.max_tokens ?? body.max_completion_tokens ?? 4096;
+    assert.ok(Number.isSafeInteger(maxOutput) && maxOutput > 0 && maxOutput <= 4096);
+    if (body.max_tokens === undefined && body.max_completion_tokens === undefined) body.max_tokens = maxOutput;
+    const text = JSON.stringify(body), reservedUsd = ((Buffer.byteLength(text) + 32768) * price.input + maxOutput * price.output) / 1e6;
+    const unresolved = report.calls.filter(call => call.status !== 'returned').reduce((sum, call) => sum + call.reservedUsd, 0);
+    if (frozen || report.calls.length >= maxRequests || report.costUsd + unresolved + reservedUsd > capUsd) {
+      stop('approved-request-or-cost-cap'); await save(); res.writeHead(429, { 'Content-Type': 'application/json' }); res.end('{"error":{"message":"Batch stopped; no upstream request"}}'); return;
+    }
+    row = { sequence: report.calls.length + 1, id: randomUUID(), stage, caller, startedAt: new Date().toISOString(), status: 'dispatched',
+      reservedUsd, requestBytes: Buffer.byteLength(text), requestSha256: hash(text), maxOutputTokens: maxOutput };
+    report.calls.push(row); await writeFile(join(output, `request-${row.sequence}.json`), JSON.stringify(body, null, 2) + '\n'); await save();
+    const response = await fetch(credentials.base + '/chat/completions', { method: 'POST', headers: { Authorization: `Bearer ${credentials.key}`, 'Content-Type': 'application/json' },
+      body: text, signal: AbortSignal.timeout(120000) });
+    row.httpStatus = response.status;
+    if (!response.ok) { row.status = 'http-error'; throw new Error('Upstream failed; body withheld'); }
+    res.writeHead(200, { 'Content-Type': response.headers.get('content-type') ?? 'application/json' });
+    const returned = []; for await (const chunk of response.body) { returned.push(Buffer.from(chunk)); res.write(chunk); }
+    const returnedText = Buffer.concat(returned).toString();
+    const frames = body.stream ? returnedText.split('\n').filter(line => line.startsWith('data: ') && !line.includes('[DONE]')).map(line => JSON.parse(line.slice(6))) : [JSON.parse(returnedText)];
+    const usage = frames.findLast(frame => frame.usage)?.usage;
+    const input = usage?.prompt_tokens, out = usage?.completion_tokens, cacheRead = usage?.prompt_tokens_details?.cached_tokens ?? usage?.prompt_cache_hit_tokens ?? 0;
+    row.responseSha256 = hash(returnedText); await writeFile(join(output, `response-${row.sequence}.txt`), returnedText);
+    if (![input, out, cacheRead].every(Number.isSafeInteger) || input < 0 || out < 0 || cacheRead < 0 || cacheRead > input) { row.status = 'usage-unknown'; stop('usage-unknown'); }
+    else {
+      row.usage = { input, output: out, cacheRead }; row.status = 'returned';
+      row.costUsd = ((input - cacheRead) * price.input + cacheRead * price.cacheRead + out * price.output) / 1e6; report.costUsd += row.costUsd;
+      if (row.costUsd > reservedUsd) stop('reservation-exceeded');
+    }
+    row.finishedAt = new Date().toISOString(); await save(); res.end(); tell({ call: row.sequence, caller, status: row.status, costUsd: report.costUsd });
+  } catch (error) {
+    stop('model-request-failure'); if (row?.status === 'dispatched') row.status = 'transport-unknown';
+    report.errors.push({ stage: 'model-proxy', name: error.name, message: error instanceof assert.AssertionError ? error.message : 'Request failed; private details withheld' });
+    await save(); if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'application/json' }); res.end('{"error":{"message":"Batch stopped; no replay"}}');
+  }
+}
+async function waitFor(check, name, ms = 300000) {
+  const deadline = Date.now() + ms;
+  while (!await check()) { assert.ok(!frozen, `Stopped: ${report.stopReason}`); assert.ok(Date.now() < deadline, `Timed out: ${name}`); await delay(100); }
+  assert.ok(!frozen, `Stopped: ${report.stopReason}`);
+}
+function observe(message) {
+  const currentId = message.type === 'event' ? message.event.runId : message.runId ?? host?.current.snapshot().state.runId ?? runId;
+  if (message.type === 'state' && message.state.kind === 'running' && message.state.runId) {
+    if (runId && runId !== message.state.runId) stop('unexpected-additional-run'); runId ??= message.state.runId;
+  }
+  if (['approval', 'approval-cleared', 'approval-decision', 'herdr-selection', 'herdr-selection-cleared', 'herdr-selection-decision', 'event', 'result'].includes(message.type)) {
+    report.approvalEvents.push({ ...message, runId: currentId, at: new Date().toISOString() });
+    if (message.type.endsWith('-decision')) {
+      const selection = message.type === 'herdr-selection-decision';
+      report.cases[0]?.hostDecisions.push({ kind: selection ? 'selection' : 'approval', runId: message.runId, value: selection ? message.selection : message.approval,
+        input: message.input, toolCallId: selection ? message.selection?.toolCallId : message.approval?.toolCallId, approvalId: message.approval?.approvalId,
+        decision: message.input.decision, response: { accepted: message.accepted }, source: message.source, at: message.decidedAt,
+        telegramInbound: activeInbound && { updateId: activeInbound.update_id, messageId: activeInbound.message?.message_id, text: activeInbound.message?.text } });
+      if (!message.accepted || message.input.decision === 'deny' || selection && message.input.candidateId === null) stop('decision-rejected-denied-or-cancelled');
+    }
+    if (message.type === 'event' && (message.event.type === 'tool.call.failed' || message.event.type === 'tool.call.completed' && message.event.data.output?.ok === false)) {
+      stop('non-success-tool-result'); if (message.event.data.error?.code === 'TOOL_OUTCOME_UNKNOWN' || message.event.data.output?.error?.code === 'TOOL_OUTCOME_UNKNOWN') report.unknownEffect = true;
+    }
+    if (message.type === 'result' && message.result.status !== 'completed') stop('non-completed-run');
+    void save();
+  }
+}
+try {
+  const dailyPid = Number(arg('--daily-pid')); assert.ok(Number.isSafeInteger(dailyPid)); process.kill(dailyPid, 0);
+  const args = execFileSync('ps', ['-p', String(dailyPid), '-o', 'args='], { encoding: 'utf8' }).trim().split(/\s+/);
+  const identityPath = args[args.indexOf('--identity') + 1], socket = args[args.indexOf('--socket') + 1];
+  assert.ok(args.includes('--identity') && args.includes('--socket'));
+  const identity = JSON.parse(await readFile(identityPath, 'utf8'));
+  daily = await ResidentClient.connect({ paths: { directory: dirname(identityPath), token: join(dirname(identityPath), 'auth-token'), socket },
+    scope: { applicationHome: identity.applicationHome, configPath: identity.env.RUNLOOM_CONFIG }, send: () => {} });
+  assert.equal(daily.snapshot().state.kind, 'idle'); dailyBefore = await daily.telegramStatus();
+  assert.ok(dailyBefore.enabled && dailyBefore.owner && dailyBefore.connection === 'online');
+  assert.equal(dailyBefore.pendingDeliveries, 0); assert.equal(dailyBefore.awaitingReview, 0);
+  const configBefore = hash(await readFile(identity.env.RUNLOOM_CONFIG));
+  report.daily = { pid: dailyPid, enabledBefore: true, connectionBefore: dailyBefore.connection, configSha256Before: configBefore,
+    historicalUnknownDeliveriesBefore: dailyBefore.unknownDeliveries };
+  const dailyData = JSON.parse(await readFile(join(identity.applicationHome, 'resident/telegram.json'), 'utf8'));
+  await new Promise(done => server.listen(0, '127.0.0.1', done));
+  const local = `http://127.0.0.1:${server.address().port}`;
+  fixture = await setup(root, local + '/pi/v1', model); report.fixture = fixture;
+  secondPi = await addPi(fixture.statePath); report.secondPi = secondPi;
+  const configPath = join(root, 'config.json'), applicationHome = join(root, 'profile');
+  await writeFile(configPath, JSON.stringify({ version: 2, projectDirectory: fixture.work, authorizedDirectories: [{ path: fixture.work, access: 'readwrite' }],
+    modules: { 'read-file': { enabled: true }, shell: { enabled: false }, terminal: { enabled: true }, memory: { enabled: false } },
+    run: { maxSteps: 16, totalTimeoutMs: 600000 }, contextCompaction: { enabled: true, contextWindowTokens: 32768, maxOutputTokens: 4096, safetyMarginTokens: 2048, keepRecentTokens: 8192, summaryMaxOutputTokens: 2048 },
+    modelContextWindows: [{ provider: 'openai-compatible.chat', modelId: model, contextWindowTokens: 32768 }] }), { mode: 0o600 });
+  const env = { ...fixture.env, RUNLOOM_CONFIG: configPath, RUNLOOM_DESKTOP_TEST: '1', RUNLOOM_MODEL: 'command-code', COMMAND_CODE_MODEL_ID: model, COMMAND_CODE_API_KEY: 'local-proxy', COMMAND_CODE_BASE_URL: local + '/serika/v1' };
+  const configured = configureCliModel(() => { throw new Error('Mock forbidden'); }, env);
+  host = await DesktopRuntime.create({ applicationHome, cwd: fixture.work, env, ...configured, modelId: model, send: observe });
+  store = new TelegramStore(join(applicationHome, 'resident/telegram.json'), applicationHome); await store.load();
+  await store.update(data => { data.offset = dailyData.offset; });
+  const realApi = createTelegramApi(credentials.telegram, fetch, credentials.proxy ? { proxyUrl: credentials.proxy } : {});
+  const api = {
+    identity: signal => realApi.identity(signal), webhook: signal => realApi.webhook(signal), close: () => realApi.close(), answerCallback: () => { throw new Error('Use text shortcodes for this batch'); },
+    updates: async (offset, signal) => {
+      assert.ok(!frozen);
+      let updates;
+      try { updates = await realApi.updates(offset, signal); }
+      catch (error) { if (!signal.aborted) stop('telegram-poll-failed'); throw error; }
+      lastPollOffset = offset; report.lastPollOffset = offset;
+      for (const update of updates) {
+        const m = update.message;
+        report.transport.push({ direction: 'inbound-envelope', at: new Date().toISOString(), updateId: update.update_id, messageId: m?.message_id });
+        try {
+        assert.ok(m && m.from?.id === dailyBefore.owner.userId && m.chat.id === dailyBefore.owner.chatId && m.chat.type === 'private' && !m.from.is_bot, 'Unexpected inbound; no task admitted');
+        assert.ok(m.text === `/start ${expectedPairing}` || m.text === expectedPrompt || /^(?:选择\s+[A-F0-9]{10}\s+[1-9][0-9]*|取消选择\s+[A-F0-9]{10}|(?:允许|拒绝)\s+[A-F0-9]{10})$/i.test(m.text), 'Unexpected text; no additional Run permitted');
+        if (m.text === expectedPrompt) { assert.ok(!taskMessageId || taskMessageId === m.message_id, 'A second task message is not authorized'); taskMessageId ??= m.message_id; }
+        } catch (error) { stop('unexpected-telegram-inbound'); await save(); throw error; }
+        report.transport.push({ direction: 'inbound', at: new Date().toISOString(), offset, update: { update_id: update.update_id,
+          message: { message_id: m.message_id, date: m.date, chat: m.chat, from: { id: m.from.id, is_bot: m.from.is_bot }, text: m.text } } });
+      }
+      await save(); return updates;
+    },
+    send: async (chatId, text, signal, format, keyboard) => {
+      const row = { direction: 'outbound', at: new Date().toISOString(), chatId, text, format, keyboard, status: 'dispatching' }; report.transport.push(row); await save();
+      try { row.messageId = await realApi.send(chatId, text, signal, format, keyboard); row.status = 'submitted'; await save(); return row.messageId; }
+      catch (error) { row.status = error.outcome ?? 'unknown'; stop('telegram-send-failed'); if (row.status === 'unknown') report.unknownTransport = true; await save(); throw error; }
+    },
+  };
+  gateway = new TelegramGateway(host, store, api); host.attachTelegram(gateway); await gateway.initialize();
+  const receive = gateway.receive.bind(gateway);
+  gateway.receive = async update => { activeInbound = update; try { return await receive(update); } finally { activeInbound = undefined; } };
+  report.daily.pauseAttemptedAt = new Date().toISOString(); dailyPaused = true; await save();
+  const paused = await daily.setTelegramEnabled(false); assert.equal(paused.enabled, false); assert.equal(paused.connection, 'disabled');
+  report.daily.pausedAt = new Date().toISOString(); await save();
+  stage = 'pairing'; await gateway.setEnabled(true); assert.equal(gateway.status().connection, 'online');
+  expectedPairing = gateway.beginPairing().pairing.code;
+  tell({ pending: 'telegram-pairing', botUsername: gateway.status().botUsername, command: `/start ${expectedPairing}`, output });
+  await waitFor(() => gateway.status().pairing?.proposed, 'real Telegram pairing');
+  assert.equal(gateway.status().pairing.proposed.userId, dailyBefore.owner.userId); assert.equal(gateway.status().pairing.proposed.chatId, dailyBefore.owner.chatId);
+  await gateway.confirmPairing(expectedPairing);
+  report.pairing = { originalGatewayAccepted: true, ownerMatchesDaily: true, threadId: store.snapshot().owner.threadId };
+  const nonce = report.batchId.slice(0, 8); await writeFile(join(fixture.work, 'blue.json'), JSON.stringify({ a: 5, b: 9, order: nonce + '-blue' }));
+  expectedPrompt = '请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。';
+  report.cases.push({ name: 'telegram-multiple-pi', prompt: expectedPrompt, hostDecisions: [], status: 'waiting-for-user' });
+  stage = 'telegram-multiple-pi'; await save(); tell({ pending: 'telegram-task', prompt: expectedPrompt, output });
+  await waitFor(() => !!store.snapshot().inputs.find(input => input.text === expectedPrompt)?.runId, 'one real Telegram task');
+  const task = store.snapshot().inputs.find(input => input.text === expectedPrompt); runId = task.runId; report.cases[0].runId = runId; report.cases[0].status = 'running'; await save();
+  await waitFor(() => store.snapshot().deliveries.find(item => item.key === `result:${task.key}`)?.state === 'submitted', 'TG result delivery', 600000);
+  await waitFor(() => lastPollOffset >= store.snapshot().offset, 'transport cursor acknowledgement');
+  const item = report.cases[0]; item.receipt = await host.channelReceipt(store.snapshot().owner.threadId, runId);
+  assert.equal(item.receipt?.status, 'completed'); assert.equal(item.receipt.runId, runId); assert.equal(item.receipt.trace.incomplete, false);
+  item.approvalChain = approvalChain({ runId, receipt: item.receipt, events: report.approvalEvents, decisions: item.hostDecisions.filter(d => d.kind === 'approval') });
+  const selected = item.hostDecisions.filter(d => d.kind === 'selection'); assert.equal(selected.length, 1); assert.equal(selected[0].response.accepted, true);
+  assert.ok(selected[0].value.candidates.length >= 2 && selected[0].value.candidates.every(c => c.status === 'idle'));
+  const candidate = selected[0].value.candidates.find(c => c.candidateId === selected[0].input.candidateId); assert.ok(candidate);
+  const approved = item.approvalChain.filter(a => a.frozen); assert.equal(approved.length, 1); assert.equal(approved[0].dispatched, true);
+  assert.deepEqual(approved[0].frozen.target, candidate.target); assert.equal(approved[0].frozen.selectionVersion, 1);
+  assert.equal(item.receipt.tools.filter(t => t.toolName === 'herdr_pi_discover').length, 1);
+  assert.equal(item.receipt.tools.filter(t => t.toolName === 'herdr_pi_control').length, 1);
+  item.actualArtifact = JSON.parse(await readFile(join(fixture.work, 'blue-answer.json'), 'utf8')); assert.deepEqual(item.actualArtifact, { sum: 14, order: nonce + '-blue' });
+  for (const [index, pi] of [fixture, secondPi].entries()) {
+    let text; try { text = await readFile(pi.piSession, 'utf8'); } catch (error) { if (error.code !== 'ENOENT') throw error; text = ''; }
+    const users = text.trim().split('\n').filter(Boolean).map(line => JSON.parse(line)).filter(r => r.type === 'message' && r.message?.role === 'user');
+    const chosen = isDeepStrictEqual(pi.target, candidate.target); assert.equal(users.length, chosen ? 1 : 0);
+    if (chosen) assert.equal(users[0].message.content.filter(p => p.type === 'text').map(p => p.text).join('\n'), approved[0].frozen.action.text);
+    if (text) await writeFile(join(output, `pi-${index + 1}.jsonl`), text);
+  }
+  const raw = report.approvalEvents.filter(e => e.type === 'event').map(e => e.event), control = item.receipt.tools.find(t => t.toolName === 'herdr_pi_control');
+  assert.ok(raw.some(e => e.type === 'tool.call.completed' && e.data.toolName === 'herdr_pi_read' && e.data.output.value?.text?.includes(nonce + '-blue') && e.occurredAt > control.finishedAt));
+  const read = raw.find(e => e.type === 'tool.call.completed' && e.data.toolName === 'read_file' && e.data.output.path === 'blue-answer.json' && e.occurredAt > control.finishedAt);
+  assert.ok(read); assert.deepEqual(JSON.parse(read.data.output.content), item.actualArtifact);
+  assert.equal(store.snapshot().inputs.filter(i => i.runId && !i.steerId).length, 1);
+  assert.equal(item.hostDecisions.filter(d => d.kind === 'approval' && d.value.herdr).length, 1);
+  item.status = 'passed'; report.status = 'passed';
+} catch (error) {
+  stop('verification-failure'); report.status = 'failed'; report.failure = { name: error.name,
+    message: error instanceof assert.AssertionError ? error.message : 'Verification failed; private exception details withheld' };
+  try { if (JSON.parse(await readFile(join(root, 'herdr-fixture/herdr-state.json'), 'utf8')).unknown) report.unknownEffect = true; }
+  catch (stateError) { if (stateError.code !== 'ENOENT') report.errors.push({ stage: 'fixture-state', name: stateError.name }); }
+  tell({ status: 'failed', stopReason: report.stopReason, failure: report.failure });
+} finally {
+  if (host && store && runId) {
+    try { report.cases[0].receipt ??= await host.channelReceipt(store.snapshot().owner.threadId, runId); }
+    catch (error) { report.errors.push({ stage: 'local-receipt', name: error.name }); }
+  }
+  if (store) { report.telegramStore = store.snapshot(); report.lastPollOffset = lastPollOffset; }
+  try { if (gateway) { await gateway.close(); report.isolatedTelegramStoppedAt = new Date().toISOString(); } }
+  catch (error) { stop('isolated-channel-stop-failed'); report.status = 'failed'; report.errors.push({ stage: 'isolated-stop', name: error.name }); }
+  try { if (host) { if (host.current.snapshot().state.kind !== 'idle') host.current.cancel(); await host.shutdown(); } }
+  catch (error) { report.status = 'failed'; report.errors.push({ stage: 'isolated-host-stop', name: error.name }); }
+  if (dailyPaused) {
+    try {
+      assert.ok(!gateway || report.isolatedTelegramStoppedAt, 'Cannot restore while isolated polling may still run');
+      if (store && lastPollOffset < store.snapshot().offset) {
+        const ackApi = createTelegramApi(credentials.telegram, fetch, credentials.proxy ? { proxyUrl: credentials.proxy } : {});
+        try {
+          const offset = store.snapshot().offset;
+          const held = await ackApi.updates(offset, new AbortController().signal);
+          report.transportCursorHandoff = { offset, confirmedAt: new Date().toISOString(), unacknowledgedLaterUpdates: held.length, forwardedToModel: false };
+          lastPollOffset = offset;
+        } finally { await ackApi.close(); }
+      }
+      report.daily.transportOffsetAcknowledged = !store || lastPollOffset >= store.snapshot().offset;
+      const restored = await daily.setTelegramEnabled(dailyBefore.enabled);
+      assert.equal(restored.enabled, dailyBefore.enabled); assert.equal(restored.connection, 'online'); assert.deepEqual(restored.owner, dailyBefore.owner);
+      const args = execFileSync('ps', ['-p', String(report.daily.pid), '-o', 'args='], { encoding: 'utf8' }).trim().split(/\s+/);
+      const identity = JSON.parse(await readFile(args[args.indexOf('--identity') + 1], 'utf8'));
+      report.daily.configSha256After = hash(await readFile(identity.env.RUNLOOM_CONFIG)); assert.equal(report.daily.configSha256After, report.daily.configSha256Before);
+      report.daily.restoredAt = new Date().toISOString(); report.daily.enabledAfter = restored.enabled; report.daily.connectionAfter = restored.connection; report.daily.ownerUnchanged = true;
+      report.daily.historicalUnknownDeliveriesAfter = restored.unknownDeliveries;
+    } catch (error) { stop('daily-restore-failed'); report.status = 'failed'; report.daily.restoreFailed = true; report.errors.push({ stage: 'daily-restore', name: error.name }); }
+  }
+  daily?.detach();
+  if (server.listening) await new Promise(done => server.close(done)); await Promise.all([...pending]);
+  if (fixture) {
+    const state = JSON.parse(await readFile(fixture.statePath, 'utf8')); if (state.unknown) { report.unknownEffect = true; frozen = true; }
+    if (!frozen && !report.unknownEffect) {
+      try { report.cleanup = await cleanup(fixture.statePath); }
+      catch (error) { stop('fixture-cleanup-failed'); report.status = 'failed'; report.errors.push({ stage: 'fixture-cleanup', name: error.name }); }
+    }
+    await writeFile(join(output, 'herdr-state.json'), await readFile(fixture.statePath));
+    if (!frozen && report.cleanup?.phase === 'cleaned') { await rm(root, { recursive: true, force: true }); await assert.rejects(access(root), { code: 'ENOENT' }); report.temporaryDirectoryRemoved = true; }
+  }
+  report.realModelCalls = report.calls.length; report.unresolvedReservedUsd = report.calls.filter(c => c.status !== 'returned').reduce((sum, c) => sum + c.reservedUsd, 0);
+  report.finishedAt = new Date().toISOString(); await save(); tell({ status: report.status, requests: report.realModelCalls, costUsd: report.costUsd, dailyRestored: !!report.daily?.restoredAt, output });
+}
+if (report.status !== 'passed') process.exitCode = 1;
