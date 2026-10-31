@@ -1,0 +1,59 @@
+{
+  "auditId": "5180bf5f-ee2b-4ae5-8f19-743226582f60",
+  "at": "2026-10-31T16:37:59.191Z",
+  "batchId": "d71b0a0d-2725-4264-93ab-a2616d9912fd",
+  "acceptance": "failed-text-only-harness-rejected-native-approval-callback",
+  "sourceCommit": "cbde809b6dc904f2b1f420ab4cb5a978dbe9175b",
+  "sourceResultSha256": "b902660012710fb1f5d2a958d425ad7c896800dfa3e47038f0390d5f758e109a",
+  "sourceResultUnmodified": true,
+  "taskRuns": 1,
+  "realModelRequests": 1,
+  "piModelRequests": 0,
+  "amount": 0.00198856,
+  "unresolvedReservedUsd": 0,
+  "allToolsNotStarted": true,
+  "testProfileDisabled": true,
+  "cursorConfirmed": false,
+  "priorSceneArchive": "/private/tmp/s197-tg-failed-4ebdd9b2",
+  "priorSceneSnapshot": "/private/tmp/s197-tg-reconcile-01nov-a/scene-before-close",
+  "credentialPrefixHits": 0,
+  "files": [
+    {
+      "path": "archive.mjs",
+      "sha256": "7dcd163477abfb73d1e9ce7da27874e1bc2925112c9187b3d6523f11f8103d5c"
+    },
+    {
+      "path": "decisions.tsv",
+      "sha256": "b03e1a29f1838b8f6a3b0933fe8cb901b241d2b4882b066d01826c4a6d5ee00f"
+    },
+    {
+      "path": "herdr-state.json",
+      "sha256": "1610ab905cac18d804ce98bf9f97f12388397ea60e480f0d3abecc8647aff8b5"
+    },
+    {
+      "path": "previous-scene-reconciliation/reconcile.mjs",
+      "sha256": "7d8dd9b3ecc914f94ea83b9d51b6f16ea928bb5319cfeebe22bf6021d1eebffb"
+    },
+    {
+      "path": "previous-scene-reconciliation/result.json",
+      "sha256": "b72bb1cdd32f4a0d6ce819b8faf95d03b774c663373d2a9b95f8daf06e4b6fb9"
+    },
+    {
+      "path": "request-1.json",
+      "sha256": "04eba568d4967a360b4033f686c740a31db19b0404fe899f61bd4f79a7f38334"
+    },
+    {
+      "path": "response-1.txt",
+      "sha256": "d86dffc5e163d25261533f9842cbb16227d1a1041306542a7100c89c4d1748f7"
+    },
+    {
+      "path": "result.json",
+      "sha256": "b902660012710fb1f5d2a958d425ad7c896800dfa3e47038f0390d5f758e109a"
+    },
+    {
+      "path": "stop-audit.json",
+      "sha256": "b6f7bed976815ee4b3dca8854519e69d7662de8cb5ef610164158a33be93a3a1"
+    }
+  ],
+  "ledgerRecordedExactlyOnce": true
+}

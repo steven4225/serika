@@ -1,0 +1,790 @@
+{
+  "auditId": "275dac74-5fc9-46ab-9c8f-94f795587d53",
+  "auditedAt": "2026-10-31T16:34:45.251Z",
+  "verification": "failed-telegram-batch-diagnostics-from-original-result",
+  "acceptance": "failed-telegram-batch",
+  "batchId": "d71b0a0d-2725-4264-93ab-a2616d9912fd",
+  "sourceCommit": "cbde809b6dc904f2b1f420ab4cb5a978dbe9175b",
+  "sourceResultSha256": "b902660012710fb1f5d2a958d425ad7c896800dfa3e47038f0390d5f758e109a",
+  "sourceResultUnmodified": true,
+  "stopReason": "unexpected-telegram-inbound",
+  "failure": {
+    "name": "AssertionError",
+    "message": "Stopped: unexpected-telegram-inbound"
+  },
+  "modelRequests": 1,
+  "taskRuns": 1,
+  "amount": 0.00198856,
+  "unresolvedReservedUsd": 0,
+  "inboundChecks": [
+    {
+      "at": "2026-10-31T16:34:35.741Z",
+      "pollId": "88379390-6a71-4455-8e27-96cb577b9f13",
+      "indexInPoll": 0,
+      "phase": "task",
+      "sourceOwner": {
+        "userId": 6349286154,
+        "chatId": 6349286154,
+        "threadId": null
+      },
+      "updateSha256": "1bd055aaf670dba896ce98e6c8a11e5b568a731ba0e5b8525ffc981d4c530d3d",
+      "update": {
+        "update_id": 819511887,
+        "message": {
+          "message_id": 7,
+          "from": {
+            "id": 6349286154,
+            "is_bot": false,
+            "first_name": "All",
+            "last_name": "Mind",
+            "language_code": "zh-hans"
+          },
+          "chat": {
+            "id": 6349286154,
+            "first_name": "All",
+            "last_name": "Mind",
+            "type": "private"
+          },
+          "date": 1793464475,
+          "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：d71b0a0d。"
+        }
+      },
+      "normalizedText": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：d71b0a0d。",
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 819511887,
+          "passed": true
+        },
+        {
+          "id": "message_present",
+          "expected": true,
+          "actual": true,
+          "passed": true
+        },
+        {
+          "id": "message_id_valid",
+          "expected": "positive safe integer",
+          "actual": 7,
+          "passed": true
+        },
+        {
+          "id": "owner_user_matches",
+          "expected": 6349286154,
+          "actual": 6349286154,
+          "passed": true
+        },
+        {
+          "id": "owner_chat_matches",
+          "expected": 6349286154,
+          "actual": 6349286154,
+          "passed": true
+        },
+        {
+          "id": "chat_private",
+          "expected": "private",
+          "actual": "private",
+          "passed": true
+        },
+        {
+          "id": "sender_is_human",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "id": "not_forwarded",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "id": "not_via_bot",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "id": "text_is_string",
+          "expected": "string",
+          "actual": "string",
+          "passed": true
+        },
+        {
+          "id": "text_matches_phase",
+          "expected": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：d71b0a0d。",
+          "actual": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：d71b0a0d。",
+          "passed": true
+        },
+        {
+          "id": "single_task_message",
+          "expected": "first task",
+          "actual": 7,
+          "passed": true
+        }
+      ],
+      "accepted": true,
+      "failedPredicate": null,
+      "failedPredicates": [],
+      "safeToAcknowledge": true,
+      "forwarded": true,
+      "bindingBefore": {
+        "owner": {
+          "userId": 6349286154,
+          "chatId": 6349286154,
+          "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+        },
+        "gatewayCreated": true,
+        "pairing": null,
+        "botId": 9127642960,
+        "threadId": "16216ac4-7166-4fec-9fef-f559110d61e5",
+        "offset": 819511887,
+        "state": "idle",
+        "runId": null
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 6349286154,
+          "chatId": 6349286154,
+          "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+        },
+        "gatewayCreated": true,
+        "pairing": null,
+        "botId": 9127642960,
+        "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+        "offset": 819511888,
+        "state": "running",
+        "runId": "0adad13d-7ece-49d5-84f6-43d606c3e33d"
+      }
+    },
+    {
+      "at": "2026-10-31T16:34:45.034Z",
+      "pollId": "3d723ca8-3a24-44d5-a3c6-d7766d7d65c1",
+      "indexInPoll": 0,
+      "phase": "control",
+      "sourceOwner": {
+        "userId": 6349286154,
+        "chatId": 6349286154,
+        "threadId": null
+      },
+      "updateSha256": "13c4662d370c73e3e1a0c46e16f8df1464dee703ba571a983d534ac268c71158",
+      "update": {
+        "update_id": 819511888,
+        "callback_query": {
+          "id": "8823232310804114272",
+          "from": {
+            "id": 6349286154,
+            "is_bot": false,
+            "first_name": "All",
+            "last_name": "Mind",
+            "language_code": "zh-hans"
+          },
+          "message": {
+            "message_id": 8,
+            "from": {
+              "id": 9127642960,
+              "is_bot": true,
+              "first_name": "Serika PR197 Test",
+              "username": "serika197_test_4225_bot"
+            },
+            "chat": {
+              "id": 6349286154,
+              "first_name": "All",
+              "last_name": "Mind",
+              "type": "private"
+            },
+            "date": 1793464480,
+            "text": "需要你确认 · 使用工具 list_directory\n\n\nTool: list_directory\nInput: {\"path\":\"/private/tmp/s197-tg/herdr-fixture/workspace\"}\nAllow this call? [y/n] \n\n允许 98BCAF60A7\n拒绝 98BCAF60A7\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+            "reply_markup": {
+              "inline_keyboard": [
+                [
+                  {
+                    "text": "允许这次",
+                    "callback_data": "allow:98BCAF60A7"
+                  },
+                  {
+                    "text": "取消",
+                    "callback_data": "deny:98BCAF60A7"
+                  }
+                ]
+              ]
+            }
+          },
+          "chat_instance": "5191036256262212037",
+          "data": "allow:98BCAF60A7"
+        }
+      },
+      "normalizedText": null,
+      "predicates": [
+        {
+          "id": "update_object_valid",
+          "expected": "object",
+          "actual": "object",
+          "passed": true
+        },
+        {
+          "id": "update_id_valid",
+          "expected": "nonnegative safe integer",
+          "actual": 819511888,
+          "passed": true
+        },
+        {
+          "id": "message_present",
+          "expected": true,
+          "actual": false,
+          "passed": false
+        },
+        {
+          "id": "message_id_valid",
+          "expected": "positive safe integer",
+          "actual": null,
+          "passed": false
+        },
+        {
+          "id": "owner_user_matches",
+          "expected": 6349286154,
+          "actual": null,
+          "passed": false
+        },
+        {
+          "id": "owner_chat_matches",
+          "expected": 6349286154,
+          "actual": null,
+          "passed": false
+        },
+        {
+          "id": "chat_private",
+          "expected": "private",
+          "actual": null,
+          "passed": false
+        },
+        {
+          "id": "sender_is_human",
+          "expected": false,
+          "actual": null,
+          "passed": false
+        },
+        {
+          "id": "not_forwarded",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "id": "not_via_bot",
+          "expected": false,
+          "actual": false,
+          "passed": true
+        },
+        {
+          "id": "text_is_string",
+          "expected": "string",
+          "actual": "undefined",
+          "passed": false
+        },
+        {
+          "id": "text_matches_phase",
+          "expected": "selection/cancel/allow/deny shortcode",
+          "actual": null,
+          "passed": false
+        },
+        {
+          "id": "single_task_message",
+          "expected": 7,
+          "actual": null,
+          "passed": true
+        }
+      ],
+      "accepted": false,
+      "failedPredicate": "message_present",
+      "failedPredicates": [
+        "message_present",
+        "message_id_valid",
+        "owner_user_matches",
+        "owner_chat_matches",
+        "chat_private",
+        "sender_is_human",
+        "text_is_string",
+        "text_matches_phase"
+      ],
+      "safeToAcknowledge": false,
+      "forwarded": false,
+      "bindingBefore": {
+        "owner": {
+          "userId": 6349286154,
+          "chatId": 6349286154,
+          "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+        },
+        "gatewayCreated": true,
+        "pairing": null,
+        "botId": 9127642960,
+        "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+        "offset": 819511888,
+        "state": "running",
+        "runId": "0adad13d-7ece-49d5-84f6-43d606c3e33d"
+      },
+      "bindingAfter": {
+        "owner": {
+          "userId": 6349286154,
+          "chatId": 6349286154,
+          "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+        },
+        "gatewayCreated": true,
+        "pairing": null,
+        "botId": 9127642960,
+        "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+        "offset": 819511888,
+        "state": "running",
+        "runId": "0adad13d-7ece-49d5-84f6-43d606c3e33d"
+      },
+      "blockedByUpdateId": 819511888
+    }
+  ],
+  "telegramIdentity": {
+    "expectedBotId": 9127642960,
+    "actualBotId": 9127642960,
+    "matches": true
+  },
+  "pollFailure": null,
+  "pairReadiness": [],
+  "channelStrategy": "dedicated-test-bot",
+  "dailyAccess": "none",
+  "testProfile": {
+    "profileRoot": "/Users/a1-6/.serika-test/chat-run-target-telegram",
+    "runtimeRoot": "/private/tmp/s197-tg",
+    "applicationHome": "/Users/a1-6/.serika-test/chat-run-target-telegram/profile",
+    "configPath": "/Users/a1-6/.serika-test/chat-run-target-telegram/config.json",
+    "expectedBotId": 9127642960,
+    "expectedOwner": {
+      "userId": 6349286154,
+      "chatId": 6349286154
+    },
+    "leaseAcquiredAt": "2026-10-31T16:33:55.183Z",
+    "initial": {
+      "owner": {
+        "userId": 6349286154,
+        "chatId": 6349286154,
+        "name": "All",
+        "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+      },
+      "offset": 819511887,
+      "inputKeys": [
+        "6349286154:5"
+      ],
+      "deliveryKeys": [
+        "binding:02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+        "input:6349286154:5"
+      ]
+    },
+    "final": {
+      "owner": {
+        "userId": 6349286154,
+        "chatId": 6349286154,
+        "name": "All",
+        "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+      },
+      "offset": 819511888,
+      "enabled": false
+    },
+    "leaseReleasedAt": "2026-10-31T16:34:45.249Z"
+  },
+  "testChannelStartedAt": "2026-10-31T16:34:03.593Z",
+  "bindingAtPairingStart": null,
+  "pairingConfirmation": null,
+  "bindingBeforeShutdown": {
+    "owner": {
+      "userId": 6349286154,
+      "chatId": 6349286154,
+      "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+    },
+    "gatewayCreated": true,
+    "pairing": null,
+    "botId": 9127642960,
+    "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+    "offset": 819511888,
+    "state": "running",
+    "runId": "0adad13d-7ece-49d5-84f6-43d606c3e33d"
+  },
+  "bindingAfterShutdown": {
+    "owner": {
+      "userId": 6349286154,
+      "chatId": 6349286154,
+      "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+    },
+    "gatewayCreated": true,
+    "pairing": null,
+    "botId": 9127642960,
+    "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+    "offset": 819511888,
+    "state": "idle",
+    "runId": null
+  },
+  "telegramStore": {
+    "version": 2,
+    "workspace": "/Users/a1-6/.serika-test/chat-run-target-telegram/profile",
+    "enabled": true,
+    "botId": 9127642960,
+    "offset": 819511888,
+    "owner": {
+      "userId": 6349286154,
+      "chatId": 6349286154,
+      "name": "All",
+      "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+    },
+    "inputs": [
+      {
+        "key": "6349286154:5",
+        "updateId": 819511886,
+        "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：4ebdd9b2。",
+        "receivedAt": "2026-11-01T00:10+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null
+      },
+      {
+        "key": "6349286154:7",
+        "updateId": 819511887,
+        "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：d71b0a0d。",
+        "receivedAt": "2026-11-01T00:34+08:00",
+        "state": "bound",
+        "runId": "0adad13d-7ece-49d5-84f6-43d606c3e33d",
+        "taskId": null
+      }
+    ],
+    "deliveries": [
+      {
+        "key": "binding:02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+        "chatId": 6349286154,
+        "text": "已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。工具仍逐次确认。例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。",
+        "parts": [
+          {
+            "text": "已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。工具仍逐次确认。例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。",
+            "state": "submitted",
+            "messageId": 4
+          }
+        ],
+        "state": "submitted",
+        "messageId": 4
+      },
+      {
+        "key": "input:6349286154:5",
+        "chatId": 6349286154,
+        "text": "本条启动未成功。未自动重试，请查看桌面连接状态。",
+        "parts": [
+          {
+            "text": "本条启动未成功。未自动重试，请查看桌面连接状态。",
+            "state": "submitted",
+            "messageId": 6
+          }
+        ],
+        "state": "submitted",
+        "messageId": 6
+      },
+      {
+        "key": "approval:750a0e43-2a68-4323-b602-f88eb7032130:98BCAF60A7",
+        "chatId": 6349286154,
+        "text": "需要你确认 · 使用工具 list_directory\n\n\nTool: list_directory\nInput: {\"path\":\"/private/tmp/s197-tg/herdr-fixture/workspace\"}\nAllow this call? [y/n] \n\n允许 98BCAF60A7\n拒绝 98BCAF60A7\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+        "parts": [
+          {
+            "text": "需要你确认 · 使用工具 list_directory\n\n\nTool: list_directory\nInput: {&quot;path&quot;:&quot;/private/tmp/s197-tg/herdr-fixture/workspace&quot;}\nAllow this call? [y/n] \n\n允许 98BCAF60A7\n拒绝 98BCAF60A7\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+            "state": "submitted",
+            "messageId": 8
+          }
+        ],
+        "keyboard": {
+          "inline_keyboard": [
+            [
+              {
+                "text": "允许这次",
+                "callback_data": "allow:98BCAF60A7"
+              },
+              {
+                "text": "取消",
+                "callback_data": "deny:98BCAF60A7"
+              }
+            ]
+          ]
+        },
+        "state": "submitted",
+        "messageId": 8
+      }
+    ],
+    "routes": []
+  },
+  "telegramStoreAfterShutdown": {
+    "version": 2,
+    "workspace": "/Users/a1-6/.serika-test/chat-run-target-telegram/profile",
+    "enabled": false,
+    "botId": 9127642960,
+    "offset": 819511888,
+    "owner": {
+      "userId": 6349286154,
+      "chatId": 6349286154,
+      "name": "All",
+      "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa"
+    },
+    "inputs": [
+      {
+        "key": "6349286154:5",
+        "updateId": 819511886,
+        "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：4ebdd9b2。",
+        "receivedAt": "2026-11-01T00:10+08:00",
+        "state": "rejected",
+        "runId": null,
+        "taskId": null
+      },
+      {
+        "key": "6349286154:7",
+        "updateId": 819511887,
+        "text": "请找一个现有 Pi，根据 blue.json 把 a 与 b 的和及原 order 写入 blue-answer.json，字段为 sum 和 order。完成后你亲自读文件核对。本批标识：d71b0a0d。",
+        "receivedAt": "2026-11-01T00:34+08:00",
+        "state": "bound",
+        "runId": "0adad13d-7ece-49d5-84f6-43d606c3e33d",
+        "taskId": null
+      }
+    ],
+    "deliveries": [
+      {
+        "key": "binding:02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+        "chatId": 6349286154,
+        "text": "已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。工具仍逐次确认。例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。",
+        "parts": [
+          {
+            "text": "已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。工具仍逐次确认。例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。",
+            "state": "submitted",
+            "messageId": 4
+          }
+        ],
+        "state": "submitted",
+        "messageId": 4
+      },
+      {
+        "key": "input:6349286154:5",
+        "chatId": 6349286154,
+        "text": "本条启动未成功。未自动重试，请查看桌面连接状态。",
+        "parts": [
+          {
+            "text": "本条启动未成功。未自动重试，请查看桌面连接状态。",
+            "state": "submitted",
+            "messageId": 6
+          }
+        ],
+        "state": "submitted",
+        "messageId": 6
+      },
+      {
+        "key": "approval:750a0e43-2a68-4323-b602-f88eb7032130:98BCAF60A7",
+        "chatId": 6349286154,
+        "text": "需要你确认 · 使用工具 list_directory\n\n\nTool: list_directory\nInput: {\"path\":\"/private/tmp/s197-tg/herdr-fixture/workspace\"}\nAllow this call? [y/n] \n\n允许 98BCAF60A7\n拒绝 98BCAF60A7\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+        "parts": [
+          {
+            "text": "需要你确认 · 使用工具 list_directory\n\n\nTool: list_directory\nInput: {&quot;path&quot;:&quot;/private/tmp/s197-tg/herdr-fixture/workspace&quot;}\nAllow this call? [y/n] \n\n允许 98BCAF60A7\n拒绝 98BCAF60A7\n\n5 分钟内有效，仅批准这一次操作；普通回复不代表授权。",
+            "state": "submitted",
+            "messageId": 8
+          }
+        ],
+        "keyboard": {
+          "inline_keyboard": [
+            [
+              {
+                "text": "允许这次",
+                "callback_data": "allow:98BCAF60A7"
+              },
+              {
+                "text": "取消",
+                "callback_data": "deny:98BCAF60A7"
+              }
+            ]
+          ]
+        },
+        "state": "submitted",
+        "messageId": 8
+      }
+    ],
+    "routes": []
+  },
+  "transportCursorHandoff": {
+    "storeOffset": 819511888,
+    "requiredOffset": 819511889,
+    "confirmedOffset": 819511888,
+    "confirmed": false,
+    "blockedBy": [
+      {
+        "updateId": 819511888,
+        "failedPredicates": [
+          "message_present",
+          "message_id_valid",
+          "owner_user_matches",
+          "owner_chat_matches",
+          "chat_private",
+          "sender_is_human",
+          "text_is_string",
+          "text_matches_phase"
+        ]
+      }
+    ]
+  },
+  "shutdownErrors": [
+    {
+      "stage": "test-channel-handoff",
+      "name": "AssertionError",
+      "condition": "Unowned/malformed update requires manual handoff; do not discard it\n+ actual - expected\n\n+ [\n+   {\n+     failedPredicates: [\n+       'message_present',\n+       'message_id_valid',\n+       'owner_user_matches',\n+       'owner_chat_matches',\n+       'chat_private',\n+       'sender_is_human',\n+       'text_is_string',\n+       'text_matches_phase'\n+     ],\n+     updateId: 819511888\n+   }\n+ ]\n- []\n"
+    }
+  ],
+  "isolatedHostStoppedAt": "2026-10-31T16:34:45.236Z",
+  "isolatedTelegramStoppedAt": "2026-10-31T16:34:45.236Z",
+  "daily": null,
+  "receipts": [
+    {
+      "runId": "0adad13d-7ece-49d5-84f6-43d606c3e33d",
+      "receipt": {
+        "runId": "0adad13d-7ece-49d5-84f6-43d606c3e33d",
+        "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+        "phase": "primary",
+        "status": "running",
+        "startedAt": "2026-10-31T16:34:35.950Z",
+        "finishedAt": null,
+        "resultTextPreview": null,
+        "resultTextTruncated": false,
+        "errorPreview": null,
+        "tools": [
+          {
+            "toolCallId": "call_00_dSOXXSUXxsMNbNmLJTbU8517",
+            "toolName": "list_directory",
+            "status": "requested",
+            "requestedAt": "2026-10-31T16:34:39.092Z",
+            "startedAt": null,
+            "finishedAt": null,
+            "inputPreview": "{\"path\":\"/private/tmp/s197-tg/herdr-fixture/workspace\"}",
+            "inputTruncated": false,
+            "resultPreview": null,
+            "resultTruncated": false,
+            "errorPreview": null,
+            "shell": null,
+            "approvalRequestedAt": "2026-10-31T16:34:39.313Z"
+          },
+          {
+            "toolCallId": "call_01_deXB6tiuCzqg1HxLnGQF7912",
+            "toolName": "herdr_pi_discover",
+            "status": "requested",
+            "requestedAt": "2026-10-31T16:34:39.212Z",
+            "startedAt": null,
+            "finishedAt": null,
+            "inputPreview": "{}",
+            "inputTruncated": false,
+            "resultPreview": null,
+            "resultTruncated": false,
+            "errorPreview": null,
+            "shell": null
+          }
+        ],
+        "trace": {
+          "version": 1,
+          "events": [
+            {
+              "sequence": 2,
+              "occurredAt": "2026-10-31T16:34:36.037Z",
+              "type": "step.started",
+              "stepNumber": 1
+            },
+            {
+              "sequence": 21,
+              "occurredAt": "2026-10-31T16:34:39.264Z",
+              "type": "step.completed",
+              "stepNumber": 1,
+              "finishReason": "tool-calls",
+              "usage": {
+                "inputTokens": 6265,
+                "outputTokens": 82,
+                "totalTokens": 6347,
+                "cacheReadTokens": 384
+              }
+            }
+          ],
+          "truncated": false,
+          "incomplete": false
+        }
+      },
+      "receiptAfterShutdown": {
+        "runId": "0adad13d-7ece-49d5-84f6-43d606c3e33d",
+        "threadId": "02b797b9-22ad-43f6-a06d-1c51cce05cfa",
+        "phase": "primary",
+        "status": "cancelled",
+        "startedAt": "2026-10-31T16:34:35.950Z",
+        "finishedAt": "2026-10-31T16:34:45.174Z",
+        "resultTextPreview": "",
+        "resultTextTruncated": false,
+        "errorPreview": "Agent run was cancelled",
+        "tools": [
+          {
+            "toolCallId": "call_00_dSOXXSUXxsMNbNmLJTbU8517",
+            "toolName": "list_directory",
+            "status": "not_started",
+            "requestedAt": "2026-10-31T16:34:39.092Z",
+            "startedAt": null,
+            "finishedAt": null,
+            "inputPreview": "{\"path\":\"/private/tmp/s197-tg/herdr-fixture/workspace\"}",
+            "inputTruncated": false,
+            "resultPreview": null,
+            "resultTruncated": false,
+            "errorPreview": null,
+            "shell": null,
+            "approvalRequestedAt": "2026-10-31T16:34:39.313Z"
+          },
+          {
+            "toolCallId": "call_01_deXB6tiuCzqg1HxLnGQF7912",
+            "toolName": "herdr_pi_discover",
+            "status": "not_started",
+            "requestedAt": "2026-10-31T16:34:39.212Z",
+            "startedAt": null,
+            "finishedAt": null,
+            "inputPreview": "{}",
+            "inputTruncated": false,
+            "resultPreview": null,
+            "resultTruncated": false,
+            "errorPreview": null,
+            "shell": null
+          }
+        ],
+        "trace": {
+          "version": 1,
+          "events": [
+            {
+              "sequence": 2,
+              "occurredAt": "2026-10-31T16:34:36.037Z",
+              "type": "step.started",
+              "stepNumber": 1
+            },
+            {
+              "sequence": 21,
+              "occurredAt": "2026-10-31T16:34:39.264Z",
+              "type": "step.completed",
+              "stepNumber": 1,
+              "finishReason": "tool-calls",
+              "usage": {
+                "inputTokens": 6265,
+                "outputTokens": 82,
+                "totalTokens": 6347,
+                "cacheReadTokens": 384
+              }
+            }
+          ],
+          "truncated": false,
+          "incomplete": false,
+          "usage": {},
+          "steps": 0
+        },
+        "memoryReferences": [],
+        "memoryReferencesTruncated": false
+      }
+    }
+  ],
+  "fixtureRetained": "/private/tmp/s197-tg/herdr-fixture/herdr-state.json"
+}

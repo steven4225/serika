@@ -318,8 +318,25 @@
       "evidenceSha256": "de5e14eab0b78343af358b0f999e641ab8a4837f2cacb230332e4d879b923744",
       "acceptance": "failed-task-start-after-successful-pairing",
       "audit": "chat-run-target/stage1-telegram-4ebdd9b2/operator-stop-audit.json"
+    },
+    {
+      "step": "chat-run-target-stage1-telegram",
+      "runId": "d71b0a0d-2725-4264-93ab-a2616d9912fd",
+      "realModelRequests": 1,
+      "taskRuns": 1,
+      "amount": 0.00198856,
+      "amountBasis": "Returned model usage at frozen batch script rates; not invoice verified",
+      "authorizedBatchCapUsd": 0.25,
+      "authorizedBatchMaxRequests": 24,
+      "authorizedBatchMaxRuns": 1,
+      "unresolvedCalls": 0,
+      "unresolvedReservedUsd": 0,
+      "evidence": "chat-run-target/stage1-telegram-d71b0a0d/result.json",
+      "evidenceSha256": "b902660012710fb1f5d2a958d425ad7c896800dfa3e47038f0390d5f758e109a",
+      "acceptance": "failed-text-only-harness-rejected-native-approval-callback",
+      "audit": "chat-run-target/stage1-telegram-d71b0a0d/stop-audit.json"
     }
   ],
-  "total": 2.168346239999999,
-  "knownTotal": 2.1546390399999993
+  "total": 2.170334799999999,
+  "knownTotal": 2.1566275999999993
 }

@@ -1,6 +1,6 @@
 # 聊天发现 CLI 与当前 Run Pi 目标
 
-> 2026-11-01 最新结论：已离线复现并修复 4ebdd9b2 的验收观察器异常：切换 Thread 时不再读取 host.current，任务 rejected 时立即停止等待。真实宿主/假模型回归、真实 Herdr 启动/连接/租约、typecheck 与全测 1901 pass／7 skip／0 fail 通过。真实 TG 的 4ebdd9b2 仍是配对成功后启动失败、0 Run／0 模型请求／$0，原件不改绿；测试 profile disabled 且绑定保留，旧 Herdr 现场和未确认游标待明确处置，尚未开新批。桌面 c9a16383 PASS、采用后契约、专用 Bot 方向和 74ccfd3f 原失败保持，未合并或部署。
+> 2026-11-01 最新结论：观察器修复 `cbde809` 已在新真实批 d71b0a0d 使任务成功启动；本批随后因文字短码专用 harness 拒绝了原卡片的“允许这次”按钮 callback_query 而失败停止。1 宿主 Run／1 模型请求／约 $0.00198856，两个工具均 not_started，未到 Pi 选择或控制；测试通道 disabled、租约释放，当前现场保留且游标未确认。旧 4ebdd9b2 现场已按用户明确授权封存、确认游标、核对两个 idle Pi 后关闭并保留目录归档，旧失败原件不变。桌面 PASS、采用后契约、专用 Bot 方向保持；不合并、不部署，当前等待下一步决定。
 
 ## 1. 改了什么
 
@@ -487,3 +487,11 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 3. 数字：产品 `+0/-0`，live harness `+6/-2`，永久回归 `+62/-0`；测试多于修复是为执行真实配对/Thread 切换回调和结果投递链。全测 1908 tests、1901 pass、7 skip、0 fail/cancelled；macOS/Node 26.4.0，本轮新增真实模型、真实 TG 请求和费用均 0。原上批 0 费用条目未重复入账。
 4. 命令和退出码：带 test-home 的 observer 专项先红 exit 1，rejected≠finished、modelCalls=0 的有效红测保存在 red-2.log；修复后 green-2 exit 0。`node /private/tmp/s197-start-fix/native.mjs`、`node /private/tmp/s197-start-fix/checks.mjs` exit 0，后者的 pnpm typecheck/pnpm test 均 exit 0。原 rejected 谓词检查、归档/hash、凭据前缀扫描 0 命中、node --check 和 git diff --check 均 exit 0。首次 red.log 取消无效，首次 green.log 因测试在 input finished 后过早断言异步回复失败，均保留；测试改为等待输入、result、实收回复和 submitted 同时到达，原成功断言未放宽。
 5. 偏离与下一步：本轮是 Node 原宿主/假模型与真实 Herdr 离线验证，未重做桌面 Electron 整链或真 TG，不以离线替代验收。write guard 违规为 0，部分运行观察到并发元数据变化，不声称日用元数据不变。按 Fix Root Causes/Prove It Works 执行原观察器单变量复现和实际数据链，按 Laziness Protocol 删除 getter fallback，未改宿主保护。待用户明确授权处理旧测试现场及未确认游标后，再以新批运行 ≤1 宿主 Run／24 总模型请求／$0.25；不能覆盖旧现场或重发旧任务。不合并、不部署、不扩授权/Seatbelt。
+
+### 新批 d71b0a0d：任务启动成功，原生批准按钮被文字专用 harness 拒绝，2026-11-01
+
+1. 改了什么：用户明确批准封存旧场景、确认专用 Bot 游标、核对 idle 后关闭旧 Herdr、保留归档并复用原绑定，以新批继续 ≤1 Run／24 请求／$0.25。独占测试 profile 租约下复制旧场景所有普通文件/软链接，socket 端点只记路径；一次 getUpdates 返回空，已处理游标确认。两个旧 Pi 精确 get 均 idle 后，按原 cleanup 正常关闭测试 session，旧目录移到 `/private/tmp/s197-tg-failed-4ebdd9b2`，关闭前快照保存在 `/private/tmp/s197-tg-reconcile-01nov-a/scene-before-close`。没有改源代码、旧失败原件或日用。对应 [reconciliation](evidence/chat-run-target/stage1-telegram-d71b0a0d/previous-scene-reconciliation/result.json)。
+2. 逐条对照：以干净 `cbde809` 启动原 live harness，新 Herdr/Pi 就绪、原 TG owner/Thread 复用，无需重新 /start。唯一新任务精确入站，宿主切换成功，创建同一 Run 并完成首个模型请求，证明上一启动阻塞已越过。模型同一响应提出 list_directory 和 herdr_pi_discover；首个工具等待批准。用户点击 Bot 原卡片“允许这次”，返回 callback_query。harness 的 inspectTelegramInbound 只读 update.message，按 message_present 等谓词拒绝，未转给原 Gateway。原 api.answerCallback 也明确只允许文字短码，属于验收脚本与实际展示按钮不一致；用户点击正常卡片不能归为操作错误。按失败即停，Run 最终 cancelled，两个工具均 not_started，Pi 发现/选择/独立控制审批/发送/回读/产物核查均未到达，整链不通过。
+3. 数字：1 宿主 Run／1 Serika 模型请求／0 Pi 请求，6265 输入、384 缓存读取、82 输出 tokens，冻结脚本费率核算 $0.00198856，非账单核验；未结算/预留 0，费用只入账一次。模型请求全部 returned，工具实际执行与 Pi 任务输入为 0。产品/harness/测试代码 `+0/-0`；本轮只新增失败证据、报告和费用记录，没有失败后改码重跑。测试 profile 已 disabled、原绑定保留、宿主/网关停止且租约释放；因 callback 被当作 unowned/malformed，游标交接 blocked/未确认，未丢弃该 update 或自动重放。当前 `/private/tmp/s197-tg` 现场保留，无失败后 Herdr 回读/控制/清理。
+4. 命令与退出码：旧场景 `reconcile.mjs` exit 0；`node --import ./apps/desktop/node_modules/tsx/dist/loader.mjs apps/desktop/scripts/chat-run-target-telegram-live.mjs --run --env-file /Users/a1-6/.config/serika/chat-run-target-telegram-test.env --output /private/tmp/s197-tg-live-01nov-b` exit 1。原 stop-audit CLI exit 0，只证明失败诊断与原件一致，不表示业务通过。原件/hash、用量费用复算与归档前缀扫描 0 命中、ledger 唯一性检查均 exit 0；见 [result](evidence/chat-run-target/stage1-telegram-d71b0a0d/result.json)、[stop-audit](evidence/chat-run-target/stage1-telegram-d71b0a0d/stop-audit.json)、[archive-summary](evidence/chat-run-target/stage1-telegram-d71b0a0d/archive-summary.json)。
+5. 偏离与停止：原协议指定文字短码，但保留的真实卡片同时提供原生批准按钮，harness 入口未覆盖用户选择按钮的正常路径。本批不放宽谓词、不代用户批准、不替换为文字回调、不再启动新 Run；下一步应先决定是否将验收脚本对齐原网关已有按钮校验，再做离线回归与新批授权。按用户失败即停约定停在此处，桌面 PASS、原失败及授权/Seatbelt 边界保持，不合、不部署。
