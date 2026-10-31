@@ -28,6 +28,7 @@ export interface AgentDefinition<TContext = unknown> {
   instructions: string;
   model: string;
   tools: readonly string[];
+  unavailableToolFeedback?: Readonly<Record<string, string>> | undefined;
   limits: AgentLimits;
   contextSchema?: z.ZodType<TContext>;
 }

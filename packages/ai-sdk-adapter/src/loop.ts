@@ -181,8 +181,13 @@ export class AiSdkAgentLoop implements AgentLoop {
         // Feedback describes the latest call; any later call (even a denied one) replaces it.
         toolFeedback = undefined;
         if (await superseded(call)) continue;
-        const registered = executableTools[call.toolName];
+        const registered = Object.hasOwn(executableTools, call.toolName) ? executableTools[call.toolName] : undefined;
         if (!registered) {
+          const feedback = definition.unavailableToolFeedback;
+          if (feedback && Object.hasOwn(feedback, call.toolName)) {
+            await failCall(call, new AgentError({ code: "TOOL_NOT_FOUND", message: feedback[call.toolName]!, retryable: false, phase: "tool" }));
+            continue;
+          }
           throw new AgentError({ code: "TOOL_NOT_FOUND", message: `Tool is not registered: ${call.toolName}`, retryable: false, phase: "tool" });
         }
 

@@ -1970,6 +1970,57 @@ describe("AiSdkAgentLoop", () => {
     assert.equal(modelCall, 1);
   });
 
+  it("returns declared unavailable-tool errors through real model conversion within the original step budget", async () => {
+    const feedback = "This tool is unavailable in the current Run state; no operation was dispatched.";
+    for (const scenario of ["continue", "budget", "missing", "__proto__"]) {
+      let modelCalls = 0, prechecks = 0, executions = 0, afterCalls = 0;
+      const events: AgentEvent[] = [];
+      const model = new MockLanguageModelV3({
+        doStream: async options => {
+          modelCalls++;
+          assert.equal(options.tools?.length ?? 0, 0);
+          if (modelCalls === 2) {
+            const results = options.prompt.flatMap(message => message.role === "tool" ? message.content : []);
+            assert.ok(results.some(part => part.type === "tool-result" && part.toolName === "removed" &&
+              part.output.type === "error-text" && part.output.value.includes(feedback)), "converted error must reach the next request without restoring the schema");
+            if (scenario === "continue") return textResponse("Continued without dispatch.");
+          }
+          return {
+            stream: simulateReadableStream({ chunks: [
+              { type: "stream-start" as const, warnings: [] },
+              { type: "tool-call" as const, toolCallId: `unavailable-${modelCalls}`,
+                toolName: scenario === "missing" || scenario === "__proto__" ? scenario : "removed", input: "{}" },
+              { type: "finish" as const, finishReason: { unified: "tool-calls" as const, raw: undefined }, usage },
+            ] }),
+          };
+        },
+      });
+      const tools = new ToolRegistry([{ metadata: { name: "removed", version: "1", risk: "external_side_effect", idempotent: false, timeoutMs: 1000 },
+        tool: tool({ inputSchema: z.object({}), execute: () => { executions++; return "unexpected"; } }) }]);
+      const run = new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: model }), tools }).execute({
+        definition: Object.assign({ ...definition, tools: [], limits: { ...definition.limits, maxSteps: 2 } },
+          { unavailableToolFeedback: { removed: feedback } }),
+        messages: [userMessage()], signal: new AbortController().signal, generateId: () => `assistant-${modelCalls}`,
+        beforeToolExecute: () => { prechecks++; return { allow: true }; },
+        afterToolCall: () => { afterCalls++; return undefined; }, emit: createEmit(events),
+      });
+      if (scenario === "continue") {
+        const result = await run;
+        assert.equal(result.stopReason, "completed");
+        assert.equal(result.steps, 2);
+        assert.equal(result.text, "Continued without dispatch.");
+      } else {
+        await assert.rejects(run, (error: unknown) => error instanceof AgentError &&
+          error.data.code === (scenario === "budget" ? "RUN_LIMIT_EXCEEDED" : "TOOL_NOT_FOUND"));
+      }
+      assert.equal(modelCalls, scenario === "continue" || scenario === "budget" ? 2 : 1);
+      assert.equal(prechecks, 0); assert.equal(executions, 0); assert.equal(afterCalls, 0);
+      assert.equal(events.filter(event => event.type === "tool.call.started").length, 0);
+      assert.equal(events.filter(event => event.type === "tool.call.failed").length,
+        scenario === "continue" ? 1 : scenario === "budget" ? 2 : 0);
+    }
+  });
+
   it("fails an unknown tool without calling the precheck", async () => {
     let modelCalls = 0;
     let beforeToolCalls = 0;

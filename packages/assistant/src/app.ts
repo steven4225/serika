@@ -688,10 +688,13 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       return createResumeContextMessage(active.observation);
     };
     let toolConfirmation: ToolConfirmation | undefined;
-    const primaryInstructions = () => (autonomousRun()
-      ? instructionsFor({ autonomous: true, entry: currentRun.foreground?.entry }) + "\n" + AUTONOMOUS_INSTRUCTIONS
-      : baseInstructions) + (currentRun.foreground ? "\n" + FOREGROUND_INSTRUCTIONS : "") +
-      (tuiMode ? "\n\n" + formatCapabilitySummary(getCapabilities()) : "");
+    const primaryInstructions = () => {
+      const status = tuiMode ? getCapabilities() : undefined;
+      return (autonomousRun()
+        ? instructionsFor({ autonomous: true, entry: currentRun.foreground?.entry }) + "\n" + AUTONOMOUS_INSTRUCTIONS
+        : baseInstructions) + (currentRun.foreground ? "\n" + FOREGROUND_INSTRUCTIONS : "") +
+        (status ? "\n\n" + formatCapabilitySummary(status, foregroundHerdr?.availableTools(status.tools)) : "");
+    };
     const checklistSources = async (): Promise<CompactionChecklistSources> => ({ workTask: currentRun.workTask, permissions: toolConfirmation?.snapshot(),
       runs: await transcript.filterRuns(await executionRecords.listRuns(threadId, EXECUTION_RECORD_MAX_RUNS)) });
     const memoryReaders = [...(memoryStore || dreaming ? memoryReadTools({ store: memoryStore, dreaming, threadId }) : []), ...historyTools(transcript, moduleConfig?.contextCompaction ?? DEFAULT_CONTEXT_BUDGET_CONFIG,
@@ -873,7 +876,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           rollbackReferences = undefined;
           const learned = prepared.find(message => message.id === "learned-skills")?.metadata as { skills: LearnedSkillReferenceSnapshot["skills"] } | undefined;
           learnedSkillReference = learned && currentUser ? { messageId: currentUser.id, skills: learned.skills } : null;
-          return prepared;
+          return foregroundHerdr?.projectModelContext(prepared, getCapabilities()) ?? prepared;
         } finally {
           lastPreparationSource = preparationSource;
         }
@@ -924,6 +927,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
             const names = autonomousRun() ? autonomousToolNames : definition.tools;
             return foregroundHerdr?.availableTools(names) ?? names;
           },
+          get unavailableToolFeedback() { return foregroundHerdr?.unavailableToolFeedback(); },
           ...(autonomousRun() ? {
             limits: { ...definition.limits, maxSteps: AUTONOMOUS_MAX_STEPS, totalTimeoutMs: AUTONOMOUS_TOTAL_TIMEOUT_MS } } : {}),
         } : definition;
