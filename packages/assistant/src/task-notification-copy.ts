@@ -1,3 +1,4 @@
+import { arrangementDisplayStatus } from "./task-lifecycle.js";
 import type { TaskRecord } from "./task-store.js";
 
 /** Returned by the desktop notifier when the in-app window is already frontmost. */
@@ -25,8 +26,8 @@ function completedTitle(task: TaskRecord): string {
 }
 
 /** Lock-screen copy omits all prompt/result content; it stays in the application inbox. */
-export function taskNotificationCopy(task: TaskRecord): { title: string; body: string } {
-  switch (task.status) {
+export function taskNotificationCopy(task: TaskRecord & { attempts?: readonly { status: string }[] }): { title: string; body: string } {
+  switch (arrangementDisplayStatus(task)) {
     case "completed":
       return {
         title: completedTitle(task),
@@ -38,12 +39,10 @@ export function taskNotificationCopy(task: TaskRecord): { title: string; body: s
       return { title: "安排中断，不会自动重做", body: "请回桌面核对。详情在收件箱。" };
     case "cancelled":
       return { title: "这次安排已取消", body: "详情在收件箱。" };
-    case "scheduled":
+    case "pending":
     case "running":
       return { title: "有一条定时结果", body: "详情在收件箱。" };
-    default: {
-      const unreachable: never = task.status;
-      return unreachable;
-    }
+    default:
+      return { title: "有一条定时结果", body: "详情在收件箱。" };
   }
 }

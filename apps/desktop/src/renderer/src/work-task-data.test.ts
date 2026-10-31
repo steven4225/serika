@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { WorkTask, WorkTaskStatus } from "../../shared/work-tasks.js";
+import { workTaskPhase, type WorkTask, type WorkTaskPhase } from "../../shared/work-tasks.js";
 import { sanitizeWorkTaskInput } from "../../shared/work-tasks.js";
 import type { ExecutionRunRecord } from "../../shared/ui-contract.js";
 import { isTaskRun, selectCurrentTask, restoredTaskId, taskActions, unreconciledRuns, TASK_TEMPLATES, taskNextAction, taskVerificationSummary, taskSelectionKey, readTaskSelection, saveTaskSelection, taskFormAcceptance } from "./work-task-data.js";
 
-const task = (status: WorkTaskStatus): WorkTask => ({ id: "task", revision: 1, threadId: "thread", goal: "写计划", constraints: [], acceptance: [], status, runIds: ["run"], delivery: null, reconciliations: [], createdAt: "2026-10-03T00:00:00.000Z", updatedAt: "2026-10-03T00:00:00.000Z" });
+const task = (phase: WorkTaskPhase): WorkTask => ({ id: "task", revision: 1, threadId: "thread", goal: "写计划", constraints: [], acceptance: [], kind: "work",
+  status: phase === "running" || phase === "completed" || phase === "cancelled" ? phase : "pending",
+  effectReviewRequired: phase === "needs_review", acceptanceOpen: phase === "awaiting_acceptance",
+  runIds: phase === "ready" ? [] : ["run"], delivery: null, reconciliations: [], createdAt: "2026-10-03T00:00:00.000Z", updatedAt: "2026-10-03T00:00:00.000Z" });
 
 describe("work task presentation invariants", () => {
   it("restores the actionable task without hiding unknown effects behind an old selected delivery", () => {
@@ -18,7 +21,8 @@ describe("work task presentation invariants", () => {
     assert.equal(restoredTaskId(rows, "older-outside-page"), "older-outside-page", "controller get verifies saved older identity");
     assert.equal(restoredTaskId([], null), null);
     assert.equal(restoredTaskId([completed], "old"), "old");
-    assert.equal(unknown.status, "needs_review", "selection is only a projection, never a reconciliation");
+    assert.equal(workTaskPhase(unknown), "needs_review", "selection is only a projection, never a reconciliation");
+    assert.equal(unknown.status, "pending");
   });
   it("distinguishes persisted automatic failures from pending human review and completed acceptance", () => {
     const criteria = taskFormAcceptance("report.md", "内容可用", "node check.mjs", ".");
@@ -30,7 +34,7 @@ describe("work task presentation invariants", () => {
       assert.equal(taskVerificationSummary({ ...review, acceptance: review.acceptance.map(item => item.id === "test-1" ? { ...item, status } : item) }), "程序检查 1 项未通过 · 查看原因");
     }
     assert.equal(taskVerificationSummary({ ...review, acceptance: review.acceptance.map(item => item.method === "human" ? { ...item, status: "failed" } : item) }), "人工审核未通过 · 可退回修改");
-    assert.equal(taskVerificationSummary({ ...review, status: "paused" }), null, "historical acceptance is not current delivery proof");
+    assert.equal(taskVerificationSummary({ ...review, status: "pending", acceptanceOpen: false }), null, "historical acceptance is not current delivery proof");
   });
   it("builds explicit readback and exact test contracts without converting human quality to automatic", () => {
     const criteria = taskFormAcceptance("report.md\n", "来源准确", "pnpm test\nnode --test", "project");
@@ -74,7 +78,7 @@ describe("work task presentation invariants", () => {
     assert.equal(taskActions(task("completed")).run, false);
     assert.equal(taskActions(task("awaiting_acceptance")).accept, false);
     assert.equal(taskActions({ ...task("awaiting_acceptance"), delivery: { summary: "交付", artifactRefs: [], evidence: [], unresolved: [] } }).accept, true);
-    assert.equal(selectCurrentTask([task("completed"), task("needs_review")])?.status, "needs_review");
+    assert.equal(workTaskPhase(selectCurrentTask([task("completed"), task("needs_review")])!), "needs_review");
   });
 
   it("a human reconciliation removes only the action banner, never the unknown receipt", () => {

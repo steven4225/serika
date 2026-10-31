@@ -185,7 +185,7 @@ describe("natural-language reminder path", () => {
       assert.ok(saved.ok);
       assert.equal(saved.value.arrangement?.kind, "reminder");
       assert.equal(saved.value.prompt, "开会");
-      assert.equal(saved.value.status, "scheduled");
+      assert.equal(saved.value.status, "pending");
 
       const later = new Date(Date.parse(saved.value.runAt) + 60 * 60 * 1000).toISOString();
       script = { toolName: "task_reschedule", input: { id: saved.value.id, runAt: later } };

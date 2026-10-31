@@ -90,7 +90,7 @@ export function createRssDigestWorker(filePath: string, tasks: TaskStore, option
     async settle(task: TaskRecord): Promise<void> {
       if (task.prompt !== RSS_TASK_PROMPT) return;
       const d = await store.read();
-      if (d.pending?.taskId !== task.id || task.status === "scheduled") return;
+      if (d.pending?.taskId !== task.id || (task.status === "pending" && task.error === null)) return;
       await store.settle(task.id, task.status === "completed");
     },
   };

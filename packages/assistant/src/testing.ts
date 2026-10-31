@@ -8,7 +8,7 @@ export { EXECUTION_RECORD_FILE, createExecutionRecordStore } from "./execution-r
 export { createMemoryStore } from "./memory-v7-store.js";
 export { readDesktopFrontmost } from "./task-notification-presentation.js";
 export { taskResultLink } from "./task-result-link.js";
-export { RSS_DIGEST_TASK_PROMPT, TASK_WORKER_LOCK_FILE_NAME } from "./task-store.js";
+export { createTaskStore, RSS_DIGEST_TASK_PROMPT, TASK_WORKER_LOCK_FILE_NAME } from "./task-store.js";
 export { createTaskDesktopNotifier } from "./task-worker-entry.js";
 export { createTaskWorkerHealthWriter } from "./task-worker-health.js";
 export { createWorkTaskStore } from "./work-task-store.js";

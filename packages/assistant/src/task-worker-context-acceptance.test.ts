@@ -87,7 +87,7 @@ it("live scheduled workspace brief: Memory + checkpoint → worker → inbox →
       const detail = await store.getRecurring(series.value.id);
       assert.ok(detail.ok, JSON.stringify(detail));
       const task = detail.value.latestTask;
-      if (task !== null && (task.status === "completed" || task.status === "failed" || task.status === "interrupted")) {
+      if (task !== null && (task.status === "completed" || (task.status === "pending" && task.error !== null))) {
         assert.equal(task.status, "completed", JSON.stringify(task));
         const resultText = task.resultText;
         assert.ok(resultText, "No result text");

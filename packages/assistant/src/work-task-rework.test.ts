@@ -9,7 +9,7 @@ import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { createRuntimeApp } from "./app.js";
 import { createAssistantController } from "./assistant-controller.js";
-import type { WorkTask, WorkTaskResult } from "./work-task-store.js";
+import { workTaskPhase, type WorkTask, type WorkTaskResult } from "./work-task-store.js";
 
 function value<T>(result: WorkTaskResult<T>): T {
   assert.ok(result.ok, JSON.stringify(result));
@@ -111,7 +111,7 @@ it("explicit rework uses a fresh approved Run and never accepts a prior write as
     task = await run("Prepare the initial draft.");
     const firstRunId = task.runIds[0]!;
     task = await deliver();
-    assert.equal(task.status, "awaiting_acceptance");
+    assert.equal(workTaskPhase(task), "awaiting_acceptance");
     assert.equal(task.acceptance[0]?.status, "passed");
     const firstDelivery = task.delivery;
     task = value(await currentController.workTasks.recordHumanAcceptance({ id: task.id, expectedRevision: task.revision,
@@ -119,7 +119,7 @@ it("explicit rework uses a fresh approved Run and never accepts a prior write as
     const stale = await currentController.workTasks.requestChanges({ id: task.id, expectedRevision: task.revision - 1 });
     assert.equal(stale.ok, false);
     task = value(await currentController.workTasks.requestChanges({ id: task.id, expectedRevision: task.revision }));
-    assert.equal(task.status, "paused");
+    assert.equal(workTaskPhase(task), "paused");
     assert.equal(modelCalls, 2);
     assert.deepEqual(task.delivery, firstDelivery);
     assert.ok(task.acceptance.every((criterion) => criterion.status === "not_run" &&
@@ -134,7 +134,7 @@ it("explicit rework uses a fresh approved Run and never accepts a prior write as
     task = await deliver();
     assert.equal(task.acceptance[0]?.status, "failed");
     assert.deepEqual(task.delivery?.evidence, []);
-    assert.equal(task.status, "awaiting_acceptance");
+    assert.equal(workTaskPhase(task), "awaiting_acceptance");
     task = value(await currentController.workTasks.requestChanges({ id: task.id, expectedRevision: task.revision }));
     assert.equal(modelCalls, 4);
 
@@ -143,7 +143,7 @@ it("explicit rework uses a fresh approved Run and never accepts a prior write as
     task = await deliver();
     assert.equal(task.acceptance[0]?.status, "passed");
     assert.equal(task.acceptance[1]?.status, "not_run");
-    assert.equal(task.status, "awaiting_acceptance");
+    assert.equal(workTaskPhase(task), "awaiting_acceptance");
     assert.ok(task.delivery?.evidence.every((item) => item.kind === "artifact" && item.runId === latestRunId));
     const receipt = await currentController.runs.get(latestRunId);
     assert.equal(receipt?.workTaskId, task.id);

@@ -9,10 +9,10 @@ import { tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
 import { simulateReadableStream, type LanguageModel } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
-import { createRuntimeApp } from "@serika/assistant";
+import { createRuntimeApp, workTaskPhase } from "@serika/assistant";
 import { createAssistantController } from "@serika/assistant";
 import { createExecutionRecordStore } from "@serika/assistant/testing";
-import { createWorkTaskStore } from "@serika/assistant/testing";
+import { createTaskStore, createWorkTaskStore } from "@serika/assistant/testing";
 import { RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 import type { MainToRenderer } from "../shared/ui-contract.js";
 import { sanitizeWorkTaskInput, type WorkTaskInputs } from "../shared/work-tasks.js";
@@ -113,7 +113,7 @@ describe("work task desktop boundary", () => {
       assert(faultReached, "fault injection must hit the canonical workspace file");
       assert.equal(desktop.calls(), 1, "unknown effects stop before another model step");
       assert.equal(await readFile(path, "utf8"), "partial");
-      const task = await desktop.bridge.getWorkTask(created.value.id); assert(task.ok && task.value.status === "needs_review");
+      const task = await desktop.bridge.getWorkTask(created.value.id); assert(task.ok && workTaskPhase(task.value) === "needs_review");
       const receipt = await desktop.bridge.getRun(task.value.runIds.at(-1)!); assert(receipt.ok);
       assert.equal(receipt.run?.tools[0]?.status, "unknown");
       assert.equal((await desktop.bridge.runWorkTask({ id: task.value.id, expectedRevision: task.value.revision })).ok, false);
@@ -171,7 +171,7 @@ describe("work task desktop boundary", () => {
         createInput.acceptance[1]!,
       ] }); assert.ok(created.ok);
       const delivered = await run(created.value);
-      assert.equal(delivered.status, "awaiting_acceptance");
+      assert.equal(workTaskPhase(delivered), "awaiting_acceptance");
       assert.deepEqual(delivered.acceptance.map(item => item.status), ["passed", "passed", "not_run"]);
       assert.deepEqual(approved, ["write_file", "read_file", "shell_exec"]);
       await fixture.bridge.shutdown();
@@ -182,13 +182,13 @@ describe("work task desktop boundary", () => {
         { name: "shell_exec", input: { command, cwd: "." } },
       ]));
       const restored = await fixture.bridge.getWorkTask(delivered.id); assert.ok(restored.ok);
-      assert.equal(restored.value.status, "awaiting_acceptance");
+      assert.equal(workTaskPhase(restored.value), "awaiting_acceptance");
       assert.equal(fixture.bridge.snapshot().state.kind, "idle");
       const rejected = await fixture.bridge.requestWorkTaskChanges({ id: delivered.id, expectedRevision: restored.value.revision }); assert.ok(rejected.ok);
-      assert.equal(rejected.value.status, "paused");
+      assert.equal(workTaskPhase(rejected.value), "paused");
       assert.ok(rejected.value.acceptance.every(item => item.status === "not_run"));
       const next = await run(rejected.value);
-      assert.equal(next.status, "awaiting_acceptance");
+      assert.equal(workTaskPhase(next), "awaiting_acceptance");
       assert.equal(next.runIds.length, 2);
       assert.deepEqual(next.acceptance.map(item => item.status), ["passed", "passed", "not_run"]);
       const text = await readFile(join(root, "workspace", "report.md"), "utf8");
@@ -237,11 +237,11 @@ describe("work task desktop boundary", () => {
       const created = await fixture.bridge.createWorkTask({ goal: "Check the report", acceptance });
       assert.ok(created.ok); if (!created.ok) return;
       assert.deepEqual(created.value.acceptance.map(item => item.verification), acceptance.map(item => item.verification));
-      assert.equal(created.value.status, "ready");
+      assert.equal(workTaskPhase(created.value), "ready");
       assert.deepEqual(created.value.runIds, []);
       assert.equal(fixture.calls(), 0);
       assert.equal(fixture.bridge.snapshot().pendingApproval, null);
-      const store = createWorkTaskStore(join(root, "workspace"), { filePath: join(join(root, "workspace"), ".runloom/work-tasks.json") });
+      const store = createWorkTaskStore(createTaskStore(join(dirname(join(join(root, "workspace"), ".runloom/work-tasks.json")), "tasks.json")), { workspace: join(root, "workspace"), });
       const saved = await store.get(created.value.id);
       assert.ok(saved.ok && saved.value);
       if (saved.ok && saved.value) assert.deepEqual(saved.value.acceptance, created.value.acceptance);
@@ -331,7 +331,7 @@ describe("work task desktop boundary", () => {
       const returned = await fixture.bridge.requestWorkTaskChanges({ id, expectedRevision: failed.value.revision });
       assert.ok(returned.ok); if (!returned.ok) return;
       assert.equal(fixture.calls(), calls);
-      assert.equal(returned.value.status, "paused");
+      assert.equal(workTaskPhase(returned.value), "paused");
       assert.deepEqual(returned.value.delivery, failed.value.delivery);
       assert.ok(returned.value.acceptance.every(item => item.status === "not_run"));
       assert.equal((await fixture.bridge.requestWorkTaskChanges({ id, expectedRevision: failed.value.revision })).ok, false);
@@ -368,7 +368,7 @@ describe("work task desktop boundary", () => {
       fixture = await open(root);
       const restored = await fixture.bridge.getWorkTask(id);
       assert.ok(restored.ok); if (!restored.ok) return;
-      assert.equal(restored.value.status, "paused");
+      assert.equal(workTaskPhase(restored.value), "paused");
       assert.equal(restored.value.delivery?.summary, "draft");
       assert.equal(fixture.calls(), 0);
       assert.ok((await fixture.bridge.runWorkTask({ id, expectedRevision: restored.value.revision })).ok);
@@ -415,7 +415,7 @@ describe("work task desktop boundary", () => {
       await waitFor(() => first.bridge.snapshot().state.kind === "idle");
       const paused = await first.bridge.getWorkTask(id);
       assert.ok(paused.ok); if (!paused.ok) return;
-      assert.equal(paused.value.status, "awaiting_acceptance");
+      assert.equal(workTaskPhase(paused.value), "awaiting_acceptance");
       const run = await first.bridge.getRun(start.runId);
       assert.ok(run.ok && run.run?.workTaskId === id);
       assert.equal(await readFile(join(root, "workspace", "report.md"), "utf8"), "报告正文\n");
@@ -423,7 +423,7 @@ describe("work task desktop boundary", () => {
       assert.equal(!stale.ok && stale.error.code, "WORK_TASK_REVISION_CONFLICT");
       const delivered = await first.bridge.submitWorkTaskDelivery({ id, expectedRevision: paused.value.revision, summary: "报告已写入", artifactRefs: ["report.md"] });
       assert.ok(delivered.ok); if (!delivered.ok) return;
-      assert.equal(delivered.value.status, "awaiting_acceptance");
+      assert.equal(workTaskPhase(delivered.value), "awaiting_acceptance");
       assert.equal(delivered.value.acceptance[0]?.status, "passed");
       assert.equal(delivered.value.acceptance[1]?.status, "not_run");
       assert.equal(delivered.value.delivery?.evidence[0]?.kind, "artifact");
@@ -463,14 +463,14 @@ describe("work task desktop boundary", () => {
       const delivered = await desktop.bridge.submitWorkTaskDelivery({ id: paused.value.id, expectedRevision: paused.value.revision, summary: "声称已写完" });
       assert.ok(delivered.ok && delivered.value.acceptance[0]?.status === "failed");
       assert.ok(delivered.ok && delivered.value.delivery?.evidence.length === 0);
-      assert.ok(delivered.ok && delivered.value.status === "awaiting_acceptance");
+      assert.ok(delivered.ok && workTaskPhase(delivered.value) === "awaiting_acceptance");
     } finally { await desktop.bridge.shutdown(); await rm(root, { recursive: true, force: true }); }
   });
 
   it("recovers unknown receipts without a model call, prevents cancel bypass, and records human review without changing old receipts", async () => {
     const root = await prepare();
     const executions = createExecutionRecordStore(join(root, "transcripts"));
-    const store = createWorkTaskStore(join(root, "workspace"), { filePath: join(join(root, "workspace"), ".runloom/work-tasks.json"), executionRecords: executions  });
+    const store = createWorkTaskStore(createTaskStore(join(dirname(join(join(root, "workspace"), ".runloom/work-tasks.json")), "tasks.json")), { workspace: join(root, "workspace"),  executionRecords: executions  });
     const created = await store.create({ ...createInput, threadId: "work-thread" });
     assert.ok(created.ok); if (!created.ok) return;
     const id = created.value.id;
@@ -481,13 +481,13 @@ describe("work task desktop boundary", () => {
     const desktop = await open(root);
     try {
       const recovered = await desktop.bridge.getWorkTask(id);
-      assert.ok(recovered.ok && recovered.value.status === "needs_review"); if (!recovered.ok) return;
+      assert.ok(recovered.ok && workTaskPhase(recovered.value) === "needs_review"); if (!recovered.ok) return;
       assert.equal(desktop.calls(), 0);
       assert.equal((await desktop.bridge.runWorkTask({ id, expectedRevision: recovered.value.revision })).ok, false);
       assert.equal((await desktop.bridge.cancelWorkTask({ id, expectedRevision: recovered.value.revision })).ok, false);
       assert.equal((await desktop.bridge.reconcileWorkTask({ id, expectedRevision: recovered.value.revision, observedOutcome: "still_unknown", decision: "continue", note: "没法判断" })).ok, false);
       const reconciled = await desktop.bridge.reconcileWorkTask({ id, expectedRevision: recovered.value.revision, observedOutcome: "not_applied", decision: "continue", note: "用户自行核对，报告未生效" });
-      assert.ok(reconciled.ok && reconciled.value.status === "paused"); if (!reconciled.ok) return;
+      assert.ok(reconciled.ok && workTaskPhase(reconciled.value) === "paused"); if (!reconciled.ok) return;
       assert.equal(desktop.calls(), 0);
       assert.equal(reconciled.value.reconciliations.length, 1);
       assert.equal(reconciled.value.acceptance[0]?.status, "not_run");

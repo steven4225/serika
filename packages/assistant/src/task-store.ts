@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import { constants } from "node:fs";
 import {
   lstat,
@@ -14,6 +15,8 @@ import { isDeepStrictEqual } from "node:util";
 import { acquireFlock } from "./flock.js";
 import { creationReceipt, readCreationReceipt, type CreationReceipt } from "./creation-idempotency.js";
 import { latestOccurrence, nextOccurrence, type Recurrence } from "./recurrence.js";
+import { arrangementNeedsAttention, arrangementSettlement, arrangementWaiting, taskLifecycleStatuses, type TaskLifecycleStatus } from "./task-lifecycle.js";
+import { readStoredWorkTask, WORK_TASK_MAX_ENTRIES, WorkTaskStoreError, type WorkTask } from "./work-task-store.js";
 import { abortReason, throwIfAborted } from "./workspace-path.js";
 
 export const TASK_WORKER_LOCK_FILE_NAME = "task-worker.lock";
@@ -23,16 +26,11 @@ export const TASK_LIST_MAX_LIMIT = 50;
 export const TASK_PREVIEW_MAX_CHARACTERS = 120;
 export const RSS_DIGEST_TASK_PROMPT = "[runloom:rss-digest:v1] 定期 RSS 资讯简报：仅整理程序提供的订阅快照，不猜测当前新闻。";
 
-export const taskStatuses = [
-  "scheduled",
-  "running",
-  "completed",
-  "failed",
-  "cancelled",
-  "interrupted",
-] as const;
-
-export type TaskStatus = (typeof taskStatuses)[number];
+export const taskStatuses = taskLifecycleStatuses;
+export type TaskStatus = TaskLifecycleStatus;
+export const TASK_FILE_MAX_BYTES = 16 * 1024 * 1024;
+const legacyTaskStatuses = ["scheduled", "running", "completed", "failed", "cancelled", "interrupted"] as const;
+export type LegacyTaskStatus = (typeof legacyTaskStatuses)[number];
 
 export interface TaskError {
   code: string;
@@ -46,6 +44,7 @@ export type TaskArrangement =
   | { kind: "skill"; source: "none"; notification: "always"; declarationVersion: 1; skillId: string; skillHash: string };
 
 export interface TaskRecord {
+  kind: "arrangement";
   id: string;
   prompt: string;
   runAt: string;
@@ -103,7 +102,15 @@ export interface TaskRecordV4 extends TaskRecordV3 {
 }
 export interface TaskDocumentV4 {
   version: 4;
-  tasks: TaskRecordV4[];
+  tasks: LegacyTaskRecord[];
+  recurringTasks: RecurringTaskRecord[];
+}
+
+export type LegacyTaskRecord = Omit<TaskRecordV4, "kind" | "status"> & { status: LegacyTaskStatus };
+
+export interface TaskDocumentV5 {
+  version: 5;
+  tasks: Array<TaskRecordV4 | WorkTask>;
   recurringTasks: RecurringTaskRecord[];
 }
 
@@ -124,9 +131,8 @@ export interface TaskDocumentV3 {
   recurringTasks: RecurringTaskRecord[];
 }
 
-// Store internals always use the normalized v4 shape. v1/v2/v3 are accepted only
-// at the read boundary and are upgraded in memory without writing the file.
-export type TaskDocument = TaskDocumentV4;
+// Runtime reads and writes only v5. Older task files are an offline upgrade input.
+export type TaskDocument = TaskDocumentV5;
 
 export type RecurringTaskStatus = "active" | "paused" | "cancelled";
 
@@ -192,13 +198,15 @@ export interface TaskSummary {
   } | null;
   recurringTaskId?: string | null;
   arrangement?: TaskArrangement;
+  /** Preserved attempt fact when lifecycle is pending after failure or interruption. */
+  settlement?: "failed" | "interrupted";
 }
 
 export interface TaskSummaryV3 extends TaskSummary {
   acknowledgedAt: string | null;
 }
 
-export type TaskListStatusFilter = TaskStatus | "pending" | "attention";
+export type TaskListStatusFilter = TaskStatus | "attention";
 
 export interface TaskListInput {
   status?: TaskListStatusFilter;
@@ -249,6 +257,7 @@ export const taskStoreErrorCodes = [
   "TASK_NOT_ACKNOWLEDGEABLE",
   "TASK_FILE_INVALID",
   "TASK_VERSION_UNSUPPORTED",
+  "TASK_MIGRATION_REQUIRED",
   "RECURRING_TASK_NOT_FOUND",
   "RECURRING_TASK_CANCELLED",
   "READ_FAILED",
@@ -323,6 +332,7 @@ const storedTimestampPattern =
 const inputDatePattern =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?(Z|[+-]\d{2}:\d{2})$/;
 const taskStatusSet = new Set<TaskStatus>(taskStatuses);
+const legacyTaskStatusSet = new Set<LegacyTaskStatus>(legacyTaskStatuses);
 
 function fail(code: TaskStoreErrorCode, message: string): TaskFailure {
   return { ok: false, error: { code, message } };
@@ -344,6 +354,10 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function isTaskStatus(value: unknown): value is TaskStatus {
   return typeof value === "string" && taskStatusSet.has(value as TaskStatus);
+}
+
+function isLegacyTaskStatus(value: unknown): value is LegacyTaskStatus {
+  return typeof value === "string" && legacyTaskStatusSet.has(value as LegacyTaskStatus);
 }
 
 function cloneError(error: TaskError | null): TaskError | null {
@@ -550,7 +564,7 @@ function finishAttempt(task: TaskRecordV4, outcome: TaskFinish, at: string): voi
   attempt.error = outcome.status === "completed" ? null : { ...outcome.error };
 }
 
-function validateRecord(value: unknown, version: 1 | 2 | 3 | 4): TaskRecordV4 {
+function validateRecord(value: unknown, version: 1 | 2 | 3 | 4): LegacyTaskRecord {
   if (!isObject(value)) raise("TASK_FILE_INVALID", "Task records must be objects");
   const arrangement = storedArrangement(value.arrangement);
   if (value.execution !== undefined && (value.execution !== "deterministic" || value.status !== "completed" || value.runId !== null || !allowsDeterministic(value))) {
@@ -572,7 +586,7 @@ function validateRecord(value: unknown, version: 1 | 2 | 3 | 4): TaskRecordV4 {
     }
     throw error;
   }
-  if (!isTaskStatus(value.status)) raise("TASK_FILE_INVALID", "Task status is invalid");
+  if (!isLegacyTaskStatus(value.status)) raise("TASK_FILE_INVALID", "Task status is invalid");
   validateStoredTimestamp(value.createdAt, "Task createdAt");
   for (const field of ["startedAt", "finishedAt"] as const) {
     const timestamp = value[field];
@@ -720,7 +734,7 @@ function validateRecurringTask(value: unknown): RecurringTaskRecord {
   };
 }
 
-function validateDocument(value: unknown): TaskDocumentV4 {
+export function readLegacyTaskDocument(value: unknown): TaskDocumentV4 {
   if (!isObject(value)) raise("TASK_FILE_INVALID", "Task file must contain a JSON object");
   if (value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4) {
     raise("TASK_VERSION_UNSUPPORTED", "Unsupported task file version");
@@ -729,7 +743,7 @@ function validateDocument(value: unknown): TaskDocumentV4 {
     raise("TASK_FILE_INVALID", "Task file tasks must be an array");
   }
   const ids = new Set<string>();
-  const tasks: TaskRecordV4[] = [];
+  const tasks: LegacyTaskRecord[] = [];
   for (const taskValue of value.tasks) {
     const task = validateRecord(taskValue, value.version);
     if (ids.has(task.id)) raise("TASK_FILE_INVALID", `Duplicate task id: ${task.id}`);
@@ -760,6 +774,88 @@ function validateDocument(value: unknown): TaskDocumentV4 {
   const operations = [...tasks, ...recurringTasks].flatMap(task => task.creation ? [task.creation.operationId] : []);
   if (new Set(operations).size !== operations.length) raise("TASK_FILE_INVALID", "Duplicate creation operation ID");
   return { version: 4, tasks, recurringTasks };
+}
+
+function migrationRequired(file: string): never {
+  const quote = (entry: string) => `'${entry.replaceAll("'", "'\\''")}'`;
+  const script = fileURLToPath(new URL("../scripts/task-store-upgrade.mjs", import.meta.url));
+  const command = [process.execPath, script, "--data", dirname(file)].map(quote).join(" ");
+  raise("TASK_MIGRATION_REQUIRED", `任务记录需要离线升级到 tasks.json v5。先预览：${command} --dry-run；确认后：${command} --upgrade。启动时不会自动迁移。`);
+}
+
+function validateArrangementRecord(value: unknown): TaskRecordV4 {
+  const legacy = validateRecord({ ...value as Record<string, unknown>, status: legacyStatusForV5(value) }, 4);
+  const record = value as Record<string, unknown>;
+  if (record.kind !== "arrangement") raise("TASK_FILE_INVALID", "Arrangement task kind is invalid");
+  if (!isTaskStatus(record.status)) raise("TASK_FILE_INVALID", "Task status is invalid");
+  const task: TaskRecordV4 = { ...legacy, kind: "arrangement", status: record.status };
+  if (task.status === "pending" && task.error !== null) {
+    const settlement = arrangementSettlement(task);
+    if (settlement === null || legacy.status !== settlement) raise("TASK_FILE_INVALID", "Pending attention does not match its attempt");
+  } else if (legacy.status === "scheduled" && task.status !== "pending") {
+    raise("TASK_FILE_INVALID", "Waiting arrangement must stay pending");
+  } else if (task.status !== "pending" && task.status !== legacy.status) {
+    raise("TASK_FILE_INVALID", "Task status does not match its execution fields");
+  }
+  if (arrangementWaiting(task) && task.finishedAt !== null) raise("TASK_FILE_INVALID", "Waiting arrangement has finishedAt");
+  return task;
+}
+
+function legacyStatusForV5(value: unknown): LegacyTaskStatus {
+  if (!isObject(value) || !isTaskStatus(value.status)) raise("TASK_FILE_INVALID", "Task status is invalid");
+  if (value.status === "running" || value.status === "completed" || value.status === "cancelled") return value.status;
+  if (value.status !== "pending") raise("TASK_FILE_INVALID", "Task status is invalid");
+  if (value.error === null) return "scheduled";
+  const attempts = Array.isArray(value.attempts) ? value.attempts : [];
+  const last = attempts.at(-1);
+  if (isObject(last) && last.status === "interrupted") return "interrupted";
+  return "failed";
+}
+
+function validateDocument(value: unknown): TaskDocumentV5 {
+  if (!isObject(value)) raise("TASK_FILE_INVALID", "Task file must contain a JSON object");
+  if (value.version === 1 || value.version === 2 || value.version === 3 || value.version === 4) {
+    raise("TASK_MIGRATION_REQUIRED", "Task file requires the offline v5 upgrade");
+  }
+  if (value.version !== 5) raise("TASK_VERSION_UNSUPPORTED", "Unsupported task file version");
+  if (!Array.isArray(value.tasks)) raise("TASK_FILE_INVALID", "Task file tasks must be an array");
+  const ids = new Set<string>();
+  const tasks: Array<TaskRecordV4 | WorkTask> = [];
+  let workTasks = 0;
+  for (const taskValue of value.tasks) {
+    if (!isObject(taskValue)) raise("TASK_FILE_INVALID", "Task records must be objects");
+    const task = taskValue.kind === "work" ? readWorkTask(taskValue) : validateArrangementRecord(taskValue);
+    if (task.kind === "work") workTasks += 1;
+    if (ids.has(task.id)) raise("TASK_FILE_INVALID", `Duplicate task id: ${task.id}`);
+    ids.add(task.id);
+    tasks.push(task);
+  }
+  if (workTasks > WORK_TASK_MAX_ENTRIES) raise("TASK_FILE_INVALID", "Work task limit reached");
+  if (!Array.isArray(value.recurringTasks)) raise("TASK_FILE_INVALID", "Task file recurringTasks must be an array");
+  const recurringIds = new Set<string>();
+  const recurringTasks: RecurringTaskRecord[] = [];
+  for (const recurringTaskValue of value.recurringTasks) {
+    const recurringTask = validateRecurringTask(recurringTaskValue);
+    if (recurringIds.has(recurringTask.id)) raise("TASK_FILE_INVALID", `Duplicate recurring task id: ${recurringTask.id}`);
+    recurringIds.add(recurringTask.id);
+    recurringTasks.push(recurringTask);
+  }
+  for (const task of tasks) {
+    if (task.kind === "arrangement" && task.recurringTaskId !== null && task.recurringTaskId !== undefined && !recurringIds.has(task.recurringTaskId)) {
+      raise("TASK_FILE_INVALID", `Task references missing recurring task: ${task.recurringTaskId}`);
+    }
+  }
+  const operations = [...tasks, ...recurringTasks].flatMap(task => task.creation ? [task.creation.operationId] : []);
+  if (new Set(operations).size !== operations.length) raise("TASK_FILE_INVALID", "Duplicate creation operation ID");
+  return { version: 5, tasks, recurringTasks };
+}
+
+function readWorkTask(value: unknown): WorkTask {
+  try { return readStoredWorkTask(value); }
+  catch (error) {
+    if (error instanceof WorkTaskStoreError) raise("TASK_FILE_INVALID", error.message);
+    throw error;
+  }
 }
 
 function validateCreateInput(input: unknown): CreateTaskInput & { runAt: string } {
@@ -888,8 +984,8 @@ function advanceRecurringTask(
 }
 
 function validateFinish(outcome: unknown): asserts outcome is TaskFinish {
-  if (!isObject(outcome) || !isTaskStatus(outcome.status) ||
-      !["completed", "failed", "interrupted"].includes(outcome.status)) {
+  if (!isObject(outcome) ||
+      (outcome.status !== "completed" && outcome.status !== "failed" && outcome.status !== "interrupted")) {
     raise("INVALID_INPUT", "Task finish status is invalid");
   }
   if (outcome.notification !== undefined && typeof outcome.notification !== "boolean") raise("INVALID_INPUT", "Notification must be boolean");
@@ -925,7 +1021,19 @@ function errorResult(error: unknown, signal: AbortSignal, write: boolean): TaskF
   );
 }
 
-export class WorkspaceTaskStore implements TaskStore {
+function arrangementById(document: TaskDocument, id: string): TaskRecordV4 {
+  const task = document.tasks.find((candidate) => candidate.id === id);
+  if (task === undefined || task.kind !== "arrangement") raise("TASK_NOT_FOUND", `Task not found: ${id}`);
+  return task;
+}
+
+export interface TaskFilePort {
+  readonly filePath: string;
+  read(): Promise<TaskDocumentV5>;
+  edit<T>(operation: (document: TaskDocumentV5) => T): Promise<T>;
+}
+
+export class WorkspaceTaskStore implements TaskStore, TaskFilePort {
   readonly #root: string;
   readonly #file: string;
   readonly #directory: string;
@@ -944,6 +1052,14 @@ export class WorkspaceTaskStore implements TaskStore {
     this.#generateId = options.generateId ?? randomUUID;
   }
 
+  get filePath(): string { return this.#file; }
+
+  read(): Promise<TaskDocumentV5> { return this.#read(); }
+
+  edit<T>(operation: (document: TaskDocumentV5) => T): Promise<T> {
+    return this.#update(neverAborted, operation);
+  }
+
   async create(
     input: CreateTaskInput,
     signal: AbortSignal = neverAborted,
@@ -956,10 +1072,11 @@ export class WorkspaceTaskStore implements TaskStore {
       if (!receipt && Date.parse(normalized.runAt) <= this.#now()) raise("INVALID_INPUT", "Task runAt must be later than the current time");
       const task: TaskRecordV4 = {
         ...(receipt ? { creation: receipt } : {}),
+        kind: "arrangement",
         id: this.#generateId(),
         prompt: normalized.prompt,
         runAt: normalized.runAt,
-        status: "scheduled",
+        status: "pending",
         createdAt: new Date(this.#now()).toISOString(),
         startedAt: null,
         finishedAt: null,
@@ -1034,7 +1151,8 @@ export class WorkspaceTaskStore implements TaskStore {
     try {
       const validated = validateTaskListInput(input);
       const document = await this.#read();
-      const filtered = document.tasks.filter((task) => {
+      const filtered = document.tasks.filter((task): task is TaskRecordV4 => {
+        if (task.kind !== "arrangement") return false;
         if (validated.before) {
           const difference = Date.parse(task.createdAt) - Date.parse(validated.before.createdAt);
           if (difference > 0 || (difference === 0 && task.id.localeCompare(validated.before.id) >= 0)) return false;
@@ -1047,18 +1165,12 @@ export class WorkspaceTaskStore implements TaskStore {
         }
         if (validated.inbox === true &&
             (task.acknowledgedAt !== null ||
-             (task.status !== "completed" &&
-              task.status !== "failed" &&
-              task.status !== "interrupted"))) {
+             (task.status !== "completed" && !arrangementNeedsAttention(task)))) {
           return false;
         }
         if (validated.status === undefined) return true;
-        if (validated.status === "pending") {
-          return task.status === "scheduled" || task.status === "running";
-        }
-        if (validated.status === "attention") {
-          return task.status === "failed" || task.status === "interrupted";
-        }
+        if (validated.status === "attention") return arrangementNeedsAttention(task);
+        if (validated.status === "pending") return arrangementWaiting(task);
         return task.status === validated.status;
       });
       const sorted = [...filtered].sort((a, b) => {
@@ -1078,12 +1190,13 @@ export class WorkspaceTaskStore implements TaskStore {
             resultPreview: task.status === "completed" && task.resultText !== null
               ? preview(task.resultText)
               : null,
-            error: (task.status === "failed" || task.status === "interrupted") && task.error !== null
+            error: arrangementNeedsAttention(task) && task.error !== null
               ? {
                   code: task.error.code,
                   messagePreview: preview(task.error.message),
                 }
               : null,
+            ...(arrangementSettlement(task) === null ? {} : { settlement: arrangementSettlement(task)! }),
             acknowledgedAt: task.acknowledgedAt ?? null,
             recurringTaskId: task.recurringTaskId ?? null,
             ...(task.arrangement === undefined ? {} : { arrangement: { ...task.arrangement } }),
@@ -1143,7 +1256,7 @@ export class WorkspaceTaskStore implements TaskStore {
         return fail("RECURRING_TASK_NOT_FOUND", `Recurring task not found: ${id}`);
       }
       const latestTask = [...document.tasks]
-        .filter((task) => task.recurringTaskId === id)
+        .filter((task): task is TaskRecordV4 => task.kind === "arrangement" && task.recurringTaskId === id)
         .sort((a, b) => {
           const created = Date.parse(b.createdAt) - Date.parse(a.createdAt);
           return created !== 0 ? created : b.id.localeCompare(a.id);
@@ -1211,7 +1324,7 @@ export class WorkspaceTaskStore implements TaskStore {
     try {
       const document = await this.#read();
       const task = document.tasks.find((candidate) => candidate.id === id);
-      return task === undefined
+      return task === undefined || task.kind !== "arrangement"
         ? fail("TASK_NOT_FOUND", `Task not found: ${id}`)
         : { ok: true, value: cloneRecord(task) };
     } catch (error) {
@@ -1227,10 +1340,9 @@ export class WorkspaceTaskStore implements TaskStore {
     try {
       throwIfAborted(signal);
       const value = await this.#update(signal, (document) => {
-        const task = document.tasks.find((candidate) => candidate.id === id);
-        if (task === undefined) raise("TASK_NOT_FOUND", `Task not found: ${id}`);
+        const task = arrangementById(document, id);
         if (task.status === "cancelled") return task;
-        if (task.status !== "scheduled") {
+        if (!arrangementWaiting(task)) {
           raise("TASK_NOT_CANCELLABLE", `Task cannot be cancelled in ${task.status} state`);
         }
         task.status = "cancelled";
@@ -1256,9 +1368,8 @@ export class WorkspaceTaskStore implements TaskStore {
       throwIfAborted(signal);
       const normalizedRunAt = normalizeRunAt(runAt);
       const value = await this.#update(signal, (document) => {
-        const task = document.tasks.find((candidate) => candidate.id === id);
-        if (task === undefined) raise("TASK_NOT_FOUND", `Task not found: ${id}`);
-        if (task.status !== "scheduled" || task.recurringTaskId != null) {
+        const task = arrangementById(document, id);
+        if (!arrangementWaiting(task) || task.recurringTaskId != null) {
           raise("TASK_NOT_RESCHEDULABLE", `Task cannot be rescheduled in ${task.status} state`);
         }
         if (Date.parse(normalizedRunAt) <= this.#now()) {
@@ -1284,11 +1395,8 @@ export class WorkspaceTaskStore implements TaskStore {
     try {
       throwIfAborted(signal);
       const value = await this.#update(signal, (document) => {
-        const task = document.tasks.find((candidate) => candidate.id === id);
-        if (task === undefined) raise("TASK_NOT_FOUND", `Task not found: ${id}`);
-        if (task.status !== "completed" &&
-            task.status !== "failed" &&
-            task.status !== "interrupted") {
+        const task = arrangementById(document, id);
+        if (task.status !== "completed" && !arrangementNeedsAttention(task)) {
           raise(
             "TASK_NOT_ACKNOWLEDGEABLE",
             `Task cannot be acknowledged in ${task.status} state`,
@@ -1313,7 +1421,7 @@ export class WorkspaceTaskStore implements TaskStore {
       const now = this.#now();
       const value = await this.#update(signal, (document) => {
         const dueTasks = document.tasks
-          .filter((task) => task.status === "scheduled" && Date.parse(task.retryAt ?? task.runAt) <= now && task.attempts.length < TASK_MAX_ATTEMPTS)
+          .filter((task): task is TaskRecordV4 => task.kind === "arrangement" && arrangementWaiting(task) && Date.parse(task.retryAt ?? task.runAt) <= now && task.attempts.length < TASK_MAX_ATTEMPTS)
           .map((task) => ({
             kind: "task" as const,
             runAt: task.retryAt ?? task.runAt,
@@ -1357,6 +1465,7 @@ export class WorkspaceTaskStore implements TaskStore {
           raise("WRITE_FAILED", "Recurring task id generator returned invalid ids");
         }
         const task: TaskRecordV4 = {
+          kind: "arrangement",
           id: taskId,
           prompt: due.task.prompt,
           runAt: due.task.arrangement ? latestOccurrence(due.task.recurrence, nowIso) : due.task.nextRunAt as string,
@@ -1394,13 +1503,12 @@ export class WorkspaceTaskStore implements TaskStore {
       throwIfAborted(signal);
       validateFinish(outcome);
       const value = await this.#update(signal, (document) => {
-        const task = document.tasks.find((candidate) => candidate.id === id);
-        if (task === undefined) raise("TASK_NOT_FOUND", `Task not found: ${id}`);
+        const task = arrangementById(document, id);
         if (task.status !== "running") raise("INVALID_INPUT", "Only a running task can be finished");
         if (outcome.status === "completed" && outcome.runId === null && !allowsDeterministic(task)) raise("INVALID_INPUT", "Deterministic completion is not permitted for this task");
         if (task.pendingOutcome !== null && !isDeepStrictEqual(task.pendingOutcome, outcome)) raise("INVALID_INPUT", "Finish outcome differs from persisted outcome");
         const now = this.#now();
-        task.status = outcome.status;
+        task.status = outcome.status === "completed" ? "completed" : "pending";
         task.finishedAt = new Date(now).toISOString();
         task.runId = outcome.runId;
         task.acknowledgedAt = null;
@@ -1439,9 +1547,9 @@ export class WorkspaceTaskStore implements TaskStore {
         let interrupted = 0;
         const now = this.#now();
         for (const task of document.tasks) {
-          if (task.status !== "running") continue;
+          if (task.kind !== "arrangement" || task.status !== "running") continue;
           if (task.pendingOutcome !== null) raise("INVALID_INPUT", "Pending outcomes must be recovered before interrupting");
-          task.status = "interrupted";
+          task.status = "pending";
           task.finishedAt = new Date(now).toISOString();
           task.error = {
             code: "WORKER_INTERRUPTED",
@@ -1461,7 +1569,7 @@ export class WorkspaceTaskStore implements TaskStore {
 
   async listRunning(): Promise<TaskStoreResult<TaskRecordV4[]>> {
     try {
-      const tasks = (await this.#read()).tasks.filter((task) => task.status === "running");
+      const tasks = (await this.#read()).tasks.filter((task): task is TaskRecordV4 => task.kind === "arrangement" && task.status === "running");
       if (tasks.length > 100) raise("TASK_FILE_INVALID", "Too many running tasks to recover safely");
       return { ok: true, value: tasks.map(cloneRecord) };
     } catch (error) { return errorResult(error, neverAborted, false); }
@@ -1471,8 +1579,8 @@ export class WorkspaceTaskStore implements TaskStore {
     try {
       const tasks = (await this.#read()).tasks;
       return { ok: true, value: {
-        unacknowledgedCount: tasks.filter((task) => task.acknowledgedAt === null && ["completed", "failed", "interrupted"].includes(task.status)).length,
-        notificationFailureCount: tasks.filter((task) => task.notification?.status === "failed").length,
+        unacknowledgedCount: tasks.filter((task) => task.kind === "arrangement" && task.acknowledgedAt === null && (task.status === "completed" || arrangementNeedsAttention(task))).length,
+        notificationFailureCount: tasks.filter((task) => task.kind === "arrangement" && task.notification?.status === "failed").length,
       } };
     } catch (error) { return errorResult(error, neverAborted, false); }
   }
@@ -1506,7 +1614,7 @@ export class WorkspaceTaskStore implements TaskStore {
         if (task.status !== "running" || task.attempts.length >= TASK_MAX_ATTEMPTS || task.pendingOutcome !== null) raise("INVALID_INPUT", "Task cannot be retried");
         if (Date.parse(next) <= this.#now()) raise("INVALID_INPUT", "Retry must be in the future");
         finishAttempt(task, { status: "failed", runId: input.runId, error: input.error }, new Date(this.#now()).toISOString());
-        task.status = "scheduled";
+        task.status = "pending";
         task.retryAt = next;
         task.startedAt = null; task.finishedAt = null; task.runId = null; task.threadId = null; task.error = null; task.resultText = null;
         return task;
@@ -1517,7 +1625,7 @@ export class WorkspaceTaskStore implements TaskStore {
   async listNotifications(now = this.#now()): Promise<TaskStoreResult<TaskRecordV4[]>> {
     try {
       if (!Number.isFinite(now)) raise("INVALID_INPUT", "Notification time must be finite");
-      return { ok: true, value: (await this.#read()).tasks.filter((task) => task.acknowledgedAt === null && task.notification !== null && notificationIsDue(task.notification, now)).slice(0, TASK_LIST_MAX_LIMIT).map(cloneRecord) };
+      return { ok: true, value: (await this.#read()).tasks.filter((task): task is TaskRecordV4 => task.kind === "arrangement" && task.acknowledgedAt === null && task.notification !== null && notificationIsDue(task.notification, now)).slice(0, TASK_LIST_MAX_LIMIT).map(cloneRecord) };
     } catch (error) { return errorResult(error, neverAborted, false); }
   }
 
@@ -1544,8 +1652,7 @@ export class WorkspaceTaskStore implements TaskStore {
     if (typeof id !== "string" || id.length === 0) return fail("INVALID_INPUT", "Task id must be non-empty");
     try {
       const value = await this.#update(neverAborted, (document) => {
-        const task = document.tasks.find((candidate) => candidate.id === id);
-        if (!task) raise("TASK_NOT_FOUND", `Task not found: ${id}`);
+        const task = arrangementById(document, id);
         return operation(task);
       });
       return { ok: true, value: cloneRecord(value) };
@@ -1575,32 +1682,34 @@ export class WorkspaceTaskStore implements TaskStore {
     }
   }
 
-  async #read(): Promise<TaskDocumentV4> {
+  async #read(): Promise<TaskDocumentV5> {
     await this.#inspectRoot();
     let directoryDetails;
     try {
       directoryDetails = await lstat(this.#directory);
     } catch (error) {
       if (filesystemCode(error) === "ENOENT") {
-        return { version: 4, tasks: [], recurringTasks: [] };
+        return this.#emptyDocument();
       }
       throw error;
     }
     if (directoryDetails.isSymbolicLink() || !directoryDetails.isDirectory()) {
       raise("TASK_FILE_INVALID", "Task storage path is not a regular directory");
     }
+    await this.#rejectLegacyWorkTaskFile();
     let fileDetails;
     try {
       fileDetails = await lstat(this.#file);
     } catch (error) {
       if (filesystemCode(error) === "ENOENT") {
-        return { version: 4, tasks: [], recurringTasks: [] };
+        return this.#emptyDocument();
       }
       throw error;
     }
     if (fileDetails.isSymbolicLink() || !fileDetails.isFile()) {
       raise("TASK_FILE_INVALID", "Task storage path is not a regular file");
     }
+    if (fileDetails.size > TASK_FILE_MAX_BYTES) raise("TASK_FILE_INVALID", "Task file exceeds size limit");
     const text = await readFile(this.#file, "utf8");
     let value: unknown;
     try {
@@ -1608,7 +1717,21 @@ export class WorkspaceTaskStore implements TaskStore {
     } catch {
       raise("TASK_FILE_INVALID", "Task file must contain valid JSON");
     }
+    if (isObject(value) && (value.version === 1 || value.version === 2 || value.version === 3 || value.version === 4)) migrationRequired(this.#file);
     return validateDocument(value);
+  }
+
+  async #rejectLegacyWorkTaskFile(): Promise<void> {
+    try {
+      const stats = await lstat(join(this.#directory, "work-tasks.json"));
+      if (stats.isFile() || stats.isSymbolicLink()) migrationRequired(this.#file);
+    } catch (error) {
+      if (filesystemCode(error) !== "ENOENT") throw error;
+    }
+  }
+
+  #emptyDocument(): TaskDocumentV5 {
+    return { version: 5, tasks: [], recurringTasks: [] };
   }
 
   async #inspectRoot(): Promise<void> {
@@ -1647,14 +1770,19 @@ export class WorkspaceTaskStore implements TaskStore {
       const value = operation(document);
       // Idle worker polling and exact receipt replays are reads, not writes.
       // Preserve lazy migration and avoid replacing/fsyncing an unchanged file.
-      if (JSON.stringify(document) !== before) await this.#write(document, signal);
+      if (JSON.stringify(document) !== before) {
+        const serialized = `${JSON.stringify(document)}\n`;
+        if (Buffer.byteLength(serialized, "utf8") > TASK_FILE_MAX_BYTES) raise("TASK_FILE_INVALID", "Task file exceeds size limit");
+        validateDocument(JSON.parse(serialized) as unknown);
+        await this.#write(document, signal);
+      }
       return value;
     } finally {
       await lock.release();
     }
   }
 
-  async #write(document: TaskDocumentV4, signal: AbortSignal): Promise<void> {
+  async #write(document: TaskDocumentV5, signal: AbortSignal): Promise<void> {
     await this.#ensureDirectory();
     const temporary = join(this.#directory, `.tasks.json.runloom-${randomUUID()}.tmp`);
     let handle: Awaited<ReturnType<typeof open>> | undefined;
@@ -1755,17 +1883,18 @@ function notificationSurvivesRestore(status: TaskNotification["status"]): boolea
 }
 
 /** Explicit offline restore: keep execution history, revoke all future dispatch. */
-export function restoreTaskDocument(value: unknown, restoredAt: string): TaskDocumentV4 {
+export function restoreTaskDocument(value: unknown, restoredAt: string): TaskDocumentV5 {
   validateStoredTimestamp(restoredAt, "Restore time");
   const document = validateDocument(value);
   for (const task of document.tasks) {
+    if (task.kind !== "arrangement") continue;
     task.retryAt = null; task.pendingOutcome = null;
     // Submitted and foreground-omitted states are historical. Pending intent is not restored.
     if (task.notification === null || !notificationSurvivesRestore(task.notification.status)) task.notification = null;
-    if (task.status === "scheduled") { task.status = "cancelled"; task.finishedAt = restoredAt; }
+    if (arrangementWaiting(task)) { task.status = "cancelled"; task.finishedAt = restoredAt; }
     if (task.status === "running") {
       const error = { code: "RESTORED_INTERRUPTED", message: "Restored execution requires review; no model or tool was replayed" };
-      task.status = "interrupted"; task.finishedAt = restoredAt; task.error = error;
+      task.status = "pending"; task.finishedAt = restoredAt; task.error = error;
       const attempt = task.attempts.at(-1)!;
       attempt.status = "interrupted"; attempt.finishedAt = restoredAt; attempt.error = error;
     }
@@ -1780,7 +1909,7 @@ export { validateDocument as validateTaskDocument };
 export function createTaskStore(
   filePath: string,
   options: TaskStoreOptions = {},
-): TaskStore {
+): WorkspaceTaskStore {
   return new WorkspaceTaskStore(filePath, options);
 }
 

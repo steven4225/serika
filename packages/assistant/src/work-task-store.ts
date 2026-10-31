@@ -1,9 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
-import { constants } from "node:fs";
-import { lstat, mkdir, open, readFile, rename, rm } from "node:fs/promises";
+import { lstat, mkdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
-import { acquireFlock, tryAcquireFlock, type FlockHandle } from "./flock.js";
+import { tryAcquireFlock, type FlockHandle } from "./flock.js";
+import type { TaskFilePort } from "./task-store.js";
+import { taskLifecycleStatuses, type TaskLifecycleStatus } from "./task-lifecycle.js";
 import { creationReceipt, readCreationReceipt, type CreationReceipt } from "./creation-idempotency.js";
 import { matchesFileWritePath, readFileWriteReceipt, hasMatchingFileReadback, type ExecutionRecordStore, type ExecutionToolRecord } from "./execution-record-store.js";
 import { rejectSymlinkComponents, validateWorkspacePath } from "./workspace-path.js";
@@ -25,10 +26,14 @@ const LIMITS = {
   reconciliations: 64,
 } as const;
 
-export const workTaskStatuses = [
+export const workTaskStatuses = taskLifecycleStatuses;
+export type WorkTaskStatus = TaskLifecycleStatus;
+const legacyWorkTaskStatuses = [
   "ready", "running", "paused", "needs_review", "awaiting_acceptance", "completed", "cancelled",
 ] as const;
-export type WorkTaskStatus = (typeof workTaskStatuses)[number];
+type LegacyWorkTaskStatus = (typeof legacyWorkTaskStatuses)[number];
+export const workTaskPhases = legacyWorkTaskStatuses;
+export type WorkTaskPhase = LegacyWorkTaskStatus;
 
 export const acceptanceStatuses = ["passed", "failed", "blocked", "not_run"] as const;
 export type AcceptanceStatus = (typeof acceptanceStatuses)[number];
@@ -77,6 +82,7 @@ export interface WorkTaskReconciliation {
 }
 
 export interface WorkTask {
+  kind: "work";
   creation?: CreationReceipt;
   id: string;
   revision: number;
@@ -85,11 +91,32 @@ export interface WorkTask {
   constraints: string[];
   acceptance: AcceptanceCriterion[];
   status: WorkTaskStatus;
+  /** Host gate. Set only by review transitions and cleared only by reconcile. */
+  effectReviewRequired: boolean;
+  /** True only while the current delivery is the open acceptance round. */
+  acceptanceOpen: boolean;
   runIds: string[];
   delivery: WorkTaskDelivery | null;
   reconciliations: WorkTaskReconciliation[];
   createdAt: string;
   updatedAt: string;
+}
+
+export function workTaskPhase(task: Pick<WorkTask, "status" | "effectReviewRequired" | "acceptanceOpen" | "runIds" | "delivery">): WorkTaskPhase {
+  switch (task.status) {
+    case "completed": return "completed";
+    case "cancelled": return "cancelled";
+    case "running": return "running";
+    case "pending":
+      if (task.effectReviewRequired) return "needs_review";
+      if (task.acceptanceOpen) return "awaiting_acceptance";
+      if (task.runIds.length === 0 && task.delivery === null) return "ready";
+      return "paused";
+    default: {
+      const unreachable: never = task.status;
+      throw new Error(`Unhandled work task status: ${String(unreachable)}`);
+    }
+  }
 }
 
 export interface CreateWorkTaskInput {
@@ -156,9 +183,12 @@ export interface WorkTaskStore {
   cancel(id: string, expectedRevision: number): Promise<WorkTaskResult<WorkTask>>;
 }
 
-interface WorkTaskDocument { version: 1; tasks: WorkTask[] }
+interface LegacyWorkTask extends Omit<WorkTask, "kind" | "status" | "effectReviewRequired" | "acceptanceOpen"> {
+  status: LegacyWorkTaskStatus;
+}
+interface WorkTaskDocument { version: 1; tasks: LegacyWorkTask[] }
 
-class WorkTaskStoreError extends Error {
+export class WorkTaskStoreError extends Error {
   constructor(readonly code: WorkTaskErrorCode, message: string) {
     super(message);
     this.name = "WorkTaskStoreError";
@@ -317,11 +347,11 @@ function parseReconciliation(value: unknown): WorkTaskReconciliation {
   };
 }
 
-function parseTask(value: unknown): WorkTask {
+function parseTask(value: unknown): LegacyWorkTask {
   if (!isRecord(value)) raise("WORK_TASK_FILE_INVALID", "Task must be an object");
   assertKeys(value, ["id", "revision", "threadId", "goal", "constraints", "acceptance", "status", "runIds", "delivery", "reconciliations", "createdAt", "updatedAt", "creation"], "task");
   if (!Number.isSafeInteger(value.revision) || (value.revision as number) < 1 ||
-      !workTaskStatuses.includes(value.status as WorkTaskStatus) || !timestamp(value.createdAt) || !timestamp(value.updatedAt) ||
+      !legacyWorkTaskStatuses.includes(value.status as LegacyWorkTaskStatus) || !timestamp(value.createdAt) || !timestamp(value.updatedAt) ||
       !Array.isArray(value.acceptance) || value.acceptance.length > LIMITS.acceptance || value.delivery === undefined) {
     raise("WORK_TASK_FILE_INVALID", "Task contains invalid fields");
   }
@@ -336,12 +366,12 @@ function parseTask(value: unknown): WorkTask {
       new Set(acceptance.map((item) => item.id)).size !== acceptance.length || new Set(runIds).size !== runIds.length) {
     raise("WORK_TASK_FILE_INVALID", "Task contains duplicate IDs");
   }
-  const task: WorkTask = {
+  const task: LegacyWorkTask = {
     ...(value.creation === undefined ? {} : { creation: readCreationReceipt(value.creation)! }),
     id: text(value.id, "id", 128, true), revision: value.revision as number,
     threadId: text(value.threadId, "threadId", 256, true), goal: text(value.goal, "goal", LIMITS.goalBytes, true),
     constraints: strings(value.constraints, "constraints", LIMITS.constraints, LIMITS.textBytes, true), acceptance,
-    status: value.status as WorkTaskStatus, runIds, delivery: value.delivery === null ? null : parseDelivery(value.delivery, true),
+    status: value.status as LegacyWorkTaskStatus, runIds, delivery: value.delivery === null ? null : parseDelivery(value.delivery, true),
     reconciliations,
     createdAt: value.createdAt, updatedAt: value.updatedAt,
   };
@@ -391,17 +421,66 @@ export function validateWorkTaskDocument(value: unknown): WorkTaskDocument {
   return { version: 1, tasks };
 }
 
-/** Validate an archived snapshot without changing the bytes used by its source hash. */
-export function validateArchivedWorkTask(value: unknown): WorkTask {
-  parseTask(value);
-  return value as WorkTask;
+export function mapLegacyWorkTasks(value: unknown): WorkTask[] {
+  return validateWorkTaskDocument(value).tasks.map(mapLegacyWorkTask);
 }
 
-function requiredPassed(task: WorkTask): boolean {
+export function mapLegacyWorkTask(task: LegacyWorkTask): WorkTask {
+  const phase = task.status;
+  const status: WorkTaskStatus = phase === "completed" ? "completed" : phase === "cancelled" ? "cancelled" : phase === "running" ? "running" : "pending";
+  return {
+    kind: "work",
+    ...(task.creation === undefined ? {} : { creation: task.creation }),
+    id: task.id, revision: task.revision, threadId: task.threadId, goal: task.goal,
+    constraints: task.constraints, acceptance: task.acceptance, status,
+    effectReviewRequired: phase === "needs_review",
+    acceptanceOpen: phase === "awaiting_acceptance",
+    runIds: task.runIds, delivery: task.delivery, reconciliations: task.reconciliations,
+    createdAt: task.createdAt, updatedAt: task.updatedAt,
+  };
+}
+
+export function readStoredWorkTask(value: unknown): WorkTask {
+  if (!isRecord(value) || value.kind !== "work") raise("WORK_TASK_FILE_INVALID", "Work task kind is invalid");
+  const legacyStatus = legacyPhaseForStored(value);
+  const { kind: _kind, effectReviewRequired: _review, acceptanceOpen: _open, ...rest } = value;
+  const legacy = parseTask({ ...rest, status: legacyStatus });
+  const task = mapLegacyWorkTask({ ...legacy, status: legacyStatus });
+  if (!workTaskStatuses.includes(value.status as WorkTaskStatus) || value.status !== task.status) {
+    raise("WORK_TASK_FILE_INVALID", "Work task status is invalid");
+  }
+  if (value.effectReviewRequired !== task.effectReviewRequired || value.acceptanceOpen !== task.acceptanceOpen) {
+    raise("WORK_TASK_FILE_INVALID", "Work task review gate does not match its lifecycle");
+  }
+  if (Object.keys(value).some((key) => !["kind", "effectReviewRequired", "acceptanceOpen", "id", "revision", "threadId", "goal", "constraints", "acceptance", "status", "runIds", "delivery", "reconciliations", "createdAt", "updatedAt", "creation"].includes(key))) {
+    raise("WORK_TASK_FILE_INVALID", "task contains unsupported fields");
+  }
+  return task;
+}
+
+function legacyPhaseForStored(value: Record<string, unknown>): LegacyWorkTaskStatus {
+  if (value.status === "completed" || value.status === "cancelled" || value.status === "running") return value.status;
+  if (value.status !== "pending" || typeof value.effectReviewRequired !== "boolean" || typeof value.acceptanceOpen !== "boolean") {
+    raise("WORK_TASK_FILE_INVALID", "Work task status is invalid");
+  }
+  if (value.effectReviewRequired) return "needs_review";
+  if (value.acceptanceOpen) return "awaiting_acceptance";
+  const runIds = Array.isArray(value.runIds) ? value.runIds : [];
+  if (runIds.length === 0 && value.delivery === null) return "ready";
+  return "paused";
+}
+
+/** Validate an archived snapshot without changing the bytes used by its source hash. */
+export function validateArchivedWorkTask(value: unknown): WorkTask {
+  if (isRecord(value) && value.kind === "work") return readStoredWorkTask(value);
+  return mapLegacyWorkTask(parseTask(value));
+}
+
+function requiredPassed(task: { acceptance: AcceptanceCriterion[] }): boolean {
   return task.acceptance.filter((item) => item.required).every((item) => item.status === "passed");
 }
 
-function evidenceMatches(task: WorkTask, criterion: AcceptanceCriterion, item: WorkTaskEvidence): boolean {
+function evidenceMatches(task: { acceptance: AcceptanceCriterion[] }, criterion: AcceptanceCriterion, item: WorkTaskEvidence): boolean {
   return criterion.verification.kind === "human"
     ? item.kind === "human" && item.criterionId === criterion.id
     : criterion.verification.kind === "artifact_exists"
@@ -426,23 +505,19 @@ function validateWritableDocument(document: WorkTaskDocument): void {
 
 class WorkTaskStoreImpl implements WorkTaskStore {
   readonly #root: string;
-  readonly #file: string;
-  readonly #lock: string;
+  readonly #tasks: TaskFilePort;
   readonly #now: () => Date;
   readonly #generateId: () => string;
   readonly #executionRecords: Pick<ExecutionRecordStore, "getRun"> | undefined;
-  #commitUncertain = false;
-  #writeFailed = false;
 
-  constructor(workspace: string, options: {
-    filePath: string;
+  constructor(tasks: TaskFilePort, options: {
+    workspace: string;
     now?: () => Date;
     generateId?: () => string;
     executionRecords?: Pick<ExecutionRecordStore, "getRun">;
   }) {
-    this.#root = resolve(workspace);
-    this.#file = resolve(options.filePath);
-    this.#lock = `${this.#file}.lock`;
+    this.#tasks = tasks;
+    this.#root = resolve(options.workspace);
     this.#now = options.now ?? (() => new Date());
     this.#generateId = options.generateId ?? randomUUID;
     this.#executionRecords = options.executionRecords;
@@ -453,7 +528,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
       const normalized = text(threadId, "threadId", 256);
       await this.#ensureDirectory();
       const digest = createHash("sha256").update(normalized).digest("hex");
-      const path = join(dirname(this.#file), `.work-task-owner-${digest}.lock`);
+      const path = join(dirname(this.#tasks.filePath), `.work-task-owner-${digest}.lock`);
       await this.#inspectOptionalFile(path, "thread lock");
       const handle = await tryAcquireFlock(path);
       if (handle === null) raise("WORK_TASK_INVALID_STATE", "Work task Thread is already controlled by another process");
@@ -474,22 +549,25 @@ class WorkTaskStoreImpl implements WorkTaskStore {
       if (!criteria.some((item) => item.required)) raise("WORK_TASK_INVALID_INPUT", "At least one required acceptance criterion is required");
       const at = this.#now().toISOString();
       const task: WorkTask = {
+        kind: "work",
         id: text(this.#generateId(), "id", 128), revision: 1,
         threadId: text(input.threadId, "threadId", 256), goal: text(input.goal, "goal", LIMITS.goalBytes),
         constraints: strings(input.constraints ?? [], "constraints", LIMITS.constraints, LIMITS.textBytes), acceptance: criteria,
-        status: "ready", runIds: [], delivery: null, createdAt: at, updatedAt: at,
+        status: "pending", effectReviewRequired: false, acceptanceOpen: false,
+        runIds: [], delivery: null, createdAt: at, updatedAt: at,
         reconciliations: [],
       };
       const receipt = creationReceipt(input.operationId, { threadId: task.threadId, goal: task.goal, constraints: task.constraints,
         acceptance: task.acceptance.map(({ id, description, method, verification, required }) => ({ id, description, method, verification, required })) });
       if (receipt) task.creation = receipt;
+      if (Buffer.byteLength(JSON.stringify(task), "utf8") > WORK_TASK_MAX_BYTES) raise("WORK_TASK_LIMIT_EXCEEDED", "Work task exceeds size limit");
       return await this.#mutate((document) => {
         const existing = receipt && document.tasks.find(item => item.creation?.operationId === receipt.operationId);
         if (existing) {
-          if (existing.creation!.requestHash !== receipt.requestHash) raise("WORK_TASK_INVALID_INPUT", "同一创建操作的内容已变化，请先核对原任务。");
+          if (existing.kind !== "work" || existing.creation!.requestHash !== receipt.requestHash) raise("WORK_TASK_INVALID_INPUT", "同一创建操作的内容已变化，请先核对原任务。");
           return existing;
         }
-        if (document.tasks.length >= WORK_TASK_MAX_ENTRIES) raise("WORK_TASK_LIMIT_EXCEEDED", "Work task limit reached");
+        if (document.tasks.filter((item) => item.kind === "work").length >= WORK_TASK_MAX_ENTRIES) raise("WORK_TASK_LIMIT_EXCEEDED", "Work task limit reached");
         if (document.tasks.some((item) => item.id === task.id)) raise("WORK_TASK_INVALID_INPUT", "Generated task ID already exists");
         document.tasks.unshift(task);
         return task;
@@ -500,7 +578,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
   async get(id: string): Promise<WorkTaskResult<WorkTask>> {
     try {
       text(id, "id", 128);
-      const task = (await this.#load()).tasks.find((item) => item.id === id);
+      const task = (await this.#load()).tasks.find((item): item is WorkTask => item.kind === "work" && item.id === id);
       return task ? { ok: true, value: structuredClone(task) } : { ok: false, error: { code: "WORK_TASK_NOT_FOUND", message: "Work task not found" } };
     } catch (error) { return this.#error(error, "WORK_TASK_READ_FAILED"); }
   }
@@ -514,7 +592,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
           (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1 || limit > WORK_TASK_MAX_ENTRIES))) {
         raise("WORK_TASK_INVALID_INPUT", "Invalid work task list filter");
       }
-      let tasks = (await this.#load()).tasks;
+      let tasks = (await this.#load()).tasks.filter((task): task is WorkTask => task.kind === "work");
       if (status) tasks = tasks.filter((task) => task.status === status);
       if (input.threadId) tasks = tasks.filter((task) => task.threadId === input.threadId);
       return { ok: true, value: structuredClone(tasks.slice(0, limit ?? 20)) };
@@ -523,26 +601,30 @@ class WorkTaskStoreImpl implements WorkTaskStore {
 
   beginRun(id: string, input: { expectedRevision: number; runId: string }): Promise<WorkTaskResult<WorkTask>> {
     return this.#update(id, input.expectedRevision, (task, document) => {
-      if (!["ready", "paused"].includes(task.status)) raise("WORK_TASK_INVALID_STATE", "Task cannot begin a Run in its current state");
+      if (!["ready", "paused"].includes(workTaskPhase(task))) raise("WORK_TASK_INVALID_STATE", "Task cannot begin a Run in its current state");
       const runId = text(input.runId, "runId", 128);
-      if (document.tasks.some((item) => item.runIds.includes(runId))) raise("WORK_TASK_INVALID_INPUT", "Run is already linked to a work task");
+      if (document.tasks.some((item) => item.kind === "work" && item.runIds.includes(runId))) raise("WORK_TASK_INVALID_INPUT", "Run is already linked to a work task");
       if (task.runIds.length >= LIMITS.runIds) raise("WORK_TASK_LIMIT_EXCEEDED", "Run history limit reached");
       task.runIds.push(runId);
       task.status = "running";
+      task.effectReviewRequired = false;
+      task.acceptanceOpen = false;
     });
   }
 
   pause(id: string, expectedRevision: number): Promise<WorkTaskResult<WorkTask>> {
     return this.#update(id, expectedRevision, (task) => {
       if (task.status !== "running") raise("WORK_TASK_INVALID_STATE", "Only a running task can be paused");
-      task.status = "paused";
+      task.status = "pending";
     });
   }
 
   markNeedsReview(id: string, expectedRevision: number): Promise<WorkTaskResult<WorkTask>> {
     return this.#update(id, expectedRevision, (task) => {
-      if (!["ready", "running", "paused"].includes(task.status)) raise("WORK_TASK_INVALID_STATE", "Task cannot require review in its current state");
-      task.status = "needs_review";
+      if (!["ready", "running", "paused"].includes(workTaskPhase(task))) raise("WORK_TASK_INVALID_STATE", "Task cannot require review in its current state");
+      task.status = "pending";
+      task.effectReviewRequired = true;
+      task.acceptanceOpen = false;
     });
   }
 
@@ -560,7 +642,9 @@ class WorkTaskStoreImpl implements WorkTaskStore {
       if (input.disposition !== "paused" && input.disposition !== "needs_review") {
         raise("WORK_TASK_INVALID_INPUT", "Recovery disposition is invalid");
       }
-      task.status = input.disposition;
+      task.status = "pending";
+      task.effectReviewRequired = input.disposition === "needs_review";
+      task.acceptanceOpen = false;
     });
   }
 
@@ -571,7 +655,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
     note: string;
   }): Promise<WorkTaskResult<WorkTask>> {
     return this.#update(id, input.expectedRevision, (task) => {
-      if (task.status !== "needs_review") raise("WORK_TASK_INVALID_STATE", "Only a task requiring review can be reconciled");
+      if (workTaskPhase(task) !== "needs_review") raise("WORK_TASK_INVALID_STATE", "Only a task requiring review can be reconciled");
       if (!workTaskObservedOutcomes.includes(input.observedOutcome) ||
           (input.decision !== "continue" && input.decision !== "cancel")) {
         raise("WORK_TASK_INVALID_INPUT", "Reconciliation input is invalid");
@@ -597,26 +681,29 @@ class WorkTaskStoreImpl implements WorkTaskStore {
         note: text(input.note, "reconciliation.note", LIMITS.noteBytes),
         confirmedAt: this.#now().toISOString(),
       });
-      task.status = input.decision === "continue" ? "paused" : "cancelled";
+      task.effectReviewRequired = false;
+      task.acceptanceOpen = false;
+      task.status = input.decision === "continue" ? "pending" : "cancelled";
     });
   }
 
   requestChanges(id: string, expectedRevision: number): Promise<WorkTaskResult<WorkTask>> {
     return this.#update(id, expectedRevision, (task) => {
-      if (task.status !== "awaiting_acceptance") raise("WORK_TASK_INVALID_STATE", "Only an awaiting delivery can be returned for changes");
+      if (workTaskPhase(task) !== "awaiting_acceptance") raise("WORK_TASK_INVALID_STATE", "Only an awaiting delivery can be returned for changes");
       for (const criterion of task.acceptance) {
         criterion.status = "not_run";
         criterion.evidenceRefs = [];
         criterion.note = null;
       }
       // Retain the last delivery for reference, never as current acceptance.
-      task.status = "paused";
+      task.acceptanceOpen = false;
+      task.status = "pending";
     });
   }
 
   submitDelivery(id: string, input: { expectedRevision: number; delivery: WorkTaskDelivery }): Promise<WorkTaskResult<WorkTask>> {
     return this.#update(id, input.expectedRevision, (task) => {
-      if (!["paused", "awaiting_acceptance"].includes(task.status)) {
+      if (!["paused", "awaiting_acceptance"].includes(workTaskPhase(task))) {
         raise("WORK_TASK_INVALID_STATE", "Task cannot submit delivery in its current state");
       }
       const delivery = parseDelivery(input.delivery, false);
@@ -629,7 +716,9 @@ class WorkTaskStoreImpl implements WorkTaskStore {
         criterion.evidenceRefs = [];
         criterion.note = null;
       }
-      task.status = "awaiting_acceptance";
+      task.status = "pending";
+      task.acceptanceOpen = true;
+      task.effectReviewRequired = false;
     });
   }
 
@@ -638,7 +727,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
       const snapshot = await this.get(id);
       if (!snapshot.ok) return snapshot;
       const snapshotCriterion = snapshot.value.acceptance.find((item) => item.id === input.criterionId);
-      if (snapshot.value.status !== "awaiting_acceptance" || snapshot.value.delivery === null) {
+      if (workTaskPhase(snapshot.value) !== "awaiting_acceptance" || snapshot.value.delivery === null) {
         raise("WORK_TASK_INVALID_STATE", "Delivery must be active before recording acceptance");
       }
       if (snapshotCriterion === undefined) raise("WORK_TASK_INVALID_INPUT", "Acceptance criterion not found");
@@ -657,7 +746,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
       return this.#error(error, "WORK_TASK_READ_FAILED");
     }
     return this.#update(id, input.expectedRevision, (task) => {
-      if (task.status !== "awaiting_acceptance") raise("WORK_TASK_INVALID_STATE", "Only an awaiting delivery can change acceptance");
+      if (workTaskPhase(task) !== "awaiting_acceptance") raise("WORK_TASK_INVALID_STATE", "Only an awaiting delivery can change acceptance");
       if (task.delivery === null) raise("WORK_TASK_INVALID_STATE", "Delivery must be submitted before recording acceptance");
       if (!acceptanceStatuses.includes(input.status)) raise("WORK_TASK_INVALID_INPUT", "Acceptance status is invalid");
       const criterion = task.acceptance.find((item) => item.id === input.criterionId);
@@ -675,7 +764,13 @@ class WorkTaskStoreImpl implements WorkTaskStore {
       criterion.status = input.status;
       criterion.evidenceRefs = additions.map((item) => item.id);
       criterion.note = input.note === undefined || input.note === null ? null : text(input.note, "note", LIMITS.noteBytes);
-      task.status = task.delivery !== null && requiredPassed(task) ? "completed" : task.delivery !== null ? "awaiting_acceptance" : task.status;
+      if (task.delivery !== null && requiredPassed(task)) {
+        task.status = "completed";
+        task.acceptanceOpen = false;
+      } else {
+        task.status = "pending";
+        task.acceptanceOpen = task.delivery !== null;
+      }
     });
   }
 
@@ -758,19 +853,21 @@ class WorkTaskStoreImpl implements WorkTaskStore {
 
   cancel(id: string, expectedRevision: number): Promise<WorkTaskResult<WorkTask>> {
     return this.#update(id, expectedRevision, (task) => {
-      if (["running", "needs_review", "completed", "cancelled"].includes(task.status)) {
+      if (["running", "needs_review", "completed", "cancelled"].includes(workTaskPhase(task))) {
         raise("WORK_TASK_INVALID_STATE", "Task cannot be cancelled in its current state; needs_review requires reconciliation");
       }
       task.status = "cancelled";
+      task.acceptanceOpen = false;
+      task.effectReviewRequired = false;
     });
   }
 
-  async #update(id: string, expectedRevision: number, update: (task: WorkTask, document: WorkTaskDocument) => void): Promise<WorkTaskResult<WorkTask>> {
+  async #update(id: string, expectedRevision: number, update: (task: WorkTask, document: Awaited<ReturnType<TaskFilePort["read"]>>) => void): Promise<WorkTaskResult<WorkTask>> {
     try {
       text(id, "id", 128);
       if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) raise("WORK_TASK_INVALID_INPUT", "expectedRevision must be a positive integer");
       return await this.#mutate((document) => {
-        const task = document.tasks.find((item) => item.id === id);
+        const task = document.tasks.find((item): item is WorkTask => item.kind === "work" && item.id === id);
         if (!task) raise("WORK_TASK_NOT_FOUND", "Work task not found");
         if (task.revision !== expectedRevision) raise("WORK_TASK_REVISION_CONFLICT", `Work task revision is ${task.revision}; expected ${expectedRevision}`);
         update(task, document);
@@ -782,22 +879,11 @@ class WorkTaskStoreImpl implements WorkTaskStore {
     } catch (error) { return this.#error(error, "WORK_TASK_WRITE_FAILED"); }
   }
 
-  async #mutate<T>(update: (document: WorkTaskDocument) => T): Promise<WorkTaskResult<T>> {
-    await this.#ensureDirectory();
-    await this.#inspectOptionalFile(this.#lock, "lock");
-    const lock = await acquireFlock(this.#lock);
+  async #mutate<T>(update: (document: Awaited<ReturnType<TaskFilePort["read"]>>) => T): Promise<WorkTaskResult<T>> {
     try {
-      if (this.#commitUncertain) raise("WORK_TASK_COMMIT_UNCERTAIN", "Work task save acknowledgement is uncertain; restart and reread before further writes");
-      if (this.#writeFailed) raise("WORK_TASK_WRITE_FAILED", "Work task storage failed; restart and reconcile before further dispatch");
-      const document = await this.#load();
-      const before = JSON.stringify(document);
-      const value = update(document);
-      validateWritableDocument(document);
-      const serialized = `${JSON.stringify(document)}\n`;
-      if (Buffer.byteLength(serialized, "utf8") > WORK_TASK_FILE_MAX_BYTES) raise("WORK_TASK_LIMIT_EXCEEDED", "Work task file exceeds size limit");
-      if (JSON.stringify(document) !== before) await this.#write(serialized);
+      const value = await this.#tasks.edit((document) => update(document));
       return { ok: true, value: structuredClone(value) };
-    } finally { await lock.release(); }
+    } catch (error) { return this.#error(error, "WORK_TASK_WRITE_FAILED"); }
   }
 
   async #inspectRoot(): Promise<void> {
@@ -810,7 +896,7 @@ class WorkTaskStoreImpl implements WorkTaskStore {
 
   async #ensureDirectory(): Promise<void> {
     await this.#inspectRoot();
-    const directory = dirname(this.#file);
+    const directory = dirname(this.#tasks.filePath);
     try { await mkdir(directory, { recursive: true }); }
     catch (error) { if (fileCode(error) !== "EEXIST") raise("WORK_TASK_WRITE_FAILED", "Unable to create work task directory"); }
     const stats = await lstat(directory);
@@ -823,7 +909,6 @@ class WorkTaskStoreImpl implements WorkTaskStore {
       const stats = await lstat(path);
       if (stats.isSymbolicLink()) raise("WORK_TASK_SYMLINK_NOT_ALLOWED", `Work task ${label} must not be a symlink`);
       if (!stats.isFile()) raise("WORK_TASK_FILE_INVALID", `Work task ${label} is not a regular file`);
-      if (path === this.#file && stats.size > WORK_TASK_FILE_MAX_BYTES) raise("WORK_TASK_FILE_INVALID", "Work task file exceeds size limit");
       return true;
     } catch (error) {
       if (fileCode(error) === "ENOENT") return false;
@@ -831,68 +916,29 @@ class WorkTaskStoreImpl implements WorkTaskStore {
     }
   }
 
-  async #load(): Promise<WorkTaskDocument> {
+  async #load(): Promise<Awaited<ReturnType<TaskFilePort["read"]>>> {
     await this.#inspectRoot();
-    const directory = dirname(this.#file);
-    try {
-      const stats = await lstat(directory);
-      if (stats.isSymbolicLink()) raise("WORK_TASK_SYMLINK_NOT_ALLOWED", "Work task directory must not be a symlink");
-      if (!stats.isDirectory()) raise("WORK_TASK_FILE_INVALID", "Work task directory is invalid");
-    } catch (error) {
-      if (fileCode(error) === "ENOENT") return { version: 1, tasks: [] };
-      throw error;
-    }
-    if (!(await this.#inspectOptionalFile(this.#file, "file"))) return { version: 1, tasks: [] };
-    try { return validateWorkTaskDocument(JSON.parse(await readFile(this.#file, "utf8")) as unknown); }
-    catch (error) {
-      if (error instanceof WorkTaskStoreError) throw error;
-      if (error instanceof SyntaxError) raise("WORK_TASK_FILE_INVALID", "Work task file contains invalid JSON");
-      raise("WORK_TASK_READ_FAILED", "Unable to read work task file");
-    }
-  }
-
-  async #write(serialized: string): Promise<void> {
-    const directory = dirname(this.#file);
-    const temporary = join(directory, `.work-tasks.${randomUUID()}.tmp`);
-    let handle;
-    let created = false;
-    let renamed = false;
-    try {
-      handle = await open(temporary, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW, 0o600);
-      created = true;
-      await handle.writeFile(serialized, "utf8");
-      await handle.sync();
-      await handle.close();
-      handle = undefined;
-      await rename(temporary, this.#file);
-      renamed = true;
-      created = false;
-      if (process.platform !== "win32") {
-        const handle = await open(directory, "r");
-        try { await handle.sync(); } finally { await handle.close(); }
-      }
-    } catch {
-      this.#writeFailed = true;
-      if (renamed) {
-        this.#commitUncertain = true;
-        raise("WORK_TASK_COMMIT_UNCERTAIN", "Work task file was replaced but acknowledgement is uncertain; restart and reread, do not repeat creation");
-      }
-      raise("WORK_TASK_WRITE_FAILED", "Unable to write work task file");
-    } finally {
-      if (handle) await handle.close().catch(() => undefined);
-      if (created) await rm(temporary, { force: true }).catch(() => undefined);
-    }
+    return await this.#tasks.read();
   }
 
   #error(error: unknown, fallback: WorkTaskErrorCode): WorkTaskFailure {
     if (error instanceof WorkTaskStoreError) return { ok: false, error: { code: error.code, message: error.message } };
+    if (error instanceof Error && error.name === "TaskStoreError" && "code" in error) {
+      const code = String((error as { code: unknown }).code);
+      const mapped: WorkTaskErrorCode = code === "TASK_MIGRATION_REQUIRED" || code === "TASK_VERSION_UNSUPPORTED" ? "WORK_TASK_VERSION_UNSUPPORTED"
+        : code === "TASK_FILE_INVALID" ? "WORK_TASK_FILE_INVALID"
+        : code === "COMMIT_UNCERTAIN" ? "WORK_TASK_COMMIT_UNCERTAIN"
+        : code === "READ_FAILED" ? "WORK_TASK_READ_FAILED"
+        : "WORK_TASK_WRITE_FAILED";
+      return { ok: false, error: { code: mapped, message: error.message } };
+    }
     return { ok: false, error: { code: fallback, message: fallback === "WORK_TASK_READ_FAILED" ? "Unable to read work task store" : "Unable to write work task store" } };
   }
 }
 
 export function createWorkTaskStore(
-  workspace: string,
-  options: { filePath: string; now?: () => Date; generateId?: () => string; executionRecords?: Pick<ExecutionRecordStore, "getRun"> },
+  tasks: TaskFilePort,
+  options: { workspace: string; now?: () => Date; generateId?: () => string; executionRecords?: Pick<ExecutionRecordStore, "getRun"> },
 ): WorkTaskStore {
-  return new WorkTaskStoreImpl(workspace, options);
+  return new WorkTaskStoreImpl(tasks, options);
 }

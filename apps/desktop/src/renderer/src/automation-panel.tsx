@@ -102,7 +102,7 @@ export function AutomationPanel({ busy, identity, onRun, refreshSequence }: { bu
       {!scheduled.length && !recurring.length ? <p className="hint">没有待执行安排。已经结束的结果在「提醒」页，不会从这里重放。</p> : null}
       {scheduled.map(task => {
         const clock = reminderClock();
-        return <div className="capability-row" key={task.id}><div><strong>{task.promptPreview}</strong><p>{localWhen(task.runAt, clock)} · {scheduleStatusLabel(task.status, task.runAt, clock.now, task.arrangement?.kind)}</p><small>{automationArrangementLabel(task.arrangement)}</small><details><summary>编号</summary><code>{task.id}</code></details></div>{task.status === "scheduled" ? <button className="ghost" disabled={busy || working} onClick={() => { setChange({ id: task.id, kind: "once", action: "cancel" }); setPreview(null); }}>取消安排…</button> : null}</div>;
+        return <div className="capability-row" key={task.id}><div><strong>{task.promptPreview}</strong><p>{localWhen(task.runAt, clock)} · {scheduleStatusLabel(task.status, task.runAt, clock.now, task.arrangement?.kind)}</p><small>{automationArrangementLabel(task.arrangement)}</small><details><summary>编号</summary><code>{task.id}</code></details></div>{task.status === "pending" && task.error === null ? <button className="ghost" disabled={busy || working} onClick={() => { setChange({ id: task.id, kind: "once", action: "cancel" }); setPreview(null); }}>取消安排…</button> : null}</div>;
       })}
       {recurring.map(task => {
         const clock = reminderClock();

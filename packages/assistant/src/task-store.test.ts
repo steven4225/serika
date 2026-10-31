@@ -85,7 +85,7 @@ describe("WorkspaceTaskStore", () => {
     assert.equal(code(await store.claimNextDue()), "WRITE_FAILED");
     assert.deepEqual(await readFile(file), before);
     const saved = await createTaskStore(join(root, ".runloom/tasks.json")).get(task.value.id); assert(saved.ok);
-    assert.equal(saved.value.status, "scheduled");
+    assert.equal(saved.value.status, "pending");
   });
 
   it("restore preserves failed attempt history but disables its scheduled safe retry and pending notification", async () => {
@@ -96,9 +96,11 @@ describe("WorkspaceTaskStore", () => {
     now += 60_000; assert((await store.claimNextDue()).ok);
     assert((await store.retry(created.value.id, { runId: null, error: { code: "MODEL_TIMEOUT", message: "timeout" }, nextRunAt: "2026-10-10T00:02:00Z" })).ok);
     const restored = restoreTaskDocument(JSON.parse(await readFile(join(root, '.runloom/tasks.json'), "utf8")), "2026-10-10T00:03:00Z");
-    assert.equal(restored.tasks[0]?.status, "cancelled"); assert.equal(restored.tasks[0]?.retryAt, null);
-    assert.equal(restored.tasks[0]?.attempts[0]?.status, "failed");
-    assert.equal(restored.tasks[0]?.attempts[0]?.error?.code, "MODEL_TIMEOUT");
+    const restoredTask = restored.tasks[0];
+    if (restoredTask?.kind !== "arrangement") throw new Error("expected arrangement");
+    assert.equal(restoredTask.status, "cancelled"); assert.equal(restoredTask.retryAt, null);
+    assert.equal(restoredTask.attempts[0]?.status, "failed");
+    assert.equal(restoredTask.attempts[0]?.error?.code, "MODEL_TIMEOUT");
   });
   it("idle claims do not replace or sync the unchanged task file", async () => {
     const root = await workspace();
@@ -330,7 +332,9 @@ describe("WorkspaceTaskStore", () => {
     const reopened = await createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now }).get(created.value.id);
     assert(reopened.ok && reopened.value.notification?.status === "omitted");
     const restored = restoreTaskDocument(JSON.parse(await readFile(join(root, '.runloom/tasks.json'), "utf8")), "2026-09-11T00:02:00.000Z");
-    assert.equal(restored.tasks[0]?.notification?.status, "omitted");
+    const restoredTask = restored.tasks[0];
+    if (restoredTask?.kind !== "arrangement") throw new Error("expected arrangement");
+    assert.equal(restoredTask.notification?.status, "omitted");
     const after = await store.listNotifications();
     assert(after.ok && after.value.length === 0);
   });
@@ -362,7 +366,8 @@ describe("WorkspaceTaskStore", () => {
       id: "task-1",
       prompt: "prepare a plan",
       runAt: "2026-09-12T01:00:00.000Z",
-      status: "scheduled",
+      kind: "arrangement",
+      status: "pending",
       createdAt: "2026-09-11T01:00:00.000Z",
       startedAt: null,
       finishedAt: null,
@@ -383,7 +388,7 @@ describe("WorkspaceTaskStore", () => {
           id: "task-1",
           promptPreview: "prepare a plan",
           runAt: "2026-09-12T01:00:00.000Z",
-          status: "scheduled",
+          status: "pending",
           finishedAt: null,
           resultPreview: null,
           error: null,
@@ -473,7 +478,8 @@ describe("WorkspaceTaskStore", () => {
       id: "associated-1",
       prompt: "legacy occurrence",
       runAt: "2026-09-11T01:00:00.000Z",
-      status: "scheduled",
+      kind: "arrangement",
+      status: "pending",
       createdAt: "2026-09-11T00:00:00.000Z",
       startedAt: null,
       finishedAt: null,
@@ -508,7 +514,7 @@ describe("WorkspaceTaskStore", () => {
     if (!final.ok) return;
     if (rescheduled.ok) {
       assert.deepEqual(claimed, { ok: true, value: null });
-      assert.equal(final.value.status, "scheduled");
+      assert.equal(final.value.status, "pending");
       assert.equal(final.value.runAt, "2026-09-11T00:10:00.000Z");
     } else {
       assert.equal(rescheduled.error.code, "TASK_NOT_RESCHEDULABLE");
@@ -607,7 +613,7 @@ describe("WorkspaceTaskStore", () => {
     assert.deepEqual(await store.claimNextDue(), { ok: true, value: null });
   });
 
-  it("reads v1 files and upgrades them on the first write", async () => {
+  it("refuses a v1 task file without writing", async () => {
     const root = await workspace();
     await mkdir(join(root, ".runloom"));
     await writeFile(
@@ -635,20 +641,11 @@ describe("WorkspaceTaskStore", () => {
       now: () => Date.parse("2026-09-11T00:00:00.000Z"),
       generateId: () => `new-${++id}`,
     });
+    const before = await readFile(join(root, ".runloom/tasks.json"));
     const readOnly = await store.list();
-    assert.equal(readOnly.ok, true);
-    if (readOnly.ok) assert.equal(readOnly.value.tasks[0]?.recurringTaskId, null);
-    const created = await store.create({ prompt: "new task", runAt: "2026-09-13T00:00:00Z" });
-    assert.equal(created.ok, true);
-    const document = JSON.parse(await readFile(join(root, '.runloom/tasks.json'), "utf8")) as {
-      version: number;
-      tasks: Array<{ recurringTaskId: string | null; acknowledgedAt: string | null }>;
-      recurringTasks: unknown[];
-    };
-    assert.equal(document.version, 4);
-    assert.deepEqual(document.recurringTasks, []);
-    assert.deepEqual(document.tasks.map((task) => task.recurringTaskId), [null, null]);
-    assert.deepEqual(document.tasks.map((task) => task.acknowledgedAt), [null, null]);
+    assert.equal(readOnly.ok, false);
+    if (!readOnly.ok) assert.equal(readOnly.error.code, "TASK_MIGRATION_REQUIRED");
+    assert.deepEqual(await readFile(join(root, ".runloom/tasks.json")), before);
   });
 
   it("filters grouped statuses before limiting and projects bounded results and errors", async () => {
@@ -658,10 +655,11 @@ describe("WorkspaceTaskStore", () => {
     const longResult = "结果🙂".repeat(80);
     const longError = "模型失败🚨".repeat(80);
     const task = (overrides: Record<string, unknown>) => ({
+      kind: "arrangement",
       id: "task-default",
       prompt: "short prompt",
       runAt: "2026-09-12T00:30:00.000Z",
-      status: "scheduled",
+      status: "pending",
       createdAt: "2026-09-11T00:01:00.000Z",
       startedAt: null,
       finishedAt: null,
@@ -670,13 +668,19 @@ describe("WorkspaceTaskStore", () => {
       resultText: null,
       error: null,
       acknowledgedAt: null,
+      recurringTaskId: null,
+      attempts: [],
+      retryAt: null,
+      notification: null,
+      pendingOutcome: null,
       ...overrides,
     });
     await mkdir(join(root, ".runloom"));
     await writeFile(
       join(root, '.runloom/tasks.json'),
       `${JSON.stringify({
-        version: 1,
+        version: 5,
+        recurringTasks: [],
         tasks: [
           task({ id: "scheduled", prompt: longPrompt }),
           task({
@@ -685,6 +689,7 @@ describe("WorkspaceTaskStore", () => {
             createdAt: "2026-09-11T00:02:00.000Z",
             startedAt: "2026-09-11T00:03:00.000Z",
             threadId: "thread-running",
+            attempts: [{ number: 1, runId: null, startedAt: "2026-09-11T00:03:00.000Z", finishedAt: null, status: "running", error: null }],
           }),
           task({
             id: "completed",
@@ -695,25 +700,28 @@ describe("WorkspaceTaskStore", () => {
             threadId: "thread-completed",
             runId: "run-completed",
             resultText: longResult,
+            attempts: [{ number: 1, runId: "run-completed", startedAt: "2026-09-11T00:04:00.000Z", finishedAt: "2026-09-11T00:05:00.000Z", status: "completed", error: null }],
           }),
           task({
             id: "failed",
-            status: "failed",
+            status: "pending",
             createdAt: "2026-09-11T00:04:00.000Z",
             startedAt: "2026-09-11T00:05:00.000Z",
             finishedAt: "2026-09-11T00:06:00.000Z",
             threadId: "thread-failed",
             runId: "run-failed",
             error: { code: "MODEL_FAILED", message: longError },
+            attempts: [{ number: 1, runId: "run-failed", startedAt: "2026-09-11T00:05:00.000Z", finishedAt: "2026-09-11T00:06:00.000Z", status: "failed", error: { code: "MODEL_FAILED", message: longError } }],
           }),
           task({
             id: "interrupted",
-            status: "interrupted",
+            status: "pending",
             createdAt: "2026-09-11T00:05:00.000Z",
             startedAt: "2026-09-11T00:06:00.000Z",
             finishedAt: "2026-09-11T00:07:00.000Z",
             threadId: "thread-interrupted",
             error: { code: "WORKER_INTERRUPTED", message: longError },
+            attempts: [{ number: 1, runId: null, startedAt: "2026-09-11T00:06:00.000Z", finishedAt: "2026-09-11T00:07:00.000Z", status: "interrupted", error: { code: "WORKER_INTERRUPTED", message: longError } }],
           }),
           task({
             id: "cancelled",
@@ -729,7 +737,7 @@ describe("WorkspaceTaskStore", () => {
     const pending = await store.list({ status: "pending" });
     assert.equal(pending.ok, true);
     if (!pending.ok) return;
-    assert.deepEqual(pending.value.tasks.map((item) => item.id), ["running", "scheduled"]);
+    assert.deepEqual(pending.value.tasks.map((item) => item.id), ["scheduled"]);
     assert.equal(pending.value.tasks[0]?.resultPreview, null);
     assert.equal(pending.value.tasks[0]?.error, null);
 
@@ -813,27 +821,12 @@ describe("WorkspaceTaskStore", () => {
     const before = await readFile(path, "utf8");
 
     const queried = await store.get("task-v1");
-    assert.equal(queried.ok, true);
-    if (queried.ok) assert.equal(queried.value.recurringTaskId, null);
+    assert.equal(queried.ok, false);
+    if (!queried.ok) assert.equal(queried.error.code, "TASK_MIGRATION_REQUIRED");
     assert.equal(await readFile(path, "utf8"), before);
-
-    const created = await store.create({
-      prompt: "new task",
-      runAt: "2026-09-13T00:00:00Z",
-    });
-    assert.equal(created.ok, true);
-    const upgraded = JSON.parse(await readFile(path, "utf8")) as {
-      version: number;
-      tasks: Array<{ id: string; recurringTaskId: string | null; acknowledgedAt: string | null }>;
-      recurringTasks: unknown[];
-    };
-    assert.equal(upgraded.version, 4);
-    assert.deepEqual(upgraded.recurringTasks, []);
-    assert.equal(upgraded.tasks.find((task) => task.id === "task-v1")?.recurringTaskId, null);
-    assert.equal(upgraded.tasks.find((task) => task.id === "task-v1")?.acknowledgedAt, null);
   });
 
-  it("reads v2 without writing and upgrades it to v4 on the first successful mutation", async () => {
+  it("refuses a v2 task file without writing", async () => {
     const root = await workspace();
     const now = Date.parse("2026-09-11T00:00:00.000Z");
     const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
@@ -862,21 +855,9 @@ describe("WorkspaceTaskStore", () => {
     const before = await readFile(path, "utf8");
 
     const queried = await store.get("task-v2");
-    assert.equal(queried.ok, true);
-    if (queried.ok) assert.equal(queried.value.acknowledgedAt, null);
-    const listed = await store.list();
-    assert.equal(listed.ok, true);
-    if (listed.ok) assert.equal(listed.value.tasks[0]?.acknowledgedAt, null);
+    assert.equal(queried.ok, false);
+    if (!queried.ok) assert.equal(queried.error.code, "TASK_MIGRATION_REQUIRED");
     assert.equal(await readFile(path, "utf8"), before);
-
-    const cancelled = await store.cancel("task-v2");
-    assert.equal(cancelled.ok, true);
-    const upgraded = JSON.parse(await readFile(path, "utf8")) as {
-      version: number;
-      tasks: Array<{ acknowledgedAt: string | null }>;
-    };
-    assert.equal(upgraded.version, 4);
-    assert.equal(upgraded.tasks[0]?.acknowledgedAt, null);
   });
 
   it("filters inbox items after combining status and recurring-task filters", async () => {
@@ -885,6 +866,7 @@ describe("WorkspaceTaskStore", () => {
       now: () => Date.parse("2026-09-11T00:10:00.000Z"),
     });
     const terminalTask = (overrides: Record<string, unknown>) => ({
+      kind: "arrangement",
       id: "task-default",
       prompt: "terminal task",
       runAt: "2026-09-12T00:00:00.000Z",
@@ -898,6 +880,10 @@ describe("WorkspaceTaskStore", () => {
       error: null,
       acknowledgedAt: null,
       recurringTaskId: null,
+      attempts: [{ number: 1, runId: "run-default", startedAt: "2026-09-11T00:00:01.000Z", finishedAt: "2026-09-11T00:00:02.000Z", status: "completed", error: null }],
+      retryAt: null,
+      notification: null,
+      pendingOutcome: null,
       ...overrides,
     });
     const cancelledTask = {
@@ -914,12 +900,17 @@ describe("WorkspaceTaskStore", () => {
       error: null,
       acknowledgedAt: null,
       recurringTaskId: null,
+      kind: "arrangement",
+      attempts: [],
+      retryAt: null,
+      notification: null,
+      pendingOutcome: null,
     };
     await mkdir(join(root, ".runloom"));
     await writeFile(
       join(root, '.runloom/tasks.json'),
       `${JSON.stringify({
-        version: 3,
+        version: 5,
         tasks: [
           terminalTask({ id: "completed-unacknowledged", createdAt: "2026-09-11T00:01:00.000Z" }),
           terminalTask({
@@ -929,19 +920,21 @@ describe("WorkspaceTaskStore", () => {
           }),
           terminalTask({
             id: "failed-repeat",
-            status: "failed",
+            status: "pending",
             createdAt: "2026-09-11T00:03:00.000Z",
             resultText: null,
             error: { code: "MODEL_FAILED", message: "model failed" },
             recurringTaskId: "repeat-1",
+            attempts: [{ number: 1, runId: "run-default", startedAt: "2026-09-11T00:00:01.000Z", finishedAt: "2026-09-11T00:00:02.000Z", status: "failed", error: { code: "MODEL_FAILED", message: "model failed" } }],
           }),
           terminalTask({
             id: "interrupted-repeat",
-            status: "interrupted",
+            status: "pending",
             createdAt: "2026-09-11T00:04:00.000Z",
             resultText: null,
             error: { code: "WORKER_INTERRUPTED", message: "worker stopped" },
             recurringTaskId: "repeat-1",
+            attempts: [{ number: 1, runId: "run-default", startedAt: "2026-09-11T00:00:01.000Z", finishedAt: "2026-09-11T00:00:02.000Z", status: "interrupted", error: { code: "WORKER_INTERRUPTED", message: "worker stopped" } }],
           }),
           cancelledTask,
         ],
@@ -969,11 +962,11 @@ describe("WorkspaceTaskStore", () => {
     }
     const scoped = await store.list({
       inbox: true,
-      status: "failed",
+      status: "attention",
       recurringTaskId: "repeat-1",
     });
     assert.equal(scoped.ok, true);
-    if (scoped.ok) assert.deepEqual(scoped.value.tasks.map((task) => task.id), ["failed-repeat"]);
+    if (scoped.ok) assert.deepEqual(scoped.value.tasks.map((task) => task.id), ["interrupted-repeat", "failed-repeat"]);
     const allInbox = await store.list({ inbox: true, limit: 50 });
     assert.equal(allInbox.ok, true);
     if (allInbox.ok) {
@@ -990,6 +983,7 @@ describe("WorkspaceTaskStore", () => {
     let now = Date.parse("2026-09-11T00:10:00.000Z");
     const store = createTaskStore(join(root, ".runloom/tasks.json"), { now: () => now });
     const task = {
+      kind: "arrangement",
       id: "completed",
       prompt: "completed task",
       runAt: "2026-09-12T00:00:00.000Z",
@@ -1003,6 +997,8 @@ describe("WorkspaceTaskStore", () => {
       error: null,
       acknowledgedAt: null,
       recurringTaskId: null,
+      attempts: [{ number: 1, runId: "run-1", startedAt: "2026-09-11T00:01:00.000Z", finishedAt: "2026-09-11T00:02:00.000Z", status: "completed", error: null }],
+      retryAt: null, notification: null, pendingOutcome: null,
     };
     const running = {
       ...task,
@@ -1012,11 +1008,12 @@ describe("WorkspaceTaskStore", () => {
       runId: null,
       resultText: null,
       error: null,
+      attempts: [{ number: 1, runId: null, startedAt: "2026-09-11T00:01:00.000Z", finishedAt: null, status: "running", error: null }],
     };
     await mkdir(join(root, ".runloom"));
     await writeFile(
       join(root, '.runloom/tasks.json'),
-      `${JSON.stringify({ version: 3, tasks: [task, running], recurringTasks: [] })}\n`,
+      `${JSON.stringify({ version: 5, tasks: [task, running], recurringTasks: [] })}\n`,
       "utf8",
     );
 
@@ -1176,7 +1173,7 @@ describe("WorkspaceTaskStore", () => {
     assert.deepEqual(await reopened.interruptRunning(), { ok: true, value: 1 });
     const recovered = await reopened.get(third.value.id);
     assert.ok(recovered.ok);
-    assert.equal(recovered.value.status, "interrupted");
+    assert.equal(recovered.value.status, "pending");
     assert.equal(recovered.value.acknowledgedAt, null);
     assert.ok((await reopened.acknowledge(third.value.id)).ok);
     const afterRecovery = await reopened.getRecurring(plan.value.id);
@@ -1213,7 +1210,7 @@ describe("WorkspaceTaskStore", () => {
     assert.equal(detail.ok, true);
     if (detail.ok) {
       assert.equal(detail.value.recurringTask.nextRunAt, "2026-09-15T01:00:00.000Z");
-      assert.equal(detail.value.latestTask?.status, "interrupted");
+      assert.equal(detail.value.latestTask?.status, "pending");
       assert.equal(detail.value.latestTask?.acknowledgedAt, null);
     }
 
@@ -1250,7 +1247,7 @@ describe("WorkspaceTaskStore", () => {
       join(runloom, "tasks.json"),
       JSON.stringify({ version: 2, tasks: [] }),
     );
-    assert.equal(code(await store.list()), "TASK_FILE_INVALID");
+    assert.equal(code(await store.list()), "TASK_MIGRATION_REQUIRED");
   });
 
   it("claims due tasks in deterministic order and enforces terminal transitions", async () => {
@@ -1301,7 +1298,7 @@ describe("WorkspaceTaskStore", () => {
     const recovered = await store.get(second.value.id);
     assert.equal(recovered.ok, true);
     if (recovered.ok) {
-      assert.equal(recovered.value.status, "interrupted");
+      assert.equal(recovered.value.status, "pending");
       assert.equal(recovered.value.error?.code, "WORKER_INTERRUPTED");
       assert.equal(recovered.value.acknowledgedAt, null);
     }

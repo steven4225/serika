@@ -117,7 +117,7 @@ RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo --workspace ./s
 
 启用 checkpoint 且有 workspace 时，可在 TUI 空闲输入 `/resume` 做一次只读 Git 核对：程序显示当前 HEAD、branch、工作区 dirty 与 checkpoint 保存时 pin 的对账状态（`consistent` / `stale` / `diverged` / `insufficient_evidence`）。未被 Git 跟踪的 Serika checkpoint 和锁文件不计入 dirty；若用户将它们纳入 Git 跟踪，修改仍会计入。`checkpoint_save` 确认后会尝试记录 Git pin；非仓库或检查失败仍可保存，只是没有 pin，旧 checkpoint 也仍可读取。`/resume` 不创建 Run、不写 transcript、不联网、不运行测试，也不授权工具；观察只注入紧接着的下一次普通主 Run，结束、失败或取消后消失，重启不会恢复。重复 `/resume` 不会移动保存时的 pin；要更新 pin，必须由用户明确要求再次保存 checkpoint。Git 检查只是执行当时的局部证据，不能证明文件内容、PR 状态或测试结果；不输入 `/resume` 时仍只提供 M5 的 checkpoint 参考。
 
-TUI 启动时会在历史记录之后显示一次只读 Home；空闲输入 `/home` 可重新读取当前状态。Home 显示模型配置、workspace、Thread 与 transcript 路径，并分别提醒临时目录和临时 Thread；项目区块读取 workspace 当前 checkpoint，并标出它由哪个 Thread 保存；本地任务区块显示未确认的 `completed` / `failed` / `interrupted` 结果以及最近创建的 `scheduled` / `running` 任务。列表截断时会明确提示还有更多，不声称展示全部待办。Home 不运行模型、Git 或 Todoist 查询，不写文件、不 ack、不推断桌面通知已送达；只有 checkpoint 启用时才提示 `/resume`，只有 task 启用时才提示 `/task inbox`。
+TUI 启动时会在历史记录之后显示一次只读 Home；空闲输入 `/home` 可重新读取当前状态。Home 显示模型配置、workspace、Thread 与 transcript 路径，并分别提醒临时目录和临时 Thread；项目区块读取 workspace 当前 checkpoint，并标出它由哪个 Thread 保存；本地任务区块显示未确认的 `completed` 结果和失败／中断后仍待处理的 `pending` 记录，以及最近创建的 `pending` / `running` 任务。失败和中断仍印在行上，生命周期本身只有四态。列表截断时会明确提示还有更多，不声称展示全部待办。Home 不运行模型、Git 或 Todoist 查询，不写文件、不 ack、不推断桌面通知已送达；只有 checkpoint 启用时才提示 `/resume`，只有 task 启用时才提示 `/task inbox`。
 
 旧的 8 回合 / 128 KiB 滑动裁剪和进程内工作摘要已删除。已提交原文保持完整，可用 `/history <message-id>` 或 `/history turn:<number>`（回合编号从 0 开始）回查当前 Thread。分层摘要、块屏蔽和超长内容处理留到第 5、6 步；第 3 步不靠截断绕过窗口限制。
 

@@ -213,7 +213,8 @@ test("Worker recovery installs a matching saved outcome but interrupts an unacco
     for (let restart = 0; restart < 2; restart += 1) await runTaskWorker({ store, runtime: { run: async () => { throw new Error("Recovery cannot open a Run"); } }, signal: stopped.signal });
     const restored = await store.get(first.value.id); assert.ok(restored.ok); assert.equal(restored.value.status, "completed");
     assert.equal(restored.value.resultText, "Persisted result");
-    const interrupted = await store.get(second.value.id); assert.ok(interrupted.ok); assert.equal(interrupted.value.status, "interrupted");
+    const interrupted = await store.get(second.value.id); assert.ok(interrupted.ok); assert.equal(interrupted.value.status, "pending");
+    assert.equal(interrupted.ok && interrupted.value.error?.code, "WORKER_INTERRUPTED");
     assert.equal(interrupted.value.runId, "unaccounted-run");
     assert.ok([terminal.id, unknown.id].includes(first.value.id));
     const doc = JSON.parse(await readFile(join(f.root, "data", "tasks.json"), "utf8"));
@@ -249,7 +250,7 @@ test("Production worker process loads trusted config, owns the workspace lock, a
     const store = createTaskStore(join(f.root, "data/tasks.json"));
     const deadline = Date.now() + 8_000;
     let result = await store.get(saved.value.task.id); assert.ok(result.ok);
-    while (result.value.status === "scheduled" || result.value.status === "running") {
+    while ((result.value.status === "pending" && result.value.error === null) || result.value.status === "running") {
       assert.equal(first.exitCode, null, stderr);
       assert.ok(Date.now() < deadline, "Production worker process failed to deliver");
       await delay(20);

@@ -86,7 +86,7 @@ it("home and inbox lines stay Chinese and keep ids off the primary line", () => 
   assert.equal(home.primary, "喝水 · 明天 9:00 · 已设好，到点提醒");
   assert.match(home.detail ?? "", /task-water/);
   assert.doesNotMatch(home.primary, /scheduled|task-water|2026-10-11T01:00:00/);
-  assert.match(presentHomeTaskItem({ text: "  最近创建的 scheduled/running（仅展示前 5 条）：", taskList: "pending" }, clock).primary, /即将到来的提醒/);
+  assert.match(presentHomeTaskItem({ text: "  最近创建的 pending/running（仅展示前 5 条）：", taskList: "pending" }, clock).primary, /即将到来的提醒/);
   const inbox = inboxPrimaryLine({
     promptPreview: "喝水", status: "completed", runAt: "2026-10-11T01:00:00.000Z", finishedAt: "2026-10-11T01:00:05.000Z", arrangement: reminder,
   }, clock);

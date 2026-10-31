@@ -12,7 +12,7 @@ Git：本页未重新核对 Git；输入 /resume 查看当前变化。checkpoint
 本地任务：
   未确认终态记录：
   - 无
-  最近创建的 scheduled/running：
+  最近创建的 pending/running：
   - 无
   completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。
 

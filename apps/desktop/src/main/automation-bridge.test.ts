@@ -95,7 +95,7 @@ it("saves and manages pinned Skill schedules through the real controller without
     const once = await bridge.scheduleSkill({ id: skill.id, expectedHash: skill.hash, input: "Brief", runAt: "2099-01-01T00:00:00Z" });
     if (!once.ok) throw new Error(once.error.message);
     assert.equal(once.value.service.enabled, false, "saved intent is not a worker launch");
-    assert.equal(once.value.task?.status, "scheduled");
+    assert.equal(once.value.task?.status, "pending");
     assert.equal(once.value.task?.arrangement?.kind, "skill");
     const recurring = await bridge.scheduleSkill({ id: skill.id, expectedHash: skill.hash, input: "Weekly", recurrence: { kind: "weekly", weekday: 7, time: "10:00", utcOffset: "+08:00" } });
     if (!recurring.ok) throw new Error(recurring.error.message);

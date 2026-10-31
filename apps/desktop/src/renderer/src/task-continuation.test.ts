@@ -17,7 +17,7 @@ import { createRuntimeApp } from "@serika/assistant";
 import { createAssistantController } from "@serika/assistant";
 import { RuntimeBridge, TeeOutput } from "../../main/runtime-bridge.js";
 
-const task = { id: "task", runIds: ["latest"] } as WorkTask;
+const task = { id: "task", kind: "work", status: "pending", effectReviewRequired: false, acceptanceOpen: false, runIds: ["latest"] } as WorkTask;
 const data: WorkTaskContinuation = { taskId: "task", revision: 2, receiptUnavailable: false, requiresReview: true,
   previousDelivery: { summary: "旧计划", artifactRefs: ["plan.md"], unresolved: ["来源尚未核验"], truncated: false },
   latestRun: { runId: "latest", status: "interrupted", conclusion: "已修改", conclusionTruncated: false,
@@ -37,13 +37,13 @@ it("continuation separates unknown receipts, historical delivery and unresolved 
 });
 
 it("shows actionable recovery reasons without treating a Run conclusion as acceptance", () => {
-  const paused = { ...task, status: "paused" as const };
+  const paused = { ...task, kind: "work" as const, status: "pending" as const, effectReviewRequired: false, acceptanceOpen: false, runIds: ["latest"] };
   const clean = { ...data, requiresReview: false, latestRun: { ...data.latestRun!, status: "completed" as const } };
   for (const [reason, text] of [["needs_confirmation", "未获允许"], ["needs_information", "补充缺失信息"],
     ["budget_exhausted", "预算"], ["needs_review", "不要直接重复执行"], ["delivered", "尚未确认交付"]] as const) {
     const value = { ...clean, latestRun: { ...clean.latestRun, completion: { reason, corrections: 1 } } };
     assert.ok(taskRecoveryGuidance(paused, value)?.includes(text));
-    assert.match(taskRecoveryGuidance({ ...paused, status: "needs_review" }, value)!, /先核对实际效果/);
+    assert.match(taskRecoveryGuidance({ ...paused, effectReviewRequired: true }, value)!, /先核对实际效果/);
     assert.equal(taskRecoveryGuidance({ ...paused, status: "completed" }, value), null);
   }
   assert.match(taskRecoveryGuidance(paused, { ...clean, latestRun: { ...clean.latestRun, status: "interrupted" } })!, /没有自动续跑/);

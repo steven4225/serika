@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { describe, it } from "node:test";
 import { InMemoryAgentStore, type AgentEvent, type RunRecord } from "@serika/core";
 import { createExecutionRecordAdapter } from "./execution-record-adapter.js";
 import { createExecutionRecordStore, EXECUTION_RECORD_FILE } from "./execution-record-store.js";
-import { createWorkTaskStore } from "./work-task-store.js";
+import { createWorkTaskStore, workTaskPhase } from "./work-task-store.js"
+import { createTaskStore } from "./task-store.js";
 
 const at = "2026-09-29T01:00:00.000Z";
 const run: RunRecord = {
@@ -85,7 +86,7 @@ describe("execution record adapter", () => {
     const directory = await mkdtemp(join(tmpdir(), "runloom-audit-task-bind-"));
     try {
       const records = createExecutionRecordStore(directory);
-      const workTasks = createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json"), generateId: () => "task-1"  });
+      const workTasks = createWorkTaskStore(createTaskStore(join(dirname(join(directory, ".runloom/work-tasks.json")), "tasks.json")), { workspace: directory,  generateId: () => "task-1"  });
       const task = await workTasks.create({
         threadId: "thread-1", goal: "Do the work", acceptance: [{
           id: "human", description: "User accepts", method: "human",
@@ -118,7 +119,7 @@ describe("execution record adapter", () => {
     try {
       const records = createExecutionRecordStore(directory);
       const base = new InMemoryAgentStore();
-      const workTasks = createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json"), generateId: () => "task-failure"  });
+      const workTasks = createWorkTaskStore(createTaskStore(join(dirname(join(directory, ".runloom/work-tasks.json")), "tasks.json")), { workspace: directory,  generateId: () => "task-failure"  });
       const task = await workTasks.create({
         threadId: "thread-1", goal: "Do the work", acceptance: [{
           id: "human", description: "User accepts", method: "human",
@@ -133,7 +134,7 @@ describe("execution record adapter", () => {
       assert.equal(await base.getRun("run-1"), undefined);
       assert.equal(await records.getRun("thread-1", "run-1"), null);
       const unchanged = await workTasks.get("task-failure");
-      assert.equal(unchanged.ok && unchanged.value.status, "ready");
+      assert.equal(unchanged.ok && workTaskPhase(unchanged.value), "ready");
       assert.deepEqual(unchanged.ok && unchanged.value.runIds, []);
     } finally {
       await rm(directory, { recursive: true, force: true });

@@ -63,7 +63,7 @@ it(`task lifecycle acceptance (${model}): command → worker → inbox → ack �
         const result = await store.get(id);
         assert.ok(result.ok, JSON.stringify(result));
         if (result.value.status === "completed") return result.value;
-        assert.ok(["scheduled", "running"].includes(result.value.status), JSON.stringify(result));
+        assert.ok(["pending", "running"].includes(result.value.status), JSON.stringify(result));
         await setTimeout(50);
       }
       assert.fail(`Task ${id} did not complete: ${workerError}`);

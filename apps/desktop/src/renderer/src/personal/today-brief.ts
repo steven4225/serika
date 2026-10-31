@@ -1,5 +1,5 @@
 import type { AppInfo, RssWorkerResponse } from "../../../shared/ui-contract.js";
-import type { WorkTask } from "../../../shared/work-tasks.js";
+import { workTaskPhase, type WorkTask, type WorkTaskPhase } from "../../../shared/work-tasks.js";
 import { humanFacingTitle } from "../../../shared/human-title.js";
 import { selectCurrentTask, taskStatusLabels } from "../work-task-data.js";
 import { todayTaskSummary } from "./today-data.js";
@@ -11,8 +11,8 @@ import { todayTaskSummary } from "./today-data.js";
 
 export const BRIEF_SUMMARY_LIMIT = 3;
 const TIME_ZONE = "Asia/Shanghai";
-const ACTIVE = new Set<WorkTask["status"]>(["ready", "running", "paused"]);
-const DIRECTION = new Set<WorkTask["status"]>(["needs_review", "awaiting_acceptance"]);
+const ACTIVE = new Set<WorkTaskPhase>(["ready", "running", "paused"]);
+const DIRECTION = new Set<WorkTaskPhase>(["needs_review", "awaiting_acceptance"]);
 
 export type BriefPeriod = "morning" | "evening";
 export type BriefName = "晨间简报" | "晚间简报";
@@ -232,8 +232,8 @@ export function buildTodayBrief(input: TodayBriefInput): TodayBriefModel {
   } else if (summary.state === "failed") {
     push(input.now, 5, { eyebrow: "任务", title: "任务暂时读不出来", body: { kind: "text", text: humanError(summary.message, "任务读取失败。这不代表没有任务。") }, risk: "读取失败不代表没有任务。", actions: [] }, true);
   } else if (summary.state === "ready") {
-    const active = input.tasks.filter(task => ACTIVE.has(task.status));
-    const directed = input.tasks.filter(task => DIRECTION.has(task.status));
+    const active = input.tasks.filter(task => ACTIVE.has(workTaskPhase(task)));
+    const directed = input.tasks.filter(task => DIRECTION.has(workTaskPhase(task)));
     const primary = selectCurrentTask(active);
     const newest = [...active, ...directed].map(task => Date.parse(task.updatedAt)).filter(Number.isFinite).sort((a, b) => b - a)[0];
     const at = newest === undefined ? input.now : new Date(newest);
@@ -243,7 +243,7 @@ export function buildTodayBrief(input: TodayBriefInput): TodayBriefModel {
     const actions: BriefAction[] = [];
     if (primary) {
       const name = titleOf(primary.goal, "当前任务");
-      const compose = primary.status === "ready" || primary.status === "paused";
+      const compose = workTaskPhase(primary) === "ready" || workTaskPhase(primary) === "paused";
       actions.push(
         { label: "查看进度", tone: "primary", target: taskTarget(primary, compose, "") },
         { label: "聊聊这个", tone: "secondary", target: threadTarget(primary.threadId, `我想接着聊「${name}」。`) },
@@ -258,7 +258,7 @@ export function buildTodayBrief(input: TodayBriefInput): TodayBriefModel {
         title: titleOf(primary?.goal ?? directed[0]?.goal ?? input.tasks[0]?.goal, "当前任务"),
         body: {
           kind: "kpis",
-          lead: primary ? taskStatusLabels[primary.status] : null,
+          lead: primary ? taskStatusLabels[workTaskPhase(primary)] : null,
           cells: [
             { label: "进行中", value: String(summary.ongoing), note: "待开始或继续" },
             { label: "待决定", value: String(summary.awaiting), note: "核对或验收" },
@@ -266,19 +266,19 @@ export function buildTodayBrief(input: TodayBriefInput): TodayBriefModel {
           ],
           notes,
         },
-        risk: directed.some(task => task.status === "needs_review") ? "有执行效果还没核对，不会自动重做。" : null,
+        risk: directed.some(task => workTaskPhase(task) === "needs_review") ? "有执行效果还没核对，不会自动重做。" : null,
         actions,
       }, true);
     }
     for (const task of directed) {
       const name = titleOf(task.goal, "有一件事等你定方向");
-      const review = task.status === "needs_review";
+      const review = workTaskPhase(task) === "needs_review";
       push(new Date(task.updatedAt), 0, {
         eyebrow: "待确认",
         title: name,
         body: {
           kind: "quote",
-          note: taskStatusLabels[task.status],
+          note: taskStatusLabels[workTaskPhase(task)],
           text: review ? "执行效果还不确定。你想先核对，还是先把情况讲清楚？" : "交付在等你定方向。选一条只会打开对话。",
         },
         risk: review ? "执行效果还没核对，不会自动重做。" : "选一个方向不会自动通过，也不会自动退回。",

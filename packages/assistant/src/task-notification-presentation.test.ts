@@ -7,10 +7,10 @@ import type { TaskRecord } from "./task-store.js";
 import { taskNotificationCopy } from "./task-notification-copy.js";
 import { readDesktopFrontmost, writeDesktopFrontmost } from "./task-notification-presentation.js";
 
-const task = (override: Partial<TaskRecord> = {}): TaskRecord => ({
+const task = (override: Partial<TaskRecord> & { attempts?: { status: string }[] } = {}): TaskRecord & { attempts?: { status: string }[] } => ({
   id: "task-water", prompt: "sensitive preference", runAt: "2026-10-11T11:59:00.000Z", status: "completed",
   createdAt: "2026-10-11T11:00:00.000Z", startedAt: "2026-10-11T12:00:00.000Z", finishedAt: "2026-10-11T12:00:00.000Z",
-  threadId: "thread", runId: null, resultText: "private workspace memory", error: null, ...override,
+  threadId: "thread", runId: null, resultText: "private workspace memory", error: null, ...override, kind: "arrangement",
 });
 
 describe("task notification copy", () => {
@@ -57,10 +57,10 @@ describe("task notification copy", () => {
   });
 
   it("uses a status sentence when the run did not complete", () => {
-    const failed = taskNotificationCopy(task({ status: "failed", resultText: null }));
+    const failed = taskNotificationCopy(task({ status: "pending", resultText: null, error: { code: "FAILED", message: "failed" }, attempts: [{ status: "failed" }] }));
     assert.equal(failed.title, "这次安排没有完成");
     assert.match(failed.body, /不会自动重做/);
-    const interrupted = taskNotificationCopy(task({ status: "interrupted", resultText: "该喝水了" }));
+    const interrupted = taskNotificationCopy(task({ status: "pending", resultText: "该喝水了", error: { code: "INTERRUPTED", message: "stopped" }, attempts: [{ status: "interrupted" }] }));
     assert.equal(interrupted.title, "安排中断，不会自动重做");
     assert.doesNotMatch(`${interrupted.title}\n${interrupted.body}`, /该喝水了|task-water/);
     assert.equal(taskNotificationCopy(task({ status: "cancelled" })).title, "这次安排已取消");

@@ -8,7 +8,7 @@ import { MockLanguageModelV3 } from "ai/test";
 import { DesktopRuntime } from "./desktop-runtime.js";
 import { ResidentClient, createResidentPaths, startResidentServer } from "./resident-transport.js";
 import { changeAutonomySetting } from "./module-settings.js";
-import { resolveTuiModuleConfig } from "@serika/assistant";
+import { resolveTuiModuleConfig, workTaskPhase } from "@serika/assistant";
 import { createRuntimeApp } from "@serika/assistant";
 import { createAssistantController } from "@serika/assistant";
 import { TeeOutput } from "./runtime-bridge.js";
@@ -97,7 +97,7 @@ it("persists workspace authority, runs a multi-step repair, preserves attachment
     assert.ok(task.ok); reset([shell("test -f answer.txt")]);
     assert.equal((await host.current.runWorkTask({ id: task.value.id, expectedRevision: task.value.revision })).ok, true);
     assert.equal(await approveShellUntilIdle(), 0);
-    const delivered = await host.current.getWorkTask(task.value.id); assert.ok(delivered.ok); assert.equal(delivered.value.status, "awaiting_acceptance");
+    const delivered = await host.current.getWorkTask(task.value.id); assert.ok(delivered.ok); assert.equal(workTaskPhase(delivered.value), "awaiting_acceptance");
     for (const asTask of [false, true]) {
       reset([shell("touch telegram-must-not-run")]);
       assert.equal((await host.channelRun(host.info().threadId, "Telegram 任务", asTask, async () => {})).ok, true);

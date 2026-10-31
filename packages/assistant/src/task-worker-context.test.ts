@@ -17,6 +17,7 @@ import {
 
 function claimedTask(): TaskRecordV3 {
   return {
+    kind: "arrangement",
     id: "task-today",
     prompt: "Give me a brief about the M10 plan and project snapshot",
     runAt: "2026-09-24T01:00:00.000Z",
@@ -38,7 +39,7 @@ function attentionSummary(id: string, recurringTaskId: string | null): TaskSumma
     id,
     promptPreview: "Give me a brief",
     runAt: "2026-09-24T01:00:00.000Z",
-    status: "failed",
+    status: "pending",
     finishedAt: "2026-09-24T01:01:00.000Z",
     resultPreview: null,
     error: { code: "RUNTIME_ERROR", messagePreview: "failed" },

@@ -1,6 +1,6 @@
 import type { ExecutionRunRecord, ExecutionToolStatus } from "./execution-record-store.js";
 import { latestOwnedRun } from "./work-task-artifacts.js";
-import type { WorkTask } from "./work-task-store.js";
+import { workTaskPhase, type WorkTask } from "./work-task-store.js";
 
 /** Derived from existing records; not disk verification, acceptance, or replay authority. */
 export interface WorkTaskContinuation {
@@ -46,6 +46,6 @@ export function workTaskContinuation(task: WorkTask, record: ExecutionRunRecord 
       toolsTruncated: run.tools.length > 8,
     } : null,
     receiptUnavailable: task.runIds.length > 0 && run === null,
-    requiresReview: task.status === "needs_review",
+    requiresReview: workTaskPhase(task) === "needs_review",
   };
 }

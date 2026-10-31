@@ -48,7 +48,8 @@ export interface HomeItem {
 
 /** One task line of the 本地任务 section, as structured fields. */
 export interface HomeTask {
-  status: TaskSummaryV3["status"];
+  /** Lifecycle status, or the preserved attempt fact when the instance is pending after failure or interruption. */
+  status: TaskSummaryV3["status"] | NonNullable<TaskSummaryV3["settlement"]>;
   id: string;
   prompt: string;
   runAt: string;
@@ -99,7 +100,7 @@ function homeTask(task: TaskSummaryV3): HomeTask {
     ? task.resultPreview
     : task.error === null ? null : `${task.error.code}: ${task.error.messagePreview}`;
   return {
-    status: task.status,
+    status: task.settlement ?? task.status,
     id: oneLine(task.id),
     prompt: oneLine(task.promptPreview),
     runAt: oneLine(task.runAt),
@@ -158,15 +159,19 @@ async function taskSection(options: HomeOptions): Promise<HomeSection> {
     items.push(listNote("inbox", `未确认终态记录：读取失败（${errorText(error)}）。`));
   }
   try {
-    const recent = await options.taskStore.list({ status: "pending", limit: 5 });
+    const [waiting, running] = await Promise.all([
+      options.taskStore.list({ status: "pending", limit: 5 }),
+      options.taskStore.list({ status: "running", limit: 5 }),
+    ]);
+    const recent = !waiting.ok ? waiting : !running.ok ? running : { ok: true as const, value: { tasks: [...running.value.tasks, ...waiting.value.tasks], truncated: waiting.value.truncated || running.value.truncated } };
     if (!recent.ok) {
-      items.push(listNote("pending", `最近创建的 scheduled/running：读取失败（${recent.error.code}: ${oneLine(recent.error.message)}）。`));
+      items.push(listNote("pending", `最近创建的 pending/running：读取失败（${recent.error.code}: ${oneLine(recent.error.message)}）。`));
     } else {
-      items.push(listNote("pending", `最近创建的 scheduled/running${recent.value.truncated ? "（仅展示前 5 条，另有未展示）" : ""}：`));
+      items.push(listNote("pending", `最近创建的 pending/running${recent.value.truncated ? "（仅展示前 5 条，另有未展示）" : ""}：`));
       items.push(...(recent.value.tasks.length ? recent.value.tasks.map(taskItem) : [bullet("无")]));
     }
   } catch (error) {
-    items.push(listNote("pending", `最近创建的 scheduled/running：读取失败（${errorText(error)}）。`));
+    items.push(listNote("pending", `最近创建的 pending/running：读取失败（${errorText(error)}）。`));
   }
   items.push(note("completed 只表示 worker Run 正常结束，不代表业务成功或桌面通知已送达。"));
   return section("tasks", "本地任务", "", items);

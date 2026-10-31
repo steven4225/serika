@@ -1,5 +1,6 @@
 import type { AppInfo } from "../../../shared/ui-contract.js";
 import type { WorkTask } from "../../../shared/work-tasks.js";
+import { workTaskPhase } from "../../../shared/work-tasks.js";
 import { selectCurrentTask, taskStatusLabels } from "../work-task-data.js";
 
 /** The Today view uses one explicit timezone; it does not invent weather or a user name. */
@@ -27,11 +28,11 @@ export function todayTaskSummary(info: AppInfo | null, tasks: readonly WorkTask[
   const current = selectCurrentTask(tasks.filter(task => !["completed", "cancelled"].includes(task.status)));
   return {
     state: "ready",
-    ongoing: tasks.filter(task => ["ready", "running", "paused"].includes(task.status)).length,
-    awaiting: tasks.filter(task => ["needs_review", "awaiting_acceptance"].includes(task.status)).length,
+    ongoing: tasks.filter(task => ["ready", "running", "paused"].includes(workTaskPhase(task))).length,
+    awaiting: tasks.filter(task => ["needs_review", "awaiting_acceptance"].includes(workTaskPhase(task))).length,
     completed: tasks.filter(task => task.status === "completed").length,
     current,
-    currentStatus: current ? taskStatusLabels[current.status] : null,
+    currentStatus: current ? taskStatusLabels[workTaskPhase(current)] : null,
   };
 }
 

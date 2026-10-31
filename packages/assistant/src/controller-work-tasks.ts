@@ -3,7 +3,7 @@ import type { AssistantRunOptions, StartRunResponse } from "./assistant-controll
 import type { ControllerKernel } from "./controller-kernel.js";
 import { readWorkTaskArtifact, workTaskDeliveryDraft, type WorkTaskArtifactInput, type WorkTaskArtifactPreview, type WorkTaskDeliveryDraft, type WorkTaskReadInput, type WorkTaskReadResult } from "./work-task-artifacts.js";
 import { workTaskContinuation, type WorkTaskContinuation } from "./work-task-continuation.js";
-import type { CreateWorkTaskInput, WorkTask, WorkTaskEvidence, WorkTaskFailure, WorkTaskObservedOutcome, WorkTaskResult } from "./work-task-store.js";
+import { workTaskPhase, type CreateWorkTaskInput, type WorkTask, type WorkTaskEvidence, type WorkTaskFailure, type WorkTaskObservedOutcome, type WorkTaskResult } from "./work-task-store.js";
 import { verifyAutomaticCriterion } from "./work-task-verification.js";
 
 /** Work tasks bound to this Thread: their records, receipts, execution and acceptance. */
@@ -159,7 +159,7 @@ export function createWorkTaskControls(k: ControllerKernel, deps: {
       if (busy()) return { ok: false, reason: "busy" };
       const found = await app.workTasks.get(input.id);
       if (!found.ok || found.value.threadId !== app.threadId || found.value.revision !== input.expectedRevision ||
-          !["ready", "paused"].includes(found.value.status)) {
+          !["ready", "paused"].includes(workTaskPhase(found.value))) {
         return { ok: false, reason: "starting" };
       }
       if (busy()) return { ok: false, reason: "busy" };

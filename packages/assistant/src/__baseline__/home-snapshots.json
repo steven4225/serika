@@ -134,7 +134,7 @@
           },
           {
             "kind": "note",
-            "text": "最近创建的 scheduled/running：",
+            "text": "最近创建的 pending/running：",
             "bullet": false,
             "taskList": "pending"
           },
@@ -361,16 +361,16 @@
           },
           {
             "kind": "note",
-            "text": "最近创建的 scheduled/running：",
+            "text": "最近创建的 pending/running：",
             "bullet": false,
             "taskList": "pending"
           },
           {
             "kind": "item",
-            "text": "scheduled · next · 开会 · runAt 2026-09-24T01:00:00Z",
+            "text": "pending · next · 开会 · runAt 2026-09-24T01:00:00Z",
             "bullet": true,
             "task": {
-              "status": "scheduled",
+              "status": "pending",
               "id": "next",
               "prompt": "开会",
               "runAt": "2026-09-24T01:00:00Z",
@@ -423,7 +423,7 @@
           },
           {
             "kind": "note",
-            "text": "最近创建的 scheduled/running：读取失败（TASK_FILE_INVALID: broken tasks）。",
+            "text": "最近创建的 pending/running：读取失败（TASK_FILE_INVALID: broken tasks）。",
             "bullet": false,
             "taskList": "pending"
           },
@@ -473,7 +473,7 @@
           },
           {
             "kind": "note",
-            "text": "最近创建的 scheduled/running：读取失败（读取失败）。",
+            "text": "最近创建的 pending/running：读取失败（读取失败）。",
             "bullet": false,
             "taskList": "pending"
           },

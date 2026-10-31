@@ -42,6 +42,7 @@ import { TaskInbox } from "./task-inbox.js";
 import { SavedTaskNotice } from "./saved-task-notice.js";
 import { createTaskNoticeDismissals } from "../../shared/saved-task-result.js";
 import { unreconciledRuns, taskSelectionKey, taskActions } from "./work-task-data.js";
+import { workTaskPhase } from "../../shared/work-tasks.js";
 import { bindTaskComposer, draftKey, type ConversationDraft } from "./navigation.js";
 import { MemorySetup } from "./daily-setup-panel.js";
 import { desktopLayout, type DesktopLayout } from "./ui-kit/layout.js";
@@ -386,7 +387,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const delivered = deliveredReplyKeys(rows);
   const homeView = toHomeView(homeSnapshot);
   const unknownRuns = records.status === "ready" ? unreconciledRuns(records.runs, workTasks.tasks) : [];
-  const reviewTask = workTasks.tasks.find(task => task.status === "needs_review");
+  const reviewTask = workTasks.tasks.find(task => workTaskPhase(task) === "needs_review");
   const openDetails = (tab: typeof detailTab) => {
     setDetailTab(tab); setDetailsOpen(true); setMobileDashboard(true);
     if (!compact) rememberSidebar(true);
@@ -586,11 +587,11 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 <span className="serika-model-name" title="当前配置的模型；不代表本轮已联网验证">{info?.modelId ?? info?.modelAlias ?? "连接中"}</span>
                 {busy ? <Button type="button" variant="outline" size="icon" className="serika-stop-button" aria-label={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮"} title={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮；已执行的操作不会撤回"} onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Square size={12} /></Button> : null}
                 {composerReady ? <Button type="button" size={(creatingTask || composingTask) && !steering ? "default" : "icon"} className={`send-button${(creatingTask || composingTask) && !steering ? " task-send" : ""}`}
-                  aria-label={creatingTask ? "创建并开始" : composingTask && !steering ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : "发送消息"}
+                  aria-label={creatingTask ? "创建并开始" : composingTask && !steering ? composerTask && workTaskPhase(composerTask) === "ready" ? "开始任务" : "继续此任务" : "发送消息"}
                   title={steering ? "发送到当前这轮，等待正在执行的步骤结束后处理" : composingTask ? "显式开始下一次任务处理；工具仍需确认" : "发送（Enter）· 换行（Shift + Enter）"}
                   disabled={!composerReady || sending || switchingThread || !info || (steering ? !composerText.trim() : composingTask ? workTasks.locked || !composerTask || !taskActions(composerTask).run : !input.trim() && !attachments.length)}
                   onClick={() => { followConversation.current = true; void submit(); }}>
-                  {creatingTask ? "创建并开始" : composingTask && !steering ? composerTask?.status === "ready" ? "开始任务" : "继续此任务" : <ArrowUp size={18} />}
+                  {creatingTask ? "创建并开始" : composingTask && !steering ? composerTask && workTaskPhase(composerTask) === "ready" ? "开始任务" : "继续此任务" : <ArrowUp size={18} />}
                 </Button> : null}
               </>}
           />

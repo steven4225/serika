@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, open, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { afterEach, describe, it } from "node:test";
 
-import { createWorkTaskStore, type WorkTaskResult } from "./work-task-store.js";
+import { createWorkTaskStore, workTaskPhase, type WorkTaskResult } from "./work-task-store.js"
+import { createTaskStore } from "./task-store.js";
 
 const directories: string[] = [];
 
@@ -37,22 +38,22 @@ function input() {
 describe("WorkTaskStore", () => {
   it("a failed beginRun file sync blocks further execution admission until reopening", async (t) => {
     const root = await workspace();
-    const store = createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json") });
+    const store = createWorkTaskStore(createTaskStore(join(dirname(join(root, ".runloom/work-tasks.json")), "tasks.json")), { workspace: root, });
     const created = await store.create(input()); assert(created.ok);
-    const file = join(root, ".runloom/work-tasks.json"), before = await readFile(file);
+    const file = join(root, ".runloom/tasks.json"), before = await readFile(file);
     const probe = await open(file, "r"), prototype = Object.getPrototypeOf(probe); await probe.close();
     const injected = t.mock.method(prototype, "sync", async () => { throw new Error("begin sync fault"); });
     assert.equal(code(await store.beginRun(created.value.id, { expectedRevision: 1, runId: "blocked" })), "WORK_TASK_WRITE_FAILED");
     injected.mock.restore();
     assert.equal(code(await store.beginRun(created.value.id, { expectedRevision: 1, runId: "still-blocked" })), "WORK_TASK_WRITE_FAILED");
     assert.deepEqual(await readFile(file), before);
-    const saved = await createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json") }).get(created.value.id); assert(saved.ok);
-    assert.equal(saved.value.status, "ready"); assert.deepEqual(saved.value.runIds, []);
+    const saved = await createWorkTaskStore(createTaskStore(join(dirname(join(root, ".runloom/work-tasks.json")), "tasks.json")), { workspace: root, }).get(created.value.id); assert(saved.ok);
+    assert.equal(workTaskPhase(saved.value), "ready"); assert.deepEqual(saved.value.runIds, []);
   });
 
   it("returns delivery for changes once under CAS, preserves the last delivery but invalidates acceptance", async () => {
     const directory = await workspace();
-    const store = createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json"), generateId: () => "rework"  });
+    const store = createWorkTaskStore(createTaskStore(join(dirname(join(directory, ".runloom/work-tasks.json")), "tasks.json")), { workspace: directory,  generateId: () => "rework"  });
     assert.ok((await store.create(input())).ok);
     assert.equal(code(await store.requestChanges("rework", 1)), "WORK_TASK_INVALID_STATE");
     assert.ok((await store.beginRun("rework", { expectedRevision: 1, runId: "first" })).ok);
@@ -64,9 +65,9 @@ describe("WorkTaskStore", () => {
     const results = await Promise.all([store.requestChanges("rework", accepted.value.revision), store.requestChanges("rework", accepted.value.revision)]);
     assert.equal(results.filter(result => result.ok).length, 1);
     assert.equal(results.filter(result => code(result) === "WORK_TASK_REVISION_CONFLICT").length, 1);
-    const paused = await createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json") }).get("rework");
+    const paused = await createWorkTaskStore(createTaskStore(join(dirname(join(directory, ".runloom/work-tasks.json")), "tasks.json")), { workspace: directory, }).get("rework");
     assert.ok(paused.ok); if (!paused.ok) return;
-    assert.equal(paused.value.status, "paused");
+    assert.equal(workTaskPhase(paused.value), "paused");
     assert.deepEqual(paused.value.delivery, accepted.value.delivery);
     assert.deepEqual(paused.value.runIds, ["first"]);
     assert.ok(paused.value.acceptance.every(item => item.status === "not_run" && item.evidenceRefs.length === 0 && item.note === null));
@@ -80,7 +81,7 @@ describe("WorkTaskStore", () => {
   });
 
   it("does not reopen a completed or cancelled task for changes", async () => {
-    const store = createWorkTaskStore(await workspace(), { filePath: join(await workspace(), ".runloom/work-tasks.json") });
+    const store = createWorkTaskStore(createTaskStore(join(dirname(join(await workspace(), ".runloom/work-tasks.json")), "tasks.json")), { workspace: await workspace(), });
     const created = await store.create({ ...input(), acceptance: [input().acceptance[1]!] });
     assert.ok(created.ok); if (!created.ok) return;
     const id = created.value.id;
@@ -99,7 +100,7 @@ describe("WorkTaskStore", () => {
   it("persists a task lifecycle and completes only after delivery and required evidence", async () => {
     const directory = await workspace();
     let tick = 0;
-    const store = createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json"), ...({
+    const store = createWorkTaskStore(createTaskStore(join(dirname(join(directory, ".runloom/work-tasks.json")), "tasks.json")), { workspace: directory,  ...({
       generateId: () => "task-1",
       now: () => new Date(`2026-09-30T00:00:0${tick++}.000Z`),
       executionRecords: {
@@ -112,34 +113,30 @@ describe("WorkTaskStore", () => {
             requestedAt: "2026-09-30T00:00:00.000Z", startedAt: "2026-09-30T00:00:00.000Z",
             finishedAt: "2026-09-30T00:00:01.000Z", inputPreview: JSON.stringify({ path: "report.md" }),
             inputTruncated: false, resultPreview: JSON.stringify({ ok: true, path: "report.md" }),
-            resultTruncated: false, errorPreview: null, shell: null,
-          }],
-        }),
-      },
-    }) });
+            resultTruncated: false, errorPreview: null, shell: null}]})}}) });
     await writeFile(join(directory, "report.md"), "report\n");
     const created = await store.create(input());
     assert.equal(created.ok, true);
     if (!created.ok) return;
-    assert.equal(created.value.status, "ready");
+    assert.equal(workTaskPhase(created.value), "ready");
 
     const running = await store.beginRun("task-1", { expectedRevision: 1, runId: "run-1" });
     assert.equal(running.ok && running.value.status, "running");
     assert.equal(code(await store.cancel("task-1", 2)), "WORK_TASK_INVALID_STATE");
 
     const paused = await store.pause("task-1", 2);
-    assert.equal(paused.ok && paused.value.status, "paused");
+    assert.equal(paused.ok && workTaskPhase(paused.value), "paused");
     const delivered = await store.submitDelivery("task-1", {
       expectedRevision: 3,
       delivery: { summary: "Report ready", artifactRefs: ["report.md"], evidence: [], unresolved: [] },
     });
-    assert.equal(delivered.ok && delivered.value.status, "awaiting_acceptance");
+    assert.equal(delivered.ok && workTaskPhase(delivered.value), "awaiting_acceptance");
 
     const artifact = await store.recordAcceptance("task-1", {
       expectedRevision: 4, criterionId: "artifact", actor: "automatic", status: "passed",
       evidence: [{ id: "e-artifact", kind: "artifact", runId: "run-1", toolCallId: "write-1", path: "report.md", sha256: "331d26d6d8f862e46ba900811be8a7a1e4dbaa229b14c99becfd5e5151490d95", verifiedAt: "2026-09-30T00:00:10.000Z" }],
     });
-    assert.equal(artifact.ok && artifact.value.status, "awaiting_acceptance");
+    assert.equal(artifact.ok && workTaskPhase(artifact.value), "awaiting_acceptance");
     const completed = await store.recordAcceptance("task-1", {
       expectedRevision: 5, criterionId: "quality", actor: "human", status: "passed",
       evidence: [{ id: "e-human", kind: "human", criterionId: "quality", acceptedAt: "2026-09-30T00:00:11.000Z" }],
@@ -155,15 +152,15 @@ describe("WorkTaskStore", () => {
       delivery: { summary: "replacement", artifactRefs: ["report.md"], evidence: [], unresolved: [] },
     })), "WORK_TASK_INVALID_STATE");
 
-    const reopened = createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json") });
+    const reopened = createWorkTaskStore(createTaskStore(join(dirname(join(directory, ".runloom/work-tasks.json")), "tasks.json")), { workspace: directory, });
     assert.deepEqual(await reopened.get("task-1"), { ok: true, value: completed.value });
-    assert.equal((await readFile(join(directory, ".runloom", "work-tasks.json"), "utf8")).endsWith("\n"), true);
+    assert.equal((await readFile(join(directory, ".runloom", "tasks.json"), "utf8")).endsWith("\n"), true);
   });
 
   it("enforces revision, state, verification, evidence, and Run ownership contracts", async () => {
     const directory = await workspace();
     let nextId = 0;
-    const store = createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json"), ...({ generateId: () => `task-${++nextId}` }) });
+    const store = createWorkTaskStore(createTaskStore(join(dirname(join(directory, ".runloom/work-tasks.json")), "tasks.json")), { workspace: directory,  ...({ generateId: () => `task-${++nextId}` }) });
     assert.equal(code(await store.create({ ...input(), acceptance: [{ ...input().acceptance[0]!, required: false }] })), "WORK_TASK_INVALID_INPUT");
     assert.equal(code(await store.create({ ...input(), acceptance: [{ ...input().acceptance[0]!, method: "human", verification: { kind: "artifact_exists", path: "x" } }] })), "WORK_TASK_INVALID_INPUT");
 
@@ -203,9 +200,9 @@ describe("WorkTaskStore", () => {
   it("fails closed for malformed and symlinked storage without replacing it", async () => {
     const malformedRoot = await workspace();
     await mkdir(join(malformedRoot, ".runloom"));
-    const malformedFile = join(malformedRoot, ".runloom", "work-tasks.json");
+    const malformedFile = join(malformedRoot, ".runloom", "tasks.json");
     await writeFile(malformedFile, "not-json");
-    const malformed = createWorkTaskStore(malformedRoot, { filePath: join(malformedRoot, ".runloom/work-tasks.json") });
+    const malformed = createWorkTaskStore(createTaskStore(join(dirname(join(malformedRoot, ".runloom/work-tasks.json")), "tasks.json")), { workspace: malformedRoot, });
     assert.equal(code(await malformed.list()), "WORK_TASK_FILE_INVALID");
     assert.equal(code(await malformed.create(input())), "WORK_TASK_FILE_INVALID");
     assert.equal(await readFile(malformedFile, "utf8"), "not-json");
@@ -214,15 +211,15 @@ describe("WorkTaskStore", () => {
     const target = await workspace();
     await mkdir(join(target, ".runloom"));
     await symlink(join(target, ".runloom"), join(symlinkRoot, ".runloom"));
-    const symlinked = createWorkTaskStore(symlinkRoot, { filePath: join(symlinkRoot, ".runloom/work-tasks.json") });
-    assert.equal(code(await symlinked.list()), "WORK_TASK_SYMLINK_NOT_ALLOWED");
-    assert.equal(code(await symlinked.create(input())), "WORK_TASK_SYMLINK_NOT_ALLOWED");
+    const symlinked = createWorkTaskStore(createTaskStore(join(dirname(join(symlinkRoot, ".runloom/work-tasks.json")), "tasks.json")), { workspace: symlinkRoot, });
+    assert.equal(code(await symlinked.list()), "WORK_TASK_FILE_INVALID");
+    assert.equal(code(await symlinked.create(input())), "WORK_TASK_WRITE_FAILED");
   });
 
   it("rejects aggregate limits before writing and clears prior acceptance on replacement delivery", async () => {
     const directory = await workspace();
     let nextId = 0;
-    const store = createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json"), ...({ generateId: () => `bounded-${++nextId}` }) });
+    const store = createWorkTaskStore(createTaskStore(join(dirname(join(directory, ".runloom/work-tasks.json")), "tasks.json")), { workspace: directory,  ...({ generateId: () => `bounded-${++nextId}` }) });
     const oversized = await store.create({
       threadId: "thread-1", goal: "bounded",
       constraints: Array.from({ length: 24 }, () => "x".repeat(1_024)),
@@ -253,7 +250,7 @@ describe("WorkTaskStore", () => {
       expectedRevision: 4, criterionId: "first", actor: "human", status: "passed",
       evidence: [{ id: "first-proof", kind: "human", criterionId: "first", acceptedAt: "2026-09-30T00:00:00.000Z" }],
     });
-    assert.equal(accepted.ok && accepted.value.status, "awaiting_acceptance");
+    assert.equal(accepted.ok && workTaskPhase(accepted.value), "awaiting_acceptance");
     const replaced = await store.submitDelivery(created.value.id, {
       expectedRevision: 5,
       delivery: { summary: "replacement", artifactRefs: [], evidence: [], unresolved: ["review again"] },
@@ -272,14 +269,12 @@ describe("WorkTaskStore", () => {
   it("rejects caller-supplied evidence instead of trusting an unverified delivery snapshot", async () => {
     const directory = await workspace();
     let nextId = 0;
-    const store = createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json"), ...({
+    const store = createWorkTaskStore(createTaskStore(join(dirname(join(directory, ".runloom/work-tasks.json")), "tasks.json")), { workspace: directory,  ...({
       generateId: () => `evidence-${++nextId}`,
       executionRecords: { getRun: async (_threadId, runId) => ({
         runId, threadId: "thread-1", workTaskId: "evidence-2", phase: "primary", status: "completed",
         startedAt: "2026-09-30T00:00:00.000Z", finishedAt: "2026-09-30T00:00:01.000Z",
-        resultTextPreview: "", resultTextTruncated: false, errorPreview: null, tools: [],
-      }) },
-    }) });
+        resultTextPreview: "", resultTextTruncated: false, errorPreview: null, tools: []}) }}) });
     const created = await store.create({
       threadId: "thread-1", goal: "bounded evidence",
       acceptance: [{ id: "review", description: "Review", method: "human", verification: { kind: "human" }, required: true }],
@@ -296,7 +291,7 @@ describe("WorkTaskStore", () => {
       }], unresolved: [] },
     });
     assert.equal(code(untrusted), "WORK_TASK_INVALID_INPUT");
-    const reopened = await createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json") }).get(created.value.id);
+    const reopened = await createWorkTaskStore(createTaskStore(join(dirname(join(directory, ".runloom/work-tasks.json")), "tasks.json")), { workspace: directory, }).get(created.value.id);
     assert.equal(reopened.ok && reopened.value.revision, 3);
     assert.equal(reopened.ok && reopened.value.delivery, null);
 
@@ -330,14 +325,14 @@ describe("WorkTaskStore", () => {
 
   it("reads version-one tasks written before reconciliation history existed", async () => {
     const directory = await workspace();
-    const store = createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json"), generateId: () => "legacy-task"  });
+    const store = createWorkTaskStore(createTaskStore(join(dirname(join(directory, ".runloom/work-tasks.json")), "tasks.json")), { workspace: directory,  generateId: () => "legacy-task"  });
     const created = await store.create(input());
     assert.equal(created.ok, true);
-    const file = join(directory, ".runloom", "work-tasks.json");
+    const file = join(directory, ".runloom", "tasks.json");
     const document = JSON.parse(await readFile(file, "utf8")) as { tasks: Array<Record<string, unknown>> };
     delete document.tasks[0]?.reconciliations;
     await writeFile(file, `${JSON.stringify(document)}\n`);
-    const reopened = await createWorkTaskStore(directory, { filePath: join(directory, ".runloom/work-tasks.json") }).get("legacy-task");
+    const reopened = await createWorkTaskStore(createTaskStore(join(dirname(join(directory, ".runloom/work-tasks.json")), "tasks.json")), { workspace: directory, }).get("legacy-task");
     assert.equal(reopened.ok, true);
     assert.deepEqual(reopened.ok ? reopened.value.reconciliations : undefined, []);
   });

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import type { UIMessage } from "ai";
@@ -15,7 +15,8 @@ import { rssItemKey } from "./rss-subscriptions.js";
 import { createBuiltinSkill } from "./skill-catalog.js";
 import { createDreamingService } from "./dreaming.js";
 import { createMemoryStore } from "./memory-v7-store.js";
-import type { WorkTask, WorkTaskStore } from "./work-task-store.js";
+import type { WorkTask, WorkTaskStore } from "./work-task-store.js"
+import { createTaskStore } from "./task-store.js";
 import type { ExecutionRecordStore, ExecutionRunRecord } from "./execution-record-store.js";
 import { taskResultLink, taskResultWorkspaceKey } from "./task-result-link.js";
 import { createTaskWorkerService } from "./task-worker-service.js";
@@ -46,9 +47,9 @@ function dreamingSources(root: string) {
   const stamp = "2026-10-01T00:00:00.000Z", tasks: WorkTask[] = [], runs = new Map<string, ExecutionRunRecord>();
   for (const id of ["task-a", "task-b"]) {
     const runId = `run-${id}`;
-    tasks.push({ id, revision: 5, threadId: `thread-${id}`, goal: "整理项目复盘，先结论再列可执行步骤", constraints: [], status: "completed", runIds: [runId], reconciliations: [], createdAt: stamp, updatedAt: stamp,
+    tasks.push({ id, revision: 5, threadId: `thread-${id}`, goal: "整理项目复盘，先结论再列可执行步骤", constraints: [], kind: "work", status: "completed", effectReviewRequired: false, acceptanceOpen: false, runIds: [runId], reconciliations: [], createdAt: stamp, updatedAt: stamp,
       acceptance: [{ id: "quality", description: "复盘简明且步骤能执行", method: "human", verification: { kind: "human" }, required: true, status: "passed", evidenceRefs: [`human-${id}`], note: "已核对结论与两条步骤，符合要求" }],
-      delivery: { summary: "先写一行结论，再写两条可执行步骤", artifactRefs: [], unresolved: [], evidence: [{ id: `human-${id}`, kind: "human", criterionId: "quality", acceptedAt: stamp }] } } as WorkTask);
+      delivery: { summary: "先写一行结论，再写两条可执行步骤", artifactRefs: [], evidence: [{ id: `human-${id}`, kind: "human", criterionId: "quality", acceptedAt: stamp }], unresolved: [] } } as WorkTask);
     runs.set(runId, { runId, threadId: `thread-${id}`, workTaskId: id, phase: "primary", status: "completed", startedAt: stamp, finishedAt: stamp,
       resultTextPreview: "done", resultTextTruncated: false, errorPreview: null, tools: [] } as ExecutionRunRecord);
   }
@@ -89,7 +90,7 @@ async function samples(): Promise<Record<string, string>> {
     try { return (await readdir(root)).filter(name => name.startsWith(".execution-owner-")).join(","); } finally { await lease.release(); }
   });
   out["work task owner lock name"] = await withRoot(async root => {
-    const lease = await createWorkTaskStore(root, { filePath: join(root, ".runloom/work-tasks.json") }).claimThread("thread-a");
+    const lease = await createWorkTaskStore(createTaskStore(join(dirname(join(root, ".runloom/work-tasks.json")), "tasks.json")), { workspace: root, }).claimThread("thread-a");
     try { return (await readdir(join(root, ".runloom"))).filter(name => name.startsWith(".work-task-owner-")).join(","); } finally { await lease.release(); }
   });
   // Added in step 3 (docs/v2-pilot/pending.md A.1–A.2): reached through the stores' public API and the
