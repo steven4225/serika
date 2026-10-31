@@ -236,6 +236,23 @@
       "evidenceSha256": "797e3e198e40ae479b7cdbcdb653233ee84b7726bdca59b34fe99456a50b1812",
       "acceptance": "passed-desktop-stage1",
       "audit": "chat-run-target/stage1-live-c9a16383/contract-audit.json"
+    },
+    {
+      "step": "chat-run-target-stage1-telegram",
+      "runId": "d5a887cd-6976-41e1-ad2a-ed41c83e44f7",
+      "realModelRequests": 0,
+      "taskRuns": 0,
+      "amount": 0,
+      "amountBasis": "No upstream model request dispatched",
+      "authorizedBatchCapUsd": 0.25,
+      "authorizedBatchMaxRequests": 24,
+      "authorizedBatchMaxRuns": 1,
+      "unresolvedCalls": 0,
+      "unresolvedReservedUsd": 0,
+      "evidence": "chat-run-target/stage1-telegram-d5a887cd/result.json",
+      "evidenceSha256": "d6d2856f4fd10b4f331b99084cdbd9790dc55ddf3c974e6d09ac4a8802a6528d",
+      "acceptance": "failed-before-telegram-pairing",
+      "audit": "chat-run-target/stage1-telegram-d5a887cd/stop-audit.json"
     }
   ],
   "total": 2.158678239999999,

@@ -1,6 +1,6 @@
 # 聊天发现 CLI 与当前 Run Pi 目标
 
-> 2026-10-31 阶段 1 未完成。新批按用户要求直接真实验收，Shell 通过，Pi 的额外 discover 因缺少原话身份依据被拒绝；本次拒绝后 0 个上游请求、0 次控制派发，原结果为 failed。用户事后确认手动选择第一项，宿主随后采用；原观察器未记录该次 accepted 回应，不补造。已停止，详见文末。
+> 2026-10-31 最新结论：桌面 c9a16383 整链 PASS 沿用；真实 TG d5a887cd 在配对前入站校验失败，0 宿主任务 Run、0 模型请求、$0，已停并恢复日用 TG。TG 完成定义仍未通过。
 
 ## 1. 改了什么
 
@@ -327,3 +327,21 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 留证包含真实 Bot API 收发的消息号与入站更新、原 runtime-bridge 的选择/审批 accepted、runId/toolCallId/approvalId、冻结完整身份/正文/version、原工具结果、全部模型请求/响应及 SHA-256、用量、Pi 转录和产物。只归档当前配对及任务的消息，排除无关历史。Telegram 的 submitted 仅证明 API 接收，入站选择及批准另证用户动作。read_file 若需确认仍经 TG 逐次批准，不启用 TG 目录免确认授权。
 
 成功必须同 runId、有效选择恰好一次、selectionVersion=1、采用后无 discover、独立操作批准恰好一次、控制派发恰好一次、冻结/批准/发送一致、未选目标零输入、回读含本批随机标识、外部产物精确一致，且每个 accepted 审批有派发或明确未派发结论。失败、拒绝、取消、身份变化、unknown、费用或运输不确定、预算触顶立即冻结，无新 Run。unknown 后不自动回读、重发、换目标或控制清理；通道隔离与日用恢复仍按原设置 API 完成，不重放隔离期间消息。已处理消息的 TG 游标须由真实 getUpdates 回应确认；必要时仅作一次通道交接确认，不转交其中新消息、不调用模型或工具，确认未知则停止恢复并报告，避免日用重放。日用现有 3 条历史 unknown 投递只记数量，不复制、不重发，不归入本批结果。失败原件保持失败。本批无桌面链重跑、真实 Shell、日用部署、合并或 Seatbelt/授权修改。
+
+### 真实 Telegram 补验，d5a887cd，2026-10-31
+
+**本批失败，真实 TG 未通过；已停，未追加 Run。** 用户明确批准 1 Run / 24 请求 / $0.25，并允许临时关闭及恢复日用 TG。沿用桌面 c9a16383 PASS，不重跑桌面链。
+
+1. 改了什么：先写 TG 协议，再新增 `chat-run-target-telegram-live.mjs`，原 DesktopRuntime / TelegramStore / TelegramGateway / Bot API 在隔离 Node 26.4.0、macOS 进程运行，非 Electron 验收。保持原配对和原短码，模型走有总预算拦截的真实代理，两个隔离 idle Pi 已准备。预备整链 auditor 未运行；失败后仅新增只读 stop auditor，未修产品、未修后重跑。运行源码为干净 `935294e`。
+2. 逐条对照如下。原始 [failed result](evidence/chat-run-target/stage1-telegram-d5a887cd/result.json)、[停止核查](evidence/chat-run-target/stage1-telegram-d5a887cd/stop-audit.json)、[日用恢复核查](evidence/chat-run-target/stage1-telegram-d5a887cd/daily-restoration-check.json)、[归档 hash / 凭据扫描](evidence/chat-run-target/stage1-telegram-d5a887cd/archive-summary.json) 保留。
+
+| 本批完成定义 | 实际证据与缺口 |
+| --- | --- |
+| 真实 TG 配对及任务源 | 日用空闲、online；原 resident API 关闭 TG，隔离网关 online 并生成配对码。收到一个 updateId=414513485 / messageId=656 的入站 envelope，未通过验收脚本的入站账号/类型或文本白名单校验，未交 gateway.receive。隔离 owner=null、inputs=0；用户反馈“配对失败”。未建立绑定，未启动任务 Run。 |
+| 同 Run 发现≥2 → 短码选一次 → 采用 → 采用后无 discover | 未到达；仅隔离环境预备两台 Pi，不算宿主 Run 内发现或 TG 选择成功。桌面结论及离线回归保持原结论。 |
+| 单独批准 → 冻结目标/正文 → 一次派发 → 回读/独立产物核查 | 全部未到达；审批事件、工具事件和模型请求均 0，两台 Pi 本地转录均无用户输入。没有完整操作审批链，不能报告真实 TG 验收通过。 |
+| 失败即停 / 恢复 | 入站校验失败后 0 上游请求、0 新 Run、0 Pi prompt；没有追加重试、目标回读或控制清理。隔离 TG 于 16:32:37 +08:00 停止，日用 TG 于 16:32:39 +08:00 恢复。事后只读 resident 查询仍 enabled=true / online，原 pid=36769、绑定及配置 SHA 一致。日用历史 unknown 投递 3 条前后相同，未复制或重发。 |
+
+3. 实际用量 0 宿主任务 Run / 0 模型请求 / $0，未结算 0；费用账只增加本次零支出失败尝试，不改变累计费用。产品增删为 0；验证脚本新增 526 行、删除 0 行，不含文档与证据；验证脚本及报告用于真实 TG 原路径留证，既有全测、离线 TG、假模型、隔离 Electron 结论按用户要求沿用，不重跑桌面或全套关口。
+4. `node --check` 两个预备脚本及零请求 import 预检均 exit 0。准备时 `git diff --check` 发现报告末尾空行，删除多余空行后 exit 0，未进行真实调用。真实命令 `node --import ./apps/desktop/node_modules/tsx/dist/loader.mjs apps/desktop/scripts/chat-run-target-telegram-live.mjs --run --daily-pid 36769 --output /private/tmp/serika-197-tg-live-20261031-a` 写出 failed。finally 重复 close Telegram dispatcher 导致 `ClientDestroyedError`，日用恢复已完成；宿主残留进程 pid=96438 随后 SIGTERM 退出 143，未改原 result。`node scripts/chat-run-target-telegram-stop-audit.mjs /private/tmp/serika-197-tg-live-20261031-a 96438` exit 0 仅表示失败停止、零派发与恢复事实核对，不是业务通过。
+5. 偏离和观察缺口：首次入站校验只归档 envelope，未归档被拒 payload 或确切失败谓词，无法区分账号、消息类型、文本不符，不能归因为用户发错、TG 产品配对缺陷或网络问题。预备整链 auditor 也未被业务证据执行证明，其中 TG multipart 的投递核对仍需按原 parts/messageId 对照，不能声称该检查器已可验收。本轮不修后复验。按 Prove It Works 核对原件及现场，按 Sequence Work into Verifiable Units 停在失败关口；reviewed inline，未使用额外审核模型。注意事项为入站诊断缺口、重复 close 导致进程收尾失败，以及未运行的整链检查器。保留 `/private/tmp/tg-quC2af`、Herdr `w-83ae148e` / pid=96476 现场，无自动目标清理。不合并、不部署日用、不改权限、沙箱或 Seatbelt。

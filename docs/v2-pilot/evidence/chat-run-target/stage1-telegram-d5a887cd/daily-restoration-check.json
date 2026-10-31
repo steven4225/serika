@@ -1,0 +1,13 @@
+{
+  "auditId": "198bf9a3-2e1d-4186-92f9-ecdc9b99cf63",
+  "at": "2026-10-31T08:34:54.688Z",
+  "verification": "post-failure-read-only-live-resident-status",
+  "pid": 36769,
+  "enabled": true,
+  "connection": "online",
+  "ownerBound": true,
+  "pendingDeliveries": 0,
+  "unknownDeliveries": 3,
+  "awaitingReview": 0,
+  "configSha256": "0d38545bd21c11381e8cc91444511df07135a4bfc6cc2349c510769aea833292"
+}
