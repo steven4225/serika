@@ -41,6 +41,7 @@ else {if(a[3]==='prompt')writeFileSync(${JSON.stringify(join(directory, "answer.
     ? [{ name: "herdr_pi_discover", input: {} }, ...options.calls] : options.calls;
   let step = 0;
   const requests: string[] = [];
+  const contracts: string[][] = [];
   const app = await createRuntimeApp({ cwd: root, env: { HOME: home, PATH: bin }, directory: join(root, "transcripts"), output: new PassThrough(),
     assistant: { configPath, threadId: "thread", dataDirectory: join(root, "data") }, desktopAutonomyHost: { home }, modelAlias: "scripted",
     model: new MockLanguageModelV3({ doStream: async request => {
@@ -52,6 +53,7 @@ else {if(a[3]==='prompt')writeFileSync(${JSON.stringify(join(directory, "answer.
           { type: "finish" as const, finishReason: { unified: "stop" as const, raw: undefined }, usage }] }) };
       }
       requests.push(JSON.stringify(request.prompt));
+      contracts.push((request.tools ?? []).map(tool => tool.name));
       const index = step++ % (callsInRun.length + 1), call = callsInRun[index];
       await options.onRequest?.(index);
       return { stream: simulateReadableStream({ chunks: [{ type: "stream-start" as const, warnings: [] },
@@ -66,14 +68,14 @@ else {if(a[3]==='prompt')writeFileSync(${JSON.stringify(join(directory, "answer.
     assert.ok(start.ok); await done;
     return start.runId;
   };
-  return { root, directory, app, controller, calls, run, set, requests,
+  return { root, directory, app, controller, calls, run, set, requests, contracts,
     cleanup: async () => { await controller.shutdown(); await rm(root, { recursive: true, force: true }); } };
 }
 const prompt = { name: "herdr_pi_control", input: { action: "prompt", text: "create answer.json with sum 15" } };
 
-it("discovery blocks the next model request until one host choice, then refresh keeps the adopted identity", async () => {
+it("discovery blocks until one host choice, then every model step removes discover and continues read/control", async () => {
   const f = await fixture({ calls: [{ name: "herdr_pi_discover", input: {} },
-    { name: "herdr_pi_discover", input: { refresh: true } }, prompt,
+    { name: "herdr_pi_read", input: { action: "get" } }, prompt,
     { name: "herdr_pi_read", input: { action: "read" } }, { name: "read_file", input: { path: "answer.json" } }] });
   let choices = 0;
   const off = f.controller.subscribe(event => {
@@ -97,7 +99,13 @@ it("discovery blocks the next model request until one host choice, then refresh 
     assert.equal(f.controller.selectHerdrTarget({ selectionId: pending.selectionId, candidateId: null }), false);
     const id = await running;
     assert.equal(choices, 1);
+    assert.ok(f.contracts[0]!.includes("herdr_pi_discover"));
+    for (const names of f.contracts.slice(1)) {
+      assert.ok(!names.includes("herdr_pi_discover"));
+      assert.ok(names.includes("herdr_pi_read") && names.includes("herdr_pi_control"));
+    }
     assert.equal((await f.controller.runs.get(id))?.tools.length, 5);
+    assert.equal((await f.calls()).filter(args => args[0] === "session").length, 1);
     assert.equal((await f.calls()).filter(args => args[3] === "prompt").length, 1);
     assert.deepEqual(JSON.parse(await readFile(join(f.directory, "answer.json"), "utf8")), { sum: 15 });
   } finally { off(); await f.cleanup(); }
@@ -141,16 +149,23 @@ it("unbound multi-target choice keeps the original Run, freezes approval, sends 
   } finally { remove(); await f.cleanup(); }
 });
 
-it("a new explicit selector revokes the old adoption and remains binding through rediscovery", async () => {
-  const f = await fixture({ mode: "one", calls: [
-    { name: "herdr_pi_discover", input: { requested: { session: "offline", paneId: "p2", sourceQuote: "offline p2" } } },
-    { name: "herdr_pi_discover", input: { requested: { session: "missing", sourceQuote: "missing" } } },
-    { name: "herdr_pi_discover", input: { refresh: true } }, prompt,
-  ] });
+it("adopted discovery rejects stale same-response selectors without changing adoption or weakening source evidence", async () => {
+  const f = await fixture({ mode: "one", calls: [] });
   try {
-    const id = await f.run("目标先为 offline p2，然后指定 missing");
-    assert.ok(!(await f.calls()).some(a => a[3] === "prompt"));
-    assert.match(JSON.stringify(await f.controller.runs.get(id)), /HERDR_REQUESTED_TARGET_NOT_FOUND/);
+    const targets = f.app.foregroundHerdr!;
+    targets.begin({ id: "request", role: "user", parts: [{ type: "text", text: "请找一个现有 Pi" }] });
+    const requested = { session: "offline", paneId: "p2", terminalId: "t2", sourceQuote: "请找一个现有 Pi" };
+    const invalid = await targets.discover({ requested });
+    assert.ok(!invalid.ok);
+    assert.equal(invalid.error.code, "HERDR_REQUEST_EVIDENCE_INVALID");
+    assert.ok((await targets.discover({})).ok);
+    const adopted = targets.snapshot(), before = await f.calls();
+    const rejected = await targets.discover({ refresh: true, requested });
+    assert.ok(!rejected.ok);
+    assert.equal(rejected.error.code, "HERDR_TARGET_ALREADY_ADOPTED");
+    assert.deepEqual(targets.snapshot(), adopted);
+    assert.deepEqual(await f.calls(), before, "no discovery or input dispatch after adoption");
+    targets.end();
   } finally { await f.cleanup(); }
 });
 
@@ -308,17 +323,18 @@ for (const outcome of ["cancel-selection", "deny-control", "cancel-run", "run-bu
   } finally { off(); await f.cleanup(); }
 });
 
-it("cached exact pane evidence cannot silently adopt a replacement terminal on refresh", async () => {
+it("identity failure restores discover but cached exact pane evidence cannot auto-adopt a replacement", async () => {
   let replace = async () => {};
   const f = await fixture({ onRequest: async index => { if (index === 1) await replace(); }, calls: [
     { name: "herdr_pi_discover", input: { requested: { session: "offline", paneId: "p2", sourceQuote: "offline p2" } } },
+    { name: "herdr_pi_read", input: { action: "get" } },
     { name: "herdr_pi_discover", input: { refresh: true } }, prompt] });
   replace = () => f.set("replaced");
   let choices = 0;
   const off = f.controller.subscribe(event => {
     if (event.type === "herdr-selection") {
       choices++;
-      assert.equal(f.requests.length, 2);
+      assert.equal(f.requests.length, 3);
       assert.equal(f.app.foregroundHerdr?.snapshot().adoptedTarget, null);
       assert.equal(event.selection.candidates[0]?.target.terminalId, "replacement");
       f.controller.selectHerdrTarget({ selectionId: event.selection.selectionId, candidateId: null });
@@ -328,6 +344,8 @@ it("cached exact pane evidence cannot silently adopt a replacement terminal on r
   try {
     await f.run("使用 offline p2 完成任务");
     assert.equal(choices, 1);
+    assert.ok(!f.contracts[1]!.includes("herdr_pi_discover"));
+    assert.ok(f.contracts[2]!.includes("herdr_pi_discover"));
     assert.equal((await f.calls()).filter(args => args[3] === "prompt").length, 0);
   } finally { off(); await f.cleanup(); }
 });

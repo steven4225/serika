@@ -11,7 +11,7 @@ export function createDesktopSmokeModel() {
       : eligible ? JSON.stringify({ proposals: [], outcomes: ids.map(messageId => ({ messageId, status: "no_memory" })) }) : JSON.stringify({ merge: null });
     return { content: [{ type: "text", text: response }], finishReason: { unified: "stop", raw: undefined }, warnings: [],
       usage: { inputTokens: { total: 10, noCache: 10, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 5, text: 5, reasoning: undefined } } };
-  }, doStream: async ({ prompt }) => {
+  }, doStream: async ({ prompt, tools }) => {
     let lastUser = prompt.length - 1;
     while (lastUser >= 0 && prompt[lastUser]?.role !== "user") lastUser--;
     const user = prompt[lastUser];
@@ -24,6 +24,10 @@ export function createDesktopSmokeModel() {
       const failed = results.some(result => result.type === "tool-result" && (result.output.type === "error-text" || result.output.type === "error-json" || result.output.type === "json" &&
         typeof result.output.value === "object" && result.output.value !== null && "ok" in result.output.value && result.output.value.ok === false));
       const names = results.flatMap(result => result.type === "tool-result" ? [result.toolName] : []);
+      if (!failed) {
+        const discoveryAvailable = tools?.some(tool => tool.name === "herdr_pi_discover") ?? false;
+        if (discoveryAvailable === names.includes("herdr_pi_discover")) throw new Error("Smoke Pi discovery contract does not match Run adoption");
+      }
       if (failed) piAnswer = "S2_PI_STOPPED";
       else if (!names.includes("herdr_pi_discover")) { toolName = "herdr_pi_discover"; input = {}; }
       else if (!names.includes("herdr_pi_control")) { toolName = "herdr_pi_control"; input = { action: "prompt", text }; }

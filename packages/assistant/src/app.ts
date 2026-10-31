@@ -920,7 +920,11 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         const definition = catalog.get(agentId);
         return definition && agentId === PRIMARY_AGENT_ID ? { ...definition,
           get instructions() { return primaryInstructions(); },
-          ...(autonomousRun() ? { tools: autonomousToolNames,
+          get tools() {
+            const names = autonomousRun() ? autonomousToolNames : definition.tools;
+            return foregroundHerdr?.availableTools(names) ?? names;
+          },
+          ...(autonomousRun() ? {
             limits: { ...definition.limits, maxSteps: AUTONOMOUS_MAX_STEPS, totalTimeoutMs: AUTONOMOUS_TOTAL_TIMEOUT_MS } } : {}),
         } : definition;
       } },

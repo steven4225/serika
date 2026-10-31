@@ -1,0 +1,615 @@
+▶ afterToolCall hook
+  ✔ sees only this Run's messages ending with the completed result, and feedback reaches only the next request (39.072166ms)
+  ✔ a stop decision ends the Run after the completed call without another model request (8.016667ms)
+  ✔ a throwing hook or an invalid decision fails the Run as INTERNAL without replaying the tool (25.678375ms)
+✔ afterToolCall hook (73.586083ms)
+✔ cancel wait Demo: request-hangs settles on step-timeout without provider cooperation (42.477792ms)
+✔ cancel wait Demo: request-hangs settles on total-timeout without provider cooperation (101.569167ms)
+✔ cancel wait Demo: request-hangs settles on cancel without provider cooperation (5.575417ms)
+✔ cancel wait Demo: stream-hangs settles on step-timeout without provider cooperation (42.563417ms)
+✔ cancel wait Demo: stream-hangs settles on total-timeout without provider cooperation (101.934416ms)
+✔ cancel wait Demo: stream-hangs settles on cancel without provider cooperation (3.094875ms)
+✔ cancel wait Demo: a late next-step tool call never replays an already completed tool (8.243375ms)
+✔ finish corrections keep the same loop, original tool confirmation and remaining step budget (33.136125ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:435:27)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+✔ cancellation interrupts an unfinished completion check without another model request (5.550875ms)
+▶ AiSdkAgentLoop
+  ✔ does not call the model after cancellation during step setup (0.358292ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:470:88)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:485:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+Error: provider wrapper
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:512:27)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    ... 6 lines matching cause stack trace ...
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  [cause]: Error: dns lookup failed
+      at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:509:56)
+      at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+      at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+      at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+      at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+      at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+      at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+    code: 'ENOTFOUND'
+  }
+}
+  ✔ retries a transient model request within the same step (12.798334ms)
+  ✔ does not retry a host-declared one-shot Agent even for an empty transient failure (1.250584ms)
+  ✔ keeps model retries disabled unless the caller opts in (0.981916ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:538:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+  ✔ retries a model request when the network error is nested in cause (9.152416ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:538:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:538:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 401
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:560:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 401,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: false,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 403
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:581:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 403,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: false,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 429
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:604:27)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 429,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+  ✔ exhausts transient model retries at the configured attempt count (7.733ms)
+  ✔ does not retry authentication failures (2.586333ms)
+  ✔ does not retry forbidden responses (1.173625ms)
+APICallError [AI_APICallError]: HTTP 408
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:631:31)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 408,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+  ✔ retries a rate-limited model request (9.644959ms)
+APICallError [AI_APICallError]: HTTP 502
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:631:31)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 502,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 501
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:657:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 501,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 400
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:679:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 400,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+Error: provider wrapper
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:702:27)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    ... 6 lines matching cause stack trace ...
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  [cause]: APICallError [AI_APICallError]: HTTP 503
+      at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+      at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:702:66)
+      at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+      at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+      at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+      at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+      at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+      at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+    cause: undefined,
+    url: 'https://model.test/v1/chat/completions',
+    requestBodyValues: {},
+    statusCode: 503,
+    responseHeaders: undefined,
+    responseBody: undefined,
+    isRetryable: true,
+    data: undefined,
+    Symbol(vercel.ai.error): true,
+    Symbol(vercel.ai.error.AI_APICallError): true
+  }
+}
+  ✔ retries HTTP 408 and 502 as unavailable (21.7265ms)
+  ✔ does not retry HTTP 501 even when the SDK marks it retryable (1.288542ms)
+  ✔ does not retry HTTP 400 even when the SDK marks it retryable (0.865334ms)
+  ✔ retries a nested APICallError from the cause chain (9.226208ms)
+  ✔ retries an empty model step timeout (50.664209ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:775:53)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+  ✔ does not retry after a partial model output (6.898083ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:812:53)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+  ✔ does not retry after a tool call is requested (6.265292ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:848:53)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:875:23)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+  ✔ does not retry after a tool-input-start chunk (4.64575ms)
+  ✔ stops before the next model attempt when cancelled during retry delay (1.4775ms)
+APICallError [AI_APICallError]: HTTP 503
+    at apiError (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:109:12)
+    at doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:904:27)
+    at MockLanguageModelV3.doStream (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/test/index.js:151:22)
+    at execute (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8103:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async executeLanguageModelCallInTelemetryContext (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8035:71)
+    at async streamLanguageModelCall (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:8101:7)
+    at async retryWithExponentialBackoffInternal (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/@ai-sdk+provider-utils@5.0.12_zod@4.4.3/node_modules/@ai-sdk/provider-utils/dist/index.js:3317:12)
+    at async streamStep (file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9434:15)
+    at async file:///Users/a1-6/Code/agents/serika-chat-run-target/node_modules/.pnpm/ai@7.0.37_zod@4.4.3/node_modules/ai/dist/index.js:9787:7 {
+  cause: undefined,
+  url: 'https://model.test/v1/chat/completions',
+  requestBodyValues: {},
+  statusCode: 503,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+  ✔ does not repeat a successful tool when the following model step retries (11.840417ms)
+  ✔ stops after an unknown outcome from a non-idempotent tool (6.871208ms)
+  ✔ stops after a non-idempotent tool times out without a result (18.824875ms)
+  ✔ does not execute later tool calls after an unknown outcome (7.123208ms)
+  ✔ keeps an explicit non-idempotent tool failure as a known result (12.345792ms)
+  ✔ prepares a cloned transcript for the model (7.166125ms)
+  ✔ fails before the model when context preparation returns a non-array (0.324417ms)
+  ✔ preserves a context preparation AgentError (0.219875ms)
+  ✔ stops waiting for context preparation when the run is aborted (0.308375ms)
+  ✔ allows an empty response with a normal stop finish reason (3.339875ms)
+  ✔ rejects inconsistent and unsupported finish reasons before tool execution (28.866792ms)
+  ✔ does not execute a legal tool call when the model output is truncated (3.573834ms)
+  ✔ owns the model-tool-model loop and executes multiple calls sequentially (19.42ms)
+  ✔ feeds the SDK-marked invalid tool input back without executing the tool (12.637209ms)
+  ✔ lets the model correct a case-sensitive argument without bypassing approval or replaying the invalid call (17.821958ms)
+  ✔ invalid-input diagnostic: wrong kind with text present without leaking input or revalidating (14.028583ms)
+  ✔ invalid-input diagnostic: wrong sourceQuote type without leaking input or revalidating (14.902541ms)
+  ✔ invalid-input diagnostic: missing text without leaking input or revalidating (11.763291ms)
+  ✔ invalid-input diagnostic: root field combination without leaking input or revalidating (9.959125ms)
+  ✔ invalid-input diagnostic: malformed JSON without leaking input or revalidating (9.981084ms)
+  ✔ invalid-input diagnostic: untrusted field name without leaking input or revalidating (10.828875ms)
+  ✔ feeds a tool execution error back to the model and continues (14.814292ms)
+  ✔ fails the run when an idempotent tool throws CONTEXT_PREPARE_FAILED (4.810208ms)
+  ✔ fails an unknown tool without calling the precheck (3.374458ms)
+  ✔ runs the precheck on a cloned input and passes through context (10.570334ms)
+  ✔ denies a tool call as a tool result and continues the loop (10.379084ms)
+  ✔ checks same-step tools in order and continues after denying one (11.413125ms)
+  ✔ fails the run when the precheck throws or returns an invalid decision (30.651667ms)
+  ✔ preserves a TOOL_PRECHECK_FAILED thrown by the precheck (3.56275ms)
+  ✔ stops waiting for a precheck when the run is aborted (4.67175ms)
+  ✔ does not apply the tool timeout while the precheck is waiting (37.778875ms)
+  ✔ feeds a tool timeout back to the model with its timeout reason (22.5115ms)
+  ✔ does not execute a tool after cancellation during tool setup (3.921125ms)
+  ✔ does not let a model step timeout cut off an already running tool (165.157ms)
+  ✔ stops waiting for a tool when the run is aborted (4.982583ms)
+  ✔ fails instead of completing a partial transcript at maxSteps (3.845417ms)
+✔ AiSdkAgentLoop (705.403958ms)
+▶ beforeToolExecute Runtime integration
+  ✔ saves the original request and unknown receipt while the Run remains failed (3.765791ms)
+  ✔ does not save when beforeToolExecute fails in the real runtime loop (4.933875ms)
+  ✔ does not save when cancelling a pending beforeToolExecute in the real runtime loop (3.809042ms)
+  ✔ does not spend the run timeout while beforeToolExecute awaits approval (254.859ms)
+✔ beforeToolExecute Runtime integration (267.538833ms)
+APICallError [AI_APICallError]: context length exceeded: input 42000 tokens
+    at TestContext.<anonymous> (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:2613:22)
+    at Test.runInAsyncScope (node:async_hooks:226:14)
+    at Test.run (node:internal/test_runner/test:1382:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    at Suite.postRun (node:internal/test_runner/test:1522:19)
+    at Suite.run (node:internal/test_runner/test:1885:10)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+  cause: undefined,
+  url: 'https://fixture.invalid',
+  requestBodyValues: {},
+  statusCode: 400,
+  responseHeaders: undefined,
+  responseBody: '{"error":{"code":"context_length_exceeded","input_tokens":42000}}',
+  isRetryable: false,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: input too long: input 42000 tokens
+    at TestContext.<anonymous> (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:2642:23)
+    at Test.runInAsyncScope (node:async_hooks:226:14)
+    at Test.run (node:internal/test_runner/test:1382:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    at Test.postRun (node:internal/test_runner/test:1522:19)
+    at Test.run (node:internal/test_runner/test:1447:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+  cause: undefined,
+  url: 'https://fixture.invalid',
+  requestBodyValues: {},
+  statusCode: 400,
+  responseHeaders: undefined,
+  responseBody: '{"error":{"code":"context_length_exceeded","input_tokens":42000}}',
+  isRetryable: false,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+APICallError [AI_APICallError]: input too long: input 42000 tokens
+    at TestContext.<anonymous> (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:2642:23)
+    at Test.runInAsyncScope (node:async_hooks:226:14)
+    at Test.run (node:internal/test_runner/test:1382:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    at Test.postRun (node:internal/test_runner/test:1522:19)
+    at Test.run (node:internal/test_runner/test:1447:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+  cause: undefined,
+  url: 'https://fixture.invalid',
+  requestBodyValues: {},
+  statusCode: 400,
+  responseHeaders: undefined,
+  responseBody: '{"error":{"code":"context_length_exceeded","input_tokens":42000}}',
+  isRetryable: false,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+✔ provider overflow recalibrates once and never replays a tool already completed in the Run (14.385083ms)
+APICallError [AI_APICallError]: input too long: input 42000 tokens
+    at TestContext.<anonymous> (file:///Users/a1-6/Code/agents/serika-chat-run-target/packages/ai-sdk-adapter/dist/loop.test.js:2642:23)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async Test.run (node:internal/test_runner/test:1389:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+  cause: undefined,
+  url: 'https://fixture.invalid',
+  requestBodyValues: {},
+  statusCode: 400,
+  responseHeaders: undefined,
+  responseBody: '{"error":{"code":"context_length_exceeded","input_tokens":42000}}',
+  isRetryable: false,
+  data: undefined,
+  Symbol(vercel.ai.error): true,
+  Symbol(vercel.ai.error.AI_APICallError): true
+}
+✔ a second overflow or an overflow after visible output fails without another dispatch (11.017333ms)
+✔ discovery blocks until one host choice, then every model step removes discover and continues read/control (4521.361458ms)
+✔ unbound multi-target choice keeps the original Run, freezes approval, sends once, verifies the artifact and clears at end (6087.187334ms)
+✔ adopted discovery rejects stale same-response selectors without changing adoption or weakening source evidence (494.5215ms)
+✔ historical Steer cannot become new-Run target evidence or revive a selection (482.610666ms)
+✔ current Run choice and discovery survive production compaction at 32768 tokens (3705.830208ms)
+✔ current Run choice and discovery survive production compaction at 1000000 tokens (3876.01525ms)
+✔ a replacement while approval waits rejects the frozen identity with zero input dispatch (1958.275375ms)
+✔ same-Run Steer revokes old approval and binds its exact target correction before one new dispatch (3237.504459ms)
+✔ unknown dispatch stops the original AgentLoop before readback and never resends (1828.303167ms)
+✔ a stale configured binding cannot silently redirect even to the only healthy candidate (1133.658375ms)
+✔ cancel-selection after discovery leaves zero prompt dispatches (1198.183167ms)
+✔ deny-control after discovery leaves zero prompt dispatches (2084.231834ms)
+✔ cancel-run after discovery leaves zero prompt dispatches (1792.862042ms)
+✔ run-budget after discovery leaves zero prompt dispatches (4307.295666ms)
+✔ identity failure restores discover but cached exact pane evidence cannot auto-adopt a replacement (2348.110208ms)
+✔ identity rejection cannot auto-adopt the sole replacement on the next discovery (2501.588709ms)
+✔ desktop structured Herdr calls bind the fixed target and only sending asks each time (5779.648416ms)
+✔ telegram structured Herdr calls bind the fixed target and only sending asks each time (5097.881875ms)
+✔ b0 locks full host decisions, current Memory, configuration and filesystem boundaries (83465.329916ms)
+ℹ tests 91
+ℹ suites 3
+ℹ pass 91
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 83668.839416
+{"testHomeGuard":"passed","evidence":"/private/tmp/serika-197-contract-2929bb10/home/write-guard-n9dWmm/result.json","violations":0,"changes":51,"metadataUnchanged":false}

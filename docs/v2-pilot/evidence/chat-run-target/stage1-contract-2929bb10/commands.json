@@ -1,0 +1,76 @@
+[
+  {
+    "verificationId": "164e0f21-3e5e-4378-8090-c1ca9f721faa",
+    "phase": "targeted-runtime",
+    "command": [
+      "node",
+      "scripts/test-home.mjs",
+      "--home",
+      "/private/tmp/serika-197-contract-2929bb10/home",
+      "--",
+      "node",
+      "--test",
+      "--test-concurrency=4",
+      "packages/assistant/dist/foreground-herdr.test.js",
+      "packages/assistant/dist/herdr-control.test.js",
+      "packages/assistant/dist/permission-boundary.test.js",
+      "packages/ai-sdk-adapter/dist/loop.test.js"
+    ],
+    "startedAt": "2026-10-31T07:29:30.444880+00:00",
+    "realModelRequests": 0,
+    "costUsd": 0,
+    "sourceCommit": "57cb173792088992a56c74f33734c5282d248c39",
+    "exitCode": 0,
+    "finishedAt": "2026-10-31T07:30:54.219648+00:00",
+    "log": "targeted-runtime.log",
+    "logSha256": "227500b8babc9ab96df85be8c8d6fac8f4d7ab75a1d2594d8c2d1bb9b1dc638e"
+  },
+  {
+    "verificationId": "bb07ab9b-ea6a-4bf7-a30b-5d642363d3c9",
+    "phase": "targeted-desktop-tg",
+    "command": [
+      "node",
+      "scripts/test-home.mjs",
+      "--home",
+      "/private/tmp/serika-197-contract-2929bb10/home",
+      "--",
+      "pnpm",
+      "--filter",
+      "@serika/desktop",
+      "exec",
+      "tsx",
+      "--test",
+      "src/main/telegram-gateway.test.ts",
+      "src/main/telegram-herdr-selection.test.ts"
+    ],
+    "startedAt": "2026-10-31T07:31:01.224356+00:00",
+    "realModelRequests": 0,
+    "costUsd": 0,
+    "sourceCommit": "57cb173792088992a56c74f33734c5282d248c39",
+    "exitCode": 0,
+    "finishedAt": "2026-10-31T07:33:38.496621+00:00",
+    "log": "targeted-desktop-tg.log",
+    "logSha256": "1d4cc15b18b6fe7d2c2936c8bb75e175902fbae60cb79723f83f0944608b3d6c"
+  },
+  {
+    "verificationId": "cbfae313-ecf4-4b27-88b3-874d43b9d40d",
+    "phase": "full-test",
+    "command": [
+      "node",
+      "scripts/test-home.mjs",
+      "--home",
+      "/private/tmp/serika-197-contract-2929bb10/home",
+      "--",
+      "pnpm",
+      "test"
+    ],
+    "startedAt": "2026-10-31T07:34:24.022583+00:00",
+    "realModelRequests": 0,
+    "costUsd": 0,
+    "sourceCommit": "57cb173792088992a56c74f33734c5282d248c39",
+    "exitCode": 0,
+    "finishedAt": "2026-10-31T07:39:58.811541+00:00",
+    "log": "full-test.log",
+    "logSha256": "0be74273d2cf0d406d9f4d744a39b8393f70b021cf337de6374e5dc745be7e2b"
+  }
+]

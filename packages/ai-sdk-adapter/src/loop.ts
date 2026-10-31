@@ -50,8 +50,6 @@ export class AiSdkAgentLoop implements AgentLoop {
 
   async execute<TContext>(input: AgentLoopInput<TContext>): Promise<LoopOutcome> {
     const { definition, signal } = input;
-    const executableTools = this.#tools.resolve(definition.tools);
-    const modelTools = this.#tools.definitions(definition.tools);
     const model = this.#models.resolve(definition.model);
     const messages = structuredClone(input.messages);
     const runStart = messages.length;
@@ -79,6 +77,9 @@ export class AiSdkAgentLoop implements AgentLoop {
       throwIfAborted(signal);
 
       const modelInput = await this.#prepareContext(input, messages);
+      const toolNames = definition.tools;
+      const executableTools = this.#tools.resolve(toolNames);
+      const modelTools = this.#tools.definitions(toolNames);
       let modelMessages = await convertToModelMessages(modelInput, { tools: modelTools });
       // Internal feedback belongs only to this model request, never the
       // assistant transcript, emitted chat text or persisted user-fact sources.

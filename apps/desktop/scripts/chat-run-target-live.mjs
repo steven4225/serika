@@ -15,14 +15,15 @@ import { approvalChain, confirmApproval, observeApprovals } from './chat-run-tar
 const repo = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const hash = value => createHash('sha256').update(value).digest('hex');
 const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
-const model = 'deepseek/deepseek-v4.1-flash-fast', capUsd = .25, maxRequests = 24, maxRuns = 2;
+const piOnly = process.argv.includes('--pi-only');
+const model = 'deepseek/deepseek-v4.1-flash-fast', capUsd = .25, maxRequests = 24, maxRuns = piOnly ? 1 : 2;
 const price = { input: .32, output: 1.16, cacheRead: .03 };
 const envIndex = process.argv.indexOf('--env-file');
 assert.ok(envIndex < 0 || process.argv[envIndex + 1], '--env-file requires an explicitly authorized external file');
 const testEnv = resolve(envIndex < 0 ? '/Users/a1-6/.serika-test.env' : process.argv[envIndex + 1]);
 assert.ok(!testEnv.startsWith(repo + '/'), 'Test credentials must be outside the repository');
 if (!process.argv.includes('--run')) {
-  console.log(JSON.stringify({ mode: 'zero-request-preflight', model, capUsd, maxRequests, maxRuns,
+  console.log(JSON.stringify({ mode: 'zero-request-preflight', model, capUsd, maxRequests, maxRuns, piOnly,
     credentialFilePresent: existsSync(testEnv), credentialContentsInspected: false, credentialsWrittenToDisk: false, realModelCalls: 0,
     scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))) }));
   process.exit(0);
@@ -42,7 +43,7 @@ await mkdir(output);
 const root = await mkdtemp('/private/tmp/c-');
 const report = { runId: randomUUID(), startedAt: new Date().toISOString(), sourceCommit: git('rev-parse', 'HEAD'), sourceWorktreeDirty: false,
   verification: 'real-electron-real-model-real-isolated-herdr-pi', platform: process.platform, model,
-  scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))), capUsd, maxRequests, maxRuns, pricePerMillionUsd: price,
+  scriptSha256: hash(await readFile(fileURLToPath(import.meta.url))), capUsd, maxRequests, maxRuns, piOnly, pricePerMillionUsd: price,
   priceBasis: 'Conservative published peak rates; not invoice verified', priceSource: 'https://commandcode.ai/models/deepseek-v4-1-flash-fast',
   credentialSource: 'explicitly-authorized-env-model-fields-in-process-only', credentialsWrittenToDisk: false,
   calls: [], cases: [], launches: [], errors: [], screenshots: [], approvalEvents: [], costUsd: 0, status: 'running', isolatedRoot: root };
@@ -263,15 +264,17 @@ async function verifyPi(item, target, sessionFile, before, file, expected) {
   item.actualArtifact = artifact; item.piUserMessagesAdded = transcript.length - before; item.status = 'passed'; await save();
 }
 try {
-  const cli = await launch('orders');
-  await writeFile(join(cli.work, 'input.json'), JSON.stringify({ quantity: 7, unitPrice: 8 }));
-  const first = await run('ordinary-cli', '用 Node 读取 input.json，把 quantity 与 unitPrice 的乘积写入 answer.json 的 total 字段。完成后亲自检查文件和计算结果，告诉我结果。');
-  assert.deepEqual(JSON.parse(await readFile(join(cli.work, 'answer.json'), 'utf8')), { total: 56 });
-  assert.ok(first.receipt.tools.some(tool => tool.toolName === 'shell_exec' && tool.shell?.exitCode === 0));
-  assert.ok(!first.receipt.tools.some(tool => tool.toolName === 'terminal_exec'), 'Shell acceptance cannot use terminal fallback');
-  first.approvalChain = approvalChain({ runId: first.runId, receipt: first.receipt, events: report.approvalEvents,
-    decisions: first.hostDecisions.filter(row => row.kind === 'approval') });
-  first.status = 'passed'; first.actualArtifact = { total: 56 }; await save(); await stop();
+  if (!piOnly) {
+    const cli = await launch('orders');
+    await writeFile(join(cli.work, 'input.json'), JSON.stringify({ quantity: 7, unitPrice: 8 }));
+    const first = await run('ordinary-cli', '用 Node 读取 input.json，把 quantity 与 unitPrice 的乘积写入 answer.json 的 total 字段。完成后亲自检查文件和计算结果，告诉我结果。');
+    assert.deepEqual(JSON.parse(await readFile(join(cli.work, 'answer.json'), 'utf8')), { total: 56 });
+    assert.ok(first.receipt.tools.some(tool => tool.toolName === 'shell_exec' && tool.shell?.exitCode === 0));
+    assert.ok(!first.receipt.tools.some(tool => tool.toolName === 'terminal_exec'), 'Shell acceptance cannot use terminal fallback');
+    first.approvalChain = approvalChain({ runId: first.runId, receipt: first.receipt, events: report.approvalEvents,
+      decisions: first.hostDecisions.filter(row => row.kind === 'approval') });
+    first.status = 'passed'; first.actualArtifact = { total: 56 }; await save(); await stop();
+  }
 
   fixture = await setup(root, local + '/pi/v1', model); report.fixture = fixture; await save();
   const nonce = report.runId.slice(0, 8);

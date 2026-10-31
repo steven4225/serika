@@ -100,14 +100,23 @@ try {
   await observeApprovals({ page, onEvent: event => report.approvalEvents.push(event) });
   await expect(page.getByRole('region', { name: '本轮 Pi 目标选择' })).toBeVisible();
   assert.equal((await snapshot()).pendingHerdrSelection.selectionId, selection.selectionId);
-  const selected = { runId: first.state.runId, selectionId: selection.selectionId, candidateId: selection.candidates[1].candidateId, source: 'original-preload-selection', status: 'attempting' };
+  const selected = { runId: first.state.runId, selectionId: selection.selectionId, candidateId: selection.candidates[1].candidateId,
+    source: 'native-button-click', actor: 'codex-offline-script', status: 'attempting' };
   report.selections.push(selected);
-  selected.response = await page.evaluate(input => window.runloom.selectHerdrTarget(input), { selectionId: selected.selectionId, candidateId: selected.candidateId });
+  await page.getByRole('button', { name: '本轮使用', exact: true }).nth(1).click();
+  await until(async () => report.approvalEvents.some(row => row.type === 'herdr-selection-decision' && row.runId === selected.runId && row.input.selectionId === selected.selectionId));
+  selected.hostDecision = report.approvalEvents.find(row => row.type === 'herdr-selection-decision' && row.runId === selected.runId && row.input.selectionId === selected.selectionId);
+  assert.equal(selected.hostDecision.input.candidateId, selected.candidateId);
+  assert.equal(selected.hostDecision.selection.toolCallId, selection.toolCallId);
+  assert.equal(selected.hostDecision.source, 'runtime-bridge');
+  selected.response = { accepted: selected.hostDecision.accepted };
   assert.deepEqual(selected.response, { accepted: true }); selected.status = 'accepted';
   await until(async () => !!(await snapshot()).pendingApproval?.preview);
   const approved = await snapshot();
   assert.equal(approved.state.runId, first.state.runId);
   assert.equal(approved.pendingApproval.herdr.target.terminalId, 't2');
+  assert.deepEqual(approved.pendingApproval.herdr.target, selection.candidates[1].target);
+  assert.equal(approved.pendingApproval.herdr.selectionVersion, 1);
   assert.equal(approved.pendingHerdrSelection, null); assert.deepEqual(await prompts(), []);
   await shot('approve-frozen-pi');
   assert.deepEqual(await decide('unmatched-probe', 'allow'), { accepted: false });
@@ -129,8 +138,11 @@ try {
   assert.equal(argv[1], dispatch.frozen.target.session); assert.equal(argv[4], dispatch.frozen.target.paneId);
   assert.equal(argv[5], dispatch.frozen.action.text);
   assert.equal(report.selections.filter(row => row.runId === first.state.runId && row.response.accepted).length, 1);
+  assert.equal(report.approvalEvents.filter(row => row.type === 'herdr-selection-decision' && row.runId === first.state.runId && row.accepted).length, 1);
+  assert.ok(report.approvalEvents.some(row => row.type === 'herdr-selection-click' && row.runId === first.state.runId && row.selectionId === selection.selectionId && row.candidateId === selected.candidateId && row.isTrusted));
   report.checks.push({ name: 'choose-continue-approve-readback-independent-file-check', result: 'passed', runId: first.state.runId,
     selectionId: selection.selectionId, approvalId: approved.pendingApproval.approvalId,
+    adopted: approved.pendingApproval.herdr,
     fileApprovalId: null, filePermission: 'existing-workspace-autonomy', actualArtifact: result,
     tools: completed.tools.map(({ toolName, status }) => ({ toolName, status })), screenshot: await shot('independently-verified') });
   const second = await send(`S2 pi ${report.runId}-replaced`);

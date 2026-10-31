@@ -86,26 +86,22 @@ export class ForegroundHerdrTargets {
       requestedTarget: structuredClone(run?.requested ?? null),
       failures: structuredClone(run?.discovery?.failures ?? []) };
   }
+  availableTools(names: readonly string[]): readonly string[] {
+    const run = this.#run;
+    return names.filter(name => !(run?.halted && ["herdr_pi_discover", "herdr_pi_read", "herdr_pi_control"].includes(name)) &&
+      !(run?.adopted && name === "herdr_pi_discover"));
+  }
   async discover(input: { refresh?: boolean | undefined; requested?: { session?: string | undefined; paneId?: string | undefined; terminalId?: string | undefined; sourceQuote: string } | undefined }, signal?: AbortSignal) {
     const run = this.#run;
     if (!run) return failure("HERDR_FOREGROUND_REQUIRED", "只能在当前前台 Run 中发现并采用 Pi 目标");
     if (run.halted) return failure("HERDR_RUN_HALTED", "本轮出现未知结果，须由用户核对后再决定下一步");
+    if (run.adopted) return failure("HERDR_TARGET_ALREADY_ADOPTED", "本 Run 已采用 Pi，须直接 read/control；身份核验失效后才可重新发现");
     if (!run.discovery || input.refresh) {
       const discovery = await this.#client.discover(signal);
       signal?.throwIfAborted();
       if (this.#run !== run) return failure("HERDR_RUN_CHANGED", "原 Run 已结束，发现结果未采用");
       run.discovery = discovery;
       run.candidates = discovery.candidates.map(candidate => ({ ...candidate, candidateId: randomUUID() }));
-      if (run.adopted) {
-        const current = run.candidates.find(candidate => hashCanonicalJson(candidate.target) === hashCanonicalJson(run.adopted!.target));
-        if (current) run.adopted = current;
-        else {
-          delete run.adopted;
-          run.calls.clear();
-          run.needsSelection = true;
-          run.version++;
-        }
-      }
     }
     let matches = run.candidates;
     if (input.requested) {
@@ -118,12 +114,6 @@ export class ForegroundHerdrTargets {
     }
     if (run.requested) {
       matches = run.candidates.filter(candidate => Object.entries(run.requested!).every(([key, value]) => candidate.target[key as keyof HerdrTarget] === value));
-      if (run.adopted && (matches.length !== 1 || hashCanonicalJson(matches[0]!.target) !== hashCanonicalJson(run.adopted.target))) {
-        delete run.adopted;
-        run.calls.clear();
-        run.needsSelection = true;
-        run.version++;
-      }
       if (!matches.length) return failure("HERDR_REQUESTED_TARGET_NOT_FOUND", "本轮明确指定的 Pi 目标未通过核对，不会采用其他终端");
     }
     const sameConfigured = !this.options.configuredTarget || matches[0] && hashCanonicalJson(matches[0].target) === hashCanonicalJson(this.options.configuredTarget);

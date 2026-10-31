@@ -255,3 +255,38 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 5. 偏离：新指引与当前采用快照确实到达第 8、9 请求，模型仍重复 discover。不能归因为用户选错、没有可用 Pi、宿主漏采用或提示没有送达；当前证据说明这次提示修复不足，未放宽原话校验。两个隔离 Electron pid 18749、19071 已退出；冻结后保留 Herdr `w-dd9d296c` / server pid 19027 / `/private/tmp/c-krWXBl`，未追加目标回读或控制清理，代理已退出。guard failed / violations=0 / changes=43 / metadataUnchanged=false，不能说日用元数据未变。不合并、不部署，在更新原 #197 后停止。
 
 [原始 failed](evidence/chat-run-target/stage1-live-fc56f36f/result.json) · [独立停止审计](evidence/chat-run-target/stage1-live-fc56f36f/stop-audit.json) · [归档与 hash](evidence/chat-run-target/stage1-live-fc56f36f/archive-summary.json) · [保留现场](evidence/chat-run-target/stage1-live-fc56f36f/retained-processes.json)。[提交核查](evidence/chat-run-target/stage1-live-fc56f36f/submission-verification.json)确认原件未变、费用仅入账一次，真实密钥值及常见前缀扫描均零命中；这些核查不改变业务失败结论。
+
+### 采用前后工具装配协议，2026-10-31
+
+本节先于本轮产品代码写入。继承 fc56f36f 已证明的原生选择、采用和同 Run 推进，不重做其诊断。当前用户动作卡在采用后重复 `discover.requested`；本轮只让已采用目标继续 read/control，完成独立审批、一次派发、本次回读与产物核查。五分钟隔离演示入口为构建后的桌面假模型 fixture：两个 idle Pi，选一次、批准一次，观察同 Run 工具链与回执，外部解析本批产物；任何缺失均失败。
+
+| 宿主 Run 状态 | 发给模型的工具契约 | 执行与失效规则 |
+| --- | --- | --- |
+| 未采用 | 开放 `herdr_pi_discover`。`requested` 仍须含当前 Run 可核对的用户原话及精确身份字段。 | 原 sourceQuote 校验不变。多候选仍由现有宿主卡阻断并采用，选择不授予操作权限。 |
+| 已采用且尚无身份失效证据 | 后续每步移除 `herdr_pi_discover` 整个定义，保留现有 read/control 的严格 action 参数，目标由宿主冻结并带入。 | 同一模型响应中残留的 discover 也在执行入口明确失败 `HERDR_TARGET_ALREADY_ADOPTED`，无发现、改选或派发。不得将错误转成成功。 |
+| 真实身份核验失败或已接收同 Run Steer | 现有身份失效流程清除采用、冻结调用并递增 selectionVersion；下步重新开放 discover。 | 旧批准不能派发；候选变化后须重新核对及选择，不静默改发。每次 read/control 继续执行原 Herdr 身份核验。 |
+| unknown 或 Run 结束 | unknown 继续冻结；结束清除 Run 局部状态。 | 不自动回读、重发、换目标；不复活旧选择或跨 Run 默认。 |
+
+数据流为 `ForegroundHerdrTargets 当前采用状态 → app catalog 的 tools getter → AgentLoop 每步 prepareContext 后读取 tools → 同步生成模型定义和该步执行表 → 既有冻结/审批/身份核验/派发`。每步在 Steer 处理和上下文准备后读取一次工具名称，模型与执行表共用该次结果。discover 入口按实时状态再次拒绝同响应残留调用。无需 core 新 hook、第二循环或配置格式。
+
+比较两案：仅把 adopted 下的 discover 改为 refresh-only schema，仍给模型一个重新发现入口，与本轮“采用后只走 read/control”不符；选择移除整个 discover。全局注销工具会影响其他 agent/Run，选择沿用现有 definition getter，把工具解析移至每步。read/control 参数不新增目标字段。旧“采用后可 refresh 或直接重新指定”的测试预期随本协议收窄，分别改为稳定采用下不可发现，以及身份失效后才重新发现；原话校验断言不放宽。
+
+本轮任务清单：
+
+- [x] 读 AGENTS、失败原件、pstack/Karpathy 及最小改动、领域状态、类型约束、实物核查原则；只读委派追踪装配与失效路径。
+- [x] Ground / Sketch / Agree：写明上述两案、工具契约、数据流与已授权范围。
+- [x] Implement：按 Run 状态收窄工具及入口；相关单测与完整假模型链。
+- [x] 核查原失败路径、差异与注释；typecheck、全测、桌面及 TG 离线回归。
+- [ ] 干净源码构建隔离 Electron，假模型 read/control 及原审批观察链；任一关口失败即停。
+- [ ] 报新真批 Run/请求/费用/渠道/成功断言/停止条件，等用户“继续”。本轮未授权新真调用。
+- [ ] 获准后隔离真实整链；缺回执不报阶段完成；更新原 #197 后停止。
+
+查过旧约束的 Tool side-effect invariants、TUI 单次确认和 Trusted desktop foreground autonomy 条目；本轮不改这些审批/授权规则、Seatbelt 或日用服务。Scrap 仅在当前结构无法表达协议时使用，本轮不预设重构。
+
+#### 契约候选离线结果，Electron 待运行
+
+1. 改了什么：`ForegroundHerdrTargets.availableTools` 按当前采用/halted 状态删工具，`app` 沿用 definition getter，`AgentLoop` 把模型定义与执行表同步移至每步准备之后。采用后的 discover 入口明确拒绝并删除旧 refresh/重新指定采用目标分支，sourceQuote 验证逐字保留。Electron 假模型检查实际收到的工具名，原生选择脚本关联 click、宿主 accepted、候选完整身份与 selectionVersion=1。真批脚本新增 `--pi-only`，省去已过的真实 Shell 实验。
+2. 逐条对照：同 Run 多候选选择、采用后不暴露 discover、read/control、单独批准、一次发送、本次回读与独立文件解析由 `foreground-herdr.test` 完整假模型链通过；身份失效恢复发现、旧批准不可用、拒绝/取消零派发及 unknown 停止也通过。TG 离线链新增工具集合与 read 回执断言，85/85 通过。原生 Electron、真实模型整链、真实 TG 尚未验证。阶段 1 未完成。
+3. 相对 `57cb173`，产品代码 `+15/-20`，测试/验证 `+77/-33`，不计本报告与证据。验证增量大于产品，用于跨 step 工具契约、来源拒绝、身份失效恢复及原生选择/审批回执的独立核查。未删测试文件或新增 skip。三项旧预期有意收窄：`discovery blocks … refresh keeps …` 改为采用后 read/get 且每步无 discover；`a new explicit selector revokes …` 改为采用后残留 selector 明确失败、保持原采用；`cached exact pane … on refresh` 改为 read/get 证明身份失效后才能重新发现，保留零派发断言。
+4. 实际命令：`pnpm typecheck` 退出 0；隔离 `node --test` 的 runtime/Herdr/权限/loop 相关测试 91/91；隔离 `tsx --test` 的 TG gateway/selection 85/85；隔离 `pnpm test` 1891 pass、7 skip、0 fail/cancelled，均退出 0。`node --check` 两个改动的 Electron 验证脚本退出 0；`node …/chat-run-target-live.mjs --pi-only` 零请求预检退出 0，上限为 1 宿主任务 Run / 24 总请求 / $0.25，默认测试 env 不存在，未读取其内容。运行日志、随机验证 ID、退出码与 SHA-256 见 [offline-summary](evidence/chat-run-target/stage1-contract-2929bb10/offline-summary.json) 及同目录 commands/log。这些测试在改动工作树上运行，后续干净提交的 Electron 证据单独绑定源码。
+5. 偏离与限制：按用户工序先离线、后隔离 Electron、再等待真批授权；本轮真实请求/费用均为 0。六份写保护记录均 passed、零违规，启用了既有并发元数据记录，metadataUnchanged=false，不声称日用元数据未变。只读审核没有具体 correctness 发现；没有新增注释，注释检查内联完成。Electron 假模型若在提供工具前失败，现有 adapter 会隐藏具体 provider 异常，脚本可能只留等待超时；这不会误报绿，失败时须依原始事件判断，不臆断为选择未推进。本地提交仅为干净源码冒烟，远端 #197 依工序待真实验收后更新。

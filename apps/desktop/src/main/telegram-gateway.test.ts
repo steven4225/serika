@@ -55,7 +55,7 @@ it("TG capability queries never present cached registration as current during ru
     assert.equal(f.calls(), 0);
   } finally { await f.cleanup(); }
 });
-async function fixture(stream: (call: number, prompt?: string) => Promise<ReturnType<typeof response>> = async () => response(), backgroundReady = true, shellEnabled = false, herdrFixture: boolean | "multiple" = false, computerFixture = false) {
+async function fixture(stream: (call: number, prompt?: string, tools?: string[]) => Promise<ReturnType<typeof response>> = async () => response(), backgroundReady = true, shellEnabled = false, herdrFixture: boolean | "multiple" = false, computerFixture = false) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-telegram-unit-")));
   const workspace = join(root, "workspace"), applicationHome = join(root, "profile"), configPath = join(root, "config.json");
   await mkdir(workspace);
@@ -99,7 +99,7 @@ else process.exit(4);`);
   let calls = 0;
   let time = Date.now(), activations = 0;
   const host = await DesktopRuntime.create({ applicationHome, cwd: root, env: { RUNLOOM_CONFIG: configPath, ...(herdrFixture ? { PATH: bin, HOME: applicationHome } : {}), ...(computerFixture ? { HOME: applicationHome } : {}) }, modelAlias: "mock",
-    model: new MockLanguageModelV3({ doStream: async ({ prompt }) => stream(++calls, JSON.stringify(prompt)) }), send: () => {},
+    model: new MockLanguageModelV3({ doStream: async ({ prompt, tools }) => stream(++calls, JSON.stringify(prompt), (tools ?? []).map(tool => tool.name)) }), send: () => {},
     taskAutomation: { status: async () => ({ available: true, registered: true, running: backgroundReady, ready: backgroundReady, todoistPlanningAvailable: false }), enable: async () => { activations++; return { enabled: backgroundReady, ready: backgroundReady }; } } });
   const store = new TelegramStore(join(applicationHome, "resident", "telegram.json"), applicationHome);
   await store.load();
@@ -1530,7 +1530,11 @@ it("allowed Computer reads return through offline Telegram without approval and 
 
 
 it("Telegram chooses one discovered Pi within the same Run, then separately approves exactly one prompt", async () => {
-  const f = await fixture(async n => response(n === 1 ? { name: "herdr_pi_discover", input: {} } : n === 2 ? { name: "herdr_pi_control", input: { action: "prompt", text: "isolated task" } } : undefined, "", `call-${n}`), true, false, "multiple");
+  const f = await fixture(async (n, _prompt, tools) => {
+    assert.equal(tools?.includes("herdr_pi_discover"), n === 1);
+    return response(n === 1 ? { name: "herdr_pi_discover", input: {} } : n === 2 ? { name: "herdr_pi_control", input: { action: "prompt", text: "isolated task" } }
+      : n === 3 ? { name: "herdr_pi_read", input: { action: "read" } } : undefined, "", `call-${n}`);
+  }, true, false, "multiple");
   try {
     await f.bind();
     const decisions: { runId: string | undefined; toolCallId: string | undefined; approvalId: string; source: string; accepted: boolean }[] = [];
@@ -1575,11 +1579,14 @@ it("Telegram chooses one discovered Pi within the same Run, then separately appr
     assert.deepEqual(decisions, [{ runId: source.runId, toolCallId: snapshot.pendingApproval?.toolCallId,
       approvalId: snapshot.pendingApproval?.approvalId, source: "telegram-short-code", accepted: true }]);
     const receipt = await f.host.channelReceipt(f.store.snapshot().owner!.threadId, source.runId!);
+    assert.deepEqual(receipt?.tools.map(tool => [tool.toolName, tool.status]), [
+      ["herdr_pi_discover", "completed"], ["herdr_pi_control", "completed"], ["herdr_pi_read", "completed"],
+    ]);
     assert.equal(receipt?.tools.find(tool => tool.toolName === "herdr_pi_control")?.toolCallId, decisions[0]?.toolCallId);
     assert.equal(f.store.snapshot().inputs.find(x => x.key === "42:2")!.runId, source.runId);
     await f.gateway.receive(update(7, `选择 ${selectionCode} 1`));
     assert.match(f.sent.at(-1)!, /已过期|已处理/);
-    assert.equal(f.calls(), 3);
+    assert.equal(f.calls(), 4);
   } finally { await f.cleanup(); }
 });
 
