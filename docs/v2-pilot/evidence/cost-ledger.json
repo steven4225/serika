@@ -284,6 +284,23 @@
       "evidenceSha256": "b9096411f47e68fec25ca9ca27bdb94379bdcaaba8a180786803e8cae951b713",
       "acceptance": "failed-telegram-pairing-timeout-no-inbound",
       "audit": "chat-run-target/stage1-telegram-2856460a/stop-audit.json"
+    },
+    {
+      "step": "chat-run-target-stage1-telegram",
+      "runId": "74ccfd3f-fcb6-4a3a-b917-37c6ae32948f",
+      "realModelRequests": 0,
+      "taskRuns": 0,
+      "amount": 0,
+      "amountBasis": "No upstream model request dispatched; isolated Herdr socket startup failed before gateway initialization",
+      "authorizedBatchCapUsd": 0.25,
+      "authorizedBatchMaxRequests": 24,
+      "authorizedBatchMaxRuns": 1,
+      "unresolvedCalls": 0,
+      "unresolvedReservedUsd": 0,
+      "evidence": "chat-run-target/stage1-telegram-74ccfd3f/result.json",
+      "evidenceSha256": "36c6692c43c02a521cae95c6cad9b82614010b4c083fd58f425ffd3328f61593",
+      "acceptance": "failed-before-telegram-gateway-herdr-socket-path",
+      "audit": "chat-run-target/stage1-telegram-74ccfd3f/stop-audit.json"
     }
   ],
   "total": 2.168346239999999,

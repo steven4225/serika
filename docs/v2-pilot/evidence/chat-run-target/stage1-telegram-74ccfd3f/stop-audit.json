@@ -1,0 +1,52 @@
+{
+  "auditId": "1c4f29bc-f853-4a39-b994-aad966b26975",
+  "auditedAt": "2026-10-31T15:38:28.078Z",
+  "verification": "failed-telegram-batch-diagnostics-from-original-result",
+  "acceptance": "failed-telegram-batch",
+  "batchId": "74ccfd3f-fcb6-4a3a-b917-37c6ae32948f",
+  "sourceCommit": "e75e0de82e5eac23932a807c087a8fdad597479b",
+  "sourceResultSha256": "36c6692c43c02a521cae95c6cad9b82614010b4c083fd58f425ffd3328f61593",
+  "sourceResultUnmodified": true,
+  "stopReason": "verification-failure",
+  "failure": {
+    "name": "AssertionError",
+    "message": "new isolated server did not become ready; preserve target for inspection"
+  },
+  "modelRequests": 0,
+  "taskRuns": 0,
+  "amount": 0,
+  "unresolvedReservedUsd": 0,
+  "inboundChecks": [],
+  "telegramIdentity": null,
+  "pollFailure": null,
+  "pairReadiness": [],
+  "channelStrategy": "dedicated-test-bot",
+  "dailyAccess": "none",
+  "testProfile": {
+    "profileRoot": "/Users/a1-6/.serika-test/chat-run-target-telegram",
+    "runtimeRoot": "/private/tmp/serika-chat-run-target-telegram-test-runtime",
+    "applicationHome": "/Users/a1-6/.serika-test/chat-run-target-telegram/profile",
+    "configPath": "/Users/a1-6/.serika-test/chat-run-target-telegram/config.json",
+    "expectedBotId": 9127642960,
+    "expectedOwner": {
+      "userId": 6349286154,
+      "chatId": 6349286154
+    },
+    "leaseAcquiredAt": "2026-10-31T15:38:12.305Z",
+    "leaseReleasedAt": "2026-10-31T15:38:28.076Z"
+  },
+  "testChannelStartedAt": null,
+  "bindingAtPairingStart": null,
+  "pairingConfirmation": null,
+  "bindingBeforeShutdown": null,
+  "bindingAfterShutdown": null,
+  "telegramStore": null,
+  "telegramStoreAfterShutdown": null,
+  "transportCursorHandoff": null,
+  "shutdownErrors": [],
+  "isolatedHostStoppedAt": null,
+  "isolatedTelegramStoppedAt": null,
+  "daily": null,
+  "receipts": [],
+  "fixtureRetained": null
+}

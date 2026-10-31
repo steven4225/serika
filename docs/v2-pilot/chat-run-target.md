@@ -1,6 +1,6 @@
 # 聊天发现 CLI 与当前 Run Pi 目标
 
-> 2026-10-31 最新结论：桌面 c9a16383 整链 PASS 沿用；TG 验收已改为专用测试 Bot、固定隔离 profile，删除日用临停/接管/恢复路径。原网关离线首次配对与重建复用通过，相关 10/10、typecheck 通过，新真实请求/费用为 0。测试 Bot 为 `@serika197_test_4225_bot`，固定 env 尚缺 owner user/chat ID 和测试模型 key，未启动真 TG。历史 d5a887cd/2856460a 失败原件未改，真实 TG 完成定义仍未通过；待补配置并获“继续”后按 1 Run／24 请求／$0.25 验收。
+> 2026-10-31 最新结论：桌面 c9a16383 整链 PASS 沿用；专用测试 Bot `@serika197_test_4225_bot` 的身份/API、账号 ID 取得及准备消息游标确认完成，配置预检通过。随后正式验收批 74ccfd3f 在隔离 Herdr 启动时触发 Unix socket 路径过长，失败即停，尚未创建 TG 网关或模型 Run，0 Run／0 模型请求／$0。现场和失败原件保留，未重试。专用 profile 离线 10/10/typecheck 沿用；真实 TG 完成定义仍未通过，历史失败原件不变，日用未接管或临停。
 
 ## 1. 改了什么
 
@@ -439,3 +439,11 @@ Electron 版本均为 44.4.5。专项复验与标准 guard 均为 violations=0�
 最多 **1 宿主任务 Run／24 次总模型请求／$0.25 本地核算上限**，含 Serika、Pi 和辅助请求，沿用已冻结脚本费率，非账单核验。渠道仅 `@serika197_test_4225_bot`＋固定测试 env/profile＋两个隔离 Pi；首次真实配对保留渠道绑定，后续只复用该绑定，Pi 选择/操作批准每 Run 重新产生。用户在 TG 发真实任务正文、选择短码及独立批准，当前对话授权句不作入站任务。
 
 成功必须同 runId 发现≥2、有效选择恰好一次、selectionVersion=1、采用后请求无 discover、独立操作批准/派发各一次、冻结目标/正文一致、未选 Pi 零输入、本次回读和独立产物核查完整，审批链贯穿 runId/toolCallId→approvalId→冻结→决定/宿主接受→派发或明确未派发。拒绝、取消、目标/环境变化、任何验证红、unknown、运输/用量不确定、预算上限立即冻结；unknown 不自动目标回读、重发或换目标，失败保留现场，不追加 Run。真实 TG 通过后更新 #197 并停下，合并另等用户决定。
+
+### 专用测试 Bot 真批启动失败，74ccfd3f，2026-10-31
+
+1. 改了什么：用户随后“不要看预算直接测试”授权启动已报批次，上限保持脚本既定值。启动干净 `e75e0de` 的原验收脚本，未改产品或 harness。准备阶段已在测试 env 补入系统现有 HTTP 代理 `127.0.0.1:7897`，原 Bot API getMe/getWebhookInfo/getUpdates 成功，核对专用 Bot 身份；用户发送唯一标识准备消息后取得 user/chat ID，准备消息完整保存且通过空响应确认游标，未送模型。真实 env/token/key 不入库，未读取或连接日用。
+2. 逐条对照：本批停在 `chat-run-target-live-herdr.mjs:setup` 的服务 readiness 断言，服务器原日志为 `local socket name length exceeds capacity of sun_path of sockaddr_un`。固定 runtime 根目录 `/private/tmp/serika-chat-run-target-telegram-test-runtime` 下的隔离 HOME 使启动触及本地 socket 路径限制；尚未执行任何 workspace/Pi 创建操作，state.operations=[]，服务进程已退出。TG 真实配对、发现≥2、一次短码选择、同 Run 采用、采用后无 discover、独立操作审批/完整批准链、发送一次、未选目标零输入、本次回读和独立产物核查均**未到达**，阶段 1 TG 未完成。原件见 [result](evidence/chat-run-target/stage1-telegram-74ccfd3f/result.json)、[stop-audit](evidence/chat-run-target/stage1-telegram-74ccfd3f/stop-audit.json)、[server.log](evidence/chat-run-target/stage1-telegram-74ccfd3f/server.log) 与 [独立归档核对](evidence/chat-run-target/stage1-telegram-74ccfd3f/archive-summary.json)。
+3. 数字：本批 0 宿主 Run／0 上游模型请求／$0／未结算 0，cases/transport/inboundChecks 均空，网关与测试绑定尚未建立，Pi 创建/输入均 0。测试 profile 租约已释放，失败 runtime 原样保留，未追加调用或清理命令。产品/harness/测试代码 `+0/-0`；只增加证据、报告和零费用账目。桌面 PASS 与已接受离线关口沿用，无桌面重跑。
+4. 命令与退出码：live `--check-settings` exit 0；`node --import ./apps/desktop/node_modules/tsx/dist/loader.mjs apps/desktop/scripts/chat-run-target-telegram-live.mjs --run --env-file /Users/a1-6/.config/serika/chat-run-target-telegram-test.env --output /private/tmp/serika-197-tg-dedicated-live-f18c092a` exit 1。原 stop-audit CLI、result/stop-audit 原件 SHA 核对、旧三批 result hash 核对及归档凭据前缀扫描均 exit 0。原 Herdr state 与日志逐字复制；`kill(pid,0)` 只读核对失败服务进程已退出，没有发送终止信号。
+5. 偏离与下一步：前轮离线 gateway 测试未启动真实 Herdr 服务，未覆盖固定长路径导致的 socket 启动失败，不能以 10/10 推断完整 fixture 可用。setup 未返回，所以原 stop-audit.fixtureRetained=null；现场的实际 state/log 单独归档并在 archive-summary 绑定 hash，不补造原 result 字段或改绿。按 Prove It Works 保留真实失败，按失败即停不换目录重跑本批。下一步应先缩短隔离 runtime 路径并离线验证真实服务启动，再启动新真批；本轮只更新 #197 后停止，不合并、不部署、不扩授权/Seatbelt。

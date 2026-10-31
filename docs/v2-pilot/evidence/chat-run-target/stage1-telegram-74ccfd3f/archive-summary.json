@@ -1,0 +1,42 @@
+{
+  "auditId": "0bcd5834-a921-4682-993a-5303bf5bf1c9",
+  "archivedAt": "2026-10-31T15:40:42.309Z",
+  "verification": "failed-isolated-herdr-startup-from-original-runtime-artifacts",
+  "batchId": "74ccfd3f-fcb6-4a3a-b917-37c6ae32948f",
+  "sourceCommit": "e75e0de82e5eac23932a807c087a8fdad597479b",
+  "acceptance": "failed-before-telegram-gateway-and-model-run",
+  "modelRequests": 0,
+  "taskRuns": 0,
+  "amount": 0,
+  "unresolvedReservedUsd": 0,
+  "telegramGatewayCreated": false,
+  "testBindingCreated": false,
+  "setupBotApiSucceeded": true,
+  "setupOwnerIdsMatch": true,
+  "setupMessageCursorConfirmed": true,
+  "server": {
+    "pid": 7021,
+    "alive": false,
+    "phase": "server-spawned",
+    "operations": 0,
+    "logError": "Error: Custom { kind: InvalidInput, error: \"local socket name length exceeds capacity of sun_path of sockaddr_un\" }"
+  },
+  "temporaryRuntimeRetained": true,
+  "leaseReleasedAt": "2026-10-31T15:38:28.076Z",
+  "sourceResultSha256": "36c6692c43c02a521cae95c6cad9b82614010b4c083fd58f425ffd3328f61593",
+  "sourceResultUnmodified": true,
+  "unchangedPriorResults": {
+    "docs/v2-pilot/evidence/chat-run-target/stage1-live-c9a16383/result.json": "797e3e198e40ae479b7cdbcdb653233ee84b7726bdca59b34fe99456a50b1812",
+    "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-d5a887cd/result.json": "d6d2856f4fd10b4f331b99084cdbd9790dc55ddf3c974e6d09ac4a8802a6528d",
+    "docs/v2-pilot/evidence/chat-run-target/stage1-telegram-2856460a/result.json": "b9096411f47e68fec25ca9ca27bdb94379bdcaaba8a180786803e8cae951b713"
+  },
+  "files": {
+    "result.json": "36c6692c43c02a521cae95c6cad9b82614010b4c083fd58f425ffd3328f61593",
+    "stop-audit.json": "52f797689244a7d08676fd22b276bfa7318e9f973a4dc73febef02ff974d5396",
+    "herdr-state.json": "71635c7a0f691dbb10d5cd40456ecf8fc17ad6016723cb50d609cf1e0c2682cb",
+    "server.log": "e93b25f266acd368d05fd5d12f7d7b76467f2831552913a1d77edd67851ef4ef",
+    "connection-and-owner-setup.json": "48a354cef270564fed7259ac3c5c76b4e29abf46e13e3d8d096e3cc0fe6dd00d",
+    "stop-audit-check.log": "a47ae31208573f1431913a8cddcf787ad647b2a9d9fa3c81e504747612fc5b57"
+  },
+  "credentialPatternMatches": 0
+}

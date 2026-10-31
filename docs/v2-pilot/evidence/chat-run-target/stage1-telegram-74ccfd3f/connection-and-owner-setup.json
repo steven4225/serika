@@ -1,0 +1,59 @@
+{
+  "operation": "dedicated-test-bot-owner-ID-setup",
+  "startedAt": "2026-10-31T15:27:21.565Z",
+  "modelRequests": 0,
+  "taskRuns": 0,
+  "apiCalls": [
+    "getMe",
+    "getWebhookInfo",
+    "getUpdates",
+    "getUpdates-setup-cursor-confirmation"
+  ],
+  "offsetAcknowledged": true,
+  "status": "owner-IDs-ready",
+  "botUsername": "serika197_test_4225_bot",
+  "updates": [
+    {
+      "update_id": 819511884,
+      "message": {
+        "message_id": 2,
+        "from": {
+          "id": 6349286154,
+          "is_bot": false,
+          "first_name": "All",
+          "last_name": "Mind",
+          "language_code": "zh-hans"
+        },
+        "chat": {
+          "id": 6349286154,
+          "first_name": "All",
+          "last_name": "Mind",
+          "type": "private"
+        },
+        "date": 1793460403,
+        "text": "准备 197-ID-6B42"
+      }
+    }
+  ],
+  "expectedSetupText": "准备 197-ID-6B42",
+  "candidates": [
+    {
+      "userId": 6349286154,
+      "chatId": 6349286154,
+      "firstName": "All"
+    }
+  ],
+  "owner": {
+    "userId": 6349286154,
+    "chatId": 6349286154,
+    "firstName": "All"
+  },
+  "addedFields": [
+    "SERIKA_TG_TEST_OWNER_USER_ID",
+    "SERIKA_TG_TEST_OWNER_CHAT_ID"
+  ],
+  "requiredOffset": 819511885,
+  "handoffReturned": [],
+  "confirmedOffset": 819511885,
+  "finishedAt": "2026-10-31T15:27:54.230Z"
+}
