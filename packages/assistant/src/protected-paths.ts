@@ -4,7 +4,7 @@ import type { AssistantAssembly } from "./assembly.js";
 import type { ResolvedTuiModuleConfig } from "./tui-module-config.js";
 import { dirname, join, resolve, sep } from "node:path";
 
-export const serikaCodeRoot = fileURLToPath(new URL("../../..", import.meta.url));
+export const serikaCodeRoot = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))) + sep;
 
 export interface ProtectedPaths {
   controlPaths: readonly string[];
