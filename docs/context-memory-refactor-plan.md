@@ -267,7 +267,7 @@
 - 保留目标：新增 `work_task_create`、自动推导校验与宿主执行校验、状态数 7 → 4、与定时任务合并。
 - 不依赖 SQLite。基于现有用户级 home、项目身份及 `user`／`project` 记忆作用域设计；项目归属与目录授权分别校验，记忆不授予执行权限。
 - 2026-10-31 已确认：统一到现有 TaskStore／`tasks.json` v5；四状态 `pending | running | completed | cancelled`，回执／验收硬门槛和待核对／待验收提示保留；`work_task_create` 留给 6b；6a 单独交付，容量冲突停止，不升级真实日用、不花费模型。
-- 6a 已合并，记录见 [architecture-v2-step6a.md](v2-pilot/architecture-v2-step6a.md)。6b（对话创建，只保存）已实现，待合并，记录见 [architecture-v2-step6b.md](v2-pilot/architecture-v2-step6b.md)。6c（五分钟 Electron 验收）未做。2026-10-26 [任务重做草案](architecture-v2-step6-task-draft.md) 仍是映射合同。
+- 6a 已合并，记录见 [architecture-v2-step6a.md](v2-pilot/architecture-v2-step6a.md)。6b（对话创建，只保存）已实现，待合并，记录见 [architecture-v2-step6b.md](v2-pilot/architecture-v2-step6b.md)。6c（五分钟 Electron 验收）已实现，待合并，记录见 [architecture-v2-step6c.md](v2-pilot/architecture-v2-step6c.md)。2026-10-26 [任务重做草案](architecture-v2-step6-task-draft.md) 仍是映射合同。
 
 #### 架构第 7 步：沉淀管线
 

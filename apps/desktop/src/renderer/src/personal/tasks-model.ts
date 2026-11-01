@@ -203,6 +203,7 @@ export interface WorkTaskRow {
   key: string;
   title: string;
   at: string;
+  status: string;
 }
 
 export function workTaskRows(tasks: readonly WorkTask[]): WorkTaskRow[] {
@@ -210,6 +211,7 @@ export function workTaskRows(tasks: readonly WorkTask[]): WorkTaskRow[] {
     key: task.id,
     title: humanFacingTitle(task.goal, "未命名任务"),
     at: task.updatedAt,
+    status: taskStatusLabels[workTaskPhase(task)],
   }));
 }
 
@@ -263,6 +265,8 @@ export interface ScheduledTaskRow extends ReminderDisplayRow {
   title: string;
   family: "reminder" | "schedule";
   kindLabel: string;
+  /** Saved reminder body. Null while the instance has not finished. */
+  resultText: string | null;
 }
 
 function scheduleKindLabel(kind: string | undefined): string {
@@ -331,7 +335,36 @@ export function scheduledTaskRows(input: Parameters<typeof reminderRows>[0], clo
         title: humanFacingTitle(row.subject, family === "reminder" ? "提醒" : kindLabel),
         family,
         kindLabel,
+        resultText: null,
       };
     }),
   };
+}
+
+/** Unacknowledged reminder results belong on the same task entry as the schedule. */
+export function settledReminderRows(tasks: readonly {
+  id: string;
+  promptPreview: string;
+  resultPreview: string | null;
+  status: string;
+  runAt: string;
+  arrangement?: { kind?: string } | null;
+}[], clock: ReminderSpeechClock): ScheduledTaskRow[] {
+  return tasks.flatMap(task => {
+    if (task.arrangement?.kind !== "reminder" || task.status !== "completed") return [];
+    const subject = task.promptPreview;
+    return [{
+      id: task.id,
+      subject,
+      when: localWhen(task.runAt, clock),
+      status: scheduleStatusLabel(task.status, task.runAt, clock.now, "reminder"),
+      kind: "once" as const,
+      canCancel: false,
+      at: task.runAt,
+      title: humanFacingTitle(subject, "提醒"),
+      family: "reminder" as const,
+      kindLabel: "提醒",
+      resultText: task.resultPreview,
+    }];
+  });
 }

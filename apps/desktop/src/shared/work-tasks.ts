@@ -4,7 +4,7 @@ export type { WorkTaskContinuation } from "@serika/assistant";
 export type { WorkTaskReadInput, WorkTaskArtifactInput, WorkTaskReadResult, WorkTaskDeliveryDraft, WorkTaskArtifactPreview } from "@serika/assistant";
 
 export type { WorkTask, WorkTaskResult, WorkTaskStatus, WorkTaskObservedOutcome, WorkTaskPhase } from "@serika/assistant";
-export { workTaskPhase } from "@serika/assistant";
+export { workTaskPhase } from "@serika/assistant/browser";
 
 /** Desktop IPC operation name → method of the controller's `workTasks` group. */
 export interface WorkTaskOperationMethods {

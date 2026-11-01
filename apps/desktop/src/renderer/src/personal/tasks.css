@@ -14,6 +14,8 @@
 .task-row:hover:not(:disabled) { background: #fff; }
 .task-row span { font-size: 15px; font-weight: 550; overflow-wrap: anywhere; }
 .task-row small, .task-note, .task-thread-meta { color: var(--muted); font-size: 13px; }
+.task-row small.task-review, .task-thread-meta.task-review { color: #8a5931; font-weight: 650; }
+.personal-theme-dark .task-row small.task-review, .personal-theme-dark .task-thread-meta.task-review { color: #e3c2a4; }
 .task-examples { display: flex; flex-wrap: wrap; gap: 8px; }
 .task-examples button, .task-return-chip { border: 0; background: #ffffffa8; color: var(--text); font-size: 13px; padding: 8px 12px; }
 .task-template-list { display: flex; flex-direction: column; gap: 8px; }
