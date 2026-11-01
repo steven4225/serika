@@ -12,6 +12,7 @@ import {
   planTaskContinueHandoff,
   planTaskCreateHandoff,
   scheduledTaskRows,
+  settledReminderRows,
   taskArtifactCards,
   taskProgressLines,
   taskWhenLabel,
@@ -82,7 +83,7 @@ function WorkTaskList(props: TasksPageProps & { now: Date }) {
     {!props.loading && !props.error && props.tasksEnabled && groups.length === 0 ? <p className="task-note">还没有任务</p> : null}
     {groups.map(group => <section className="task-group" key={group.bucket} aria-label={group.bucket}>
       <h2>{group.bucket}</h2>
-      {group.items.map(item => <button type="button" className="task-row" key={item.key} disabled={props.busy} onClick={() => props.onOpenTask(item.key)}><span>{item.title}</span></button>)}
+      {group.items.map(item => <button type="button" className="task-row" key={item.key} disabled={props.busy} onClick={() => props.onOpenTask(item.key)}><span>{item.title}</span><small className={item.status === "效果待核对" ? "task-review" : undefined} role={item.status === "效果待核对" ? "status" : undefined}>{item.status}</small></button>)}
     </section>)}
     <div className="task-examples" aria-label="对话式创建示例">
       {TASK_EXAMPLE_PROMPTS.map(example => <button type="button" key={example.label} disabled={props.busy} onClick={() => props.onCreate(planTaskCreateHandoff(example.prompt))}>{example.label}</button>)}
@@ -128,7 +129,7 @@ function WorkTaskThread({ task, now, busy, advanced, onBack, onContinue }: {
   return <section className="task-thread" aria-label={title}>
     <header className="task-thread-heading">
       <button type="button" className="task-back" aria-label="返回任务列表" onClick={onBack}>‹</button>
-      <div className="task-thread-copy"><h1>{title}</h1><p className="task-thread-meta">{status} · {taskWhenLabel(task.updatedAt, now, clock)}</p></div>
+      <div className="task-thread-copy"><h1>{title}</h1><p className={`task-thread-meta${status === "效果待核对" ? " task-review" : ""}`} role={status === "效果待核对" ? "status" : undefined}>{status} · {taskWhenLabel(task.updatedAt, now, clock)}</p></div>
     </header>
     <div className="task-thread-log">
       {lines.slice(1).map(line => <article className="task-bubble" key={line}><p>{line}</p></article>)}
@@ -232,6 +233,7 @@ function ReminderThread({ row, now, busy, error, pendingCancel, onBack, onContin
       <div className="task-thread-copy"><h1>{row.title}</h1><p className="task-thread-meta">{row.family === "schedule" ? `${row.kindLabel} · ` : ""}{when} · {row.status}</p></div>
     </header>
     <article className="task-bubble"><p>{row.when}</p><p>{row.status}。{scheduleNotice(row.family)}</p></article>
+    {row.resultText ? <article className="task-bubble" aria-label="提醒结果"><p>{row.resultText}</p><p>标为已读不改变这条结果，也不会再执行一次。</p></article> : null}
     {error ? <p className="task-warning" role="alert">{error}请回到列表重新读取并核对这项安排是否还在；不会自动重试。</p> : null}
     {row.canCancel ? <button type="button" className="ghost" disabled={busy} onClick={() => onCancel(row)}>{scheduleCancelLabel(row.family)}</button> : null}
     {confirmCopy ? <div className="task-bubble" role="group" aria-label={confirmCopy.label}>
@@ -304,9 +306,15 @@ export function TasksHome({
       const result = await window.runloom.getAutomationOverview();
       if (captured !== context.current || request !== generation.current) return;
       if (!result.ok) { setReminders([]); setReminderOther(0); setRemindersError("提醒读取失败，不代表没有提醒。"); return; }
-      const view = scheduledTaskRows(result.value, reminderClock());
-      setReminders(view.rows);
+      const clock = reminderClock();
+      const inbox = await window.runloom.getTaskInbox();
+      if (captured !== context.current || request !== generation.current) return;
+      const view = scheduledTaskRows(result.value, clock);
+      const settled = inbox.ok ? settledReminderRows(inbox.value.tasks, clock) : [];
+      const seen = new Set(view.rows.map(row => row.id));
+      setReminders([...view.rows, ...settled.filter(row => !seen.has(row.id))]);
       setReminderOther(view.other);
+      if (!inbox.ok) setRemindersError("提醒结果读取失败，不代表没有结果。");
     } catch {
       if (captured === context.current && request === generation.current) { setReminders([]); setReminderOther(0); setRemindersError("提醒读取失败，不代表没有提醒。"); }
     } finally {
@@ -343,7 +351,7 @@ export function TasksHome({
     tasksEnabled={tasksEnabled} tasks={tasks} openedTask={openedTask} opening={openingTask} loading={loading} error={error} busy={busy || working}
     segment={segment} reminders={reminders} reminderOther={reminderOther} remindersLoading={remindersLoading} remindersError={remindersError}
     openedReminder={reminders.find(row => row.id === openedReminderId) ?? null} pendingCancel={pendingCancel}
-    onSegment={next => { setSegment(next); setOpenedTaskId(null); setOpenedReminderId(null); }}
+    onSegment={next => { setSegment(next); setOpenedTaskId(null); setOpenedReminderId(null); if (next === "scheduled") void reload(); }}
     onOpenTask={id => { setOpenedTaskId(id); onSelect(id); }}
     onOpenReminder={setOpenedReminderId}
     onBack={() => { setOpenedTaskId(null); setOpenedReminderId(null); setPendingCancel(null); }}

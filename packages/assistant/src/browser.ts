@@ -6,4 +6,5 @@ export { MODEL_PURPOSE_LABELS, estimatedModelCost } from "./model-usage.js";
 export { formatOnceWhen, reminderWhen } from "./reminder-speech.js";
 export { taskNotificationCopy } from "./task-notification-copy.js";
 export { arrangementDisplayStatus } from "./task-lifecycle.js";
+export { workTaskPhase } from "./work-task-phase.js";
 export type { HomeItem, HomeSection, HomeSnapshot, HomeTask } from "./home.js";

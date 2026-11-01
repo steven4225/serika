@@ -61,7 +61,8 @@ export { assertWorkerPathSafe, createTaskWorkerService, writeWorkerFileAtomic } 
 export type { ServiceCommandRunner } from "./task-worker-service.js";
 export { BUILTIN_MODULE_IDS, resolveTuiModuleConfig } from "./tui-module-config.js";
 export type { BuiltinModuleId, TelegramAutonomyGrant } from "./tui-module-config.js";
-export { WORK_TASK_FILE_MAX_BYTES, validateWorkTaskDocument, workTaskPhase } from "./work-task-store.js";
+export { WORK_TASK_FILE_MAX_BYTES, validateWorkTaskDocument } from "./work-task-store.js";
+export { workTaskPhase } from "./work-task-phase.js";
 export type { WorkTaskResult } from "./work-task-store.js";
 export type { ExecutionToolRecord } from "./execution-record-store.js";
 export type { WorkTask, WorkTaskStatus, WorkTaskPhase, WorkTaskObservedOutcome } from "./work-task-store.js";

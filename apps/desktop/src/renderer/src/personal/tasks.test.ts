@@ -20,6 +20,7 @@ import {
   planTaskFollowUpHandoff,
   returnedTaskSource,
   scheduledTaskRows,
+  settledReminderRows,
   taskDayBucket,
   taskReturnLabel,
   workTaskRows,
@@ -84,6 +85,34 @@ describe("task day buckets", () => {
 });
 
 describe("tasks page", () => {
+  it("shows 效果待核对 on the task list and blocks a start affordance", () => {
+    const review = task("task_hidden_review", "核对这次写入", 12, "needs_review");
+    const list = page({ tasks: [review] });
+    assert.match(list, /class="task-review"[^>]*role="status"/);
+    assert.match(list, /效果待核对/);
+    assert.doesNotMatch(list, /开始执行|开始任务|取消此任务/);
+    const opened = page({ tasks: [review], openedTask: review });
+    assert.match(opened, /task-thread-meta task-review/);
+    assert.match(opened, /效果待核对/);
+    assert.match(opened, /不会自动重做/);
+    assert.doesNotMatch(opened, /开始执行|开始任务/);
+  });
+
+  it("shows a saved reminder result on the scheduled task entry", () => {
+    const clock = { now, timeZone: "Asia/Shanghai" };
+    const rows = settledReminderRows([{
+      id: "task_hidden_review_reminder", promptPreview: "复核这份改动", resultPreview: "复核这份改动",
+      status: "completed", runAt: at(12, 16), arrangement: { kind: "reminder" },
+    }], clock);
+    assert.equal(rows[0]?.resultText, "复核这份改动");
+    assert.equal(rows[0]?.canCancel, false);
+    const html = page({ segment: "scheduled", reminders: rows, openedReminder: rows[0] });
+    assert.match(html, /aria-label="提醒结果"/);
+    assert.match(html, /复核这份改动/);
+    assert.match(html, /标为已读不改变这条结果/);
+    assert.match(html, /<summary>编号<\/summary><code>task_hidden_review_reminder<\/code>/);
+  });
+
   it("shows the segmented control, human rows, and no engineering ids", () => {
     const html = page({ tasks: [
       task("task_hidden_wake", "起床提醒", 11),
@@ -328,6 +357,10 @@ it("the tasks shell hands create and returned results to the main composer", asy
   assert.match(app, /<TasksHome/);
   assert.doesNotMatch(app, /<TaskReturnChip/);
   assert.match(app, /createAndStartTask\(window.runloom/);
+  const wired = app.slice(app.indexOf("onCreate={handoff"), app.indexOf("onContinue={applyTaskHandoff}"));
+  assert.match(wired, /purpose === "arrangement" \|\| handoff\.mode === "chat"/);
+  assert.match(wired, /newConversation\(handoff\.text\)/);
+  assert.doesNotMatch(wired, /openCreateTask/);
   assert.doesNotMatch(app, /planTaskFollowUpHandoff\(source\)/);
   const handoff = app.slice(app.indexOf("const applyTaskHandoff"), app.indexOf("const openCreateTask"));
   assert.match(handoff, /nextTaskInstruction\(workTasks\.instruction, handoff\)/);

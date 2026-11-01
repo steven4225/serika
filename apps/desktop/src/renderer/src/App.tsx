@@ -634,7 +634,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                   tasksEnabled={info?.workTasks === true} tasks={workTasks.tasks} selected={workTasks.task} loading={workTasks.loading} error={workTasks.error}
                   busy={busy || sending || switchingThread || workTasks.acting} focused={taskFocused} workspaceReady={!!info?.workspaceRoot}
                   refreshToken={automationRefresh} identity={`${info?.configPath ?? ""}:${info?.workspaceRoot ?? ""}`} formRequest={createTaskRequest}
-                  onSelect={workTasks.select} onCreate={handoff => { if (handoff.purpose === "arrangement") void newConversation(handoff.text); else if (handoff.mode === "chat") void openCreateTask(handoff.text); }} onContinue={applyTaskHandoff} onOpenSettings={() => openSettings("advanced")}
+                  onSelect={workTasks.select} onCreate={handoff => { if (handoff.purpose === "arrangement" || handoff.mode === "chat") void newConversation(handoff.text); }} onContinue={applyTaskHandoff} onOpenSettings={() => openSettings("advanced")}
                   advancedForm={<WorkTasksPanel view={workTasks} createRequest={createTaskRequest} initialGoal={taskDraft} focused={false} onCompose={composeTask} onCreated={() => { setDetailsOpen(false); setMobileDashboard(false); setTaskFocused(true); }} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />}
                   advancedDetail={<WorkTasksPanel view={workTasks} focused={true} onCompose={composeTask} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />}
                 />

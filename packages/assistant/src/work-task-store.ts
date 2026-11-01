@@ -9,6 +9,7 @@ import { creationReceipt, readCreationReceipt, type CreationReceipt } from "./cr
 import { matchesFileWritePath, readFileWriteReceipt, hasMatchingFileReadback, type ExecutionRecordStore, type ExecutionToolRecord } from "./execution-record-store.js";
 import { rejectSymlinkComponents, validateWorkspacePath } from "./workspace-path.js";
 import { invalidatesTaskTest, matchesTaskTestCommand } from "./work-task-shell-evidence.js";
+import { workTaskPhase } from "./work-task-phase.js";
 
 export const WORK_TASK_FILE_MAX_BYTES = 512 * 1024;
 export const WORK_TASK_MAX_ENTRIES = 100;
@@ -102,22 +103,7 @@ export interface WorkTask {
   updatedAt: string;
 }
 
-export function workTaskPhase(task: Pick<WorkTask, "status" | "effectReviewRequired" | "acceptanceOpen" | "runIds" | "delivery">): WorkTaskPhase {
-  switch (task.status) {
-    case "completed": return "completed";
-    case "cancelled": return "cancelled";
-    case "running": return "running";
-    case "pending":
-      if (task.effectReviewRequired) return "needs_review";
-      if (task.acceptanceOpen) return "awaiting_acceptance";
-      if (task.runIds.length === 0 && task.delivery === null) return "ready";
-      return "paused";
-    default: {
-      const unreachable: never = task.status;
-      throw new Error(`Unhandled work task status: ${String(unreachable)}`);
-    }
-  }
-}
+export { workTaskPhase };
 
 export interface CreateWorkTaskInput {
   operationId?: string;
