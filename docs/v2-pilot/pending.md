@@ -98,7 +98,7 @@
 
 ## L. b2 审核保留待办
 
-- 代码根目前用 `new URL("../../..", import.meta.url)` 推算，随 `dirname(dirname())` 显式化待办一起处理，本轮不改推算方式。
+- 代码根已改成 `dirname` 显式化，从 `import.meta.url` 经 `fileURLToPath` 和四层 `dirname` 推到 monorepo 根，保留原有尾随路径分隔符。
 - 凭据类 `.npmrc` 禁读对 npm 的影响留到 S2 验证。
 
 ## M. 6b 看到、但不在 6b 里改
