@@ -51,6 +51,7 @@ Linux，Xvfb `:99`。Electron 冒烟是真实 Electron 进程加脚本模型。N
 | `pnpm typecheck` | 0 |
 | `tsx --test` `work-task-step6c.test.ts`、`tasks.test.ts`、`package-boundary.test.ts` | 0（21 过） |
 | `DISPLAY=:99 node apps/desktop/scripts/task-surface-smoke.mjs` | 0。检查：`confirm-card`、`saved-not-started`、`delivery-pending-human`、`human-accepted`、`reminder-result`、`reopen`。约 71 秒。`realModelCalls: 0` |
+| `DISPLAY=:99 pnpm --filter @serika/desktop smoke`（干净工作区） | 0。原冒烟 8 项与上面 6 项都过。test-home 守卫 `metadataUnchanged: true`、`violations: 0`。冒烟写进 `docs/v2-pilot/evidence/**` 的文件没有提交 |
 | `SERIKA_TEST_HOME` 为临时目录时 `pnpm test` | 1。runtime 1241 项里 1194 过、26 败、21 跳过；因此没跑到桌面套件。失败不在本次 diff：Herdr 写 `/private/tmp`、computer 需要 macOS、连续性断言存储状态 `paused`、记忆抽取、RSS、Skill。不算 6c 通过 |
 | 同条件下 `pnpm --filter @serika/desktop test` | 1。662 项里 650 过、9 败、3 跳过。失败是 Herdr／终端绑定和两条 Telegram 网关，与 6a 记录的壳层回执失败同类，不在本次 diff。任务页新增用例在这套里面通过 |
 
