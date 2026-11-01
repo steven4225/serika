@@ -69,10 +69,10 @@ apps/telegram ┘        (领域：记忆/任务/        (AI SDK 边界：模型
 | 4 | 统一上下文：裁剪工具输出 → 真实 token 用量 → 后台压缩；稳定前缀排序 | 只剩一套策略；cache 命中率 |
 | 4.5 | 去掉用户可见的「工作区」：用户级 home（`~/.serika` / userData）+ 自动识别的项目层；授权目录列表；记忆增加 `user` 作用域；`.runloom/` 一次性导入；Shell 系统级沙箱（见 §4.3）。验收见 §4.2 的 A3 | 「未配置工作区」类拦截数 → 0 |
 | 5 | SQLite（`node:sqlite`）：先迁记忆，拆表；表结构按 4.5 的两级设计（`project_id` 可空）；备份改为导出/导入 JSON；保留旧 `memory.json` | `memory-store.ts` 行数；并发写冲突 |
-| 6 | 任务重做：`work_task_create` 工具、自动推导校验、宿主执行校验、4 个状态、与定时任务合并。6a（四状态与单一 `tasks.json` v5）已实现，待合并；6b／6c 未做 | 状态数 7 → 4 |
+| 6 | 任务重做：`work_task_create` 工具、自动推导校验、宿主执行校验、4 个状态、与定时任务合并。6a 已合并。6b（只保存的对话创建）已实现，待合并；6c 未做 | 状态数 7 → 4 |
 | 7 | 沉淀管线：自动整理 + dreaming 合并为一条空闲反思管线，使用隐式信号；增加精确率/撤销率评测 | 撤销率 |
 
-第 6／7 步的实施前提与已落地／未做边界见 [上下文与记忆计划 §4.1](context-memory-refactor-plan.md)。第 6 步不依赖 SQLite；6a 的完成记录见 [v2-pilot/architecture-v2-step6a.md](v2-pilot/architecture-v2-step6a.md)。第 7 步沿用已生效的后台无工具、统一排队、来源、撤回与评测约束。
+第 6／7 步的实施前提与已落地／未做边界见 [上下文与记忆计划 §4.1](context-memory-refactor-plan.md)。第 6 步不依赖 SQLite；6a 的完成记录见 [v2-pilot/architecture-v2-step6a.md](v2-pilot/architecture-v2-step6a.md)，6b 见 [v2-pilot/architecture-v2-step6b.md](v2-pilot/architecture-v2-step6b.md)。第 7 步沿用已生效的后台无工具、统一排队、来源、撤回与评测约束。
 
 候选补充（参考 OpenClaw / Hermes，待确认后并入对应步骤）：
 

@@ -20,6 +20,7 @@ import type { ContextDiagnostics, ContextResult } from "./context-diagnostics.js
 import type { AssistantSteerRecord, ExecutionRunRecord } from "./execution-record-store.js";
 export type { AssistantSteerRecord } from "./execution-record-store.js";
 import type { WorkTask } from "./work-task-store.js";
+import { savedWorkTaskCreate } from "./work-task-create.js";
 import { recoverRunningWorkTasks } from "./work-task-recovery.js";
 import type { ShellProgress } from "./modules/shell-module.js";
 import type { PendingToolApproval } from "./tool-confirmation.js";
@@ -368,6 +369,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             // A completed invocation may return an explicit failure. Classify
             // before bounding the display preview; Run completion is unrelated.
             const output = event.type === "tool.call.completed" ? event.data.output : undefined;
+            const saved = event.type === "tool.call.completed" ? savedWorkTaskCreate(output) : undefined;
             const returnedFailure = typeof output === "object" && output !== null && "ok" in output && output.ok === false;
             const returnedError = returnedFailure && "error" in output && typeof output.error === "object" && output.error !== null ? output.error : undefined;
             const errorCode = event.type === "tool.call.failed" ? event.data.error.code
@@ -375,7 +377,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
             const failureMessage = event.type === "tool.call.failed" ? event.data.error.message
               : returnedError && "message" in returnedError && typeof returnedError.message === "string" ? returnedError.message : undefined;
             const failed = event.type === "tool.call.failed" || returnedFailure;
-            const raw = failed ? [errorCode, failureMessage].filter(Boolean).join(": ") || "工具返回失败，详情见执行追踪"
+            const raw = saved ? saved.readback : failed ? [errorCode, failureMessage].filter(Boolean).join(": ") || "工具返回失败，详情见执行追踪"
               : JSON.stringify(output) ?? "";
             const item: ToolActivity = {
               toolCallId: event.data.toolCallId,
@@ -395,6 +397,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
                 "ok" in event.data.output && event.data.output.ok === true) {
               emit({ type: "memory-updated", reason: "write" });
             }
+            if (saved) emit({ type: "work-task-updated", task: saved.task });
           }
           outputTiming?.observe(event);
           emit({ type: "run-event", phase, event });

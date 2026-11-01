@@ -125,6 +125,9 @@ export interface CreateWorkTaskInput {
   goal: string;
   constraints?: string[];
   acceptance: Array<Pick<AcceptanceCriterion, "id" | "description" | "method" | "verification" | "required">>;
+  /** Host ownership. Included in the creation receipt only; the model cannot set it. */
+  projectId?: string;
+  home?: string;
 }
 
 export interface WorkTaskListInput {
@@ -547,6 +550,9 @@ class WorkTaskStoreImpl implements WorkTaskStore {
       const criteria = input.acceptance.map((item, index) => parseCriterion(item, `acceptance[${index}]`, false));
       if (new Set(criteria.map((item) => item.id)).size !== criteria.length) raise("WORK_TASK_INVALID_INPUT", "Acceptance criterion IDs must be unique");
       if (!criteria.some((item) => item.required)) raise("WORK_TASK_INVALID_INPUT", "At least one required acceptance criterion is required");
+      if ((input.projectId !== undefined && input.projectId.length === 0) || (input.home !== undefined && input.home.length === 0)) {
+        raise("WORK_TASK_INVALID_INPUT", "Work task ownership is invalid");
+      }
       const at = this.#now().toISOString();
       const task: WorkTask = {
         kind: "work",
@@ -557,8 +563,13 @@ class WorkTaskStoreImpl implements WorkTaskStore {
         runIds: [], delivery: null, createdAt: at, updatedAt: at,
         reconciliations: [],
       };
-      const receipt = creationReceipt(input.operationId, { threadId: task.threadId, goal: task.goal, constraints: task.constraints,
-        acceptance: task.acceptance.map(({ id, description, method, verification, required }) => ({ id, description, method, verification, required })) });
+      const receipt = creationReceipt(input.operationId, {
+        threadId: task.threadId,
+        ...(input.projectId === undefined ? {} : { projectId: input.projectId }),
+        ...(input.home === undefined ? {} : { home: input.home }),
+        goal: task.goal, constraints: task.constraints,
+        acceptance: task.acceptance.map(({ id, description, method, verification, required }) => ({ id, description, method, verification, required })),
+      });
       if (receipt) task.creation = receipt;
       if (Buffer.byteLength(JSON.stringify(task), "utf8") > WORK_TASK_MAX_BYTES) raise("WORK_TASK_LIMIT_EXCEEDED", "Work task exceeds size limit");
       return await this.#mutate((document) => {

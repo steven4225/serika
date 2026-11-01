@@ -31,6 +31,7 @@ process.env.TZ = "UTC";
 import { MEMORY_PRIMARY_WRITE_INSTRUCTIONS } from "./memory-write.js";
 import { DIRECTORY_FILE_INSTRUCTIONS } from "./directory-file-tool.js";
 import { SEATBELT_INSTRUCTIONS } from "./modules/seatbelt-policy.js";
+import { WORK_TASK_CREATE_INSTRUCTIONS } from "./work-task-create.js";
 
 const FULL = {
   pomodoro: { enabled: true },
@@ -216,6 +217,15 @@ function assertStep3Assembly(actual: string, baseline: string, autonomous = fals
       .replace("The path must be relative to the workspace and defaults to the workspace root;", "The path defaults to the selected root;") + DIRECTORY_FILE_INSTRUCTIONS;
     before.set(name, description + "\n\n" + JSON.stringify(schema, null, 2));
   }
+  if (before.has("task_create")) {
+    const created = after.get("work_task_create");
+    assert.match(created ?? "", /stays pending/);
+    assert.match(created ?? "", /Do not start a Run/);
+    assert.equal(created?.includes("threadId"), false);
+    assert.equal(created?.includes("operationId"), false);
+    assert.equal(created?.includes("projectId"), false);
+    after.delete("work_task_create");
+  } else assert.equal(after.has("work_task_create"), false);
   assert.deepEqual(after, before);
   const system = (text: string) => text.split("## message 0 system\n\n")[1]!.split(/\n\n(?:## message|# \/modules)/)[0]!;
   let oldSystem = system(baseline).replace(/In automatic memory mode,[\s\S]*?Active injected Memory overrides conflicting older transcript\/compaction, while the latest user request remains authoritative\./, "");
@@ -225,21 +235,22 @@ function assertStep3Assembly(actual: string, baseline: string, autonomous = fals
     .replace("Other tools retain their own permissions. Local Shell has the process's host permissions; the workspace is not an OS sandbox.", "Other tools retain their own permissions. Host Shell has the process's host permissions; its workspace is not an OS sandbox. Network commands require an explicitly selected host Run and per-command confirmation.");
   oldSystem = oldSystem.replace("with a workspace-relative path to find and read files", "with an authorized absolute path or an explicit project/directory-relative path to find and read files")
     .replace("All file paths are relative to the configured workspace, not the application's source repository or previous test fixtures.", "Relative file paths use the explicit project or selected directory. Without an explicit base and with several authorized directories, ask the user to choose a directory.");
-  const newSystem = system(actual).replace(autonomous ? MEMORY_READ_INSTRUCTIONS : MEMORY_READ_INSTRUCTIONS + MEMORY_PRIMARY_WRITE_INSTRUCTIONS, "");
+  const newSystem = system(actual).replaceAll(WORK_TASK_CREATE_INSTRUCTIONS, "").replace(autonomous ? MEMORY_READ_INSTRUCTIONS : MEMORY_READ_INSTRUCTIONS + MEMORY_PRIMARY_WRITE_INSTRUCTIONS, "");
   assert.equal(newSystem, oldSystem);
   const section = (text: string, title: string) => text.split(`# ${title}\n\n`)[1]!.split(/\n\n# /)[0]!;
-  const modules = (text: string) => section(text, "/modules").replace(/\d+\/8192 bytes/g, "<BYTES>/8192 bytes");
+  const modules = (text: string) => section(text, "/modules").replace(/\d+\/8192 bytes/g, "<BYTES>/8192 bytes").replaceAll("work_task_create, ", "");
   const expectedModules = modules(baseline)
     .replace("pinned preview 0 · <BYTES>/8192 bytes · truncated false · excluded otherThread 0, disabled 0, expired 0", "snapshot 0 · <BYTES>/8192 bytes · overflow false · excluded thread 0, documents 0, disabled 0, expired 0")
     .replace("无查询 pinned 预览不是下一轮实际命中数；未选中不表示已删除。记忆详情: 使用 memory_list / memory_get 查询（沿用工具确认）", "当前可生成快照的预览；已运行请求使用其保存的固定版本。超额及文档正文可通过 memory_read 按需读取。");
   assert.equal(modules(actual), expectedModules);
   assert.match(section(actual, "/capabilities"), /^terminal：未启用$/m);
-  const capabilities = (text: string) => section(text, "/capabilities").replace(/^memory：.*\n/m, "").replace(/^terminal：未启用\n/m, "");
+  const capabilities = (text: string) => section(text, "/capabilities").replace(/^memory：.*\n/m, "").replace(/^terminal：未启用\n/m, "").replaceAll("work_task_create, ", "");
   assert.equal(capabilities(actual), capabilities(baseline));
   const status = (text: string, execution?: CapabilityStatus["execution"]) => { const value = JSON.parse(section(text, "capability_status"));
     if (execution) { assert.deepEqual(value.execution, execution); delete value.execution; }
-    value.tools = value.tools.filter((name: string) => !name.startsWith("memory_") && !name.startsWith("history_"));
-    value.modules = value.modules.map((module: { id: string; registeredTools: string[] }) => module.id === "memory" ? { ...module, registeredTools: [] } : module);
+    value.tools = value.tools.filter((name: string) => name !== "work_task_create" && !name.startsWith("memory_") && !name.startsWith("history_"));
+    value.modules = value.modules.map((module: { id: string; registeredTools: string[] }) => module.id === "memory" ? { ...module, registeredTools: [] }
+      : module.id === "task" ? { ...module, registeredTools: module.registeredTools.filter(name => name !== "work_task_create") } : module);
     if (autonomous) value.modules = value.modules.filter((module: { id: string }) => module.id !== "memory");
     return value; };
   const currentStatus = status(actual, fixtureExecution({ workspace: "<ROOT>/workspace", shellEnabled: before.has("shell_exec") }));
