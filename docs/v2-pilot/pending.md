@@ -100,3 +100,8 @@
 
 - 代码根目前用 `new URL("../../..", import.meta.url)` 推算，随 `dirname(dirname())` 显式化待办一起处理，本轮不改推算方式。
 - 凭据类 `.npmrc` 禁读对 npm 的影响留到 S2 验证。
+
+## M. 6b 看到、但不在 6b 里改
+
+- `verifyContinuityTaskRun` 仍断言存储状态 `paused`；安排失败的 Skill 验收仍断言 `failed`。6a 之后存储只有四态，可见阶段是 `workTaskPhase`。本步不改这些断言。
+- Linux 上 `foreground-herdr` 使用 `/private/tmp`，`permission-boundary` 的 b0 在 computer 模块处停止。本步没有重比权限快照。

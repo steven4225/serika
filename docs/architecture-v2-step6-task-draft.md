@@ -1,6 +1,6 @@
 # 架构第 6 步：任务重做草案
 
-状态：2026-10-31 用户与房间已确认 §11 的四项取舍。6a（四状态与单一 TaskStore）已按本稿实施，待合并，记录见 [architecture-v2-step6a.md](v2-pilot/architecture-v2-step6a.md)。6b／6c 未做。本稿仍是映射合同，不是行级补丁。基线起草时为 `main@07aebb4`（2026-10-26）。[当时的静态检查](v2-pilot/architecture-v2-step6-draft.md) 只覆盖文档。
+状态：2026-10-31 用户与房间已确认 §11 的四项取舍。6a 已合并（`main@bd1a895`）。6b（对话创建，只保存）已实现，待合并，记录见 [architecture-v2-step6b.md](v2-pilot/architecture-v2-step6b.md)。6c 未做。本稿仍是映射合同，不是行级补丁。基线起草时为 `main@07aebb4`（2026-10-26）。[当时的静态检查](v2-pilot/architecture-v2-step6-draft.md) 只覆盖文档。
 
 依据：[架构路线第 6 步](architecture-v2.md)、[上下文与记忆计划 §4.1](context-memory-refactor-plan.md)。目标保持 `work_task_create`、自动推导校验、宿主执行校验、任务状态 7 → 4、与定时任务合并。SQLite、S2／S3、架构第 7 步、eval 迁包和 assistant 源码拆分均在本稿范围外。
 
@@ -162,12 +162,12 @@ RecurringTask = 现有周期规则 + 启停状态 + 下一次时间
 
 ## 9. 实施单元与验证关口
 
-§11 已于 2026-10-31 确认。6a 已实现，待用户合并；6b／6c 未实施、未运行。每个单元单独分支、PR 到 main，由用户合并。
+§11 已于 2026-10-31 确认。6a 已合并。6b 已实现，待用户合并；6c 未实施、未运行。每个单元单独分支、PR 到 main，由用户合并。
 
 | 单元 | 可核对的完成结果与涉及位置 | 依赖与最小范围 | 验证及停止条件 |
 |---|---|---|---|
-| 6a：任务模型与存储合并 | 四状态、完整映射、唯一 TaskStore、离线 dry-run／upgrade／rollback；现有创建、执行、恢复、结果与通知路径都读新模型。已实现，待合并 | 迁移 `task-store.ts`、`work-task-store.ts` 调用方、Controller、worker、工具、桌面与备份恢复；同批删除旧写入口。未做 6b 的创建工具和确认卡 | `pnpm typecheck`；受影响 Store／recovery／worker／desktop 测试；副本清单、SHA 和回滚对照。任何字段丢失、unknown 解锁、跨 owner 恢复或容量冲突即停，不能进入 6b |
-| 6b：对话式创建与自动推导 | 普通 primary 的 `work_task_create`、宿主归属／创建键、可读确认卡、已保存与已开始区分；已有任务页和定时页共用查询结果 | 6a 已合并。改任务模块、装配处、现有 Controller／桌面入口及确认文本；校验推导复用已有模型步骤和宿主 verifier | 实际 Runtime／AgentLoop 工具轮证明保存、拒绝、参数与归属拒绝、精确重放、未知提交只读核对；现有收尾检查不放宽。任一权限快照意外变化即停 |
+| 6a：任务模型与存储合并 | 四状态、完整映射、唯一 TaskStore、离线 dry-run／upgrade／rollback；现有创建、执行、恢复、结果与通知路径都读新模型。已合并 | 迁移 `task-store.ts`、`work-task-store.ts` 调用方、Controller、worker、工具、桌面与备份恢复；同批删除旧写入口。未做 6b 的创建工具和确认卡 | `pnpm typecheck`；受影响 Store／recovery／worker／desktop 测试；副本清单、SHA 和回滚对照。任何字段丢失、unknown 解锁、跨 owner 恢复或容量冲突即停，不能进入 6b |
+| 6b：对话式创建与自动推导 | 普通 primary 的 `work_task_create`、宿主归属／创建键、可读确认卡、已保存与已开始区分；已有任务页和定时页共用查询结果。已实现，待合并 | 6a 已合并。改任务模块、装配处、现有 Controller／桌面入口及确认文本；校验推导复用已有模型步骤和宿主 verifier | 实际 Runtime／AgentLoop 工具轮证明保存、拒绝、参数与归属拒绝、精确重放、未知提交只读核对；现有收尾检查不放宽。任一权限快照意外变化即停 |
 | 6c：完整操作验收 | 下面五分钟主链、关键失败链、两档窗口与隔离重启证据；任务页可见真实状态和限制 | 6a／6b 已合并。不另建 eval 框架，不迁 `examples/eval`，不改旧 Oracle | 各代码单元末按仓库要求全套测试与真实 Electron＋脚本模型冒烟；使用全新测试 home。真实模型质量另获费用授权后才测；真实日用仍需独立操作确认 |
 
 预计受影响测试包括现有 `work-task-store`、`work-task-recovery`、`work-task-rework`、`work-task-completion`、`work-task-artifacts`、`task-store`、`task-worker`、`task-worker-delivery`、`scheduled-skill`、`task-service-acceptance` 及桌面任务／inbox／通知路由测试。新增用例针对上述实际不变量，不为四个枚举值逐个写无行为测试；不改历史分数或删用例凑绿。

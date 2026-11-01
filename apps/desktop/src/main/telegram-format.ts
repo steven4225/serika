@@ -94,7 +94,7 @@ export function telegramParts(text: string, markdown = true): string[] {
 }
 
 export function telegramApprovalText(tool: string, preview: string, code: string, input?: unknown, now = new Date()): string {
-  const names: Record<string, string> = { task_create: "创建提醒", task_repeat_create: "创建周期安排", task_reschedule: "调整提醒时间",
+  const names: Record<string, string> = { task_create: "创建提醒", work_task_create: "保存工作任务", task_repeat_create: "创建周期安排", task_reschedule: "调整提醒时间",
     read_file: "读取文件", write_file: "写入文件", edit_file: "修改文件", shell_exec: "执行命令", web_search: "联网搜索", web_fetch: "读取网页",
     recipe_list: "查看命令配方", recipe_save: "登记命令配方", recipe_run: "运行命令配方", recipe_manage: "管理命令配方", computer_check: "检查 CUA 连接" };
   const arrangement = ["task_create", "task_repeat_create"].includes(tool);

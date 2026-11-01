@@ -25,6 +25,7 @@ import type {
 import type { Recurrence } from "../recurrence.js";
 import { readRecurrence, reminderConfirmation, reminderReadback, type ReminderSpeechAction } from "../reminder-speech.js";
 import type { SkillResult } from "../automation-execution.js";
+import { createWorkTaskCreateTool, WORK_TASK_CREATE_INSTRUCTIONS, workTaskCreateConfirmation, type WorkTaskCreateHost } from "../work-task-create.js";
 
 export type { TaskStore } from "../task-store.js";
 
@@ -93,6 +94,8 @@ export interface TaskModuleOptions {
   arrangementDestination?: () => string | null;
   /** Registered text Skills the primary agent may schedule, listed in its instructions. */
   schedulableSkills?: readonly { id: string; hash: string; description: string }[];
+  /** Ordinary primary chat. Omitted for workers, background runs, and Skills. */
+  workTaskCreate?: WorkTaskCreateHost;
 }
 
 export interface TaskAutomationStatus {
@@ -619,6 +622,7 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
   }
   /** The y/n cards for arrangements and reminders; `undefined` keeps the generic card. Reminder cards carry their fields. */
   function confirmation(input: BeforeToolExecuteInput): ToolConfirmationCard | Promise<ToolConfirmationCard | undefined> | undefined {
+    if (input.toolName === "work_task_create") return workTaskCreateConfirmation(input.input);
     if (input.toolName === "task_create" || input.toolName === "task_repeat_create") {
       const request = typeof input.input === "object" && input.input !== null ? input.input as { arrangement?: { kind?: unknown; source?: unknown; skillId?: unknown; skillHash?: unknown }; runAt?: unknown; recurrence?: unknown; prompt?: unknown } : {};
       if (request.arrangement !== undefined) {
@@ -943,6 +947,10 @@ export function createTaskModule(store: TaskStore, options: TaskModuleOptions = 
       });
 
       const permission = { confirmation };
+      if (options.workTaskCreate) {
+        ctx.registerTool(createWorkTaskCreateTool(options.workTaskCreate), { confirmation, defaults: { remember: "never" } });
+        ctx.addInstructions(WORK_TASK_CREATE_INSTRUCTIONS);
+      }
       ctx.registerTool({ metadata: options.afterArrangementSaved === undefined ? taskCreateMetadata : { ...taskCreateMetadata, timeoutMs: 30_000 }, tool: taskCreateTool }, permission);
       ctx.registerTool({ metadata: taskListMetadata, tool: taskListTool }, permission);
       ctx.registerTool({ metadata: taskGetMetadata, tool: taskGetTool }, permission);

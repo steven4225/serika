@@ -10,7 +10,7 @@ import { assertExperimentalDataPaths } from "./experimental-data.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import type { Writable } from "node:stream";
 import { tool, type LanguageModel, type UIMessage } from "ai";
 import { z } from "zod";
@@ -238,6 +238,11 @@ interface RunState {
   workTask: WorkTask | undefined;
   /** The user message memory writes may quote; replaced on every model step. */
   memorySource: { message: UIMessage; signal: AbortSignal } | undefined;
+  /** The ordinary primary user message. Absent during a bound WorkTask Run. */
+  ordinaryUser: UIMessage | undefined;
+  readMaterialMessageId: string | undefined;
+  /** File text already read for this ordinary user message. */
+  readMaterials: string[];
   /** The /resume observation this Run injects. */
   resume: { observation: ResumeObservation; mismatchReported: boolean } | undefined;
 }
@@ -271,7 +276,9 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
     options.authorizeTelegramAutonomy?.(moduleConfig.telegramAutonomy) === true;
   // Per-Run state (docs/v2-pilot/run-context.md). Each begin/end pair below
   // sets and clears only its own part, at the same points as before.
-  const currentRun: RunState = { foreground: undefined, workTaskMessage: undefined, workTask: undefined, memorySource: undefined, resume: undefined };
+  const currentRun: RunState = { foreground: undefined, workTaskMessage: undefined, workTask: undefined, memorySource: undefined, ordinaryUser: undefined, readMaterialMessageId: undefined, readMaterials: [], resume: undefined };
+  const visibleToolNames = (names: readonly string[]) => names.filter(name =>
+    name !== "work_task_create" || (currentRun.workTask === undefined && currentRun.ordinaryUser !== undefined));
   const foregroundHerdr = moduleConfig?.enabled.terminal && options.desktopAutonomyHost && projectDirectory
     ? new ForegroundHerdrTargets({ directory: projectDirectory, env, configuredTarget: moduleConfig.terminalTarget }) : undefined;
   const autonomousRun = () => currentRun.foreground?.autonomous === true;
@@ -516,6 +523,24 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
                   return activateTaskAutomation ? activateTaskAutomation() : { enabled: false, message: "Arrangement saved; no background service configured" };
                 },
               } : {}),
+              ...(workTasks && projectDirectory && dataPaths ? { workTaskCreate: {
+                binding: () => {
+                  const user = currentRun.ordinaryUser;
+                  if (!user || currentRun.workTask) return { ok: false as const, reason: "not-ordinary" as const };
+                  const projectRoot = project?.directory?.endsWith(sep) ? project.directory.slice(0, -1) : project?.directory;
+                  const workspace = projectDirectory.endsWith(sep) ? projectDirectory.slice(0, -1) : projectDirectory;
+                  if (!project?.id || !projectRoot || (workspace !== projectRoot && !workspace.startsWith(`${projectRoot}${sep}`))) {
+                    return { ok: false as const, reason: "no-project" as const };
+                  }
+                  const said = user.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n");
+                  return { ok: true as const, value: {
+                    threadId, messageId: user.id, projectId: project.id, projectDirectory: workspace,
+                    home: dirname(dataPaths.tasks), materials: [said, ...currentRun.readMaterials].join("\n"),
+                  } };
+                },
+                directories: () => directoryAccess.declarations(),
+                create: (input: Parameters<NonNullable<typeof workTasks>["create"]>[0]) => workTasks.create(input),
+              } } : {}),
             }))] : []),
           ],
           {
@@ -693,7 +718,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       return (autonomousRun()
         ? instructionsFor({ autonomous: true, entry: currentRun.foreground?.entry }) + "\n" + AUTONOMOUS_INSTRUCTIONS
         : baseInstructions) + (currentRun.foreground ? "\n" + FOREGROUND_INSTRUCTIONS : "") +
-        (status ? "\n\n" + formatCapabilitySummary(status, foregroundHerdr?.availableTools(status.tools)) : "");
+        (status ? "\n\n" + formatCapabilitySummary(status, visibleToolNames(foregroundHerdr?.availableTools(status.tools) ?? status.tools)) : "");
     };
     const checklistSources = async (): Promise<CompactionChecklistSources> => ({ workTask: currentRun.workTask, permissions: toolConfirmation?.snapshot(),
       runs: await transcript.filterRuns(await executionRecords.listRuns(threadId, EXECUTION_RECORD_MAX_RUNS)) });
@@ -715,7 +740,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       tool: tool({ description: "Read current host-registered tools and static capability/permission mode. No service probes, process/app inspection, credentials, installation or writes. Service/OS permission health remains not_checked.",
         inputSchema: z.object({}).strict(), execute: async () => {
           const status = getCapabilities();
-          return scrubCapabilityTools(status, foregroundHerdr?.availableTools(status.tools) ?? status.tools);
+          return scrubCapabilityTools(status, visibleToolNames(foregroundHerdr?.availableTools(status.tools) ?? status.tools));
         } }) };
     if (tuiMode) registeredTools.push(statusRegistration);
     commands?.set("capabilities", { name: "capabilities", execute: () => { output.write(`${formatCapabilityStatus(getCapabilities())}\n`); } });
@@ -834,9 +859,16 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         const currentUser = [...messages].reverse().find(message => message.role === "user");
         // Runtime requires one new user message per Run. Capture it before
         // reference injection/compaction; WorkTask contracts are not user facts.
-        if (memoryEnabled && currentUser && !currentRun.workTaskMessage) {
-          signal.throwIfAborted();
-          currentRun.memorySource = { message: currentUser, signal };
+        if (currentUser && !currentRun.workTaskMessage) {
+          if (currentRun.readMaterialMessageId !== currentUser.id) {
+            currentRun.readMaterialMessageId = currentUser.id;
+            currentRun.readMaterials = [];
+          }
+          currentRun.ordinaryUser = currentUser;
+          if (memoryEnabled) {
+            signal.throwIfAborted();
+            currentRun.memorySource = { message: currentUser, signal };
+          }
         }
         const preparationSource = currentUser ? {
           messageId: currentUser.id,
@@ -927,7 +959,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         return definition && agentId === PRIMARY_AGENT_ID ? { ...definition,
           get instructions() { return primaryInstructions(); },
           get tools() {
-            const names = autonomousRun() ? autonomousToolNames : definition.tools;
+            const names = visibleToolNames(autonomousRun() ? autonomousToolNames : definition.tools);
             return foregroundHerdr?.availableTools(names) ?? names;
           },
           get unavailableToolFeedback() { return foregroundHerdr?.unavailableToolFeedback(); },
@@ -942,13 +974,20 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
         ...(tuiMode ? { modelRetryDelaysMs: [250, 1_000] } : {}),
         modelRetryDisabledAgentIds: [AUTO_CONSOLIDATION_AGENT_ID],
       }),
-      ...(foregroundHerdr ? { afterToolCall: input => foregroundHerdr.afterToolCall(input, extensions.afterToolCall) }
-        : extensions.afterToolCall ? { afterToolCall: extensions.afterToolCall } : {}),
+      afterToolCall: async (input) => {
+        if (input.toolName === "read_file" && currentRun.ordinaryUser !== undefined && input.output !== null && typeof input.output === "object" &&
+            "ok" in input.output && input.output.ok === true && "content" in input.output && typeof input.output.content === "string") {
+          currentRun.readMaterials.push(input.output.content);
+        }
+        if (foregroundHerdr) return foregroundHerdr.afterToolCall(input, extensions.afterToolCall);
+        return extensions.afterToolCall?.(input);
+      },
       ...(tuiMode
         ? {
             prepareModelContext: async ({ messages, signal, definition, contextOverflow }) => {
               // Every step of every agent clears it; only the primary route sets it again.
               currentRun.memorySource = undefined;
+              currentRun.ordinaryUser = undefined;
               if (definition.id === PRIMARY_AGENT_ID && contextOverflow) contextCompactor?.reportedOverflow(contextOverflow.inputTokens);
               return routeModelContext(contextRoutes, { messages: await transcript.project(messages), signal, agentId: definition.id });
             },
