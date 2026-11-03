@@ -8,6 +8,7 @@ import type {
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import type { ToolConfirmationCard, ToolPermissionFacts } from "./module-host.js";
 import type { ReminderConfirmationFields } from "./reminder-speech.js";
+import { fileAllowlistRoot, hostShellCwd, type TaskTrust } from "./task-trust.js";
 import { validateWorkspacePath } from "./workspace-path.js";
 
 export interface ToolConfirmation {
@@ -303,6 +304,8 @@ export function createToolConfirmation(
     toolRisk?: ToolRiskLookup;
     /** Permission facts the assembled modules declared, by tool name. */
     toolPermissions?: ReadonlyMap<string, ToolPermissionFacts>;
+    /** Foreground task/thread grants. Absent for TUI, workers and skills. */
+    taskTrust?: { trust: TaskTrust; directoryRoots: readonly string[]; isHostShell: (toolName: string) => boolean };
   } = {},
 ): ToolConfirmation {
   let pending: PendingConfirmation | undefined;
@@ -326,6 +329,30 @@ export function createToolConfirmation(
   const persistentAuthorizations = (options.persistentAuthorizations ?? []).map(
     (rule) => normalizeAuthorization(rule, options.directory, facts),
   );
+
+  const trustDecision = (toolName: string, input: unknown, record: boolean): boolean => {
+    const bound = options.taskTrust;
+    const key = bound?.trust.scopeKey();
+    if (!bound || !key) return false;
+    const root = fileAllowlistRoot(bound.directoryRoots, input, options.directory, facts(toolName)?.scope);
+    if (root) {
+      if (record) bound.trust.grantFile(key, root);
+      return bound.trust.allowsFile(key, root);
+    }
+    if (bound.isHostShell(toolName)) {
+      const cwd = hostShellCwd(input, options.directory);
+      if (!cwd) return false;
+      if (record) bound.trust.grantHostShell(key, toolName, cwd);
+      return bound.trust.allowsHostShell(key, toolName, cwd);
+    }
+    if (toolName === "computer_action") {
+      const bundle = stringArgument(input, "bundleId");
+      if (!bundle) return false;
+      if (record) bound.trust.grantComputer(key, bundle);
+      return bound.trust.allowsComputer(key, bundle);
+    }
+    return false;
+  };
 
   const getPending = (): PendingToolApproval | undefined =>
     pending === undefined ? undefined : {
@@ -398,6 +425,9 @@ export function createToolConfirmation(
       ? grantCandidate(input, options.directory, options.toolRisk, facts(input.toolName))
       : undefined;
     if (candidate !== undefined && remembered.some((grant) => sameGrant(grant, candidate))) {
+      return Promise.resolve({ allow: true });
+    }
+    if (trustDecision(input.toolName, input.input, false)) {
       return Promise.resolve({ allow: true });
     }
     if (pending !== undefined) {
@@ -505,6 +535,7 @@ export function createToolConfirmation(
     if (input.decision === "allow" && entry.approval.preview.trim().length === 0) return false;
     clearPending(entry);
     if (input.decision === "allow") {
+      trustDecision(entry.approval.toolName, entry.approval.input, true);
       if (input.remember === true && entry.grant !== undefined &&
         !remembered.some((grant) => sameGrant(grant, entry.grant!))) {
         remembered.push({ id: String(nextGrantId++), ...entry.grant });

@@ -22,7 +22,7 @@ it("offers explicit Computer setup without checking a driver or claiming Accessi
     assert.match(html, /驱动必须在授权目录之外/);
     assert.match(html, /连接检查只读取运行应用列表/);
     assert.match(html, /系统辅助功能权限需在 macOS 中由你设置/);
-    assert.match(html, /每次观察与操作都需要确认，且不可记住/);
+    assert.match(html, /同一应用的操作在当前任务内批准一次后沿用/);
     assert.doesNotMatch(html, /连接可达|权限已通过|辅助功能已就绪/);
     assert.doesNotMatch(html, /disabled=""/);
     assert.match(render(true), /disabled=""/);

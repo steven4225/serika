@@ -11,7 +11,7 @@ const labels: Record<string, [string, string]> = {
   checkpoint: ["项目快照", "保存工作意图，通过 /resume 核对 Git 现状。"],
   task: ["定时任务", "创建提醒与定期安排，由独立后台服务处理到期事项。"],
   todoist: ["Todoist", "查询外部任务；还需要有效的服务凭据。"],
-  terminal: ["本地终端控制", "本机 CLI 每次确认；固定 Herdr 目标的 get/read/wait 免逐条确认，prompt/input/stop 每次确认且不可记住。"],
+  terminal: ["本地终端控制", "本机 CLI 在当前任务内按工作目录批准一次后沿用。固定 Herdr 目标的 get/read/wait 免逐条确认；同一目标的 prompt/input/stop 批准一次后沿用，直到身份变化或任务结束。"],
   shell: ["命令执行", "运行 Shell，展示进度与执行回执。"],
   web: ["网页与信息来源", "获取公开网页，搜索与 RSS 另有配置开关。"],
   computer: ["本机应用控制", "仅控制配置允许的应用；需要驱动与系统权限。"],
@@ -53,7 +53,7 @@ function DirectorySettings({ info, busy }: { info: AppInfo; busy: boolean }) {
   return <section className="capability-row" aria-label="持久目录授权"><div>
     <strong>持久目录授权</strong>
     <p>文件工具与沙箱 Shell 使用同一份目录列表。嵌套目录采用最深层权限，受保护的控制文件始终不可修改。</p>
-    <p className="hint">保存后立即应用于下一次请求，重启后保留。工具的“一次批准 / 本对话记住”单独管理，不能扩大目录权限。</p>
+    <p className="hint">保存后立即应用于下一次请求，重启后保留。文件和沙箱命令只覆盖这里列出的绝对目录。要多给一个目录，添加路径并保存；单次工具批准不能扩大目录，也不会改到别的位置。</p>
     {directories.length === 0 ? <p className="hint">未授权任何目录。</p> : null}
     {directories.map((item, index) => <div className="actions" key={index}>
       <input aria-label={`目录 ${index + 1} 路径`} placeholder="绝对目录路径" value={item.path} disabled={locked} onChange={event => setDirectories(current => current.map((entry, position) => position === index ? { ...entry, path: event.target.value } : entry))} />

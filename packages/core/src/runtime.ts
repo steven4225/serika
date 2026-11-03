@@ -331,7 +331,19 @@ export class DefaultAgentRuntime {
               },
             } satisfies Pick<Parameters<AgentLoop["execute"]>[0], "beforeToolExecute">
           : {}),
-        ...(this.#afterToolCall ? { afterToolCall: this.#afterToolCall } : {}),
+        ...(this.#afterToolCall
+          ? {
+              afterToolCall: async (input) => {
+                // Pi target selection waits here. Pause the Run budget the same way a tool approval does.
+                if (!pauseTimeout()) throw abortReason(controller.signal);
+                try {
+                  return await this.#afterToolCall!(input);
+                } finally {
+                  resumeTimeout();
+                }
+              },
+            }
+          : {}),
         generateId: this.#idGenerator,
         ...(this.#beforeRunFinish ? { beforeRunFinish: (input) => this.#beforeRunFinish!({ ...input, runId, threadId: request.threadId }) } : {}),
         emit,

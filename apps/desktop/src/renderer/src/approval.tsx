@@ -1,6 +1,7 @@
 import React from "react";
 import type { PendingApproval } from "../../shared/ui-contract.js";
 import { describeComputerApproval } from "../../shared/computer.js";
+import { userWaitLabel } from "@serika/assistant";
 import { humanFacingTitle } from "../../shared/human-title.js";
 import { presentReminderConfirmation } from "./reminder-copy.js";
 
@@ -27,7 +28,7 @@ export function ApprovalCard({ approval, deciding, onDecision }: {
   const heading = reminder?.title ?? humanFacingTitle(TOOL_LABELS[approval.toolName], "确认这次操作");
   return (
     <section className="card approval" aria-label={reminder ? "提醒确认" : "工具调用确认"} aria-live="polite">
-      <div className="card-head"><strong>等待你确认</strong><span className="hint">{approval.remember ? "可选：本次对话内记住" : "仅本次 · 不记住选择"}</span></div>
+      <div className="card-head"><strong>{userWaitLabel({ toolName: approval.toolName }) ?? "等待你确认"}</strong><span className="hint">{approval.remember ? "可选：本次对话内记住" : "仅本次 · 不记住选择"}</span></div>
       <div className="approval-content">
         {computer ? <>
           <h3>{computer.title}</h3>

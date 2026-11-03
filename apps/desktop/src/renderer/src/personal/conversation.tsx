@@ -85,9 +85,9 @@ export function PersonalTool({ row, onTrace, workspaceRoot }: { row: ToolRow; on
   </details>;
 }
 
-function Work({ rows, running, waitingForApproval, onTrace, workspaceRoot, results }: { rows: ConversationRow[]; running: boolean; waitingForApproval: boolean; onTrace?: TraceHandler; workspaceRoot?: string | undefined; results: ReadonlyMap<string, ReminderReplyResult> }) {
+function Work({ rows, running, waitingForApproval, waitLabel = null, onTrace, workspaceRoot, results }: { rows: ConversationRow[]; running: boolean; waitingForApproval: boolean; waitLabel?: string | null; onTrace?: TraceHandler; workspaceRoot?: string | undefined; results: ReadonlyMap<string, ReminderReplyResult> }) {
   const [showAll, setShowAll] = useState(false);
-  const summary = compactWorkSummary(rows, running, waitingForApproval);
+  const summary = compactWorkSummary(rows, running, waitingForApproval, waitLabel);
   const tools = rows.filter((row): row is ToolRow => row.kind === "tool");
   const recentStart = tools.length > 3 ? rows.indexOf(tools.at(-3)!) : 0;
   // Keep unresolved effects visible even when they precede the recent steps.
@@ -102,9 +102,9 @@ function Work({ rows, running, waitingForApproval, onTrace, workspaceRoot, resul
   </details>;
 }
 
-function FlowItem({ item, running, waitingForApproval, onTrace, workspaceRoot, results, onRestoreSteer }: { item: ConversationFlowItem; running: boolean; waitingForApproval: boolean; onTrace?: TraceHandler; workspaceRoot?: string | undefined; results: ReadonlyMap<string, ReminderReplyResult>; onRestoreSteer?: RestoreSteer }) {
+function FlowItem({ item, running, waitingForApproval, waitLabel, onTrace, workspaceRoot, results, onRestoreSteer }: { item: ConversationFlowItem; running: boolean; waitingForApproval: boolean; waitLabel?: string | null; onTrace?: TraceHandler; workspaceRoot?: string | undefined; results: ReadonlyMap<string, ReminderReplyResult>; onRestoreSteer?: RestoreSteer }) {
   if (item.kind === "text") return <PersonalText row={item.row} result={results.get(item.row.key)} onRestoreSteer={onRestoreSteer} />;
-  if (item.kind === "work") return <Work rows={item.rows} running={running} waitingForApproval={waitingForApproval} onTrace={onTrace} workspaceRoot={workspaceRoot} results={results} />;
+  if (item.kind === "work") return <Work rows={item.rows} running={running} waitingForApproval={waitingForApproval} waitLabel={waitLabel ?? null} onTrace={onTrace} workspaceRoot={workspaceRoot} results={results} />;
   return <div className={`personal-completion status-${item.row.status}`} role="status"><Icon name={item.row.completion?.reason === "delivered" ? "check" : "activity"} size={14} />
     <span>{completionLabel(item.row)}{item.row.detail ? <> · <FailureInline text={item.row.detail} /></> : null}</span></div>;
 }
@@ -116,8 +116,8 @@ function ReplyActions({ text }: { text: string }) {
     <Icon name={copied === "copied" ? "check" : "copy"} size={14} /></button>{copied === "failed" ? <span role="alert">复制失败，请重试</span> : null}</div>;
 }
 
-export function PersonalConversation({ rows, running, streaming, waitingForApproval = false, onTrace, workspaceRoot, onRestoreSteer }: {
-  rows: readonly ConversationRow[]; running: boolean; streaming: string; waitingForApproval?: boolean; onTrace?: TraceHandler;
+export function PersonalConversation({ rows, running, streaming, waitingForApproval = false, waitLabel = null, onTrace, workspaceRoot, onRestoreSteer }: {
+  rows: readonly ConversationRow[]; running: boolean; streaming: string; waitingForApproval?: boolean; waitLabel?: string | null; onTrace?: TraceHandler;
   workspaceRoot?: string | undefined;
   onRestoreSteer?: RestoreSteer;
 }) {
@@ -125,11 +125,11 @@ export function PersonalConversation({ rows, running, streaming, waitingForAppro
   return <>{conversationTurns(rows, running).map(turn => {
     const activeWork = turn.items.filter(item => item.kind === "work").at(-1);
     return <section className="personal-turn" key={turn.key} aria-label="对话轮次">
-    {turn.items.map((item, index) => <FlowItem key={item.kind === "work" ? item.rows[0]!.key : item.row.key || index} item={item} running={turn.running && item === activeWork} waitingForApproval={turn.running && waitingForApproval && item === activeWork} onTrace={onTrace} workspaceRoot={workspaceRoot} results={results.byText} onRestoreSteer={onRestoreSteer} />)}
+    {turn.items.map((item, index) => <FlowItem key={item.kind === "work" ? item.rows[0]!.key : item.row.key || index} item={item} running={turn.running && item === activeWork} waitingForApproval={turn.running && waitingForApproval && item === activeWork} waitLabel={turn.running && item === activeWork ? waitLabel : null} onTrace={onTrace} workspaceRoot={workspaceRoot} results={results.byText} onRestoreSteer={onRestoreSteer} />)}
     {!turn.running && turn.copyText ? <ReplyActions text={turn.copyText} /> : null}
   </section>; })}
     {running && streaming ? <div className="personal-assistant-row"><SerikaMark size={32} /><article className="personal-message role-assistant streaming" aria-label="正在回复"><AssistantText text={streaming} result={results.latest} /></article></div> : null}
-    {running && !streaming ? <div className="personal-assistant-row"><SerikaMark size={32} /><p className="personal-loading" role="status"><span aria-hidden="true" />{waitingForApproval ? "等待确认后继续" : "正在处理"}</p></div> : null}
+    {running && !streaming ? <div className="personal-assistant-row"><SerikaMark size={32} /><p className="personal-loading" role="status"><span aria-hidden="true" />{waitLabel ?? (waitingForApproval ? "等待确认后继续" : "正在处理")}</p></div> : null}
   </>;
 }
 

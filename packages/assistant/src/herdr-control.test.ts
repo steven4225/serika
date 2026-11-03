@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { it } from "node:test";
@@ -10,8 +11,8 @@ import { createAssistantController } from "./assistant-controller.js";
 
 const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
   outputTokens: { total: 1, text: 1, reasoning: undefined } };
-for (const source of ["desktop", "telegram"] as const) it(`${source} structured Herdr calls bind the fixed target and only sending asks each time`, async () => {
-  const root = await realpath(await mkdtemp("/private/tmp/serika-herdr-control-"));
+for (const source of ["desktop", "telegram"] as const) it(`${source} structured Herdr calls bind the fixed target and reuse one send approval`, async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "serika-herdr-control-")));
   const directory = join(root, "directory"), bin = join(root, "bin"), home = join(root, "home"), log = join(root, "calls.jsonl");
   await Promise.all([mkdir(directory), mkdir(bin), mkdir(home)]);
   const target = { authorizedDirectory: directory, session: "offline", paneId: "p1", terminalId: "t1" };
@@ -59,7 +60,7 @@ else console.log(JSON.stringify({result:{type:args[3]==='prompt'?'agent_prompted
     const start = await controller.run("控制已选定的离线 Pi", source === "telegram" ? { source } : { desktopEntry: true });
     assert.ok(start.ok); await done;
     assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
-    assert.deepEqual(approvals, ["herdr_pi_control", "herdr_pi_control", "herdr_pi_control"]);
+    assert.deepEqual(approvals, ["herdr_pi_control"]);
     const receipt = await controller.runs.get(start.runId);
     assert.equal(receipt?.tools.length, 7);
     assert.ok(receipt?.tools.every(tool => tool.status === "completed"));

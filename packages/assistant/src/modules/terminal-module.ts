@@ -7,7 +7,7 @@ import type { AgentModule } from "../module-host.js";
 import { createShellExecTool, SHELL_EXEC_KILL_GRACE_MS, SHELL_EXEC_TIMEOUT_MS, type ShellProgress } from "./shell-module.js";
 
 const CLI_INSTRUCTIONS = `Use terminal_exec for user-requested host CLI discovery and control outside Seatbelt.
-Every call requires confirmation on desktop and Telegram, including read-only discovery. No Run authorization or remembered approval applies.
+The first confirmation for a working directory covers later terminal_exec calls in that directory for the current task, or the current thread when there is no task, until the task ends, the user revokes it, or the scope sits idle for 30 minutes. A different directory still asks. This is not an always-on host privilege.
 It executes with host process permissions; the authorized directory is only its initial cwd, not filesystem or network isolation.
 Use bounded command -v, --version and --help to learn installed CLI capabilities. Missing MCP or Computer tools does not establish that a CLI is unavailable.
 On macOS, Herdr discovery may also check /opt/homebrew/bin/herdr and /usr/local/bin/herdr because Finder/launchd PATH can omit Homebrew. Reuse the observed absolute executable path.
@@ -21,8 +21,8 @@ const TARGET_INSTRUCTIONS = `When available, use herdr_pi_discover to inspect ex
 The configured target is a hint, not health or selection. Discover when this Run has no adopted target. After discovery the host blocks this Run for selection when needed, before returning control to the model. Once the host reports an adoptedTarget, continue directly with read/control on that target. Never choose by focus/default pane.
 A candidateId is a temporary handle, not the real target identity. Checked metadata alone is not adoption. Refreshing handles does not mean a target disappeared.
 If the user explicitly names exact session/pane/terminal identifiers, discover.requested may include those identifiers with an exact quote from this Run's original request. Host-selected identifiers are not user-specified identifiers; do not copy them into requested or invent a sourceQuote. Ambiguous requests use the host selection card.
-The adopted target is current-Run-only. Selection does not approve operations or save configuration. Control arguments cannot change the target.
-get/read/wait are read-only and need no per-call confirmation; prompt/input/stop require confirmation every time and cannot be remembered.
+An adopted target stays pinned for the current task, or the current thread when there is no task, while its session, pane and terminal stay the same. Do not ask the user to select it again on the next Run. Selection does not itself approve operations. Control arguments cannot change the target.
+get/read/wait stay free. prompt/input/stop ask once for that pinned target, then reuse until the identity changes, the task ends, the user revokes it, or the scope sits idle for 30 minutes.
 The host freezes the target and action before approval and rechecks the same identity before sending. A mismatch invalidates selection; never redirect, restart Herdr or replace Pi with pi --print.
 Send a prompt once, only when idle/done. If working, observe; if blocked, relay the question to the user without answering it. Unknown state means stop.
 Input acknowledgements, old idle/done snapshots and wait settlement alone do not establish task completion. Read this task's resulting output and independently verify changed artifacts before claiming success.
@@ -45,7 +45,7 @@ export function createTerminalModule({ directory, targets, timeoutMs = SHELL_EXE
       }, {
         defaults: { remember: "never" },
         confirmation({ input }) {
-          return `\nTool: terminal_exec\n${JSON.stringify(input, null, 2)}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] `;
+          return `\nTool: terminal_exec\n${JSON.stringify(input, null, 2)}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. One allow covers this same working directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] `;
         },
       });
       context.registerTool({ metadata: { name: "herdr_pi_discover", version: "1", risk: "read", idempotent: true, timeoutMs: SHELL_EXEC_TIMEOUT_MS },
@@ -64,7 +64,7 @@ export function createTerminalModule({ directory, targets, timeoutMs = SHELL_EXE
       }, { defaults: { remember: "never" }, confirmation: ({ toolCallId }) => {
         const herdr = targets.confirmation(toolCallId);
         if (!herdr) throw new Error("Herdr call snapshot is missing");
-        return { text: `\nTool: herdr_pi_control\n${JSON.stringify(herdr.action, null, 2)}\n本 Run 已采用且已冻结的 Herdr 目标 ${JSON.stringify(herdr.target)}，位于 Seatbelt 以外。每次确认，不可记住。\nAllow this call? [y/n] `, herdr };
+        return { text: `\nTool: herdr_pi_control\n${JSON.stringify(herdr.action, null, 2)}\n已冻结的 Herdr 目标 ${JSON.stringify(herdr.target)}，位于 Seatbelt 以外。允许后，本任务内同一目标的 prompt/input/stop 不再逐次确认，直到身份变化、任务结束、你撤回或空闲满 30 分钟。\nAllow this call? [y/n] `, herdr };
       } });
       context.addInstructions(CLI_INSTRUCTIONS + "\n" + TARGET_INSTRUCTIONS + "\n" + BROWSER_CLI_INSTRUCTIONS);
     },

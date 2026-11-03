@@ -12,7 +12,9 @@ const user: ConversationRow = { kind: "text", role: "user", key: "user", text: "
 const interim: ConversationRow = { kind: "text", role: "assistant", key: "interim", text: "先核对当前文件。", committed: true };
 const tool: ToolRow = { kind: "tool", key: "tool", toolCallId: "call-1", runId: "run-1", toolName: "edit_file", status: "ok", receipt: { kind: "file", path: "notes/plan.md", bytes: 18 } };
 const reply: ConversationRow = { kind: "text", role: "assistant", key: "reply", text: "已修改。\n\n这是完整正文。", committed: true };
-const render = (rows: readonly ConversationRow[], running = false, streaming = "", waitingForApproval = false) => renderToStaticMarkup(createElement(PersonalConversation, { rows, running, streaming, waitingForApproval }));
+const render = (rows: readonly ConversationRow[], running = false, streaming = "", waitingForApproval = false) => renderToStaticMarkup(createElement(PersonalConversation, {
+  rows, running, streaming, waitingForApproval, waitLabel: waitingForApproval ? "在等你：批 执行命令" : null,
+}));
 
 it("does not rewrite a successful tool-backed reminder subject as a failure", () => {
   const readback = "已定：明天9:00提醒我查看 task_create 的 error 日志";
@@ -96,7 +98,7 @@ it("personal conversation exposes unknown effects, truncation and approval waits
   assert.match(markup, /副作用尚未核对/);
   assert.match(markup, /输出已截断/);
   assert.doesNotMatch(markup, /自动重试|重新执行/);
-  assert.match(render([user], true, "", true), /等待确认后继续/);
+  assert.match(render([user], true, "", true), /在等你：批 执行命令/);
 });
 
 it("failure activity Demo keeps a failed snapshot visibly failed after a completed assistant reply without a JSON summary", () => {
@@ -205,7 +207,7 @@ it("shows only the latest three calls while running and keeps older unknown effe
   assert.match(unknown, /效果未知 · 需人工核对，不自动重做/);
   assert.match(unknown, /需人工确认远端效果/);
   const awaiting = render([user, ...calls], true, "", true);
-  assert.match(awaiting, /等待确认后继续 · 已结束 5 步/);
+  assert.match(awaiting, /在等你：批 执行命令 · 已结束 5 步/);
   assert.doesNotMatch(awaiting, /检查通过/);
 });
 

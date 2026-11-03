@@ -23,6 +23,7 @@ import type { WorkTask } from "./work-task-store.js";
 import { savedWorkTaskCreate } from "./work-task-create.js";
 import { recoverRunningWorkTasks } from "./work-task-recovery.js";
 import type { ShellProgress } from "./modules/shell-module.js";
+import { userWaitLabel } from "./task-trust.js";
 import type { PendingToolApproval } from "./tool-confirmation.js";
 import type { PendingHerdrSelection, SelectHerdrTargetInput } from "./foreground-herdr.js";
 import { memoryControlFailure } from "./memory-controls.js";
@@ -66,6 +67,8 @@ export interface AssistantSnapshot {
   steers: readonly AssistantSteerRecord[];
   pendingApproval: PendingToolApproval | null;
   pendingHerdrSelection?: PendingHerdrSelection | null;
+  /** Set while the Run is blocked on the user. Null during model time and after a model timeout. */
+  userWait: string | null;
   recentOutput: string;
   outputTruncated: boolean;
   toolActivity: readonly ToolActivity[];
@@ -307,7 +310,8 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
     desktopEntry = false,
   ): Promise<{ result: RunResult; requestedMemoryTool: boolean; finalizationFailed: boolean }> => {
     let outputTiming = phase === "primary" ? app.beginOutputTiming?.(message) : undefined;
-    const autonomous = phase === "primary" && app.beginForegroundExecution?.(source === "telegram" ? "telegram" : desktopEntry ? "desktop" : undefined, message) === true;
+    const autonomous = phase === "primary" && app.beginForegroundExecution?.(source === "telegram" ? "telegram" : desktopEntry ? "desktop" : undefined, message,
+      activeWorkTask ? { workTaskId: activeWorkTask.id } : undefined) === true;
     app.toolConfirmation?.beginRun(autonomous, source);
     if (phase === "primary") {
       primaryRunId = undefined;
@@ -658,6 +662,7 @@ export function createAssistantController(app: RuntimeApp): AssistantController 
       steers: structuredClone(steers),
       pendingApproval,
       pendingHerdrSelection,
+      userWait: userWaitLabel({ herdr: pendingHerdrSelection !== null, toolName: pendingHerdrSelection ? undefined : pendingApproval?.toolName }),
       recentOutput,
       outputTruncated,
       toolActivity: [...toolActivity],

@@ -199,7 +199,7 @@ describe("v2 pilot baseline: assembled tools, instructions and capability report
 function assertStep3Assembly(actual: string, baseline: string, autonomous = false) {
   baseline = baseline.replaceAll(
     "批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。",
-    "computer_check 检查连接、computer_observe 观察明确授权的应用均免逐条确认；未授权应用直接拒绝，computer_action 每次确认且不可记住。不会启动驱动或授予系统权限。");
+    "computer_check 检查连接、computer_observe 观察明确授权的应用均免逐条确认；未授权应用直接拒绝，computer_action 在当前任务内批准一次后沿用。不会启动驱动或授予系统权限。");
   const schemas = (text: string) => new Map([...text.matchAll(/## tool (\S+)\n\n([\s\S]*?)(?=\n\n## tool |\n\n# instructions)/g)].map(match => [match[1]!, match[2]!]));
   const before = schemas(baseline), after = schemas(actual), hadMemory = before.has("memory_add");
   for (const name of ["history_search", "history_read"]) { assert.ok(after.has(name)); after.delete(name); }
@@ -231,9 +231,10 @@ function assertStep3Assembly(actual: string, baseline: string, autonomous = fals
   let oldSystem = system(baseline).replace(/In automatic memory mode,[\s\S]*?Active injected Memory overrides conflicting older transcript\/compaction, while the latest user request remains authoritative\./, "");
   if (autonomous) oldSystem = oldSystem
     .replace(/When shell_exec is available,[\s\S]*?Do not use shell_exec when it is not enabled\. /, SEATBELT_INSTRUCTIONS + " ")
-    .replace("Local shell_exec is not pre-authorized: each command is still shown to the user for confirmation, so run only the commands the task needs.", "Desktop and bound Telegram autonomous shell_exec use the same module Seatbelt policy without per-command confirmation. Explicitly selected host Shell still requires confirmation for every command. Run only commands the task needs.")
+    .replace("Local shell_exec is not pre-authorized: each command is still shown to the user for confirmation, so run only the commands the task needs.", "Desktop and bound Telegram autonomous shell_exec use the same module Seatbelt policy without per-command confirmation. Explicitly selected host Shell asks once for the same working directory in the current task, then reuses that approval until the task ends, is revoked, or sits idle for 30 minutes. It does not restore always-on host privileges. Run only commands the task needs.")
     .replace("Other tools retain their own permissions. Local Shell has the process's host permissions; the workspace is not an OS sandbox.", "Other tools retain their own permissions. Host Shell has the process's host permissions; its workspace is not an OS sandbox. Network commands require an explicitly selected host Run and per-command confirmation.");
-  oldSystem = oldSystem.replace("with a workspace-relative path to find and read files", "with an authorized absolute path or an explicit project/directory-relative path to find and read files")
+  oldSystem = oldSystem.replace("The command and workspace-relative cwd will be shown for y/n confirmation.", "The command and workspace-relative cwd are shown for confirmation. One allow reuses that host working directory for the current task until it ends, is revoked, or sits idle for 30 minutes. This is not an always-on host privilege.")
+    .replace("with a workspace-relative path to find and read files", "with an authorized absolute path or an explicit project/directory-relative path to find and read files")
     .replace("All file paths are relative to the configured workspace, not the application's source repository or previous test fixtures.", "Relative file paths use the explicit project or selected directory. Without an explicit base and with several authorized directories, ask the user to choose a directory.");
   const newSystem = system(actual).replaceAll(WORK_TASK_CREATE_INSTRUCTIONS, "").replace(autonomous ? MEMORY_READ_INSTRUCTIONS : MEMORY_READ_INSTRUCTIONS + MEMORY_PRIMARY_WRITE_INSTRUCTIONS, "");
   assert.equal(newSystem, oldSystem);

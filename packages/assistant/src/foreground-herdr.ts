@@ -3,6 +3,7 @@ import type { UIMessage } from "ai";
 import { AgentError, hashCanonicalJson, type AfterToolCall, type AfterToolCallInput, type BeforeToolExecute, type BeforeToolExecuteInput, type ToolExecutionDecision } from "@serika/core";
 import { HerdrClient, herdrControlSchema, herdrReadSchema, type HerdrAction, type HerdrCandidate, type HerdrDiscovery, type HerdrTarget } from "./herdr.js";
 import { formatCapabilitySummary, type CapabilityStatus } from "./capability-status.js";
+import type { TaskTrust } from "./task-trust.js";
 
 export interface HerdrSelectionCandidate extends HerdrCandidate { candidateId: string }
 export interface PendingHerdrSelection {
@@ -33,15 +34,19 @@ type SelectionWait = { selection: PendingHerdrSelection; settle(candidateId: str
 export class ForegroundHerdrTargets {
   readonly #client: HerdrClient;
   #run: RunTarget | undefined;
+  #scopeKey: string | undefined;
   #pending: SelectionWait | undefined;
   readonly #listeners = new Set<(selection: PendingHerdrSelection | undefined) => void>();
-  constructor(private readonly options: { directory: string; env: NodeJS.ProcessEnv; configuredTarget?: HerdrTarget | undefined }) {
+  constructor(private readonly options: { directory: string; env: NodeJS.ProcessEnv; configuredTarget?: HerdrTarget | undefined; taskTrust?: TaskTrust | undefined }) {
     this.#client = new HerdrClient({ cwd: options.directory, authorizedDirectory: options.directory, env: options.env });
   }
-  begin(request?: UIMessage): void {
+  begin(request?: UIMessage, scopeKey?: string): void {
     this.end();
+    this.#scopeKey = scopeKey;
+    const pin = scopeKey ? this.options.taskTrust?.pinnedTarget(scopeKey) : undefined;
     this.#run = { requestId: request?.id, request: request?.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n") ?? "",
-      candidates: [], version: 0, calls: new Map(), halted: false, steers: new Set(), needsSelection: false };
+      candidates: [], version: 0, calls: new Map(), halted: false, steers: new Set(), needsSelection: false,
+      ...(pin ? { adopted: { candidateId: randomUUID(), title: pin.session, status: "idle" as const, target: pin } } : {}) };
   }
   observeSteers(messages: readonly UIMessage[]): void {
     const run = this.#run;
@@ -53,6 +58,7 @@ export class ForegroundHerdrTargets {
       run.steers.add(message.id);
       run.request += "\n" + message.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n");
       delete run.adopted;
+      if (this.#scopeKey) this.options.taskTrust?.clearPi(this.#scopeKey);
       delete run.requested;
       run.version++;
       run.calls.clear();
@@ -154,6 +160,7 @@ export class ForegroundHerdrTargets {
     run.adopted = structuredClone(candidate);
     run.version++;
     run.needsSelection = false;
+    if (this.#scopeKey) this.options.taskTrust?.pinTarget(this.#scopeKey, candidate.target);
     return undefined;
   }
   async afterToolCall(input: AfterToolCallInput, next?: AfterToolCall) {
@@ -199,10 +206,16 @@ export class ForegroundHerdrTargets {
       run.calls.set(input.toolCallId, { kind: "failed", result: failure("HERDR_DISCOVERY_REQUIRED", "本轮尚未采用 Pi 目标；先调用 herdr_pi_discover，由宿主推进选择，没有派发输入") });
       return { allow: true };
     }
-    run.calls.set(input.toolCallId, { kind: "ready", target: structuredClone(run.adopted!.target), action: structuredClone(parsed.data),
-      selectionVersion: run.version, inputHash: hashCanonicalJson(parsed.data) });
+    const ready = { kind: "ready" as const, target: structuredClone(run.adopted!.target), action: structuredClone(parsed.data),
+      selectionVersion: run.version, inputHash: hashCanonicalJson(parsed.data) };
+    run.calls.set(input.toolCallId, ready);
+    const fingerprint = hashCanonicalJson(ready.target);
+    if (input.toolName === "herdr_pi_control" && this.#scopeKey && this.options.taskTrust?.allowsPiControl(this.#scopeKey, fingerprint)) {
+      return { allow: true };
+    }
     try {
       const decision = await next(input);
+      if (decision.allow && input.toolName === "herdr_pi_control" && this.#scopeKey) this.options.taskTrust?.grantPiControl(this.#scopeKey, fingerprint);
       if (!decision.allow) run.calls.delete(input.toolCallId);
       return decision;
     } catch (error) { run.calls.delete(input.toolCallId); throw error; }
@@ -226,6 +239,7 @@ export class ForegroundHerdrTargets {
         run.calls.clear();
         run.needsSelection = true;
         run.version++;
+        if (this.#scopeKey) this.options.taskTrust?.clearPi(this.#scopeKey);
       }
       return result;
     } catch (error) {

@@ -128,7 +128,7 @@
     "approvals": [
       {
         "tool": "shell_exec",
-        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nOne allow reuses this host working directory for the current task until it ends, you revoke it, or it sits idle for 30 minutes.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -382,7 +382,7 @@
     "approvals": [
       {
         "tool": "shell_exec",
-        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nOne allow reuses this host working directory for the current task until it ends, you revoke it, or it sits idle for 30 minutes.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -636,7 +636,7 @@
     "approvals": [
       {
         "tool": "shell_exec",
-        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nOne allow reuses this host working directory for the current task until it ends, you revoke it, or it sits idle for 30 minutes.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -778,7 +778,7 @@
     "approvals": [
       {
         "tool": "shell_exec",
-        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nOne allow reuses this host working directory for the current task until it ends, you revoke it, or it sits idle for 30 minutes.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -926,7 +926,7 @@
     "approvals": [
       {
         "tool": "shell_exec",
-        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nAllow this call? [y/n] ",
+        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nOne allow reuses this host working directory for the current task until it ends, you revoke it, or it sits idle for 30 minutes.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -1010,12 +1010,12 @@
     "approvals": [
       {
         "tool": "terminal_exec",
-        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. One allow covers this same working directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
         "remember": null
       },
       {
         "tool": "terminal_exec",
-        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. One allow covers this same working directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -1029,12 +1029,12 @@
     "approvals": [
       {
         "tool": "terminal_exec",
-        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. One allow covers this same working directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
         "remember": null
       },
       {
         "tool": "terminal_exec",
-        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. Desktop and Telegram require confirmation for every call.\nAllow this call? [y/n] ",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. One allow covers this same working directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],

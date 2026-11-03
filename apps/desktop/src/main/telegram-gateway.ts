@@ -7,7 +7,7 @@ import type { PendingApproval } from "../shared/ui-contract.js";
 import type { TelegramStatus } from "../shared/telegram.js";
 import type { SavedTaskArrangement } from "@serika/assistant";
 import type { TaskListInput } from "@serika/assistant";
-import { formatLocalTaskTime, MODEL_TIME_ZONE } from "@serika/assistant";
+import { formatLocalTaskTime, MODEL_TIME_ZONE, userWaitLabel } from "@serika/assistant";
 import { telegramParts, telegramApprovalText, telegramBoundedText } from "./telegram-format.js";
 import { TelegramHerdrSelection } from "./telegram-herdr-selection.js";
 import { formatCapabilityStatus } from "@serika/assistant";
@@ -307,8 +307,8 @@ export class TelegramGateway {
   #readToolNotice() {
     const tools = this.host.channelSnapshot().info.capabilities?.tools ?? [];
     return [
-      tools.includes("herdr_pi_read") ? "例外：Herdr 专用 get/read/wait 免逐条确认，每次核对已选择的终端；prompt/input/stop 每次确认且不可记住。" : "",
-      tools.includes("computer_observe") ? "例外：Computer 连接检查及明确授权应用的观察免逐条确认，未授权应用直接拒绝；操作每次确认且不可记住。" : "",
+      tools.includes("herdr_pi_read") ? "例外：Herdr 专用 get/read/wait 免逐条确认，同一目标在任务内沿用；prompt/input/stop 批准一次后沿用，直到身份变化。" : "",
+      tools.includes("computer_observe") ? "例外：Computer 连接检查及明确授权应用的观察免逐条确认，未授权应用直接拒绝；同一应用的操作在任务内批准一次后沿用。" : "",
     ].join("");
   }
   async confirmPairing(expectedCode: string) {
@@ -324,7 +324,7 @@ export class TelegramGateway {
       });
       this.#pairing = null;
       const permissions = this.host.channelTelegramAutonomyEnabled()
-        ? "授权目录内文件和 Seatbelt 内命令免逐条确认，其他工具仍逐次确认。" : "工具仍逐次确认。";
+        ? "授权目录内文件和 Seatbelt 内命令免逐条确认。主机命令、目录外写入、Computer 操作和 Pi 控制按当前任务批准一次后沿用，不会恢复全部工具跳过。" : "工具按当前任务批准一次后沿用，不会恢复全部工具跳过。";
       await this.#reply(`binding:${thread.threadId}`, pairing.proposed.chatId, `已绑定当前授权目录。直接发消息提问；任务用“任务：目标”。${permissions}${this.#readToolNotice()}执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。需要核对未知效果时回桌面处理。`);
       return this.status();
     } finally { this.#settings = false; }
@@ -602,8 +602,9 @@ export class TelegramGateway {
         approvalId: current.approvalId, hash, expires: this.now() + 5 * 60_000 };
     this.#approval = permit;
     await this.#discardStaleApprovals();
+    const wait = userWaitLabel({ toolName: current.toolName });
     return this.#reply(`approval:${current.approvalId}:${permit.code}`, permit.chatId,
-      telegramApprovalText(current.toolName, (current.preview || JSON.stringify(current.input)).slice(0, 2500), permit.code, current.input, new Date(this.now())),
+      [wait, telegramApprovalText(current.toolName, (current.preview || JSON.stringify(current.input)).slice(0, 2500), permit.code, current.input, new Date(this.now()))].filter(Boolean).join("\n"),
       { inline_keyboard: [[{ text: ["task_create", "task_repeat_create"].includes(current.toolName) ? "确认保存" : "允许这次", callback_data: `allow:${permit.code}` },
         { text: "取消", callback_data: `deny:${permit.code}` }]] });
   }
@@ -629,6 +630,7 @@ export class TelegramGateway {
     const label = uncertain ? "执行中断或效果未知，请回桌面核对；不会自动重做。"
       : run.status === "completed" ? source.taskId ? "结果仍需你在桌面验收。" : ""
       : run.status === "cancelled" ? "本轮已停止；已执行的操作不会撤回，操作结果请查看桌面回执。"
+      : run.status === "timed_out" ? "模型时间已用完，不是在等你确认。已执行的操作请查看桌面回执。"
       : "这次执行失败了；操作结果请查看桌面回执。";
     const reminders = this.store.snapshot().inputs.find(x => x.key === source.key)?.reminderReceipts;
     const reply = reminders?.length ? reminders.map(x => run.tools.some(tool => tool.toolCallId === x.toolCallId && tool.status === "not_started")

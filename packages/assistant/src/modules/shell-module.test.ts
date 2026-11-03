@@ -368,8 +368,8 @@ describe("executeShellCommand", () => {
       { toolName: "shell_exec", input: { command: "ls" } } as Parameters<NonNullable<ToolPermissionFacts["confirmation"]>>[0]);
     assert.match(String(card(host)), /^\nTool: shell_exec\nCommand: "ls"\nCwd: "\." \(relative to workspace\)\n/);
     assert.match(String(card(docker)), /\(relative to sandbox mounts\)\nDocker sandbox image: img; network none; root filesystem read-only\.\nReadable: none; writable: none\.\n/);
-    assert.match(host.instructions("shell"), /will be shown for y\/n confirmation\./);
-    assert.match(host.instructions("shell", { autonomous: true }), /The command and workspace-relative cwd will be shown for y\/n confirmation\./);
+    assert.match(host.instructions("shell"), /One allow reuses that host working directory/);
+    assert.match(host.instructions("shell", { autonomous: true }), /One allow reuses that host working directory/);
     assert.equal(docker.instructions("shell", { autonomous: true }), docker.instructions("shell"));
   });
 });

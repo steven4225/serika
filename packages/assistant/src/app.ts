@@ -68,6 +68,7 @@ import { createPomodoroModule, type PomodoroService } from "./modules/pomodoro-m
 import { createReadFileModule } from "./modules/read-file-module.js";
 import { createTerminalModule } from "./modules/terminal-module.js";
 import { ForegroundHerdrTargets } from "./foreground-herdr.js";
+import { createTaskTrust, type TaskTrust } from "./task-trust.js";
 import { createShellModule } from "./modules/shell-module.js";
 import { SeatbeltShellRunner } from "./modules/seatbelt-shell-runner.js";
 import type { ShellProgress } from "./modules/shell-module.js";
@@ -181,8 +182,9 @@ export interface RuntimeApp {
   executionRecords: ExecutionRecordStore;
   enableExecutionRecords: () => void;
   beginOutputTiming?: (message: UIMessage) => ReturnType<typeof beginRoundOutputTiming> | undefined;
-  beginForegroundExecution?: (entry: "desktop" | "telegram" | undefined, request?: UIMessage) => boolean;
+  beginForegroundExecution?: (entry: "desktop" | "telegram" | undefined, request?: UIMessage, scope?: { workTaskId?: string }) => boolean;
   endForegroundExecution?: () => Promise<void>;
+  taskTrust?: TaskTrust;
   foregroundHerdr?: ForegroundHerdrTargets;
   desktopAutonomyEnabled?: boolean;
   telegramAutonomyEnabled?: () => boolean;
@@ -279,8 +281,9 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
   const currentRun: RunState = { foreground: undefined, workTaskMessage: undefined, workTask: undefined, memorySource: undefined, ordinaryUser: undefined, readMaterialMessageId: undefined, readMaterials: [], resume: undefined };
   const visibleToolNames = (names: readonly string[]) => names.filter(name =>
     name !== "work_task_create" || (currentRun.workTask === undefined && currentRun.ordinaryUser !== undefined));
+  const taskTrust = createTaskTrust();
   const foregroundHerdr = moduleConfig?.enabled.terminal && options.desktopAutonomyHost && projectDirectory
-    ? new ForegroundHerdrTargets({ directory: projectDirectory, env, configuredTarget: moduleConfig.terminalTarget }) : undefined;
+    ? new ForegroundHerdrTargets({ directory: projectDirectory, env, configuredTarget: moduleConfig.terminalTarget, taskTrust }) : undefined;
   const autonomousRun = () => currentRun.foreground?.autonomous === true;
   const seatbeltRun = () => autonomousRun() && seatbeltRunner !== undefined;
   const memoryEnabled = moduleConfig?.enabled.memory ?? false;
@@ -944,6 +947,12 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           ],
           toolRisk: (name) => tools.metadata(name)?.risk,
           ...(moduleHost ? { toolPermissions: moduleHost.toolPermissions } : {}),
+          taskTrust: {
+            trust: taskTrust,
+            directoryRoots: moduleConfig?.authorizedDirectories.map(item => item.path) ?? [],
+            isHostShell: name => name === "terminal_exec" || (name === "shell_exec" && shellSandbox === undefined),
+            threadId,
+          },
         })
       : undefined;
     toolConfirmation = permission?.confirmation;
@@ -1084,13 +1093,17 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
       desktopAutonomyEnabled,
       telegramAutonomyEnabled,
       ...(foregroundHerdr ? { foregroundHerdr } : {}),
-      beginForegroundExecution: (entry, request) => {
-        if (entry) foregroundHerdr?.begin(request);
+      taskTrust,
+      beginForegroundExecution: (entry, request, scope) => {
+        if (entry) {
+          const key = taskTrust.noteRunStart({ threadId, ...(scope?.workTaskId ? { workTaskId: scope.workTaskId } : {}) });
+          foregroundHerdr?.begin(request, key);
+        }
         const autonomous = entry === "desktop" ? desktopAutonomyEnabled : entry === "telegram" && moduleConfig?.telegramAutonomy?.threadId === threadId && telegramAutonomyEnabled();
         currentRun.foreground = { entry, autonomous, ...(request ? { request: structuredClone(request) } : {}) };
         return autonomous;
       },
-      endForegroundExecution: async () => { foregroundHerdr?.end(); await seatbeltRunner?.settle(); currentRun.foreground = undefined; },
+      endForegroundExecution: async () => { foregroundHerdr?.end(); taskTrust.noteRunEnd(taskTrust.scopeKey()); await seatbeltRunner?.settle(); currentRun.foreground = undefined; },
       ...(recipes ? { recipes } : {}),
       renderHome: renderFreshHome,
       registerNotificationRedraw: (redraw) => {
