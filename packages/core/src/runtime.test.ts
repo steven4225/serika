@@ -211,6 +211,49 @@ describe("DefaultAgentRuntime", () => {
     assert.equal((await handle.result).status, "completed");
   });
 
+  it("excludes a user wait inside afterToolCall from the total run timeout", async () => {
+    const shortDefinition = {
+      ...definition,
+      limits: { ...definition.limits, totalTimeoutMs: 50 },
+    };
+    let release!: () => void;
+    let entered!: () => void;
+    const waitEntered = new Promise<void>((resolve) => { entered = resolve; });
+    const wait = new Promise<void>((resolve) => { release = resolve; });
+    const runtime = new DefaultAgentRuntime({
+      catalog: new InMemoryAgentCatalog([shortDefinition]),
+      loop: {
+        async execute(input) {
+          await input.afterToolCall?.({
+            toolName: "herdr_pi_discover",
+            toolCallId: "call-1",
+            input: {},
+            output: { ok: true },
+            runMessages: [],
+            definition: input.definition,
+            signal: input.signal,
+          });
+          return { text: "ok", messages: input.messages, steps: 1, usage: {}, stopReason: "completed" };
+        },
+      },
+      afterToolCall: async () => {
+        entered();
+        await wait;
+        return undefined;
+      },
+      store: new InMemoryAgentStore(),
+    });
+    const handle = await runtime.run({
+      agentId: "test",
+      threadId: "thread-selection-timeout-paused",
+      messages: [userMessage("user-1", "hello")],
+    });
+    await waitEntered;
+    await new Promise((resolve) => setTimeout(resolve, 75));
+    release();
+    assert.equal((await handle.result).status, "completed");
+  });
+
   it("resumes the remaining run timeout after confirmation", async () => {
     const shortDefinition = {
       ...definition,

@@ -150,7 +150,7 @@ test("one ordinary CLI request discovers Node, writes the requested artifact and
     assert.ok(start.ok); await done;
     assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");
     assert.deepEqual(JSON.parse(await readFile(join(workspace, "answer.json"), "utf8")), { product: 56 });
-    assert.deepEqual(approvals, ["shell_exec", "shell_exec", "shell_exec", "read_file"]);
+    assert.deepEqual(approvals, ["shell_exec", "read_file"]);
     assert.match(observed.at(-1)!, /ARTIFACT_VERIFIED_56/);
     assert.match(observed.at(-1)!, /product/);
     const receipt = await controller.runs.get(start.runId);

@@ -65,6 +65,11 @@ export function createWorkTaskControls(k: ControllerKernel, deps: {
 }): AssistantWorkTaskControls {
   const { app } = k;
   const { slot } = deps;
+  const releaseTrust = (task: WorkTask): void => {
+    if (task.status === "completed" || task.status === "cancelled") {
+      app.taskTrust?.end(app.taskTrust.key({ threadId: task.threadId, workTaskId: task.id }));
+    }
+  };
   const workTaskRecoveryFailure = async (): Promise<WorkTaskFailure | undefined> => {
     try {
       await k.ensureRecovered();
@@ -226,6 +231,7 @@ export function createWorkTaskControls(k: ControllerKernel, deps: {
         });
         if (!current.ok) return current;
       }
+      if (current.ok) releaseTrust(current.value);
       k.emit({ type: "work-task-updated", task: current.value });
       return current;
     },
@@ -248,6 +254,7 @@ export function createWorkTaskControls(k: ControllerKernel, deps: {
         ...(input.note === undefined ? {} : { note: input.note }),
       });
       if (updated.ok) {
+        releaseTrust(updated.value);
         k.emit({ type: "work-task-updated", task: updated.value });
       }
       return updated;
@@ -265,7 +272,10 @@ export function createWorkTaskControls(k: ControllerKernel, deps: {
         decision: input.decision,
         note: input.note,
       });
-      if (updated.ok) k.emit({ type: "work-task-updated", task: updated.value });
+      if (updated.ok) {
+        releaseTrust(updated.value);
+        k.emit({ type: "work-task-updated", task: updated.value });
+      }
       return updated;
     },
     requestChanges: async (input) => {
@@ -288,7 +298,10 @@ export function createWorkTaskControls(k: ControllerKernel, deps: {
       if (!found.ok) return found;
       if (found.value.threadId !== app.threadId) return missingWorkTask();
       const cancelled = await app.workTasks.cancel(input.id, input.expectedRevision);
-      if (cancelled.ok) k.emit({ type: "work-task-updated", task: cancelled.value });
+      if (cancelled.ok) {
+        releaseTrust(cancelled.value);
+        k.emit({ type: "work-task-updated", task: cancelled.value });
+      }
       return cancelled;
     },
   };

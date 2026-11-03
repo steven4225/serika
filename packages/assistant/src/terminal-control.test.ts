@@ -14,7 +14,7 @@ const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
   outputTokens: { total: 1, text: 1, reasoning: undefined } };
 
-for (const source of ["desktop", "telegram"] as const) it(`${source} browser CLI calls require individual approvals and execute only the confirmed offline fixture`, async () => {
+for (const source of ["desktop", "telegram"] as const) it(`${source} browser CLI calls reuse one task approval for the same cwd and execute only that confirmed offline fixture`, async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-browser-cli-")));
   const directory = join(root, "directory"), binary = join(root, "ego-browser.mjs"), log = join(root, "argv.jsonl");
   await mkdir(directory);
@@ -50,7 +50,7 @@ console.log(argv.includes('skill')?'Offline fixture guide END':'Offline fixture 
     const done = new Promise<void>(resolve => { const off = controller.subscribe(event => { if (event.type === "state" && event.state.kind === "idle") { off(); resolve(); } }); });
     assert.ok((await controller.run("观察离线浏览器 fixture", source === "telegram" ? { source } : { desktopEntry: true })).ok); await done;
     assert.equal(sawInstructions, true);
-    assert.deepEqual(approvals, args.map(() => "terminal_exec"));
+    assert.deepEqual(approvals, ["terminal_exec"]);
     const calls = (await readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line));
     assert.deepEqual(calls, args);
     assert.equal(controller.getSnapshot().lastPrimaryResult?.status, "completed");

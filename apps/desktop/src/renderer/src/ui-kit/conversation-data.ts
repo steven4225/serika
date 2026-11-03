@@ -79,7 +79,7 @@ export function workSummary(rows: readonly ConversationRow[]): { label: string; 
 }
 
 /** Compact facts only: arbitrary Shell success does not establish task/check completion. */
-export function compactWorkSummary(rows: readonly ConversationRow[], running: boolean, waitingForApproval: boolean) {
+export function compactWorkSummary(rows: readonly ConversationRow[], running: boolean, waitingForApproval: boolean, waitLabel?: string | null) {
   const tools = rows.filter((row): row is ToolRow => row.kind === "tool");
   const { needsAttention, pending } = workSummary(rows);
   const commands = tools.filter(row => (row.toolName === "shell_exec" || row.toolName === "terminal_exec")).length;
@@ -98,7 +98,7 @@ export function compactWorkSummary(rows: readonly ConversationRow[], running: bo
     tools.some(row => row.status === "denied") ? "有调用被拒绝" : "",
   ].filter(Boolean);
   const settled = tools.filter(row => row.status !== "requested").length;
-  const title = running ? `${waitingForApproval ? "等待确认后继续" : "正在执行"} · 已结束 ${settled} 步`
+  const title = running ? `${waitLabel ? waitLabel : waitingForApproval ? "等待确认后继续" : "正在执行"} · 已结束 ${settled} 步`
     : `${tools.length > 0 && tools.every(row => row.historical) ? "历史执行" : "执行过程"} · ${tools.length} 步`;
   return { title, facts: [changed ? `修改 ${changed} 个文件` : "", commands ? `${commands} 次命令` : ""].filter(Boolean).join(" · "),
     notice: notices.join(" · "), needsAttention, pending };

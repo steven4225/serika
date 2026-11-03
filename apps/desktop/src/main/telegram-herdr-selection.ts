@@ -50,8 +50,8 @@ export class TelegramHerdrSelection {
       `${index + 1}. ${candidate.title || candidate.target.session} · ${candidate.target.session} · ${labels[candidate.status]}\n` +
       `目标详情：pane ${candidate.target.paneId} · terminal ${candidate.target.terminalId}\n目录：${candidate.target.authorizedDirectory}`);
     return this.options.send(`selection:${permit.selectionId}:${permit.code}`, permit.chatId,
-      ["选择本轮使用的 Pi：", "候选刚核对，尚未采用。临时句柄不是真实身份；刷新句柄不表示目标消失。", ...choices, `发送“选择 ${permit.code} 序号”，或“取消选择 ${permit.code}”。`,
-        "仅本轮使用。选择后继续当前任务，发送输入仍需另行确认。短码五分钟有效；发送 /confirm 可刷新当前选择。"].join("\n"));
+      ["在等你：选 Pi 目标", "候选刚核对，尚未采用。临时句柄不是真实身份；刷新句柄不表示目标消失。", ...choices, `发送“选择 ${permit.code} 序号”，或“取消选择 ${permit.code}”。`,
+        "选中后在当前任务内沿用，直到身份变化、任务结束或你撤回。第一次发送输入仍需确认。短码五分钟有效；发送 /confirm 可刷新当前选择。"].join("\n"));
   }
 
   resolve(text: string): string | undefined {

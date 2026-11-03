@@ -1469,7 +1469,7 @@ it("binding success describes the current host grant and authorized directory", 
         const text = f.store.snapshot().deliveries.find(delivery => delivery.key.startsWith("binding:"))!.text;
         assert.match(text, /已绑定当前授权目录/);
         assert.doesNotMatch(text, /工作区/);
-        assert.match(text, enabled ? /文件和 Seatbelt 内命令免逐条确认，其他工具仍逐次确认/ : /工具仍逐次确认/);
+        assert.match(text, enabled ? /文件和 Seatbelt 内命令免逐条确认/ : /不会恢复全部工具跳过/);
         if (!enabled) assert.doesNotMatch(text, /文件和 Seatbelt 内命令免逐条确认/);
       } finally { await f.cleanup(); }
     });

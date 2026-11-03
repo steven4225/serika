@@ -25,6 +25,7 @@ import { useChatAttachments } from "./app/use-chat-attachments.js";
 import { useConversationDraftPersistence, useConversationDraftState } from "./app/use-conversation-draft.js";
 import { useBriefContinue } from "./app/use-brief-continue.js";
 import { HerdrSelectionCard } from "./herdr-selection.js";
+import { userWaitLabel } from "@serika/assistant";
 import { ApprovalCard } from "./approval.js";
 import { useApproval } from "./app/use-approval.js";
 import { createRuntimeStore, useRuntime } from "./app/runtime-store.js";
@@ -113,6 +114,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const reconnecting = useRuntime(runtime, runtimeState => runtimeState.reconnecting);
   const { approval, decidingId, decide } = useApproval(runtime, setMobileDashboard, setError);
   const herdrSelection = useRuntime(runtime, runtimeState => runtimeState.herdrSelection);
+  const waitLabel = userWaitLabel({ herdr: herdrSelection !== null, toolName: herdrSelection ? undefined : approval?.toolName });
   useEffect(() => { if (herdrSelection) setMobileDashboard(false); }, [herdrSelection?.selectionId]);
   const live = useRuntime(runtime, runtimeState => runtimeState.live);
   const lastResult = useRuntime(runtime, runtimeState => runtimeState.lastResult);
@@ -535,13 +537,13 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 </div> : null}
                 <div className="conversation-thread">
                   {historyBefore ? <button className="secondary" disabled={historyLoading} onClick={() => void loadOlderHistory()}>{historyLoading ? "正在读取…" : "查看更早的对话"}</button> : null}
-                  {layout === "serika" ? <PersonalConversation rows={rows} onRestoreSteer={restoreSteer} workspaceRoot={info?.workspaceRoot ?? undefined} running={activePrimary} streaming={live.streaming} waitingForApproval={approval !== null || herdrSelection !== null} onTrace={(runId, toolCallId) => { openDetails("records"); void openRecord(runId, toolCallId).catch(() => setError("执行追踪读取失败")); }} /> : rows.map(row => <Row key={row.key} row={row} onRestoreSteer={restoreSteer} delivered={delivered.has(row.key)} />)}
+                  {layout === "serika" ? <PersonalConversation rows={rows} onRestoreSteer={restoreSteer} workspaceRoot={info?.workspaceRoot ?? undefined} running={activePrimary} streaming={live.streaming} waitingForApproval={approval !== null || herdrSelection !== null} waitLabel={waitLabel} onTrace={(runId, toolCallId) => { openDetails("records"); void openRecord(runId, toolCallId).catch(() => setError("执行追踪读取失败")); }} /> : rows.map(row => <Row key={row.key} row={row} onRestoreSteer={restoreSteer} delivered={delivered.has(row.key)} />)}
                   {info?.memory.enabled ? <MemoryReferences hideEmpty={layout === "serika"} refreshToken={contextRefresh} runId={state.kind === "running" && state.phase === "primary" ? state.runId : runtime.latestPrimaryId()} starting={state.kind === "running" && state.phase === "primary" && state.runId === null} /> : null}
                   {layout !== "serika" && activePrimary && live.streaming ? <div className="row row-text role-assistant live">
                     <span className="role"><SerikaMark size={20} /> Serika <span className="streaming-label">正在回复</span></span>
                     <MessageContent text={live.streaming} />
                   </div> : null}
-                  {layout !== "serika" && activePrimary && !live.streaming ? <div className="working-indicator" role="status"><span /><span /><span /><small>{herdrSelection ? "等待你选择 Pi" : approval ? "等待你的确认" : "正在处理"}</small></div> : null}
+                  {layout !== "serika" && activePrimary && !live.streaming ? <div className="working-indicator" role="status"><span /><span /><span /><small>{waitLabel ?? "正在处理"}</small></div> : null}
                   <div ref={conversationEnd} />
                 </div>
               </div>

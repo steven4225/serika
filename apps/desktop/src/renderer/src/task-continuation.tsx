@@ -13,7 +13,8 @@ export function taskRecoveryGuidance(task: WorkTask, data: WorkTaskContinuation)
   if (workTaskPhase(task) !== "paused" || !data.latestRun) return null;
   const run = data.latestRun;
   if (run.status === "interrupted") return "上次执行被中断，已恢复任务记录，但没有自动续跑。已记录的效果不重做；补充本轮要求后，点击下方“开始下一轮”，助手会先读取当前文件。";
-  if (run.status === "timed_out" || run.completion?.reason === "budget_exhausted") return "本轮用完时间或步骤预算，还未完成验收。查看已完成部分，把剩余工作写入补充指令，再开始下一轮；不会自动增加预算。";
+  if (run.status === "timed_out") return "模型时间已用完，不是在等你确认。查看已完成部分，把剩余工作写入补充指令，再开始下一轮；不会自动增加预算。";
+  if (run.completion?.reason === "budget_exhausted") return "本轮用完时间或步骤预算，还未完成验收。查看已完成部分，把剩余工作写入补充指令，再开始下一轮；不会自动增加预算。";
   if (run.status === "cancelled") return "本轮已停止，但停止不会撤回已发生的修改。先看回执和产物，需要继续时再开始下一轮。";
   if (run.status === "failed") return "本轮执行失败。先打开最新回执查看具体错误，修正缺失配置、材料或执行条件后再继续；不会自动重放。";
   switch (run.completion?.reason) {

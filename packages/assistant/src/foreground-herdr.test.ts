@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { it } from "node:test";
@@ -11,7 +12,7 @@ import { createAssistantController, type AssistantController } from "./assistant
 const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
   outputTokens: { total: 1, text: 1, reasoning: undefined } };
 async function fixture(options: { source?: "desktop" | "telegram"; mode?: string; stale?: boolean; windowTokens?: number; totalTimeoutMs?: number; onRequest?: (index: number) => Promise<void>; calls: { name: string; input: unknown }[] }) {
-  const root = await realpath(await mkdtemp("/private/tmp/serika-run-target-"));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "serika-run-target-")));
   const directory = join(root, "work"), bin = join(root, "bin"), home = join(root, "home"), log = join(root, "calls.jsonl"), state = join(root, "state.json");
   await Promise.all([mkdir(directory), mkdir(bin), mkdir(home)]);
   const set = (mode: string) => writeFile(state, JSON.stringify(mode));
@@ -95,6 +96,7 @@ it("discovery blocks until one host choice, then every model step removes discov
     assert.equal(f.requests.length, 1, "no model continuation while choice is pending");
     const state = f.controller.getSnapshot().state;
     assert.equal(state.kind, "running");
+    assert.equal(f.controller.getSnapshot().userWait, "在等你：选 Pi 目标");
     const waitingReceipt = state.kind === "running" && await f.controller.runs.get(state.runId!);
     assert.ok(waitingReceipt);
     assert.equal(waitingReceipt.tools[0]?.status, "completed", "discovery execution deadline ended before choice wait");
@@ -145,11 +147,11 @@ it("unbound multi-target choice keeps the original Run, freezes approval, sends 
       assert.equal(f.app.foregroundHerdr?.snapshot().adoptedTarget, null);
       assert.equal(f.controller.getSnapshot().pendingHerdrSelection, null);
     }
-    assert.equal(choices, 2); assert.equal(approvals, 2);
+    assert.equal(choices, 1); assert.equal(approvals, 1);
     const calls = await f.calls();
     assert.equal(calls.filter(a => a[3] === "prompt").length, 2);
     assert.ok(calls.filter(a => a[3] === "prompt").every(a => a[4] === "p2"));
-    assert.equal(calls.filter(a => a[0] === "session").length, 2, "one discovery per Run, no rediscovery for readback");
+    assert.equal(calls.filter(a => a[0] === "session").length, 1, "the pinned target is reused on the next Run without another Herdr discovery");
   } finally { remove(); await f.cleanup(); }
 });
 
@@ -359,13 +361,13 @@ function chooseAndApprove(controller: AssistantController) {
   });
 }
 
-for (const outcome of ["cancel-selection", "deny-control", "cancel-run", "run-budget"] as const) it(`${outcome} after discovery leaves zero prompt dispatches`, async () => {
-  const f = await fixture({ ...(outcome === "run-budget" ? { totalTimeoutMs: 4000 } : {}), calls: [{ name: "herdr_pi_discover", input: {} }, prompt] });
+for (const outcome of ["cancel-selection", "deny-control", "cancel-run"] as const) it(`${outcome} after discovery leaves zero prompt dispatches`, async () => {
+  const f = await fixture({ calls: [{ name: "herdr_pi_discover", input: {} }, prompt] });
   let choices = 0, approvals = 0;
   const off = f.controller.subscribe(event => {
     if (event.type === "herdr-selection") {
       choices++;
-      if (outcome !== "run-budget") f.controller.selectHerdrTarget({ selectionId: event.selection.selectionId,
+      f.controller.selectHerdrTarget({ selectionId: event.selection.selectionId,
         candidateId: outcome === "cancel-selection" ? null : event.selection.candidates[0]!.candidateId });
     }
     if (event.type === "approval" && event.approval.preview) {
@@ -383,10 +385,26 @@ for (const outcome of ["cancel-selection", "deny-control", "cancel-run", "run-bu
     assert.equal(approvals, outcome === "deny-control" || outcome === "cancel-run" ? 1 : 0);
     assert.equal((await f.calls()).filter(args => args[3] === "prompt").length, 0);
     assert.equal(f.controller.getSnapshot().pendingHerdrSelection, null);
-    if (outcome === "cancel-selection" || outcome === "run-budget") assert.equal(f.requests.length, 1);
+    if (outcome === "cancel-selection") assert.equal(f.requests.length, 1);
     if (outcome === "cancel-run") assert.equal((await f.controller.runs.get(id))?.status, "cancelled");
-    if (outcome === "run-budget") assert.equal((await f.controller.runs.get(id))?.status, "timed_out");
   } finally { off(); await f.cleanup(); }
+});
+
+it("waiting for a Pi target does not spend the run budget and names the wait", async () => {
+  const f = await fixture({ totalTimeoutMs: 2500, calls: [{ name: "herdr_pi_discover", input: {} }, prompt] });
+  try {
+    const running = f.run();
+    const deadline = Date.now() + 5000;
+    while (!f.controller.getSnapshot().pendingHerdrSelection && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(f.controller.getSnapshot().userWait, "在等你：选 Pi 目标");
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    assert.equal(f.controller.getSnapshot().state.kind, "running");
+    assert.equal(f.controller.getSnapshot().lastPrimaryResult, null);
+    await f.controller.cancel();
+    await running;
+    assert.equal(f.controller.getSnapshot().lastPrimaryResult?.status, "cancelled");
+    assert.equal(f.controller.getSnapshot().userWait, null);
+  } finally { await f.cleanup(); }
 });
 
 it("identity failure restores discover but cached exact pane evidence cannot auto-adopt a replacement", async () => {

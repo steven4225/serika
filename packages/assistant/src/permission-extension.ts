@@ -8,6 +8,7 @@ import {
   type ToolConfirmation,
   type ToolRiskLookup,
 } from "./tool-confirmation.js";
+import type { TaskTrust } from "./task-trust.js";
 import type { FileAuthorizationRule } from "./tui-module-config.js";
 
 /**
@@ -40,6 +41,8 @@ export function createPermissionExtension(output: Writable, options: {
   autoApprove: readonly ((input: BeforeToolExecuteInput) => boolean)[];
   /** Declared risk of registered tools; read-risk tools may be remembered by name. */
   toolRisk?: ToolRiskLookup;
+  /** Desktop/Telegram foreground grants. Omitted for TUI, workers and skills. */
+  taskTrust?: { trust: TaskTrust; directoryRoots: readonly string[]; isHostShell: (toolName: string) => boolean; threadId: string };
 }): PermissionExtension {
   const { directory, fileAuthorizations, report } = options;
   const shellSandbox = options.shell.sandbox;
@@ -47,6 +50,7 @@ export function createPermissionExtension(output: Writable, options: {
     ...(directory !== undefined ? { directory } : {}),
     ...(options.toolRisk ? { toolRisk: options.toolRisk } : {}),
     ...(options.toolPermissions ? { toolPermissions: options.toolPermissions } : {}),
+    ...(options.taskTrust ? { taskTrust: options.taskTrust } : {}),
     ...(fileAuthorizations.length > 0
       ? {
           persistentAuthorizations: fileAuthorizations.map(
@@ -161,9 +165,12 @@ export function createPermissionExtension(output: Writable, options: {
       async execute(args) {
         const tokens = args.trim().split(/\s+/).filter(Boolean);
         if (tokens[0] === "forget" && tokens.length === 2) {
-          output.write(confirmation.forgetRemembered(tokens[1]!)
-            ? `\n[permissions] 已清除第 ${tokens[1]} 条记住的授权；之后同类调用会重新询问。\n`
-            : `\n[permissions] 没有编号为 ${tokens[1]} 的记住授权。\n`);
+          const id = tokens[1]!;
+          output.write(confirmation.forgetRemembered(id)
+            ? `\n[permissions] 已清除第 ${id} 条记住的授权；之后同类调用会重新询问。\n`
+            : options.taskTrust?.trust.forget(id)
+              ? `\n[permissions] 已撤回任务授权 ${id}；之后同类调用会重新询问。\n`
+              : `\n[permissions] 没有编号为 ${id} 的记住授权。\n`);
           return;
         }
         if (tokens.length !== 0) {
@@ -220,6 +227,16 @@ export function createPermissionExtension(output: Writable, options: {
           output.write(`本次对话记住的授权: ${remembered.length} 条（只在本进程内存，重启或切换对话后失效；Telegram 不继承）\n`);
           for (const grant of remembered) output.write(`- ${grant.id}: ${grant.label}\n`);
           output.write("用 /permissions forget <编号> 清除单条。\n");
+        }
+        if (options.taskTrust) {
+          const taskGrants = options.taskTrust.trust.list(options.taskTrust.threadId);
+          if (taskGrants.length === 0) {
+            output.write("当前任务授权: 无（有任务时按任务，否则按本对话；结束、撤回或空闲 30 分钟后失效）\n");
+          } else {
+            output.write(`当前任务授权: ${taskGrants.length} 条（有任务时按任务，否则按本对话；结束、撤回或空闲 30 分钟后失效）\n`);
+            for (const grant of taskGrants) output.write(`- ${grant.id}: ${grant.label}\n`);
+            output.write("用 /permissions forget <编号> 撤回单条。扩大目录请在桌面「持久目录授权」添加绝对路径并保存，单次批准不能扩大目录。\n");
+          }
         }
         output.write(
           "Shell 的下一 Run 授权只在 Docker sandbox 模式可用；host 模式默认逐次确认，桌面可显式开启工作区自主执行。Shell、memory、checkpoint、Todoist、task 不受持久文件授权影响。\n",

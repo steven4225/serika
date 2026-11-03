@@ -26,8 +26,8 @@ export function HerdrSelectionCard({ selection, onError }: {
     }
   };
   return <section className="card approval" aria-label="本轮 Pi 目标选择" aria-live="polite" data-selection-id={selection.selectionId}>
-    <div className="card-head"><strong>选择本轮使用的 Pi</strong><span className="hint">仅本轮</span></div>
-    <p className="hint">候选刚核对，尚未采用。选择后继续当前任务，发送输入另行确认。</p>
+    <div className="card-head"><strong>在等你：选 Pi 目标</strong><span className="hint">本任务内沿用</span></div>
+    <p className="hint">候选刚核对，尚未采用。选中后在当前任务内沿用，直到身份变化或任务结束。第一次发送输入仍需确认。</p>
     <p className="hint">临时句柄不是真实身份；刷新句柄不表示目标消失。</p>
     <div className="approval-content">{selection.candidates.map(candidate => <div key={candidate.candidateId}>
       <h3>{candidate.title || candidate.target.session}</h3>

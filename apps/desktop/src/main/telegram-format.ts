@@ -112,5 +112,5 @@ export function telegramApprovalText(tool: string, preview: string, code: string
   }
   return [`需要你确认 · ${names[tool] ?? `使用工具 ${tool}`}`, "", preview,
     ...(arrangement ? ["", "结果将发送到当前 TG 私聊。保存、启用后台服务和投递是不同状态。"] : []),
-    "", `允许 ${code}`, `拒绝 ${code}`, "", "5 分钟内有效，仅批准这一次操作；普通回复不代表授权。"].join("\n");
+    "", `允许 ${code}`, `拒绝 ${code}`, "", "5 分钟内有效。短码只批准这张卡；任务内可沿用的范围以卡片说明为准。普通回复不代表授权。"].join("\n");
 }

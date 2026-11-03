@@ -14,7 +14,7 @@ export function draftKey(info: Pick<AppInfo, "workspaceRoot" | "directory" | "th
 }
 export function completionLabel(result: Pick<RunResult, "status" | "completion">): string {
   if (result.status === "cancelled") return "已停止 · 已执行的操作不会撤回";
-  if (result.status === "timed_out") return "时间已用完 · 查看任务后再决定是否继续";
+  if (result.status === "timed_out") return "模型时间已用完，不是在等你确认 · 查看任务后再决定是否继续";
   switch (result.completion?.reason) {
     case "delivered": return "程序检查通过 · 任务验收见工作任务";
     case "needs_confirmation": return "需要你的确认 · 被拒绝的操作没有自动重试";

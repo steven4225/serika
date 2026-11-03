@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { AiSdkAgentLoop, InMemoryModelRegistry, ToolRegistry } from "@serika/ai-sdk-adapter";
-import { createModuleHost } from "../module-host.js";
+import { createModuleHost, type ToolPermissionFacts } from "../module-host.js";
 import { computerConfigSchema, createComputerModule, createDriverCall, type DriverCall } from "./computer-module.js";
 
 const config = { enabled: true, executable: "/trusted/cua-driver", allowedBundleIds: ["com.apple.TextEdit"] };
@@ -195,7 +195,7 @@ describe("allowed local application computer tools", () => {
     for (const declared of host.toolPermissions.values()) assert.equal(declared.defaults?.remember, "never");
     for (const name of ["computer_check", "computer_observe"]) assert.equal(host.toolPermissions.get(name)?.defaults?.approval, "auto");
     assert.equal(host.toolPermissions.get("computer_action")?.defaults?.approval, undefined);
-    assert.equal(host.toolPermissions.get("computer_action")?.confirmation, undefined);
+    assert.match(String(host.toolPermissions.get("computer_action")?.confirmation?.({ toolName: "computer_action", input: { bundleId: "com.example.Editor" } } as Parameters<NonNullable<ToolPermissionFacts["confirmation"]>>[0])), /com\.example\.Editor/);
     assert.match(host.instructions("computer"), /^Computer tools control only explicitly allowed local apps/);
     host.dispose();
   });
