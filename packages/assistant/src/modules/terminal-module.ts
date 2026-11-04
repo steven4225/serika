@@ -54,11 +54,13 @@ export function createTerminalModule({ directory, targets, timeoutMs = SHELL_EXE
             .extend({ sourceQuote: z.string().min(1) }).strict().optional() }).strict(),
           execute: (input, { abortSignal }) => targets.discover(input, abortSignal) }),
       }, { defaults: { approval: "auto", remember: "never" } });
-      context.registerTool({ metadata: { name: "herdr_pi_read", version: "1", risk: "read", idempotent: true, timeoutMs: SHELL_EXEC_TIMEOUT_MS },
+      context.registerTool({ metadata: { name: "herdr_pi_read", version: "1", risk: "read", idempotent: true, timeoutMs: SHELL_EXEC_TIMEOUT_MS,
+        // Same-step discovery has to adopt before this precheck, or the read freezes HERDR_DISCOVERY_REQUIRED.
+        batchRank: 1 },
         tool: tool({ description: "Read the Pi already adopted in this foreground Run using get, read or bounded wait. Use the host's adopted target directly without repeating discovery.", inputSchema: herdrReadSchema,
           execute: (input, { abortSignal, toolCallId }) => targets.execute(toolCallId, input, abortSignal) }),
       }, { defaults: { approval: "auto", remember: "never" } });
-      context.registerTool({ metadata: { name: "herdr_pi_control", version: "1", risk: "external_side_effect", idempotent: false, timeoutMs: SHELL_EXEC_TIMEOUT_MS },
+      context.registerTool({ metadata: { name: "herdr_pi_control", version: "1", risk: "external_side_effect", idempotent: false, timeoutMs: SHELL_EXEC_TIMEOUT_MS, batchRank: 1 },
         tool: tool({ description: "Send one prompt, fixed input key, or stop to this Run's adopted Pi. Separate confirmation is required every time.", inputSchema: herdrControlSchema,
           execute: (input, { abortSignal, toolCallId }) => targets.execute(toolCallId, input, abortSignal) }),
       }, { defaults: { remember: "never" }, confirmation: ({ toolCallId }) => {

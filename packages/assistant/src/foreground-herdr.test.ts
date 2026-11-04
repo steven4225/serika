@@ -11,7 +11,7 @@ import { createAssistantController, type AssistantController } from "./assistant
 
 const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
   outputTokens: { total: 1, text: 1, reasoning: undefined } };
-async function fixture(options: { source?: "desktop" | "telegram"; mode?: string; stale?: boolean; windowTokens?: number; totalTimeoutMs?: number; onRequest?: (index: number) => Promise<void>; calls: { name: string; input: unknown }[] }) {
+async function fixture(options: { source?: "desktop" | "telegram"; mode?: string; stale?: boolean; windowTokens?: number; totalTimeoutMs?: number; onRequest?: (index: number) => Promise<void>; calls: { name: string; input: unknown }[]; steps?: { name: string; input: unknown }[][] }) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-run-target-")));
   const directory = join(root, "work"), bin = join(root, "bin"), home = join(root, "home"), log = join(root, "calls.jsonl"), state = join(root, "state.json");
   await Promise.all([mkdir(directory), mkdir(bin), mkdir(home)]);
@@ -40,6 +40,7 @@ else {if(a[3]==='prompt')writeFileSync(${JSON.stringify(join(directory, "answer.
       modelContextWindows: [{ provider: "mock-provider", modelId: "mock-model-id", contextWindowTokens: options.windowTokens }] } : {}) }));
   const callsInRun = options.calls.length && options.calls[0]?.name !== "herdr_pi_discover"
     ? [{ name: "herdr_pi_discover", input: {} }, ...options.calls] : options.calls;
+  const plan = options.steps ?? callsInRun.map(call => [call]);
   let step = 0;
   const requests: string[] = [];
   const contracts: string[][] = [];
@@ -55,11 +56,13 @@ else {if(a[3]==='prompt')writeFileSync(${JSON.stringify(join(directory, "answer.
       }
       requests.push(JSON.stringify(request.prompt));
       contracts.push((request.tools ?? []).map(tool => tool.name));
-      const index = step++ % (callsInRun.length + 1), call = callsInRun[index];
+      const index = options.steps ? step : step % (plan.length + 1);
+      step += 1;
+      const batch = plan[index] ?? [];
       await options.onRequest?.(index);
       return { stream: simulateReadableStream({ chunks: [{ type: "stream-start" as const, warnings: [] },
-        ...(call ? [{ type: "tool-call" as const, toolCallId: `call-${step}`, toolName: call.name, input: JSON.stringify(call.input) }] : []),
-        { type: "finish" as const, finishReason: { unified: call ? "tool-calls" as const : "stop" as const, raw: undefined }, usage }] }) };
+        ...batch.map((call, offset) => ({ type: "tool-call" as const, toolCallId: batch.length === 1 ? `call-${step}` : `call-${step}-${offset}`, toolName: call.name, input: JSON.stringify(call.input) })),
+        { type: "finish" as const, finishReason: { unified: batch.length ? "tool-calls" as const : "stop" as const, raw: undefined }, usage }] }) };
     } }) });
   const controller = createAssistantController(app);
   const calls = async (): Promise<string[][]> => (await readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line));
@@ -431,6 +434,40 @@ it("identity failure restores discover but cached exact pane evidence cannot aut
     assert.ok(!f.contracts[1]!.includes("herdr_pi_discover"));
     assert.ok(f.contracts[2]!.includes("herdr_pi_discover"));
     assert.equal((await f.calls()).filter(args => args[3] === "prompt").length, 0);
+  } finally { off(); await f.cleanup(); }
+});
+
+it("one Pi selection sticks for a same-step read and the next run's read and control", async () => {
+  const read = { name: "herdr_pi_read", input: { action: "get" } };
+  const control = { name: "herdr_pi_control", input: { action: "prompt", text: "sticky target" } };
+  const f = await fixture({ calls: [], steps: [[read, { name: "herdr_pi_discover", input: {} }], [], [read], [control], []] });
+  let choices = 0;
+  const off = f.controller.subscribe(event => {
+    if (event.type === "herdr-selection") {
+      choices++;
+      assert.equal(f.controller.getSnapshot().userWait, "在等你：选 Pi 目标");
+      assert.equal(f.controller.selectHerdrTarget({ selectionId: event.selection.selectionId, candidateId: event.selection.candidates[1]!.candidateId }), true);
+    }
+    if (event.type === "approval" && event.approval.preview) f.controller.confirm({ approvalId: event.approval.approvalId, decision: "allow" });
+  });
+  const discoveryRequired = (tools: { toolName: string; resultPreview: string | null; errorPreview: string | null }[] | undefined) =>
+    JSON.stringify(tools ?? []).includes("HERDR_DISCOVERY_REQUIRED");
+  try {
+    const first = await f.run();
+    const firstTools = (await f.controller.runs.get(first))?.tools;
+    assert.equal(choices, 1);
+    assert.equal(discoveryRequired(firstTools), false);
+    assert.match(firstTools?.find(tool => tool.toolName === "herdr_pi_read")?.resultPreview ?? "", /t2/);
+    const second = await f.run();
+    const secondTools = (await f.controller.runs.get(second))?.tools;
+    assert.equal(choices, 1);
+    assert.equal(discoveryRequired(secondTools), false);
+    assert.match(secondTools?.find(tool => tool.toolName === "herdr_pi_read")?.resultPreview ?? "", /t2/);
+    assert.equal(f.contracts[0]?.includes("herdr_pi_discover"), true);
+    assert.equal(f.contracts.slice(1).every(names => !names.includes("herdr_pi_discover")), true);
+    const argv = await f.calls();
+    assert.equal(argv.filter(args => args[0] === "session").length, 1);
+    assert.deepEqual(argv.filter(args => args[3] === "prompt").map(args => args[4]), ["p2"]);
   } finally { off(); await f.cleanup(); }
 });
 

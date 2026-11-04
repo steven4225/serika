@@ -44,6 +44,8 @@ export interface ToolMetadata {
   timeoutMs: number;
   idempotent: boolean;
   redact?: readonly string[];
+  /** Same-step calls with a lower rank run first. Equal ranks keep model order. */
+  batchRank?: number;
 }
 
 export interface RegisteredTool {

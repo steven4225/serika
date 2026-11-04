@@ -135,6 +135,24 @@ describe("task trust", () => {
     assert.equal(trust.allowsHostShell(key, "terminal_exec", "/work"), false);
   });
 
+  it("keeps a pinned Pi for the same idle window as a host directory", () => {
+    let now = 0;
+    const trust = createTaskTrust(() => now);
+    const key = trust.noteRunStart({ threadId: "thread", workTaskId: "task" });
+    const target = { authorizedDirectory: "/work", session: "offline", paneId: "p1", terminalId: "t1" };
+    trust.pinTarget(key, target);
+    trust.noteRunEnd(key);
+    now = TASK_TRUST_IDLE_MS;
+    assert.deepEqual(trust.pinnedTarget(key), target);
+    assert.equal(trust.pinnedTarget(trust.key({ threadId: "thread" })), undefined);
+    now += 1;
+    assert.equal(trust.pinnedTarget(key), undefined);
+    const open = trust.noteRunStart({ threadId: "thread", workTaskId: "task" });
+    trust.pinTarget(open, target);
+    now += TASK_TRUST_IDLE_MS + 5;
+    assert.deepEqual(trust.pinnedTarget(open), target);
+  });
+
   it("pins one Pi target and clears control when the identity is dropped", () => {
     const trust = createTaskTrust();
     const key = trust.noteRunStart({ threadId: "thread" });
