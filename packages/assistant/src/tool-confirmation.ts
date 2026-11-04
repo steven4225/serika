@@ -262,7 +262,7 @@ function grantCandidate(
     const localScope = fileDirectory(scopedDirectory, requestedPath && isAbsolute(requestedPath) ? relative(scopedDirectory, requestedPath) : requestedPath);
     const scope = localScope === undefined ? undefined : selected || requestedPath && isAbsolute(requestedPath) ? resolve(scopedDirectory, localScope) : localScope;
     if (scope === undefined) return undefined;
-    const place = scope === "" ? "工作区根目录" : `${scope}${sep}`;
+    const place = scope === "" ? "所选授权目录根" : `${scope}${sep}`;
     return { agentId, toolName, kind: "directory", scope,
       label: `本次对话内允许 ${toolName} 改动 ${place} 下的文件（不含子目录）` };
   }
@@ -577,7 +577,7 @@ export function createToolConfirmation(
   const setPendingShellAuthorization = (): void => {
     if (!toolAuthorizable()) {
       throw new Error(
-        "Shell authorization requires Docker sandbox mode; host shell remains per-call confirmation",
+        "Shell authorization requires Docker sandbox mode; host shell asks once per working directory in the current task",
       );
     }
     nextShellAuthorization = true;

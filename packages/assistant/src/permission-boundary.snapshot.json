@@ -94,7 +94,7 @@
     "approvals": [
       {
         "tool": "read_file",
-        "preview": "\nTool: read_file\nPath: \"note.txt\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ",
+        "preview": "\nTool: read_file\nPath: \"note.txt\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nOne allow covers this path's authorized directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. Paths outside that allowlist are rejected and are not accessed.\nAllow this call? [y/n] ",
         "remember": "本次对话内不再询问 read_file"
       }
     ],
@@ -111,8 +111,8 @@
     "approvals": [
       {
         "tool": "write_file",
-        "preview": "\nTool: write_file\nPath: \"created.txt\"\nContent: \"allowed\"\nAllow this call? [y/n] ",
-        "remember": "本次对话内允许 write_file 改动 工作区根目录 下的文件（不含子目录）"
+        "preview": "\nTool: write_file\nPath: \"created.txt\"\nContent: \"allowed\"\nOne allow covers this path's authorized directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. Paths outside that allowlist are rejected and are not accessed.\nAllow this call? [y/n] ",
+        "remember": "本次对话内允许 write_file 改动 所选授权目录根 下的文件（不含子目录）"
       }
     ],
     "status": "completed",
@@ -128,7 +128,7 @@
     "approvals": [
       {
         "tool": "shell_exec",
-        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nOne allow reuses this host working directory for the current task until it ends, you revoke it, or it sits idle for 30 minutes.\nAllow this call? [y/n] ",
+        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to the selected authorized directory)\nThe working directory must resolve inside an authorized directory. An absolute path or ~/path is accepted only then; anything else is rejected and the command does not run. This is not an operating-system sandbox. Output may be truncated.\nOne allow reuses this host working directory and its subdirectories for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -348,7 +348,7 @@
     "approvals": [
       {
         "tool": "read_file",
-        "preview": "\nTool: read_file\nPath: \"note.txt\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ",
+        "preview": "\nTool: read_file\nPath: \"note.txt\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nOne allow covers this path's authorized directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. Paths outside that allowlist are rejected and are not accessed.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -365,7 +365,7 @@
     "approvals": [
       {
         "tool": "write_file",
-        "preview": "\nTool: write_file\nPath: \"created.txt\"\nContent: \"allowed\"\nAllow this call? [y/n] ",
+        "preview": "\nTool: write_file\nPath: \"created.txt\"\nContent: \"allowed\"\nOne allow covers this path's authorized directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. Paths outside that allowlist are rejected and are not accessed.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -382,7 +382,7 @@
     "approvals": [
       {
         "tool": "shell_exec",
-        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nOne allow reuses this host working directory for the current task until it ends, you revoke it, or it sits idle for 30 minutes.\nAllow this call? [y/n] ",
+        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to the selected authorized directory)\nThe working directory must resolve inside an authorized directory. An absolute path or ~/path is accepted only then; anything else is rejected and the command does not run. This is not an operating-system sandbox. Output may be truncated.\nOne allow reuses this host working directory and its subdirectories for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -602,7 +602,7 @@
     "approvals": [
       {
         "tool": "read_file",
-        "preview": "\nTool: read_file\nPath: \"note.txt\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ",
+        "preview": "\nTool: read_file\nPath: \"note.txt\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nOne allow covers this path's authorized directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. Paths outside that allowlist are rejected and are not accessed.\nAllow this call? [y/n] ",
         "remember": "本次对话内不再询问 read_file"
       }
     ],
@@ -619,8 +619,8 @@
     "approvals": [
       {
         "tool": "write_file",
-        "preview": "\nTool: write_file\nPath: \"created.txt\"\nContent: \"allowed\"\nAllow this call? [y/n] ",
-        "remember": "本次对话内允许 write_file 改动 工作区根目录 下的文件（不含子目录）"
+        "preview": "\nTool: write_file\nPath: \"created.txt\"\nContent: \"allowed\"\nOne allow covers this path's authorized directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. Paths outside that allowlist are rejected and are not accessed.\nAllow this call? [y/n] ",
+        "remember": "本次对话内允许 write_file 改动 所选授权目录根 下的文件（不含子目录）"
       }
     ],
     "status": "completed",
@@ -636,7 +636,7 @@
     "approvals": [
       {
         "tool": "shell_exec",
-        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nOne allow reuses this host working directory for the current task until it ends, you revoke it, or it sits idle for 30 minutes.\nAllow this call? [y/n] ",
+        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to the selected authorized directory)\nThe working directory must resolve inside an authorized directory. An absolute path or ~/path is accepted only then; anything else is rejected and the command does not run. This is not an operating-system sandbox. Output may be truncated.\nOne allow reuses this host working directory and its subdirectories for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -744,7 +744,7 @@
     "approvals": [
       {
         "tool": "read_file",
-        "preview": "\nTool: read_file\nPath: \"note.txt\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ",
+        "preview": "\nTool: read_file\nPath: \"note.txt\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nOne allow covers this path's authorized directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. Paths outside that allowlist are rejected and are not accessed.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -761,7 +761,7 @@
     "approvals": [
       {
         "tool": "write_file",
-        "preview": "\nTool: write_file\nPath: \"created.txt\"\nContent: \"allowed\"\nAllow this call? [y/n] ",
+        "preview": "\nTool: write_file\nPath: \"created.txt\"\nContent: \"allowed\"\nOne allow covers this path's authorized directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. Paths outside that allowlist are rejected and are not accessed.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -778,7 +778,7 @@
     "approvals": [
       {
         "tool": "shell_exec",
-        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nOne allow reuses this host working directory for the current task until it ends, you revoke it, or it sits idle for 30 minutes.\nAllow this call? [y/n] ",
+        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to the selected authorized directory)\nThe working directory must resolve inside an authorized directory. An absolute path or ~/path is accepted only then; anything else is rejected and the command does not run. This is not an operating-system sandbox. Output may be truncated.\nOne allow reuses this host working directory and its subdirectories for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -892,7 +892,7 @@
     "approvals": [
       {
         "tool": "read_file",
-        "preview": "\nTool: read_file\nPath: \"note.txt\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ",
+        "preview": "\nTool: read_file\nPath: \"note.txt\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nOne allow covers this path's authorized directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. Paths outside that allowlist are rejected and are not accessed.\nAllow this call? [y/n] ",
         "remember": "本次对话内不再询问 read_file"
       }
     ],
@@ -909,8 +909,8 @@
     "approvals": [
       {
         "tool": "write_file",
-        "preview": "\nTool: write_file\nPath: \"created.txt\"\nContent: \"allowed\"\nAllow this call? [y/n] ",
-        "remember": "本次对话内允许 write_file 改动 工作区根目录 下的文件（不含子目录）"
+        "preview": "\nTool: write_file\nPath: \"created.txt\"\nContent: \"allowed\"\nOne allow covers this path's authorized directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. Paths outside that allowlist are rejected and are not accessed.\nAllow this call? [y/n] ",
+        "remember": "本次对话内允许 write_file 改动 所选授权目录根 下的文件（不含子目录）"
       }
     ],
     "status": "completed",
@@ -926,7 +926,7 @@
     "approvals": [
       {
         "tool": "shell_exec",
-        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to workspace)\nThe command will run with the configured workspace as its root context; this is not an operating-system sandbox. Output may be truncated.\nOne allow reuses this host working directory for the current task until it ends, you revoke it, or it sits idle for 30 minutes.\nAllow this call? [y/n] ",
+        "preview": "\nTool: shell_exec\nCommand: \"pwd\"\nCwd: \".\" (relative to the selected authorized directory)\nThe working directory must resolve inside an authorized directory. An absolute path or ~/path is accepted only then; anything else is rejected and the command does not run. This is not an operating-system sandbox. Output may be truncated.\nOne allow reuses this host working directory and its subdirectories for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -1010,12 +1010,12 @@
     "approvals": [
       {
         "tool": "terminal_exec",
-        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. One allow covers this same working directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The working directory must resolve inside an authorized directory; an absolute path or ~/path is accepted only then, and anything else is rejected before the command runs. That directory is only the initial cwd, not filesystem or network isolation. One allow covers this working directory and its subdirectories for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
         "remember": null
       },
       {
         "tool": "terminal_exec",
-        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. One allow covers this same working directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The working directory must resolve inside an authorized directory; an absolute path or ~/path is accepted only then, and anything else is rejected before the command runs. That directory is only the initial cwd, not filesystem or network isolation. One allow covers this working directory and its subdirectories for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -1029,12 +1029,12 @@
     "approvals": [
       {
         "tool": "terminal_exec",
-        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. One allow covers this same working directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The working directory must resolve inside an authorized directory; an absolute path or ~/path is accepted only then, and anything else is rejected before the command runs. That directory is only the initial cwd, not filesystem or network isolation. One allow covers this working directory and its subdirectories for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
         "remember": null
       },
       {
         "tool": "terminal_exec",
-        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. One allow covers this same working directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
+        "preview": "\nTool: terminal_exec\n{\n  \"command\": \"printf unauthorized > ../host-write\",\n  \"cwd\": \".\"\n}\nHost terminal command, outside Seatbelt. The working directory must resolve inside an authorized directory; an absolute path or ~/path is accepted only then, and anything else is rejected before the command runs. That directory is only the initial cwd, not filesystem or network isolation. One allow covers this working directory and its subdirectories for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] ",
         "remember": null
       }
     ],
@@ -1273,14 +1273,14 @@
         "ok": false,
         "error": {
           "code": "COMPUTER_PRECHECK_FAILED",
-          "message": "Application is not allowed"
+          "message": "该应用不在允许名单内，已拒绝，没有派发。"
         }
       },
       {
         "ok": false,
         "error": {
           "code": "COMPUTER_PRECHECK_FAILED",
-          "message": "Application is not allowed"
+          "message": "该应用不在允许名单内，已拒绝，没有派发。"
         }
       }
     ]
@@ -1294,14 +1294,14 @@
         "ok": false,
         "error": {
           "code": "COMPUTER_PRECHECK_FAILED",
-          "message": "Application is not allowed"
+          "message": "该应用不在允许名单内，已拒绝，没有派发。"
         }
       },
       {
         "ok": false,
         "error": {
           "code": "COMPUTER_PRECHECK_FAILED",
-          "message": "Application is not allowed"
+          "message": "该应用不在允许名单内，已拒绝，没有派发。"
         }
       }
     ]

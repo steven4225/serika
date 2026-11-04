@@ -519,7 +519,7 @@ export class TelegramGateway {
       const status = info.capabilities;
       const enabled = this.host.channelTelegramAutonomyEnabled();
       const channelStatus = status ? { ...status, shell: { ...status.shell, authority: enabled ? "explicit_workspace_telegram_primary; no background inheritance" : "current_run_only",
-        warning: enabled ? "当前绑定私聊的文件操作及 Seatbelt 内命令免逐条确认；默认断网、不可用时拒绝执行。本机联网命令及其他工具仍逐条确认。" : status.shell.mode === "docker" ? "沿用配置的挂载与网络限制；工具仍需确认。" : "当前私聊未授权自主执行，文件和本机命令仍需确认。" } } : undefined;
+        warning: enabled ? "当前绑定私聊的文件操作及 Seatbelt 内命令免逐条确认；默认断网、不可用时拒绝执行。本机联网命令在同一工作目录批准一次后于当前任务内沿用，其他工具仍按各自规则确认。" : status.shell.mode === "docker" ? "沿用配置的挂载与网络限制；工具仍需确认。" : "当前私聊未授权自主执行。文件和本机命令在授权目录内批准一次后于当前任务内沿用；目录外直接拒绝。" } } : undefined;
       return reject(channelStatus ? formatCapabilityStatus(channelStatus) + "\n" + this.#readToolNotice() : "当前连接未提供能力状态；无法据此判断已注册或可用。");
     }
     if (text === "/start" || text === "/help") return reject("直接提问或说“几分钟后提醒我…”；点确认卡下的按钮即可批准或取消。备用：允许 短码 / 拒绝 短码。/confirm 刷新当前确认，/details 查看详情，/capabilities 查看真实能力状态。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。工作任务用“任务：目标 → 开始 短码”。");

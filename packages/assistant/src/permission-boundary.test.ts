@@ -179,7 +179,7 @@ else console.log(JSON.stringify({result:{type:'agent_info',agent}}));
           assert.equal(approvals.length, readOnly ? 0 : 2);
           assert.deepEqual(events, readOnly ? [] : ["TOOL_DENIED", "TOOL_DENIED"]);
           const rejected = selected[1] === "unauthorized";
-          if (rejected) assert.deepEqual(outputs, Array.from({ length: 2 }, () => ({ ok: false, error: { code: "COMPUTER_PRECHECK_FAILED", message: "Application is not allowed" } })));
+          if (rejected) assert.deepEqual(outputs, Array.from({ length: 2 }, () => ({ ok: false, error: { code: "COMPUTER_PRECHECK_FAILED", message: "该应用不在允许名单内，已拒绝，没有派发。" } })));
           rows[`round3/${source}/${selected[0]}/${selected[1]}`] = { approvals: [...approvals], events: [...events], status: controller.getSnapshot().lastPrimaryResult?.status,
             ...(rejected ? { results: [...outputs] } : {}) };
         }

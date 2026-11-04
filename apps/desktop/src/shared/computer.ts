@@ -51,7 +51,7 @@ export function describeComputerApproval(approval: PendingApproval): ComputerApp
   if (action !== "observe" && (typeof input.observationId !== "string" || !input.observationId || typeof input.elementToken !== "string" || !input.elementToken)) return undefined;
   return {
     title: action === "observe" ? (exact ? "观察指定窗口" : "列出指定应用窗口") : action === "click" ? "点击指定控件" : "向指定控件输入文本",
-    allowLabel: action === "observe" ? "允许本次观察" : action === "click" ? "允许本次点击" : "允许本次输入",
+    allowLabel: action === "observe" ? "允许本次观察" : action === "click" ? "允许这次点击，本任务内沿用" : "允许这次输入，本任务内沿用",
     bundleId: input.bundleId, pid: exact ? input.pid as number : null, windowId: exact ? input.windowId as number : null,
     text: action === "type_text" ? input.text as string : null,
     observationId: action === "observe" ? null : input.observationId as string,

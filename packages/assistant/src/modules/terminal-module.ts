@@ -49,7 +49,7 @@ export function createTerminalModule({ directory, targets, timeoutMs = SHELL_EXE
       }, {
         defaults: { remember: "never" },
         confirmation({ input }) {
-          return `\nTool: terminal_exec\n${JSON.stringify(input, null, 2)}\nHost terminal command, outside Seatbelt. The authorized directory is only the initial cwd. One allow covers this same working directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] `;
+          return `\nTool: terminal_exec\n${JSON.stringify(input, null, 2)}\nHost terminal command, outside Seatbelt. The working directory must resolve inside an authorized directory; an absolute path or ~/path is accepted only then, and anything else is rejected before the command runs. That directory is only the initial cwd, not filesystem or network isolation. One allow covers this working directory and its subdirectories for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. It does not grant always-on host privileges.\nAllow this call? [y/n] `;
         },
       });
       context.registerTool({ metadata: { name: "herdr_pi_discover", version: "1", risk: "read", idempotent: true, timeoutMs: SHELL_EXEC_TIMEOUT_MS },
@@ -65,7 +65,7 @@ export function createTerminalModule({ directory, targets, timeoutMs = SHELL_EXE
           execute: (input, { abortSignal, toolCallId }) => targets.execute(toolCallId, input, abortSignal) }),
       }, { defaults: { approval: "auto", remember: "never" } });
       context.registerTool({ metadata: { name: "herdr_pi_control", version: "1", risk: "external_side_effect", idempotent: false, timeoutMs: SHELL_EXEC_TIMEOUT_MS, batchRank: 1 },
-        tool: tool({ description: "Send one prompt, fixed input key, or stop to this Run's adopted Pi. Separate confirmation is required every time.", inputSchema: herdrControlSchema,
+        tool: tool({ description: "Send one prompt, fixed input key, or stop to this Run's adopted Pi. The first allow for that target covers later prompt, input, and stop in the current task until the identity changes, the task ends, the user revokes it, or the scope sits idle for 30 minutes. A different target still asks. Adoption is not itself approval.", inputSchema: herdrControlSchema,
           execute: (input, { abortSignal, toolCallId }) => targets.execute(toolCallId, input, abortSignal) }),
       }, { defaults: { remember: "never" }, confirmation: ({ toolCallId }) => {
         const herdr = targets.confirmation(toolCallId);
