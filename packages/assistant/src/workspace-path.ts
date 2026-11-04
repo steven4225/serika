@@ -1,6 +1,13 @@
 import { lstat } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
 
+/** `~` and `~/…` mean this home. `~other` stays a literal relative path. */
+export function expandHomePrefix(path: string, home: string): string {
+  if (path !== "~" && !path.startsWith("~/") && !path.startsWith("~\\")) return path;
+  const root = resolve(home);
+  return path === "~" ? root : root + path.slice(1);
+}
+
 export type WorkspacePathErrorCode = "INVALID_PATH" | "PATH_OUTSIDE_WORKSPACE";
 
 export interface WorkspacePath {

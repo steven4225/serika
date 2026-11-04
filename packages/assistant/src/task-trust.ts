@@ -1,6 +1,8 @@
+import { homedir } from "node:os";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { HerdrTarget } from "./herdr.js";
 import { AUTONOMOUS_TOTAL_TIMEOUT_MS } from "./foreground-autonomy.js";
+import { expandHomePrefix } from "./workspace-path.js";
 export { userWaitLabel } from "./user-wait-label.js";
 
 /** Same bound as an autonomous Run: an empty scope keeps grants for at most 30 minutes. */
@@ -47,10 +49,6 @@ function absoluteArgument(input: unknown, argument: string, workspace: string | 
   if (typeof input !== "object" || input === null) return undefined;
   const value = (input as Record<string, unknown>)[argument];
   const path = typeof value === "string" && value.length > 0 ? value : undefined;
-  if (argument === "cwd" && path === undefined) {
-    const base = workspace;
-    return base ? resolve(base, ".") : undefined;
-  }
   if (path === undefined) return undefined;
   if (isAbsolute(path)) return resolve(path);
   const directory = (input as Record<string, unknown>).directory;
@@ -72,8 +70,14 @@ export function fileAllowlistRoot(
     .sort((left, right) => right.length - left.length)[0];
 }
 
-export function hostShellCwd(input: unknown, workspace: string | undefined): string | undefined {
-  return absoluteArgument(input, "cwd", workspace);
+export function hostShellCwd(input: unknown, workspace: string | undefined, home = homedir()): string | undefined {
+  if (typeof input !== "object" || input === null) return undefined;
+  const record = input as Record<string, unknown>;
+  const cwd = typeof record.cwd === "string" && record.cwd.length > 0 ? expandHomePrefix(record.cwd, home) : undefined;
+  const directory = typeof record.directory === "string" && record.directory.length > 0 ? expandHomePrefix(record.directory, home) : undefined;
+  if (cwd !== undefined && isAbsolute(cwd)) return resolve(cwd);
+  const base = directory !== undefined && isAbsolute(directory) ? directory : workspace;
+  return base === undefined ? undefined : resolve(base, cwd ?? ".");
 }
 
 export interface TaskTrust {
