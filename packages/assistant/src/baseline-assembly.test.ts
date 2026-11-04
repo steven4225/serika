@@ -11,7 +11,7 @@ import { createRuntimeApp } from "./app.js";
 import { formatCapabilityStatus, formatCapabilitySummary, type CapabilityStatus } from "./capability-status.js";
 import { MEMORY_READ_INSTRUCTIONS } from "./memory-instructions.js";
 import { FOREGROUND_INSTRUCTIONS } from "./foreground-autonomy.js";
-import { CLI_DISCOVERY_INSTRUCTIONS } from "./modules/shell-module.js";
+import { CLI_DISCOVERY_INSTRUCTIONS, HOST_SHELL_TOOL_DESCRIPTION } from "./modules/shell-module.js";
 
 /**
  * v2 pilot step 1 baseline (docs/architecture-v2.md §4.4). Locks, for three
@@ -206,7 +206,10 @@ function assertStep3Assembly(actual: string, baseline: string, autonomous = fals
   assert.ok(after.has("memory_read")); after.delete("memory_read");
   for (const name of before.keys()) if (name.startsWith("memory_")) { assert.ok(!after.has(name)); before.delete(name); }
   if (!autonomous && hadMemory) { assert.ok(after.get("memory_write")?.includes("replace")); after.delete("memory_write"); } else assert.ok(!after.has("memory_write"));
-  if (autonomous) before.set("shell_exec", before.get("shell_exec")!.replace("Run one non-interactive local shell command from a workspace-relative directory. The command may inspect or modify the machine; it is bounded by a timeout and output limit.", SEATBELT_INSTRUCTIONS));
+  if (before.has("shell_exec")) {
+    const legacyHostShell = "Run one non-interactive local shell command from a workspace-relative directory. The command may inspect or modify the machine; it is bounded by a timeout and output limit.";
+    before.set("shell_exec", before.get("shell_exec")!.replace(legacyHostShell, autonomous ? SEATBELT_INSTRUCTIONS : HOST_SHELL_TOOL_DESCRIPTION));
+  }
   for (const name of ["read_file", "list_directory", "search_files", "write_file", "edit_file", "shell_exec"]) {
     if (!before.has(name)) continue;
     const value = before.get(name)!; const split = value.indexOf("\n\n{");
@@ -233,7 +236,7 @@ function assertStep3Assembly(actual: string, baseline: string, autonomous = fals
     .replace(/When shell_exec is available,[\s\S]*?Do not use shell_exec when it is not enabled\. /, SEATBELT_INSTRUCTIONS + " ")
     .replace("Local shell_exec is not pre-authorized: each command is still shown to the user for confirmation, so run only the commands the task needs.", "Desktop and bound Telegram autonomous shell_exec use the same module Seatbelt policy without per-command confirmation. Explicitly selected host Shell asks once for the same working directory in the current task, then reuses that approval until the task ends, is revoked, or sits idle for 30 minutes. It does not restore always-on host privileges. Run only commands the task needs.")
     .replace("Other tools retain their own permissions. Local Shell has the process's host permissions; the workspace is not an OS sandbox.", "Other tools retain their own permissions. Host Shell has the process's host permissions; its workspace is not an OS sandbox. Network commands require an explicitly selected host Run and per-command confirmation.");
-  oldSystem = oldSystem.replace("The command and workspace-relative cwd will be shown for y/n confirmation.", "The command and workspace-relative cwd are shown for confirmation. One allow reuses that host working directory for the current task until it ends, is revoked, or sits idle for 30 minutes. This is not an always-on host privilege.")
+  oldSystem = oldSystem.replace("The command and workspace-relative cwd will be shown for y/n confirmation.", "The command and cwd are shown for confirmation. An absolute path or ~/path is accepted only when it resolves inside an authorized directory. One allow reuses that host working directory for the current task until it ends, is revoked, or sits idle for 30 minutes. This is not an always-on host privilege.")
     .replace("with a workspace-relative path to find and read files", "with an authorized absolute path or an explicit project/directory-relative path to find and read files")
     .replace("All file paths are relative to the configured workspace, not the application's source repository or previous test fixtures.", "Relative file paths use the explicit project or selected directory. Without an explicit base and with several authorized directories, ask the user to choose a directory.");
   const newSystem = system(actual).replaceAll(WORK_TASK_CREATE_INSTRUCTIONS, "").replace(autonomous ? MEMORY_READ_INSTRUCTIONS : MEMORY_READ_INSTRUCTIONS + MEMORY_PRIMARY_WRITE_INSTRUCTIONS, "");

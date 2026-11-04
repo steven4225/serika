@@ -388,7 +388,7 @@ TUI 使用相同的模式和环境变量：
 RUNLOOM_MODEL=minimax-m3 pnpm tui -- ./var/runloom --thread demo
 ```
 
-配置中启用 `shell` 且提供 workspace 后，TUI 会注册 `shell_exec`。不配置 `sandbox` 时保持宿主 Shell：每次命令调用显示命令和 workspace-relative cwd，并通过现有 `y/n` 确认；workspace cwd 不是操作系统级沙箱。要启用隔离 Shell，可在 `modules.shell` 下配置：
+配置中启用 `shell` 且提供 workspace 后，TUI 会注册 `shell_exec`。不配置 `sandbox` 时保持宿主 Shell：每次命令调用显示命令和 cwd，并通过现有 `y/n` 确认。cwd 可以是工作区相对路径，也可以是已授权目录内的绝对路径或 `~/` 路径；授权目录以外的路径会被拒绝。workspace cwd 不是操作系统级沙箱。要启用隔离 Shell，可在 `modules.shell` 下配置：
 
 ```json
 {

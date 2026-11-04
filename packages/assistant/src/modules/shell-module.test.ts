@@ -4,8 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
 import type { RegisteredTool } from "@serika/ai-sdk-adapter";
+import { DirectoryAccess } from "../directory-access.js";
+import { ForegroundHerdrTargets } from "../foreground-herdr.js";
 import { DOCKER_CLEANUP_TIMEOUT_MS } from "./docker-shell-runner.js";
 import { createModuleHost, type ToolPermissionFacts } from "../module-host.js";
+import { createTerminalModule } from "./terminal-module.js";
 import {
   SHELL_EXEC_DOCKER_TOOL_TIMEOUT_MS,
   SHELL_EXEC_KILL_GRACE_MS,
@@ -371,5 +374,40 @@ describe("executeShellCommand", () => {
     assert.match(host.instructions("shell"), /One allow reuses that host working directory/);
     assert.match(host.instructions("shell", { autonomous: true }), /One allow reuses that host working directory/);
     assert.equal(docker.instructions("shell", { autonomous: true }), docker.instructions("shell"));
+  });
+
+  it("runs shell and terminal in an allowlisted home directory and rejects the rest", async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), "serika-shell-cwd-")));
+    directories.push(root);
+    const home = join(root, "home"), workspace = join(root, "workspace");
+    const desktop = join(home, "Desktop"), documents = join(home, "Documents"), outside = join(root, "outside");
+    await mkdir(join(workspace, "nested"), { recursive: true });
+    for (const path of [desktop, documents, outside]) await mkdir(path, { recursive: true });
+    const access = new DirectoryAccess({ load: async () => [
+      { path: workspace, access: "readwrite" }, { path: desktop, access: "readwrite" }, { path: documents, access: "readwrite" },
+    ], protectedPaths: [] });
+    const tools: RegisteredTool[] = [];
+    const setup = { registerTool: (registered: RegisteredTool) => { tools.push(registered); }, addInstructions: () => {}, isAssembled: () => false, registerCommand: () => {}, notify: () => {} };
+    createShellModule(workspace, { directories: access, home }).setup(setup);
+    createTerminalModule({ directory: workspace, targets: new ForegroundHerdrTargets({ directory: workspace, env: {} }), directories: access, home }).setup(setup);
+    const pwd = nodeCommand("process.stdout.write(process.cwd())");
+    const run = (name: string, input: Record<string, string>) => invoke<ShellExecResult>(registeredTool(tools, name), { command: pwd, ...input });
+    for (const name of ["shell_exec", "terminal_exec"]) {
+      for (const [input, path] of [
+        [{ cwd: "~/Desktop" }, desktop], [{ directory: "~/Documents" }, documents], [{ cwd: desktop }, desktop], [{ cwd: "nested" }, join(workspace, "nested")],
+      ] as const) {
+        const result = await run(name, input);
+        assert.equal(result.ok, true, name + JSON.stringify(input) + JSON.stringify(result));
+        if (result.ok) assert.equal(result.output, await realpath(path));
+      }
+      for (const [input, code] of [
+        [{ cwd: "~/Secret" }, "PATH_OUTSIDE_WORKSPACE"], [{ cwd: outside }, "PATH_OUTSIDE_WORKSPACE"],
+        [{ directory: outside }, "PATH_OUTSIDE_WORKSPACE"], [{ directory: "Documents" }, "INVALID_PATH"],
+      ] as const) {
+        const denied = await run(name, input);
+        assert.equal(denied.ok, false, name);
+        if (!denied.ok) assert.equal(denied.error.code, code, name + JSON.stringify(input));
+      }
+    }
   });
 });

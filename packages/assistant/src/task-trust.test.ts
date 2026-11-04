@@ -123,6 +123,22 @@ describe("task trust", () => {
     assert.equal((await reused).allow, true);
   });
 
+  it("keeps a home cwd on the expanded directory and does not reuse a different one", () => {
+    const trust = createTaskTrust();
+    const key = trust.noteRunStart({ threadId: "thread" });
+    const home = "/home/u";
+    const desktop = hostShellCwd({ cwd: "~/Desktop" }, "/work", home);
+    assert.equal(desktop, "/home/u/Desktop");
+    assert.equal(hostShellCwd({ directory: "~/Documents" }, "/work", home), "/home/u/Documents");
+    assert.equal(hostShellCwd({ cwd: "~other" }, "/work", home), "/work/~other");
+    trust.grantHostShell(key, "terminal_exec", "/work");
+    assert.equal(trust.allowsHostShell(key, "terminal_exec", desktop!), false);
+    trust.grantHostShell(key, "terminal_exec", desktop!);
+    assert.equal(trust.allowsHostShell(key, "terminal_exec", hostShellCwd({ cwd: "/home/u/Desktop/sub" }, "/work", home)!), true);
+    assert.equal(trust.allowsHostShell(key, "terminal_exec", hostShellCwd({ directory: "~/Documents" }, "/work", home)!), false);
+    assert.equal(trust.allowsHostShell(key, "shell_exec", desktop!), false);
+  });
+
   it("keeps grants while a run is still open past the idle bound", () => {
     let now = 0;
     const trust = createTaskTrust(() => now);
