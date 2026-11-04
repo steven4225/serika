@@ -176,7 +176,10 @@ export class AiSdkAgentLoop implements AgentLoop {
         await input.emit("tool.call.failed", { toolCallId: call.toolCallId, toolName: call.toolName, error: error.data });
       };
 
-      for (const call of pendingCalls) {
+      // Dependent calls in one step must see state an earlier call commits before they are prechecked.
+      const orderedCalls = [...pendingCalls].sort((left, right) =>
+        (this.#tools.metadata(left.toolName)?.batchRank ?? 0) - (this.#tools.metadata(right.toolName)?.batchRank ?? 0));
+      for (const call of orderedCalls) {
         throwIfAborted(signal);
         // Feedback describes the latest call; any later call (even a denied one) replaces it.
         toolFeedback = undefined;
