@@ -5,7 +5,7 @@ export { createRuntimeApp } from "./app.js";
 export type { ModuleNotification, RuntimeApp, TaskAutomationHost } from "./app.js";
 export { formatHome, readHomeSnapshot } from "./home.js";
 export type { HomeItem, HomeSection, HomeSnapshot, HomeTask } from "./home.js";
-export { userWaitLabel } from "./task-trust.js";
+export { userWaitLabel } from "./user-wait-label.js";
 export { createAssistantController } from "./assistant-controller.js";
 export type { AssistantController, AssistantEvent, AssistantRunOptions, AssistantRunRecords, AssistantSnapshot, AssistantState, AssistantSteerResponse, AutomationResult } from "./assistant-controller.js";
 export type { AssistantMemoryControls } from "./controller-memory.js";

@@ -1,7 +1,7 @@
 import React from "react";
 import type { PendingApproval } from "../../shared/ui-contract.js";
 import { describeComputerApproval } from "../../shared/computer.js";
-import { userWaitLabel } from "@serika/assistant";
+import { userWaitLabel } from "@serika/assistant/browser";
 import { humanFacingTitle } from "../../shared/human-title.js";
 import { presentReminderConfirmation } from "./reminder-copy.js";
 

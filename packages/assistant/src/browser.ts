@@ -7,4 +7,5 @@ export { formatOnceWhen, reminderWhen } from "./reminder-speech.js";
 export { taskNotificationCopy } from "./task-notification-copy.js";
 export { arrangementDisplayStatus } from "./task-lifecycle.js";
 export { workTaskPhase } from "./work-task-phase.js";
+export { userWaitLabel } from "./user-wait-label.js";
 export type { HomeItem, HomeSection, HomeSnapshot, HomeTask } from "./home.js";
