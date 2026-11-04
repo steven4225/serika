@@ -72,7 +72,7 @@ for (const source of ["desktop", "telegram"] as const) test(`${source} ordinary 
     assert.equal(app.getCapabilities!().execution.files, "scoped_grants_or_confirmation");
     const block = formatCapabilitySummary(app.getCapabilities!());
     assert.equal(hashCanonicalJson(block), hashCanonicalJson(formatCapabilitySummary(app.getCapabilities!())));
-    assert.equal(app.getCapabilities!().execution.shell.authorization, "per_call_confirmation");
+    assert.equal(app.getCapabilities!().execution.shell.authorization, "task_cwd_confirmation");
     await run("这是下一轮任务");
     const next = (await app.store.getMessages("thread")).filter(message => message.role === "user").at(-1)!;
     assert.doesNotMatch(JSON.stringify(next.metadata), /查本机 Node/);

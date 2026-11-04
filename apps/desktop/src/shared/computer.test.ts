@@ -61,7 +61,7 @@ it("previews exact target and full text without inventing missing window data", 
       observationId: "observe-1", elementToken: "element-1", text: "<script>not executable</script>\n" + "完整文本".repeat(100) } };
   const view = describeComputerApproval(approval);
   assert.equal(view?.text, (approval.input as { text: string }).text);
-  assert.equal(view?.allowLabel, "允许本次输入");
+  assert.equal(view?.allowLabel, "允许这次输入，本任务内沿用");
   assert.equal(view?.windowId, 456);
   assert.equal(describeComputerApproval({ ...approval, input: { bundleId: "com.apple.TextEdit", action: "click" } }), undefined);
   const list = describeComputerApproval({ ...approval, toolName: "computer_observe", input: { bundleId: "com.apple.TextEdit" } });

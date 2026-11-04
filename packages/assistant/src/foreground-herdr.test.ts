@@ -183,6 +183,8 @@ for (const source of ["desktop", "telegram"] as const) it(`${source} adopted dis
     const rejected = f.controller.getSnapshot().toolActivity.find(item => item.toolName === "herdr_pi_discover" && item.status === "failed");
     assert.equal(rejected?.errorCode, "TOOL_SOFT_REJECTED");
     assert.match(rejected?.summary ?? "", /^TOOL_SOFT_REJECTED: HERDR_TARGET_ALREADY_ADOPTED:/);
+    assert.match(rejected?.summary ?? "", /Control asks once for this target in the current task/);
+    assert.doesNotMatch(rejected?.summary ?? "", /every time|每次确认/);
     assert.equal(f.controller.getSnapshot().lastPrimaryResult?.error, undefined);
     assert.equal(choices, 1); assert.equal(approvals, 1);
     assert.ok(f.contracts.slice(1).every(names => !names.includes("herdr_pi_discover")));

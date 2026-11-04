@@ -47,10 +47,19 @@ test("structured computer preview also waits for backend publication before enab
   assert.match(exact.slice(exact.indexOf("<summary>技术详情</summary>")), /windowId[^\d]+731/);
 });
 
+test("herdr control card states the task reuse instead of a one-shot allow", () => {
+  const html = markup({ ...approval("向本轮 Pi 发送任务"), toolName: "herdr_pi_control", herdr: {
+    target: { authorizedDirectory: "/tmp/offline", session: "offline", paneId: "p1", terminalId: "t1" },
+    action: { action: "prompt", text: "continue" }, selectionVersion: 1,
+  } });
+  assert.match(html, /本任务内同一目标的 prompt、按键和停止不再逐次确认/);
+  assert.doesNotMatch(html, /仅批准这次操作/);
+});
+
 test("approval offers the conversation grant only when the backend offers one", () => {
   const plain = { ...approval("读取文件 a.txt"), toolName: "read_file" };
   const html = markup(plain);
-  assert.match(html, /仅本次 · 不记住选择/);
+  assert.match(html, /不写入本次对话记住；沿用范围以下方说明为准/);
   assert.doesNotMatch(html, /允许并在本次对话内记住/);
   const offered = markup({ ...plain, remember: { label: "本次对话内不再询问 read_file" } });
   assert.match(offered, /允许并在本次对话内记住/);

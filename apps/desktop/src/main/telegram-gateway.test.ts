@@ -1508,7 +1508,7 @@ it("allowed Computer reads return through offline Telegram without approval and 
     if (n === 1) return response({ name: "computer_check", input: {} }, "", "check");
     if (n === 2) return response({ name: "computer_observe", input: { bundleId: "com.example.Offline", pid: 123, windowId: 456 } }, "", "observe");
     if (n === 3) return response({ name: "computer_observe", input: { bundleId: "com.example.Foreign" } }, "", "foreign");
-    observed = prompt?.includes("离线授权应用界面") === true && prompt.includes("Application is not allowed");
+    observed = prompt?.includes("离线授权应用界面") === true && prompt.includes("该应用不在允许名单内，已拒绝，没有派发。");
     return response(undefined, observed ? "离线授权应用界面；未授权应用已拒绝。" : "fixture result missing");
   }, true, false, false, true);
   try {

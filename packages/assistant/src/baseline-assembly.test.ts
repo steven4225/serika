@@ -70,9 +70,9 @@ function fixtureExecution({ workspace, shellEnabled, autonomous = false }: {
     directories: [{ path: workspace, access: "readwrite" }],
     files: autonomous ? "foreground_authorized" : "scoped_grants_or_confirmation", fileGrants: [],
     shell: { configured: shellEnabled, registered: shellEnabled, mode: autonomous ? "seatbelt" : "host",
-      authorization: !shellEnabled ? "not_registered" : autonomous ? "foreground_authorized" : "per_call_confirmation", health: "not_checked" },
+      authorization: !shellEnabled ? "not_registered" : autonomous ? "foreground_authorized" : "task_cwd_confirmation", health: "not_checked" },
     terminal: { configured: false, registered: false, authorization: "not_registered", health: "not_checked" },
-    pi: { registered: false, target: null, authorization: "selected_target_reads_auto; control_per_call_confirmation", health: "not_checked" },
+    pi: { registered: false, target: null, authorization: "selected_target_reads_auto; control_once_per_target_in_task", health: "not_checked" },
   };
 }
 
@@ -199,7 +199,9 @@ describe("v2 pilot baseline: assembled tools, instructions and capability report
 function assertStep3Assembly(actual: string, baseline: string, autonomous = false) {
   baseline = baseline.replaceAll(
     "批准 computer_check 可单独检查连接（不读取窗口内容），批准 computer_observe 才观察指定的允许应用；不会启动驱动或授予系统权限。",
-    "computer_check 检查连接、computer_observe 观察明确授权的应用均免逐条确认；未授权应用直接拒绝，computer_action 在当前任务内批准一次后沿用。不会启动驱动或授予系统权限。");
+    "computer_check 检查连接、computer_observe 观察明确授权的应用均免逐条确认；未授权应用直接拒绝，computer_action 在当前任务内批准一次后沿用。不会启动驱动或授予系统权限。")
+    .replaceAll("当前工作区桌面前台文件操作已授权，本机 Shell 仍逐条确认；其他入口不继承。Shell 使用进程的本机权限，工作区不是沙箱。", "当前工作区桌面前台文件操作已授权，Seatbelt 内命令不再逐条确认。显式选择的本机 Shell 在同一工作目录及其子目录批准一次后于当前任务内沿用，直到结束、撤回或空闲满 30 分钟；这不是始终开启的主机权限。其他入口不继承。Shell 使用进程的本机权限，工作目录不是沙箱。")
+    .replaceAll("工作目录不是操作系统隔离；主机命令仍需明确批准。", "工作目录不是操作系统隔离。授权目录外的路径会直接拒绝、不会执行。同一工作目录及其子目录批准一次后，在当前任务内沿用；没有任务时沿用当前对话，直到结束、撤回或空闲满 30 分钟。");
   const schemas = (text: string) => new Map([...text.matchAll(/## tool (\S+)\n\n([\s\S]*?)(?=\n\n## tool |\n\n# instructions)/g)].map(match => [match[1]!, match[2]!]));
   const before = schemas(baseline), after = schemas(actual), hadMemory = before.has("memory_add");
   for (const name of ["history_search", "history_read"]) { assert.ok(after.has(name)); after.delete(name); }
@@ -234,9 +236,11 @@ function assertStep3Assembly(actual: string, baseline: string, autonomous = fals
   let oldSystem = system(baseline).replace(/In automatic memory mode,[\s\S]*?Active injected Memory overrides conflicting older transcript\/compaction, while the latest user request remains authoritative\./, "");
   if (autonomous) oldSystem = oldSystem
     .replace(/When shell_exec is available,[\s\S]*?Do not use shell_exec when it is not enabled\. /, SEATBELT_INSTRUCTIONS + " ")
-    .replace("Local shell_exec is not pre-authorized: each command is still shown to the user for confirmation, so run only the commands the task needs.", "Desktop and bound Telegram autonomous shell_exec use the same module Seatbelt policy without per-command confirmation. Explicitly selected host Shell asks once for the same working directory in the current task, then reuses that approval until the task ends, is revoked, or sits idle for 30 minutes. It does not restore always-on host privileges. Run only commands the task needs.")
-    .replace("Other tools retain their own permissions. Local Shell has the process's host permissions; the workspace is not an OS sandbox.", "Other tools retain their own permissions. Host Shell has the process's host permissions; its workspace is not an OS sandbox. Network commands require an explicitly selected host Run and per-command confirmation.");
-  oldSystem = oldSystem.replace("The command and workspace-relative cwd will be shown for y/n confirmation.", "The command and cwd are shown for confirmation. An absolute path or ~/path is accepted only when it resolves inside an authorized directory. One allow reuses that host working directory for the current task until it ends, is revoked, or sits idle for 30 minutes. This is not an always-on host privilege.")
+    .replace("Local shell_exec is not pre-authorized: each command is still shown to the user for confirmation, so run only the commands the task needs.", "Desktop and bound Telegram autonomous shell_exec use the same module Seatbelt policy without per-command confirmation. Explicitly selected host Shell asks once for the same working directory and its subdirectories in the current task, then reuses that approval until the task ends, is revoked, or sits idle for 30 minutes. It does not restore always-on host privileges. Run only commands the task needs.")
+    .replace("Other tools retain their own permissions. Local Shell has the process's host permissions; the workspace is not an OS sandbox.", "Other tools retain their own permissions. Host Shell has the process's host permissions; its working directory is not an OS sandbox. Network commands require an explicitly selected host Run and one confirmation for that working directory and its subdirectories in the current task.");
+  oldSystem = oldSystem.replace("The command and workspace-relative cwd will be shown for y/n confirmation.", "The command and cwd are shown for confirmation. An absolute path or ~/path is accepted only when it resolves inside an authorized directory; other paths are rejected and do not run. One allow reuses that host working directory and its subdirectories for the current task, or this thread when there is no task, until it ends, is revoked, or sits idle for 30 minutes. This is not an always-on host privilege.")
+    .replace("The workspace cwd is not an operating-system sandbox, so do not claim that it prevents access outside the workspace.", "The working directory is not an operating-system sandbox, so do not claim that it prevents access outside the authorized directories.")
+    .replace("Shell remains per-call confirmation.", "Host shell asks once for a working directory in the current task, then reuses that allow for that directory and its subdirectories until the task ends, is revoked, or sits idle for 30 minutes. Paths outside the directory allowlist are rejected and do not run.")
     .replace("with a workspace-relative path to find and read files", "with an authorized absolute path or an explicit project/directory-relative path to find and read files")
     .replace("All file paths are relative to the configured workspace, not the application's source repository or previous test fixtures.", "Relative file paths use the explicit project or selected directory. Without an explicit base and with several authorized directories, ask the user to choose a directory.");
   const newSystem = system(actual).replaceAll(WORK_TASK_CREATE_INSTRUCTIONS, "").replace(autonomous ? MEMORY_READ_INSTRUCTIONS : MEMORY_READ_INSTRUCTIONS + MEMORY_PRIMARY_WRITE_INSTRUCTIONS, "");

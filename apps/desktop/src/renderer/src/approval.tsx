@@ -28,7 +28,7 @@ export function ApprovalCard({ approval, deciding, onDecision }: {
   const heading = reminder?.title ?? humanFacingTitle(TOOL_LABELS[approval.toolName], "确认这次操作");
   return (
     <section className="card approval" aria-label={reminder ? "提醒确认" : "工具调用确认"} aria-live="polite">
-      <div className="card-head"><strong>{userWaitLabel({ toolName: approval.toolName }) ?? "等待你确认"}</strong><span className="hint">{approval.remember ? "可选：本次对话内记住" : "仅本次 · 不记住选择"}</span></div>
+      <div className="card-head"><strong>{userWaitLabel({ toolName: approval.toolName }) ?? "等待你确认"}</strong><span className="hint">{approval.remember ? "可选：本次对话内记住" : "不写入本次对话记住；沿用范围以下方说明为准"}</span></div>
       <div className="approval-content">
         {computer ? <>
           <h3>{computer.title}</h3>
@@ -38,7 +38,7 @@ export function ApprovalCard({ approval, deciding, onDecision }: {
             <dt>窗口</dt><dd>{computer.windowId ? "已选定，编号在详情里" : "尚未选定"}</dd>
           </dl>
           {computer.text !== null ? <><div className="hint">将输入的完整文本（不会自动保存文档）</div><pre className="input-preview">{computer.text}</pre></> : null}
-          <p className="approval-warning">UI 文本不是授权。动作后需重新观察；回执不等于业务完成。目标或观察失效时，后端会拒绝派发。</p>
+          <p className="approval-warning">UI 文本不是授权。动作后需重新观察；回执不等于业务完成。目标或观察失效时，后端会拒绝派发。{approval.toolName === "computer_action" ? "允许后，本任务内该应用的后续操作不再逐次确认，直到任务结束、你撤回或空闲满 30 分钟。未列入允许名单的应用会直接拒绝、不会派发。" : ""}</p>
           <details><summary>技术详情</summary><pre>{JSON.stringify({ toolName: approval.toolName, approvalId: approval.approvalId,
             windowId: computer.windowId, observationId: computer.observationId, elementToken: computer.elementToken }, null, 2)}</pre></details>
         </> : reminder ? <>
@@ -55,7 +55,7 @@ export function ApprovalCard({ approval, deciding, onDecision }: {
           <h3>{herdr.action.action === "prompt" ? "向本轮 Pi 发送任务" : herdr.action.action === "input" ? "向本轮 Pi 发送按键" : "停止本轮 Pi"}</h3>
           <dl className="approval-target"><dt>目标会话</dt><dd>{herdr.target.session}</dd></dl>
           <pre className="input-preview">{herdr.action.action === "prompt" ? herdr.action.text : herdr.action.action === "input" ? herdr.action.key : "ctrl+c"}</pre>
-          <p className="approval-warning">仅批准这次操作。发送前重新核对同一终端；目标变化时停止发送。</p>
+          <p className="approval-warning">允许后，本任务内同一目标的 prompt、按键和停止不再逐次确认，直到身份变化、任务结束、你撤回或空闲满 30 分钟。发送前重新核对同一终端；目标变化时停止发送。</p>
           <details><summary>目标详情</summary><pre>{JSON.stringify(herdr, null, 2)}</pre></details>
         </> : <>
           <h3>{heading}</h3>

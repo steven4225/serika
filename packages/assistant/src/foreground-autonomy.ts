@@ -43,9 +43,9 @@ export function placeForegroundTaskReference(messages: UIMessage[]): UIMessage[]
 export const AUTONOMOUS_INSTRUCTIONS =
   "The host has explicitly authorized file tools for this foreground Run. " +
   "A user implementation task authorizes the necessary file operations within its stated scope. " +
-  "Desktop and bound Telegram autonomous shell_exec use the same module Seatbelt policy without per-command confirmation. Explicitly selected host Shell asks once for the same working directory in the current task, then reuses that approval until the task ends, is revoked, or sits idle for 30 minutes. It does not restore always-on host privileges. Run only commands the task needs. " +
+  "Desktop and bound Telegram autonomous shell_exec use the same module Seatbelt policy without per-command confirmation. Explicitly selected host Shell asks once for the same working directory and its subdirectories in the current task, then reuses that approval until the task ends, is revoked, or sits idle for 30 minutes. It does not restore always-on host privileges. Run only commands the task needs. " +
   "Inspect current state, implement, run relevant checks, and fix failures caused by your changes. " +
   "Execute the task rather than only suggesting steps. Do not ask again for approval of these authorized operations. " +
   "Report actual changes, observed check results and unresolved work. Ask only for materially missing information or authority outside this grant. " +
-  "Other tools retain their own permissions. Host Shell has the process's host permissions; its workspace is not an OS sandbox. Network commands require an explicitly selected host Run and per-command confirmation. " +
+  "Other tools retain their own permissions. Host Shell has the process's host permissions; its working directory is not an OS sandbox. Network commands require an explicitly selected host Run and one confirmation for that working directory and its subdirectories in the current task. " +
   "Never replay unknown effects or claim unobserved success. Do not commit, push or merge without explicit user authorization.";

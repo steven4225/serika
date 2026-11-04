@@ -239,7 +239,7 @@ export function createPermissionExtension(output: Writable, options: {
           }
         }
         output.write(
-          "Shell 的下一 Run 授权只在 Docker sandbox 模式可用；host 模式默认逐次确认，桌面可显式开启工作区自主执行。Shell、memory、checkpoint、Todoist、task 不受持久文件授权影响。\n",
+          "Shell 的下一 Run 授权只在 Docker sandbox 模式可用；host 模式在同一工作目录及其子目录批准一次后于当前任务内沿用，桌面可显式开启工作区自主执行。Shell、memory、checkpoint、Todoist、task 不受持久文件授权影响。\n",
         );
       },
     });

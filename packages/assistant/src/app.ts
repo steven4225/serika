@@ -655,7 +655,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           todoist.statusLines.module,
           `shell: ${moduleConfig.enabled.shell ? "enabled" : "disabled"}`,
           `web: ${moduleConfig.enabled.web ? "enabled (web_fetch)" : "disabled"}`,
-          `computer: ${moduleConfig.computer ? `enabled; allowed apps: ${moduleConfig.computer.allowedBundleIds!.join(", ")}; AX-addressed, per-call confirmation` : "disabled"}`,
+          `computer: ${moduleConfig.computer ? `enabled; allowed apps: ${moduleConfig.computer.allowedBundleIds!.join(", ")}; AX-addressed; allowed-app observe needs no per-call confirmation; an action asks once per app in the current task` : "disabled"}`,
           `web_search: ${moduleConfig.enabled.web && webSearchEnabled ? "enabled (Exa MCP, no key)" : "disabled"}`,
           todoist.statusLines.timeZone,
           `自动记忆整理: ${moduleConfig.autoConsolidate ? "on" : "off"}`,

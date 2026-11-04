@@ -183,7 +183,7 @@ export function createComputerModule(config: ComputerConfig, options: { call?: D
         inputSchema: observeSchema,
         execute: async (input, { abortSignal }) => {
           observation = undefined;
-          if (disposed || !parsed.allowedBundleIds!.includes(input.bundleId)) return failure("Application is not allowed");
+          if (disposed || !parsed.allowedBundleIds!.includes(input.bundleId)) return failure("该应用不在允许名单内，已拒绝，没有派发。");
           const signal = abortSignal ?? new AbortController().signal;
           try {
             if (input.pid === undefined || input.windowId === undefined) {

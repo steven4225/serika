@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 
 import { seatbeltSystemRoots, type SeatbeltRuntime } from "./seatbelt-runtime.js";
 
-export const SEATBELT_INSTRUCTIONS = "Desktop autonomous shell_exec uses macOS Seatbelt with network disabled. Only authorized read/write directories and a private temporary directory are writable; the deepest directory declaration controls nested permissions. Runtime dependencies are read-only. Credential access, application data writes and external process control are denied. posix_spawn and process-group changes are refused to keep all descendants cancellable; programs requiring them fail. Commands needing network or unsupported operations require an explicitly selected host Run and per-call confirmation. Seatbelt failure never falls back to host. Shell is never remembered.";
+export const SEATBELT_INSTRUCTIONS = "Desktop autonomous shell_exec uses macOS Seatbelt with network disabled. Only authorized read/write directories and a private temporary directory are writable; the deepest directory declaration controls nested permissions. Runtime dependencies are read-only. Credential access, application data writes and external process control are denied. posix_spawn and process-group changes are refused to keep all descendants cancellable; programs requiring them fail. Commands needing network or unsupported operations require an explicitly selected host Run and one confirmation for that working directory and its subdirectories in the current task. Seatbelt failure never falls back to host. Shell is never remembered.";
 
 const pathFilter = (kind: string, paths: readonly string[]) => paths.map(path => `(${kind} ${JSON.stringify(path)})`).join(" ");
 

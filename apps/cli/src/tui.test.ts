@@ -2362,7 +2362,8 @@ describe("createToolConfirmation", () => {
 
     assert.match(output.text(), /Tool: shell_exec/);
     assert.match(output.text(), /Command: "pnpm test"/);
-    assert.match(output.text(), /Cwd: "packages\/core" \(relative to workspace\)/);
+    assert.match(output.text(), /Cwd: "packages\/core" \(relative to the selected authorized directory\)/);
+    assert.match(output.text(), /anything else is rejected and the command does not run/);
     assert.match(output.text(), /not an operating-system sandbox/);
     assert.match(output.text(), /Allow this call\? \[y\/n\]/);
 

@@ -105,15 +105,16 @@ describe("createReadFileModule", () => {
       ["write_file", "edit_file"], "only writes are remembered per directory; reads fall back to read risk");
     const card = (toolName: string, input: unknown) =>
       facts.get(toolName)?.confirmation?.({ toolName, input } as Parameters<NonNullable<ToolPermissionFacts["confirmation"]>>[0]);
+    const reuse = "One allow covers this path's authorized directory for the current task, or this thread when there is no task, until it ends, you revoke it, or it sits idle for 30 minutes. Paths outside that allowlist are rejected and are not accessed.\n";
     assert.equal(card("read_file", { path: "a.md" }),
-      "\nTool: read_file\nPath: \"a.md\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\nAllow this call? [y/n] ");
+      "\nTool: read_file\nPath: \"a.md\"\nReading this file will place its contents in the model context and the completed run's committed transcript.\n" + reuse + "Allow this call? [y/n] ");
     assert.equal(card("read_file", {}), undefined);
-    assert.equal(card("write_file", { path: "a.md", content: "x" }), "\nTool: write_file\nPath: \"a.md\"\nContent: \"x\"\nAllow this call? [y/n] ");
+    assert.equal(card("write_file", { path: "a.md", content: "x" }), "\nTool: write_file\nPath: \"a.md\"\nContent: \"x\"\n" + reuse + "Allow this call? [y/n] ");
     assert.equal(card("edit_file", { path: "a.md", oldText: "o", newText: "n" }),
-      "\nTool: edit_file\nPath: \"a.md\"\nOld text: \"o\"\nNew text: \"n\"\nAllow this call? [y/n] ");
+      "\nTool: edit_file\nPath: \"a.md\"\nOld text: \"o\"\nNew text: \"n\"\n" + reuse + "Allow this call? [y/n] ");
     assert.equal(facts.get("list_directory")?.confirmation, undefined);
     assert.match(host.instructions("read-file"), /^When workspace file tools are available/);
-    assert.match(host.instructions("read-file"), /Shell remains per-call confirmation\. $/);
+    assert.match(host.instructions("read-file"), /Host shell asks once for a working directory in the current task.*allowlist are rejected and do not run\. $/);
     assert.match(host.instructions("read-file", { autonomous: true }), /Local Shell follows this Run's host authorization\. $/);
   });
 });

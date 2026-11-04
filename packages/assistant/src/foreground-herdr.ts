@@ -107,7 +107,7 @@ export class ForegroundHerdrTargets {
   }
   unavailableToolFeedback(): Readonly<Record<string, string>> | undefined {
     return this.#run?.adopted && !this.#run.halted ? {
-      herdr_pi_discover: "HERDR_TARGET_ALREADY_ADOPTED: This Run already has a host-adopted Pi. No discovery or input was dispatched. Continue with herdr_pi_read or herdr_pi_control using the adopted target; control still requires its own approval.",
+      herdr_pi_discover: "HERDR_TARGET_ALREADY_ADOPTED: This Run already has a host-adopted Pi. No discovery or input was dispatched. Continue with herdr_pi_read or herdr_pi_control on the adopted target. Read needs no extra approval. Control asks once for this target in the current task, then reuses that allow until the identity changes, the task ends, you revoke it, or it sits idle for 30 minutes. Adoption is not that approval.",
     } : undefined;
   }
   projectModelContext(messages: UIMessage[], capabilities: CapabilityStatus): UIMessage[] {

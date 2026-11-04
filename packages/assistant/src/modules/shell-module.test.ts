@@ -369,7 +369,12 @@ describe("executeShellCommand", () => {
     assert.deepEqual(docker.toolPermissions.get("shell_exec")?.defaults, { remember: "never", runAuthorization: "tool" });
     const card = (module: typeof host) => module.toolPermissions.get("shell_exec")?.confirmation?.(
       { toolName: "shell_exec", input: { command: "ls" } } as Parameters<NonNullable<ToolPermissionFacts["confirmation"]>>[0]);
-    assert.match(String(card(host)), /^\nTool: shell_exec\nCommand: "ls"\nCwd: "\." \(relative to workspace\)\n/);
+    assert.match(String(card(host)), /^\nTool: shell_exec\nCommand: "ls"\nCwd: "\." \(relative to the selected authorized directory\)\n/);
+    assert.match(String(card(host)), /anything else is rejected and the command does not run/);
+    assert.match(String(card(host)), /subdirectories for the current task, or this thread when there is no task/);
+    const absolute = host.toolPermissions.get("shell_exec")?.confirmation?.(
+      { toolName: "shell_exec", input: { command: "ls", cwd: "/home/user/Desktop" } } as Parameters<NonNullable<ToolPermissionFacts["confirmation"]>>[0]);
+    assert.match(String(absolute), /Cwd: "\/home\/user\/Desktop" \(authorized directory\)/);
     assert.match(String(card(docker)), /\(relative to sandbox mounts\)\nDocker sandbox image: img; network none; root filesystem read-only\.\nReadable: none; writable: none\.\n/);
     assert.match(host.instructions("shell"), /One allow reuses that host working directory/);
     assert.match(host.instructions("shell", { autonomous: true }), /One allow reuses that host working directory/);
