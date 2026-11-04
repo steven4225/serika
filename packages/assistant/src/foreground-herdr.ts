@@ -43,10 +43,17 @@ export class ForegroundHerdrTargets {
   begin(request?: UIMessage, scopeKey?: string): void {
     this.end();
     this.#scopeKey = scopeKey;
-    const pin = scopeKey ? this.options.taskTrust?.pinnedTarget(scopeKey) : undefined;
     this.#run = { requestId: request?.id, request: request?.parts.flatMap(part => part.type === "text" ? [part.text] : []).join("\n") ?? "",
-      candidates: [], version: 0, calls: new Map(), halted: false, steers: new Set(), needsSelection: false,
-      ...(pin ? { adopted: { candidateId: randomUUID(), title: pin.session, status: "idle" as const, target: pin } } : {}) };
+      candidates: [], version: 0, calls: new Map(), halted: false, steers: new Set(), needsSelection: false };
+    this.#attachPinnedTarget();
+  }
+  // A selection in this scope sticks for the idle window even when this Run has not adopted yet.
+  #attachPinnedTarget(): void {
+    const run = this.#run;
+    if (!run || run.adopted || !this.#scopeKey) return;
+    const pin = this.options.taskTrust?.pinnedTarget(this.#scopeKey);
+    if (!pin) return;
+    run.adopted = { candidateId: randomUUID(), title: pin.session, status: "idle", target: pin };
   }
   observeSteers(messages: readonly UIMessage[]): void {
     const run = this.#run;
@@ -202,6 +209,7 @@ export class ForegroundHerdrTargets {
     if (!run || run.halted) return { allow: false, reason: run ? "HERDR_RUN_HALTED: 本轮未知结果须人工核对" : "HERDR_FOREGROUND_REQUIRED: 需要当前前台 Run" };
     const parsed = input.toolName === "herdr_pi_read" ? herdrReadSchema.safeParse(input.input) : herdrControlSchema.safeParse(input.input);
     if (!parsed.success) return { allow: false, reason: "HERDR_INVALID_ACTION: 操作参数无效" };
+    this.#attachPinnedTarget();
     if (!run.adopted) {
       run.calls.set(input.toolCallId, { kind: "failed", result: failure("HERDR_DISCOVERY_REQUIRED", "本轮尚未采用 Pi 目标；先调用 herdr_pi_discover，由宿主推进选择，没有派发输入") });
       return { allow: true };
