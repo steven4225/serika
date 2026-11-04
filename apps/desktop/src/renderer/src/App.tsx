@@ -25,7 +25,7 @@ import { useChatAttachments } from "./app/use-chat-attachments.js";
 import { useConversationDraftPersistence, useConversationDraftState } from "./app/use-conversation-draft.js";
 import { useBriefContinue } from "./app/use-brief-continue.js";
 import { HerdrSelectionCard } from "./herdr-selection.js";
-import { userWaitLabel } from "@serika/assistant";
+import { userWaitLabel } from "@serika/assistant/browser";
 import { ApprovalCard } from "./approval.js";
 import { useApproval } from "./app/use-approval.js";
 import { createRuntimeStore, useRuntime } from "./app/runtime-store.js";

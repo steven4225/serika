@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { Writable } from "node:stream";
 import type { BeforeToolExecuteInput } from "@serika/core";
 import type { ToolPermissionFacts } from "./module-host.js";
+import { userWaitLabel as browserUserWaitLabel } from "./browser.js";
 import { createTaskTrust, fileAllowlistRoot, hostShellCwd, TASK_TRUST_IDLE_MS, userWaitLabel } from "./task-trust.js";
 import { createToolConfirmation } from "./tool-confirmation.js";
 
@@ -40,9 +41,12 @@ async function allow(trust: ReturnType<typeof createTaskTrust>, input: BeforeToo
 describe("task trust", () => {
   it("names a user wait separately from a model timeout label", () => {
     assert.equal(userWaitLabel({ herdr: true, toolName: "terminal_exec" }), "在等你：选 Pi 目标");
+    assert.equal(browserUserWaitLabel({ herdr: true, toolName: "terminal_exec" }), "在等你：选 Pi 目标");
     assert.equal(userWaitLabel({ toolName: "terminal_exec" }), "在等你：批 主机命令");
+    assert.equal(browserUserWaitLabel({ toolName: "terminal_exec" }), "在等你：批 主机命令");
     assert.equal(userWaitLabel({ toolName: "write_file" }), "在等你：批 写入文件");
     assert.equal(userWaitLabel({}), null);
+    assert.equal(browserUserWaitLabel({}), null);
   });
 
   it("reuses an allowlisted file, a host cwd, and one app after a single allow", async () => {
