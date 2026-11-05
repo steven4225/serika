@@ -6,6 +6,7 @@
 
 - `app/runtime-store.ts`：启动先发布 info、草稿，末尾才执行 Home，原先中间 idle 会开放操作。增加 renderer 的 `initializing`，整条启动读取 settled 后释放；错误仍显示，不把读取结束当作成功。records 读取后检查取消，防止已销毁页面向新会话发送 Home。
 - `App.tsx`：复用 busy 控制会话、任务和设置；发送、输入框、brief continuation 等到初始化结束，显示正在连接。未改变 Controller 状态、工具权限、批准或重试。
+- `rss.tsx`：GUI 创建 RSS 排期时，Chromium 报 UTC 偏移 pattern 的 `[+-]` 在 Unicode v 模式无效；转义连字符，恢复原定格式校验。该失败来自真实 Electron 日志，完整后台流程因零错误检查判失败，未放行该报错。
 - 按 Fix Root Causes 修正入口开放时机；按 Prove It Works 回到真实 Electron 验证。比较过延迟草稿、移动 Home，两者不能覆盖全部操作入口。
 
 ## 2. 逐条对照验收项
@@ -19,7 +20,7 @@
 
 ## 3. 前后数字
 
-产品 2 文件 `+16/-9`，测试 1 文件 `+38/-1`。两条测试需要完整控制启动 Home、records 延迟、错误和销毁，故测试行数超过产品。既有初始化对象断言仅追加 `initializing: true`，其余期望保留。
+产品 3 文件 `+17/-10`，测试 1 文件 `+38/-1`。两条测试需要完整控制启动 Home、records 延迟、错误和销毁，故测试行数超过产品。既有初始化对象断言仅追加 `initializing: true`，其余期望保留。
 
 ## 4. 实际命令和退出码
 
