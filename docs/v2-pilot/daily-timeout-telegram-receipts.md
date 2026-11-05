@@ -20,7 +20,7 @@
 | 目录卡真实入站到配置保存 | 真实 DesktopRuntime／Store＋假 Telegram API，原卡／拒绝／过期／CAS／权限替换／更深规则／重启／重放；零真实模型与 Telegram 请求 |
 | 卡片及共享目录均防止祖先链接重定向 | 卡片／save 先红 0/2 → 绿 2/2；direct／configured 回归先红 0/2 → 绿 2/2，两目录文件 39/39 |
 | 32K 与日用大窗口 | 原有假模型 discovery／compaction 套件覆盖 32,768 与 1,000,000；未进行真实模型长输出或真实日用 TG 验收 |
-| 实际 Electron／preload／IPC | macOS Electron 44.4.5，最终源码 task-surface 假模型六项通过；完整 smoke 受 clean-source 门槛阻塞 |
+| 实际 Electron／preload／IPC | 本地源码 checkpoint `6baa2ed`、`sourceWorktreeDirty=false`；macOS Electron 44.4.5，完整 smoke 八项、task-surface 六项均通过，保留原 preload／IPC |
 | 日用保护 | 所有 guarded 测试无越界写入；resident 自身心跳写入被单独记录，未伪称日用元数据无变化 |
 
 五分钟人工 Demo，待构建切换后在已绑定私聊执行：`/directories` → 为已存在的临时目录发送只读授权命令 → 点原卡 → 收到“已保存并核对” → 再次 `/directories` 核对只读；重复点旧卡不重复写。该流程本轮只做隔离 API 验证，没有向真实 TG 发送。
@@ -37,13 +37,15 @@
 - 相关五文件隔离测试：144/144，0；目录两文件 39/39，0；CLI／terminal fixture 三文件 16/16，0；独立只读目录复核 4/4，0。
 - `pnpm test`：1，最终运行时 1,258 项中 1,241 通过、10 失败、7 跳过；10 个失败全部在未修改的固定日用 release 实跑复现。
 - `pnpm desktop:test`：1，目录规则修改前全套 680 项中 678 通过、2 失败，2 项在固定 release 实跑复现。规则修改后复跑为 677 通过、3 失败，多出一项 Docker fixture 仍依赖相对授权路径；已改用规范权限路径和相对 projectDirectory 保留原断言，定向复跑 1/1、退出 0。没有声称修 fixture 后又跑出全套绿色。
-- `pnpm --filter @serika/desktop smoke`：1，构建通过，源码未提交触发 `sourceWorktreeDirty` 必须为 false 的门槛；保留检查，未把它算通过。
+- `pnpm --filter @serika/desktop smoke`：此前未提交时退出 1，触发 dirty-source 门槛；用户允许本地 checkpoint 后，以 `TMPDIR=/private/tmp SERIKA_B2_RECORD_CONCURRENT_HOME=1 SERIKA_TEST_HOME=/private/tmp/serika-checkpoint-smoke-20261105` 运行，退出 0，八项桌面检查及六项任务检查均通过，零真实模型调用、零费用、零测试越界写入。
 - 独立运行 `task-surface-smoke.mjs`：0，最终源码真实 Electron＋脚本模型复跑六项通过、零真实模型调用。
 - `git diff --check`：0。
 
+本次运行编号 `23388918-049d-45c0-87a1-7b0737cdd353`；源码 `6baa2edbd02ac563bae6373eaafc1849cc1d01a3`；smoke 脚本 SHA-256 `dc93b146f85165710071944d59108a36898c7a60aac37605950aa2264dcbb994`。已独立核对八张截图的 SHA-256、四次 Electron 启动的 pid／userData／UA、重启前后不同 pid 与相同记忆 SHA-256、临时目录清理及写入保护器退出码。原始 JSON、截图和命令日志留在本机产品目录之外：`/Users/a1-6/.codex/visualizations/2026/11/04/01a1a789-49b5-7421-8f58-b29c09948911/serika-checkpoint-smoke-23388918-049d-45c0-87a1-7b0737cdd353/`。日用 resident 的并发写入单独记录为 53 次事件，未称日用元数据完全不变。
+
 ## 与计划不符的地方及理由
 
-- 用户已明确允许本机 checkpoint，接下来从干净源码运行完整 smoke；此前的 dirty-source 拦截保留为历史失败记录。此次授权不包含推送、PR、部署或重启日用进程。
+- 用户已明确允许本机 checkpoint，源码已本地提交并通过完整 smoke；此前的 dirty-source 拦截保留为历史失败记录。此次未推送、建 PR、部署或重启日用进程；后续报告提交不改变本次验证绑定的源码 commit。
 - 全套原有 12 项失败未顺手改业务／断言／golden：任务状态旧预期、continuity、permission soft reject、RSS 未结算、Skill schema／状态、macOS 故障注入、桌面读取批准与提醒旧 golden。失败已逐项在固定 baseline 复现。
 - 日用五条授权只读核对有一条仅大小写不规范；新版本切换前须核对并规范这一条。此报告不声称已转换日用配置。
 - 保留未知副作用、禁自动重放、后台绝对时限及原工具预算；没有实际扩大日用目录权限、真实模型／Telegram 验收或服务替换。
