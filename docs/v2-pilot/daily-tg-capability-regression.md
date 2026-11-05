@@ -49,13 +49,14 @@
 | `pnpm --filter @serika/desktop exec tsx scripts/chat-run-target-telegram-gate.mjs --output /private/tmp/serika-tg-guidance-pi-gate-20261105` | 0，8 项通过，隔离 Herdr 目标清理完成。 |
 | `node /private/tmp/serika-p1-probe-script.7NIThQ/probe.mjs` | 0，采用最后单次 `3BetwF` 证据，脚本哈希已独立核对。 |
 | `node /private/tmp/serika-background-verification-scripts/electron.mjs`；同目录 `ack.mjs` | 前者 1，后台成功后外部脚本从隐藏详情读 ID 为空；后者 0，同实例续验实际点击已读，不重跑 worker。原失败报告保留，续验绑定原报告 SHA。 |
-| `pnpm --filter @serika/desktop smoke` | 首次 1，官方脚本要求干净且已提交源码，当时未获提交授权。用户随后授权提交与 PR，干净源码复跑结果待记录。 |
+| `pnpm --filter @serika/desktop smoke` | 干净产品提交 `cde233d` 首次 1，重开切换与启动 `/home` 竞争；同提交未改脚本复跑 0，首组 8 项、任务流程 6 项通过。保护器写入违规 0。 |
 | `git diff --check` | 0，独立只读审核未发现阻塞问题。 |
 
-本地证据目录：`/Users/a1-6/.codex/visualizations/2026/11/05/01a1aaf7-9a5c-73d2-80ac-d7521f39021f/tg-capability-guidance/`。`verification-manifest.json` 绑定源码、日志和基线失败集合；`background/` 保存原失败、worker、已读续验、一致性报告及脚本截图。主线程独立核对源与构建哈希、三个任务前后内容、截图哈希及测试 Electron 退出。
+原始证据仅保存在本机隔离验证目录，不进入产品 PR。`verification-manifest.json` 绑定源码、日志和基线失败集合；`background/` 保存原失败、worker、已读续验、一致性报告及脚本截图。主线程独立核对源与构建哈希、三个任务前后内容、截图哈希及测试 Electron 退出。官方成功运行编号 `808a79be-1620-4707-8de3-9a69c646ad0a`，开始时源码干净，证据生成物归档后工作区仍干净。
 
 ## 5. 与计划不符的地方及理由
 
 - 两个既有 TG 回执精确文本断言在保留原错误内容后追加授权说明。旧断言只允许拒绝原因，与本次明确要求的新指引冲突；其余断言未弱化、删除或跳过。
-- 首次 clean-source smoke 因未提交源码被阻止。用户随后明确授权提交、推送与 PR，先作本地 checkpoint 再复跑。远端 main 尚不含日用基线的两笔提交，本轮 PR 以该固定基线分支为目标，保留前序依赖。
+- 官方 smoke 首次因未提交源码被阻止，授权 checkpoint 后的首次运行在重开切换时失败。最小重开探针在本轮与原 `9470a19` 基线都复现同一拒绝，状态时间线均出现启动 `/home`。源码路径为 renderer `app/runtime-store.ts` 启动尾部执行 `home()`，与脚本仅等待输入框启用后立即 `selectThread()` 竞争。这些路径均未被本轮修改。未加 sleep、改断言或更改脚本；同产品提交的完整官方复跑 exit 0，保留首次失败，不宣称消除了既有竞争。
+- 远端 main 尚不含日用基线两笔提交。本轮 PR 以固定基线分支 `codex/daily-timeout-receipts` 为目标，仅展示本轮 8 文件；前序依赖进入 main 后可转向 main。CI workflow 当前为 `disabled_manually`，本地验证不代表远端检查通过。
 - 真实模型费用、真实 TG 测试绑定、系统通知与再次日用切换尚无本轮授权。所有隔离结果都不等同于真实 TG 和模型日用验收，整份 issue 仍未关闭。
