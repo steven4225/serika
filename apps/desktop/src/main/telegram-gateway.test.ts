@@ -733,6 +733,8 @@ it("shares the real file approval, shortcodes are single-use and plain yes is no
     const code = /允许 ([A-F0-9]{10})/.exec(f.sent.find(x => x.includes("需要你确认 · 写入文件"))!)![1]!;
     await f.gateway.receive(update(4, `允许 ${code}`));
     assert.match(f.sent.at(-1)!, /已处理这一次确认/);
+    assert.match(f.sent.at(-1)!, /批准范围以卡片说明为准/);
+    assert.doesNotMatch(f.sent.at(-1)!, /不适用于后续操作/);
     await until(() => f.store.snapshot().inputs[0]!.state === "finished");
     assert.equal(await readFile(join(f.workspace, "demo.md"), "utf8"), "telegram one write");
     await f.gateway.receive(update(5, `允许 ${code}`));
