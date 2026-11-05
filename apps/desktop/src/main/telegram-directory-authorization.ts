@@ -5,7 +5,7 @@ import type { AppInfo, DirectoryAuthorization, DirectorySettingsInput } from "..
 import type { TelegramData, TelegramInbound } from "./telegram-store.js";
 import type { TelegramKeyboard } from "./telegram-api.js";
 
-const usage = "新增或调整目录授权，请发送完整指令：\n授权目录 只读 /绝对路径\n授权目录 读写 /绝对路径\n例如：授权目录 只读 /Users/你的用户名/Downloads\n我会先显示范围，点击确认后才保存。/directories 查看当前目录。";
+export const TELEGRAM_DIRECTORY_AUTHORIZATION_USAGE = "新增或调整目录授权，请在空闲时发送完整指令：\n授权目录 只读 /绝对路径\n授权目录 读写 /绝对路径\n请填写已存在目录的实际绝对路径。宿主会先显示范围，点击确认卡后才保存；收到已保存并核对回执后，再按新权限继续。保存结果未知时请用 /directories 核对，不自动重试。/directories 查看当前目录。";
 type Context = { data: Pick<TelegramData, "enabled" | "botId" | "owner" | "deliveries">;
   info: Pick<AppInfo, "threadId" | "projectDirectory" | "authorizedDirectories" | "runtimeRecovery" | "configPath">; idle: boolean };
 type Permit = { code: string; binding: string; expires: number; chatId: number;
@@ -74,13 +74,13 @@ export class TelegramDirectoryAuthorization {
     }
     if (text === "/directories") {
       await reply(current.info.runtimeRecovery ? "运行时当前不可用，缓存配置不能证明当前权限；请先恢复连接。" :
-        `当前授权目录：\n${directoryList(current.info.authorizedDirectories)}\n\n${usage}`); return true;
+        `当前授权目录：\n${directoryList(current.info.authorizedDirectories)}\n\n${TELEGRAM_DIRECTORY_AUTHORIZATION_USAGE}`); return true;
     }
-    if (!command) { await reply(usage); return true; }
+    if (!command) { await reply(TELEGRAM_DIRECTORY_AUTHORIZATION_USAGE); return true; }
     const identity = binding(current);
     if (!identity) { await reply("请等待当前执行结束，并确保绑定与连接可用，再新增目录授权。"); return true; }
     const path = command[2]!;
-    if (!isAbsolute(path) || path.includes("\0")) { await reply(`需要填写绝对路径，未保存。\n${usage}`); return true; }
+    if (!isAbsolute(path) || path.includes("\0")) { await reply(`需要填写绝对路径，未保存。\n${TELEGRAM_DIRECTORY_AUTHORIZATION_USAGE}`); return true; }
     let canonical: string;
     try {
       const info = await lstat(path);

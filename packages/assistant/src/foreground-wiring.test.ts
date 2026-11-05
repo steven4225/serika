@@ -61,6 +61,10 @@ for (const source of ["desktop", "telegram"] as const) test(`${source} ordinary 
     assert.match(observed[1]!, new RegExp(process.version.replaceAll(".", "\\.")));
     assert.deepEqual(approvals, ["shell_exec"]);
     assert.match(systems[0]!, /command -v/);
+    if (source === "telegram") {
+      assert.match(systems[0]!, /授权目录 只读 \/绝对路径/);
+      assert.match(systems[0]!, /授权目录 读写 \/绝对路径/);
+    } else assert.doesNotMatch(systems[0]!, /授权目录 只读 \/绝对路径/);
     assert.ok(systems.every(system => system.includes(JSON.stringify(FOREGROUND_INSTRUCTIONS).slice(1, -1))));
     assert.ok(systems.every(system => !system.includes(AUTONOMOUS_INSTRUCTIONS.slice(0, 65))));
     assert.equal(systems[0], systems[1], "unchanged registration and authorization keep the complete system bytes stable");
