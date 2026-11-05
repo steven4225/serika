@@ -501,7 +501,7 @@ export class TelegramGateway {
       const valid = matches && (!input.callback || envelope?.messageId === input.callback.messageId && envelope.state === "submitted");
       if (valid) this.#approval = undefined; // Consume before dispatch, including competing phone/desktop decisions.
       const accepted = valid && this.host.current.confirm({ approvalId: pending.approvalId, decision: approval[1] === "允许" ? "allow" : "deny" }).accepted;
-      return reject(accepted ? "已处理这一次确认，不适用于后续操作。" : "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。");
+      return reject(accepted ? "已处理这一次确认。批准范围以卡片说明为准，执行结果请看回执。" : "确认已过期、已处理或不属于当前执行；没有批准任何操作。发送 /confirm 获取当前确认的新短码。");
     }
     if (/^(允许|拒绝)(?:[\s:：A-Za-z0-9]|$)/.test(text)) return reject("请点当前确认下的按钮，或完整发送“允许 短码 / 拒绝 短码”；发送 /confirm 可刷新确认。");
     const stopText = text.replace(/^[\s\p{P}]+|[\s\p{P}]+$/gu, "").toLowerCase();
@@ -619,7 +619,7 @@ export class TelegramGateway {
     const wait = userWaitLabel({ toolName: current.toolName });
     return this.#reply(`approval:${current.approvalId}:${permit.code}`, permit.chatId,
       [wait, telegramApprovalText(current.toolName, (current.preview || JSON.stringify(current.input)).slice(0, 2500), permit.code, current.input, new Date(this.now()))].filter(Boolean).join("\n"),
-      { inline_keyboard: [[{ text: ["task_create", "task_repeat_create"].includes(current.toolName) ? "确认保存" : "允许这次", callback_data: `allow:${permit.code}` },
+      { inline_keyboard: [[{ text: ["task_create", "task_repeat_create"].includes(current.toolName) ? "确认保存" : "允许", callback_data: `allow:${permit.code}` },
         { text: "取消", callback_data: `deny:${permit.code}` }]] });
   }
   async #finish(source: TelegramInbound, text?: string) {
