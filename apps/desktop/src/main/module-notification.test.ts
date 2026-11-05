@@ -1,6 +1,6 @@
 import { dirname } from "node:path";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { realpath, mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -15,10 +15,10 @@ import { RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
  * `[module:id]` text parsing); the output log keeps the same text as before.
  */
 test("module notifications arrive as structured messages and keep the output text", async () => {
-  const root = await mkdtemp(join(tmpdir(), "desktop-module-notification-"));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "desktop-module-notification-")));
   await mkdir(join(root, "workspace"));
   await mkdir(join(root, "transcripts"));
-  await writeFile(join(root, "config.json"), JSON.stringify({ version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: { pomodoro: { enabled: true } } }));
+  await writeFile(join(root, "config.json"), JSON.stringify({ version: 2, authorizedDirectories: [{ path: join(root, "workspace"), access: "readwrite" }], modules: { pomodoro: { enabled: true } } }));
   const messages: MainToRenderer[] = [];
   const send = (message: MainToRenderer) => { messages.push(message); };
   const output = new TeeOutput(send);

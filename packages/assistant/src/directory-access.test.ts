@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { link, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { link, mkdir, mkdtemp, readFile, realpath, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -10,6 +10,28 @@ import { resolveTuiModuleConfig } from "./tui-module-config.js";
 import { createReadFileModule } from "./modules/read-file-module.js";
 import { createModuleHost } from "./module-host.js";
 import { SeatbeltShellRunner } from "./modules/seatbelt-shell-runner.js";
+
+for (const source of ["direct", "configured"] as const) {
+  it(`rejects an ancestor redirect of a ${source} canonical directory grant, including config reopen`, async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), "serika-directory-redirect-")));
+    try {
+      const parent = join(root, "original"), granted = join(parent, "grant"), foreign = join(root, "foreign");
+      await mkdir(granted, { recursive: true }); await mkdir(join(foreign, "grant"), { recursive: true });
+      const configPath = join(root, "config.json"), directories: DirectoryAuthorization[] = [{ path: granted, access: "readwrite" }];
+      const text = JSON.stringify({ version: 2, authorizedDirectories: directories, modules: {} });
+      await writeFile(configPath, text);
+      const assembly = { configPath, dataDirectory: join(root, "data") };
+      const config = await resolveTuiModuleConfig(assembly, { cwd: root });
+      const access = source === "direct" ? new DirectoryAccess({ load: async () => directories, protectedPaths: [] })
+        : configuredDirectoryAccess({ assembly, config, cwd: root, home: root });
+      assert.equal((await access.resolve({ path: join(granted, "before"), write: true })).ok, true);
+      await rename(parent, join(root, "moved")); await symlink(foreign, parent, "dir");
+      await assert.rejects(access.resolve({ path: join(foreign, "grant", "after"), write: true }), /重新选择目录/);
+      await assert.rejects(resolveTuiModuleConfig(assembly, { cwd: root }), /重新选择目录/);
+      assert.equal(await readFile(configPath, "utf8"), text);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+}
 
 it("b2 applies deepest directory permissions, protected controls, selection and revocation to real file tools", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "serika-b2-files-")));

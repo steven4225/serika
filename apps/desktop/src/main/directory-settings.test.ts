@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, writeFile, realpath, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, realpath, rename, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
@@ -20,5 +20,18 @@ it("saves directory permissions with CAS, keeps the project base, and persists r
     await changeDirectorySettings(path, { directories: [], expectedDirectories: original }, { cwd: root });
     assert.deepEqual(JSON.parse(await readFile(path, "utf8")).authorizedDirectories, []);
     await assert.rejects(changeDirectorySettings(path, { directories: [{ path: "relative", access: "read" }], expectedDirectories: [] }, { cwd: root }), /绝对路径/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it("directory save rejects a replaced ancestor instead of granting its new canonical target", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "serika-directory-rebind-")));
+  try {
+    const original = join(root, "original"), foreign = join(root, "foreign"), grant = join(original, "grant");
+    await mkdir(grant, { recursive: true }); await mkdir(join(foreign, "grant"), { recursive: true });
+    const path = join(root, "config.json"), before = JSON.stringify({ version: 2, projectDirectory: null, authorizedDirectories: [], modules: {} });
+    await writeFile(path, before);
+    await rename(original, join(root, "moved")); await symlink(foreign, original);
+    await assert.rejects(changeDirectorySettings(path, { directories: [{ path: grant, access: "readwrite" }], expectedDirectories: [] }, { cwd: root }), /目录.*变化|规范路径/);
+    assert.equal(await readFile(path, "utf8"), before);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

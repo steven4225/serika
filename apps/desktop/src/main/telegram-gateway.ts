@@ -11,8 +11,10 @@ import { formatLocalTaskTime, MODEL_TIME_ZONE, userWaitLabel } from "@serika/ass
 import { telegramParts, telegramApprovalText, telegramBoundedText } from "./telegram-format.js";
 import { TelegramHerdrSelection } from "./telegram-herdr-selection.js";
 import { formatCapabilityStatus } from "@serika/assistant";
+import { telegramRunResult } from "./telegram-run-result.js";
+import { TelegramDirectoryAuthorization } from "./telegram-directory-authorization.js";
 
-type Host = Pick<DesktopRuntime, "channelTelegramAutonomyEnabled" | "channelSubscribe" | "channelSnapshot" | "channelCreateThread" | "channelRun" | "channelReceipt" | "channelScheduledTask" | "channelRecurringTask" | "channelScheduledTasks" | "current">;
+type Host = Pick<DesktopRuntime, "channelTelegramAutonomyEnabled" | "channelSubscribe" | "channelSnapshot" | "channelCreateThread" | "channelRun" | "channelReceipt" | "channelScheduledTask" | "channelRecurringTask" | "channelScheduledTasks" | "current" | "setAuthorizedDirectories">;
 function code() { return randomBytes(5).toString("hex").toUpperCase(); }
 function approvalHash(value: PendingApproval) {
   // Preview is asynchronous presentation, not authority; hash the actual operation.
@@ -26,6 +28,7 @@ export class TelegramGateway {
   #pairing: TelegramStatus["pairing"] = null;
   #approval: { code: string; runId: string; threadId: string; userId: number; chatId: number; hash: string; approvalId: string; expires: number } | undefined;
   readonly #herdrSelection: TelegramHerdrSelection;
+  readonly #directoryAuthorization: TelegramDirectoryAuthorization;
   #taskProposal: { code: string; goal: string; expires: number } | undefined;
   #abort: AbortController | undefined;
   #poll: Promise<void> | undefined;
@@ -42,6 +45,12 @@ export class TelegramGateway {
     this.#pausing = false;
   }
   constructor(private host: Host, readonly store: TelegramStore, private api: TelegramApi | undefined, private now = Date.now) {
+    this.#directoryAuthorization = new TelegramDirectoryAuthorization({
+      current: () => { const current = this.host.channelSnapshot(); return { data: this.store.snapshot(), info: current.info,
+        idle: current.snapshot.state.kind === "idle" }; },
+      now: this.now, save: input => this.host.setAuthorizedDirectories(input),
+      send: (key, chatId, text, keyboard) => this.#reply(key, chatId, text, keyboard),
+    });
     this.#herdrSelection = new TelegramHerdrSelection({
       current: () => {
         const running = this.#ownedRunning(), owner = this.store.snapshot().owner;
@@ -279,7 +288,7 @@ export class TelegramGateway {
       for (const input of data.inputs) if (["reserved", "bound"].includes(input.state)) input.state = "unknown";
       for (const delivery of data.deliveries) {
         if (delivery.state === "sending") delivery.state = "unknown";
-        else if (/^(?:approval|selection):/.test(delivery.key) && ["pending", "failed"].includes(delivery.state)) delivery.state = "cancelled";
+        else if (/^(?:approval|selection|directory):/.test(delivery.key) && ["pending", "failed"].includes(delivery.state)) delivery.state = "cancelled";
         for (const part of delivery.parts ?? []) if (part.state === "sending") part.state = "unknown";
       }
     });
@@ -396,9 +405,9 @@ export class TelegramGateway {
         Number.isSafeInteger(callback.message.message_id) && callback.message.message_id > 0) {
       const key = `callback:${callback.id}`;
       // Unknown payloads stay control messages: they must never become model input.
-      const command = /^(allow|deny):([A-F0-9]{10})$/.exec(callback.data ?? "");
+      const command = /^(allow|deny|directory_allow|directory_deny):([A-F0-9]{10})$/.exec(callback.data ?? "");
       if (!await this.store.hasInput(key)) input = { key, updateId: update.update_id, receivedAt, state: "received", runId: null, taskId: null,
-        text: command ? `${command[1] === "allow" ? "允许" : "拒绝"} ${command[2]}` : "允许",
+        text: command ? `${command[1]!.startsWith("directory_") ? command[1] : command[1] === "allow" ? "允许" : "拒绝"} ${command[2]}` : "允许",
         callback: { id: callback.id, messageId: callback.message.message_id } };
     } else if (!callback && privateText && message) {
       const text = message.text!.trim();
@@ -436,12 +445,13 @@ export class TelegramGateway {
     return permit && chatId === permit.chatId && key === `approval:${permit.approvalId}:${permit.code}`;
   }
   #liveControlDelivery(key: string, chatId: number): boolean {
+    if (key.startsWith("directory:")) return this.#directoryAuthorization.deliveryIsLive(key, chatId);
     return key.startsWith("selection:") ? this.#herdrSelection.deliveryIsLive(key, chatId) : !!this.#liveApprovalDelivery(key, chatId);
   }
   async #discardStaleApprovals() {
     await this.store.update(data => {
       for (const delivery of data.deliveries) {
-        if (/^(?:approval|selection):/.test(delivery.key) && ["pending", "failed"].includes(delivery.state) &&
+        if (/^(?:approval|selection|directory):/.test(delivery.key) && ["pending", "failed"].includes(delivery.state) &&
             !this.#liveControlDelivery(delivery.key, delivery.chatId)) delivery.state = "cancelled";
       }
     });
@@ -454,6 +464,10 @@ export class TelegramGateway {
       await this.store.update(data => { data.inputs.find(x => x.key === input.key)!.state = "rejected"; });
       await this.#reply(`input:${input.key}`, owner.chatId, reason);
     };
+    if (await this.#directoryAuthorization.handle(input)) {
+      await this.store.update(data => { data.inputs.find(item => item.key === input.key)!.state = "finished"; });
+      await this.#discardStaleApprovals(); return;
+    }
     const selectionReply = this.#herdrSelection.resolve(text);
     if (selectionReply !== undefined) return reject(selectionReply);
     if (text === "/confirm" || text === "当前确认") {
@@ -522,7 +536,7 @@ export class TelegramGateway {
         warning: enabled ? "当前绑定私聊的文件操作及 Seatbelt 内命令免逐条确认；默认断网、不可用时拒绝执行。本机联网命令在同一工作目录批准一次后于当前任务内沿用，其他工具仍按各自规则确认。" : status.shell.mode === "docker" ? "沿用配置的挂载与网络限制；工具仍需确认。" : "当前私聊未授权自主执行。文件和本机命令在授权目录内批准一次后于当前任务内沿用；目录外直接拒绝。" } } : undefined;
       return reject(channelStatus ? formatCapabilityStatus(channelStatus) + "\n" + this.#readToolNotice() : "当前连接未提供能力状态；无法据此判断已注册或可用。");
     }
-    if (text === "/start" || text === "/help") return reject("直接提问或说“几分钟后提醒我…”；点确认卡下的按钮即可批准或取消。备用：允许 短码 / 拒绝 短码。/confirm 刷新当前确认，/details 查看详情，/capabilities 查看真实能力状态。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。工作任务用“任务：目标 → 开始 短码”。");
+    if (text === "/start" || text === "/help") return reject("直接提问或说“几分钟后提醒我…”；点确认卡下的按钮即可批准或取消。备用：允许 短码 / 拒绝 短码。/confirm 刷新当前确认，/details 查看详情，/capabilities 查看真实能力状态。/directories 查看目录；空闲时发送“授权目录 只读 /绝对路径”或“授权目录 读写 /绝对路径”，点击确认卡后持久保存。执行中直接补充会进入本轮调整，成功不另回复。停止：取消并暂停免确认；恢复自主执行：恢复原授权。工作任务用“任务：目标 → 开始 短码”。");
     if (/^(?:任务[:：]|\/task\s)/.test(text)) {
       const goal = text.replace(/^(?:任务[:：]|\/task\s)/, "").trim();
       if (!goal || goal.length > 8000) return reject("请用 1–8000 字说明任务目标。");
@@ -626,19 +640,9 @@ export class TelegramGateway {
       if (this.#activeKey === source.key) this.#activeKey = undefined;
       return;
     }
-    const uncertain = run.status === "interrupted" || run.tools.some(x => x.status === "unknown");
-    const label = uncertain ? "执行中断或效果未知，请回桌面核对；不会自动重做。"
-      : run.status === "completed" ? source.taskId ? "结果仍需你在桌面验收。" : ""
-      : run.status === "cancelled" ? "本轮已停止；已执行的操作不会撤回，操作结果请查看桌面回执。"
-      : run.status === "timed_out" ? "模型时间已用完，不是在等你确认。已执行的操作请查看桌面回执。"
-      : "这次执行失败了；操作结果请查看桌面回执。";
     const reminders = this.store.snapshot().inputs.find(x => x.key === source.key)?.reminderReceipts;
-    const reply = reminders?.length ? reminders.map(x => run.tools.some(tool => tool.toolCallId === x.toolCallId && tool.status === "not_started")
-      ? "这条提醒未保存（操作尚未开始）。" : x.text).join("\n") : text ?? run.resultTextPreview ?? "";
-    // Ordinary replies are model prose. Keep safety notices, but trace identity
-    // stays in source.runId and the result delivery key, not in the chat bubble.
-    const body = telegramBoundedText([label, reply.trim() ? reply : label ? "" : "这次没有可显示的回复，请查看桌面执行记录。",
-      !reminders?.length && text === undefined && run.resultTextTruncated ? "[恢复的是回执预览，已截断；完整回复请看桌面]" : ""].filter(Boolean).join("\n"));
+    const { body, uncertain } = telegramRunResult({ run, ...(text === undefined ? {} : { text }), task: !!source.taskId,
+      ...(reminders ? { reminders } : {}) });
     // Recovery still settles the input from its receipt, but an archived
     // submitted/cancelled envelope must not be recreated as a new send.
     const resultKey = `result:${source.key}`, delivered = await this.store.hasDelivery(resultKey);
@@ -673,14 +677,14 @@ export class TelegramGateway {
         await this.store.update(data => {
           const saved = data.deliveries.find(x => x.key === delivery.key)!;
           if (!data.enabled || saved.state !== "pending") return;
-          if (/^(?:approval|selection):/.test(saved.key) && !this.#liveControlDelivery(saved.key, saved.chatId)) { saved.state = "cancelled"; return; }
+          if (/^(?:approval|selection|directory):/.test(saved.key) && !this.#liveControlDelivery(saved.key, saved.chatId)) { saved.state = "cancelled"; return; }
           if (saved.routeKey && !data.routes.some(x => x.key === saved.routeKey)) { saved.state = "cancelled"; return; }
           saved.state = "sending"; claimed = true;
         });
         if (!claimed) continue;
         // The persisted claim may have awaited a write while desktop/Steer
         // cleared the approval. No request has been sent at this boundary.
-        if (/^(?:approval|selection):/.test(delivery.key) && !this.#liveControlDelivery(delivery.key, delivery.chatId)) {
+        if (/^(?:approval|selection|directory):/.test(delivery.key) && !this.#liveControlDelivery(delivery.key, delivery.chatId)) {
           await this.store.update(data => { data.deliveries.find(x => x.key === delivery.key)!.state = "cancelled"; });
           continue;
         }
@@ -697,14 +701,14 @@ export class TelegramGateway {
             const latest = this.store.snapshot();
             if (!latest.enabled || latest.deliveries.find(x => x.key === delivery.key)?.state === "cancelled" ||
               delivery.routeKey && !latest.routes.some(x => x.key === delivery.routeKey) ||
-              /^(?:approval|selection):/.test(delivery.key) && !this.#liveControlDelivery(delivery.key, delivery.chatId)) {
+              /^(?:approval|selection|directory):/.test(delivery.key) && !this.#liveControlDelivery(delivery.key, delivery.chatId)) {
               await this.store.update(data => { data.deliveries.find(x => x.key === delivery.key)!.state = "cancelled"; });
               break;
             }
             if (parts) await this.store.update(data => { data.deliveries.find(x => x.key === delivery.key)!.parts![index]!.state = "sending"; });
             const admitted = this.store.snapshot();
             if (!admitted.enabled || delivery.routeKey && !admitted.routes.some(x => x.key === delivery.routeKey) ||
-              /^(?:approval|selection):/.test(delivery.key) && !this.#liveControlDelivery(delivery.key, delivery.chatId)) {
+              /^(?:approval|selection|directory):/.test(delivery.key) && !this.#liveControlDelivery(delivery.key, delivery.chatId)) {
               await this.store.update(data => {
                 const saved = data.deliveries.find(x => x.key === delivery.key)!; saved.state = "cancelled";
                 if (saved.parts) saved.parts[index]!.state = "pending"; // No network dispatch occurred.
@@ -735,6 +739,6 @@ export class TelegramGateway {
     })().finally(() => { this.#sending = undefined; });
     return this.#sending;
   }
-  async #stop() { this.#abort?.abort(); await this.#starting; await this.#poll; await this.#scanning; await this.#sending; this.#connection = "disabled"; this.#approval = undefined; this.#herdrSelection.clear(); this.#pairing = null; this.#taskProposal = undefined; }
+  async #stop() { this.#directoryAuthorization.clear(); this.#abort?.abort(); await this.#starting; await this.#poll; await this.#scanning; await this.#sending; this.#connection = "disabled"; this.#approval = undefined; this.#herdrSelection.clear(); this.#pairing = null; this.#taskProposal = undefined; }
   async close() { this.#remove(); await this.#stop(); await this.#events; await this.api?.close?.(); }
 }

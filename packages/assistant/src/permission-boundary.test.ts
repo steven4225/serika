@@ -191,7 +191,7 @@ else console.log(JSON.stringify({result:{type:'agent_info',agent}}));
     }
     for (const inside of [false, true]) for (const policy of ["implicit", "files", "autonomy", "docker"] as const) {
       const directory = inside ? workspace : root, configPath = join(directory, `policy-${policy}.json`);
-      await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: inside ? "." : "./directory", access: "readwrite" }],
+      await writeFile(configPath, JSON.stringify({ version: 2, projectDirectory: inside ? "." : "./directory", authorizedDirectories: [{ path: workspace, access: "readwrite" }],
         ...(policy === "autonomy" ? { desktopAutonomy: { authorizedDirectory: workspace } } : {}),
         ...(policy === "files" ? { fileAuthorizations: [{ tools: ["read_file"], allowedPaths: ["."] }] } : {}),
         modules: { memory: { enabled: true, autoConsolidate: true },

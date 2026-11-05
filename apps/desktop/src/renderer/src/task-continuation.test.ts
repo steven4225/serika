@@ -7,7 +7,7 @@ import type { WorkTask, WorkTaskContinuation } from "../../shared/work-tasks.js"
 import type { ContextDiagnostics } from "@serika/assistant";
 import { ContinuationSummary, taskRecoveryGuidance } from "./task-continuation.js";
 import { TASK_TEMPLATES } from "./work-task-data.js";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { realpath, mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -71,12 +71,12 @@ it("maintenance template stays a draft with concrete quality requirements and no
 });
 
 it("renders actual Controller/bridge preparation for the latest task Run, but not after restart or ordinary chat", async () => {
-  const root = await mkdtemp(join(tmpdir(), "runloom-continuation-panel-"));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "runloom-continuation-panel-")));
   let bridge: RuntimeBridge | undefined;
   try {
     await mkdir(join(root, "workspace"));
     await mkdir(join(root, "transcripts"));
-    await writeFile(join(root, "config.json"), JSON.stringify({ version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: {} }));
+    await writeFile(join(root, "config.json"), JSON.stringify({ version: 2, authorizedDirectories: [{ path: join(root, "workspace"), access: "readwrite" }], modules: {} }));
     const open = async () => {
       const model = new MockLanguageModelV3({ doStream: async () => ({ stream: simulateReadableStream({ chunks: [
         { type: "stream-start", warnings: [] }, { type: "text-start", id: "answer" },

@@ -194,6 +194,7 @@ it("validates explicit setting CAS, workspace binding and external config; ignor
     assert.equal((await resolveTuiModuleConfig({ configPath: f.configPath }, { cwd: f.root })).desktopAutonomy, undefined);
     await assert.rejects(undo(), /其他程序修改/);
     config.authorizedDirectories = [{ path: f.workspace, access: "readwrite" }];
+    config.projectDirectory = "./workspace";
     const internal = join(f.workspace, "config.json"); await writeFile(internal, JSON.stringify(config));
     await assert.rejects(resolveTuiModuleConfig({ configPath: internal }, { cwd: f.root }), /outside the workspace/);
   } finally { await rm(f.root, { recursive: true, force: true }); }
@@ -211,7 +212,8 @@ it("does not enable disabled modules or replace a configured Docker sandbox", as
       assert.equal(host.info().autonomy?.enabled, true);
       for (const name of ["shell_exec", "read_file", "write_file", "edit_file"]) assert.equal(host.info().capabilities?.tools.includes(name), false);
     } finally { await host.shutdown(); }
-    config.authorizedDirectories = [{ path: "./workspace", access: "readwrite" }];
+    config.authorizedDirectories = [{ path: f.workspace, access: "readwrite" }];
+    config.projectDirectory = "./workspace";
     config.modules.shell = { enabled: true, sandbox: { backend: "docker", image: "node:22-bookworm-slim", readablePaths: [], writablePaths: [] } };
     await writeFile(f.configPath, JSON.stringify(config));
     await assert.rejects(changeAutonomySetting(f.configPath, { enabled: true, expectedEnabled: false }, f.root, f.workspace), /不会替换 Docker/);

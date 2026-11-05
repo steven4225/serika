@@ -820,6 +820,43 @@ describe("AiSdkAgentLoop", () => {
     );
   });
 
+  it("lets a progressing model response outlive the foreground inactivity timeout", async () => {
+    const response = textResponse("done");
+    const reader = response.stream.getReader();
+    const model = new MockLanguageModelV3({ doStream: async () => ({ stream: new ReadableStream({
+      async pull(controller) {
+        await new Promise(resolve => setTimeout(resolve, 20));
+        const part = await reader.read();
+        if (part.done) controller.close();
+        else controller.enqueue(part.value);
+      },
+      cancel: () => reader.cancel(),
+    }) }) });
+    const outcome = await new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: model }), tools: new ToolRegistry() }).execute({
+      definition: { ...definition, tools: [], limits: { ...definition.limits, stepTimeoutMs: 40, modelIdleTimeoutMs: 100 } },
+      messages: [userMessage()], signal: new AbortController().signal, generateId: () => "assistant-1", emit: createEmit([]),
+    });
+    assert.equal(outcome.text, "done");
+  });
+
+  it("does not let empty model deltas renew the foreground inactivity timeout", async () => {
+    let interval: ReturnType<typeof setInterval>;
+    const model = new MockLanguageModelV3({ doStream: async () => ({ stream: new ReadableStream({
+      start(controller) {
+        controller.enqueue({ type: "stream-start", warnings: [] });
+        controller.enqueue({ type: "text-start", id: "text-1" });
+        interval = setInterval(() => controller.enqueue({ type: "text-delta", id: "text-1", delta: "" }), 5);
+      },
+      cancel() { clearInterval(interval); },
+    }) }) });
+    try {
+      await assert.rejects(new AiSdkAgentLoop({ models: new InMemoryModelRegistry({ test: model }), tools: new ToolRegistry() }).execute({
+        definition: { ...definition, tools: [], limits: { ...definition.limits, stepTimeoutMs: 2_000, modelIdleTimeoutMs: 40 } },
+        messages: [userMessage()], signal: AbortSignal.timeout(400), generateId: () => "assistant-1", emit: createEmit([]),
+      }), (error: unknown) => error instanceof AgentError && error.data.code === "MODEL_TIMEOUT");
+    } finally { clearInterval(interval!); }
+  });
+
   it("retries an empty model step timeout", async () => {
     let modelCalls = 0;
     const events: AgentEvent[] = [];

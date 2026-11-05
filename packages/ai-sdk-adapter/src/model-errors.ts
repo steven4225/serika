@@ -84,14 +84,13 @@ function modelFailureFromStatus(statusCode: number): AgentErrorData | undefined 
 
 export function modelFailureError(
   error: unknown,
-  stepTimeout: AbortSignal,
-  stepTimeoutMs: number,
+  deadline: { signal: AbortSignal; timeoutMs: number; mode: "step" | "idle" },
 ): AgentError {
-  if (stepTimeout.aborted) {
+  if (deadline.signal.aborted) {
     return new AgentError(
       {
         code: "MODEL_TIMEOUT",
-        message: `Model step exceeded ${stepTimeoutMs}ms`,
+        message: deadline.mode === "idle" ? `Model response made no progress for ${deadline.timeoutMs}ms` : `Model step exceeded ${deadline.timeoutMs}ms`,
         retryable: true,
         phase: "model",
       },

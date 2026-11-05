@@ -51,6 +51,56 @@ async function errorCode(operation: () => Promise<unknown>): Promise<string | un
 }
 
 describe("ExecutionRecordStore", () => {
+  it("retains validated Run error codes across reopen while reading legacy receipts", async () => {
+    const path = await directory(), file = join(path, EXECUTION_RECORD_FILE);
+    const store = createExecutionRecordStore(path, { now });
+    await store.startRun({ runId: "run-1", threadId: "thread-1", phase: "primary" });
+    await store.finishRun("run-1", { ...result("failed"), error: {
+      code: "MODEL_TIMEOUT", message: "Model step exceeded its deadline", retryable: true, phase: "model",
+    } });
+    const reopened = await createExecutionRecordStore(path).getRun("thread-1", "run-1");
+    assert.equal(reopened && "errorCode" in reopened ? reopened.errorCode : undefined, "MODEL_TIMEOUT");
+    const document = JSON.parse(await readFile(file, "utf8"));
+    delete document.runs[0].errorCode;
+    await writeFile(file, JSON.stringify(document));
+    assert.equal((await createExecutionRecordStore(path).getRun("thread-1", "run-1"))?.status, "failed");
+    for (const invalid of ["UNKNOWN_PROVIDER_CODE", "toString", 42, null]) {
+      document.runs[0].errorCode = invalid;
+      await writeFile(file, JSON.stringify(document));
+      assert.equal(await errorCode(() => createExecutionRecordStore(path).getRun("thread-1", "run-1")), "FILE_INVALID");
+    }
+    document.runs[0].status = "running"; document.runs[0].finishedAt = null; document.runs[0].errorCode = "MODEL_TIMEOUT";
+    await writeFile(file, JSON.stringify(document));
+    const recovered = createExecutionRecordStore(path, { now });
+    await recovered.recoverInterrupted("thread-1");
+    const interrupted = await recovered.getRun("thread-1", "run-1");
+    assert.equal(interrupted && "errorCode" in interrupted ? interrupted.errorCode : undefined, undefined);
+  });
+  it("retains structured tool rejection codes without inferring errors from result text", async () => {
+    const path = await directory(), store = createExecutionRecordStore(path, { now });
+    await store.startRun({ runId: "run-1", threadId: "thread-1", phase: "primary" });
+    const outputs = [
+      { padding: "x".repeat(3000), ok: false, error: { code: "PATH_OUTSIDE_WORKSPACE" } },
+      'PATH_OUTSIDE_WORKSPACE: {"ok":false,"error":{"code":"PATH_OUTSIDE_WORKSPACE"}}',
+      { ok: true, error: { code: "PATH_OUTSIDE_WORKSPACE" } },
+      { ok: false, error: { code: "x".repeat(257) } },
+    ];
+    for (const [index, output] of outputs.entries()) {
+      const toolCallId = `read-${index}`;
+      await store.recordToolEvent("run-1", toolEvent("tool.call.requested", { toolCallId, toolName: "read_file", input: {} }));
+      await store.recordToolEvent("run-1", toolEvent("tool.call.started", { toolCallId, toolName: "read_file" }));
+      await store.recordToolEvent("run-1", toolEvent("tool.call.completed", { toolCallId, toolName: "read_file", output }));
+    }
+    await store.recordToolEvent("run-1", toolEvent("tool.call.requested", { toolCallId: "failed", toolName: "read_file", input: {} }));
+    await store.recordToolEvent("run-1", toolEvent("tool.call.failed", { toolCallId: "failed", toolName: "read_file", error: {
+      code: "TOOL_EXECUTION_FAILED", message: "controlled failure", retryable: false, phase: "tool",
+    } }));
+    await store.finishRun("run-1", result("failed"));
+    const tools = (await createExecutionRecordStore(path).getRun("thread-1", "run-1"))!.tools;
+    assert.deepEqual(tools.map(tool => tool.errorCode), ["PATH_OUTSIDE_WORKSPACE", undefined, undefined, undefined, "TOOL_EXECUTION_FAILED"]);
+    assert.deepEqual(tools.map(tool => tool.status), ["completed", "completed", "completed", "completed", "failed"]);
+    assert.equal(tools[0]!.resultTruncated, true);
+  });
   it("keeps receipts beyond the old 64-call limit and rejects dispatch at the new bounded capacity", async () => {
     const path = await directory();
     const store = createExecutionRecordStore(path, { now });

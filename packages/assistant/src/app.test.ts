@@ -92,7 +92,7 @@ describe("createRuntimeApp", () => {
       const root = await mkdtemp(join(tmpdir(), "serika-memory-owner-"));
       await mkdir(join(root, "workspace"));
       const configPath = join(root, "config.json");
-      await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: {
+      await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: join(root, "workspace"), access: "readwrite" }], modules: {
         memory: { enabled: true, autoConsolidate },
       } }));
       let names: string[] = [];
@@ -273,7 +273,7 @@ else {fs.writeFileSync(${JSON.stringify(marker)},'dispatched');console.log('{}')
       await mkdir(workspace);
       const configPath = join(root, "runloom.json");
       await writeFile(configPath, JSON.stringify({
-        version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: { memory: { enabled: true } },
+        version: 2, authorizedDirectories: [{ path: join(root, "workspace"), access: "readwrite" }], modules: { memory: { enabled: true } },
         contextCompaction: { ...DEFAULT_CONTEXT_BUDGET_CONFIG, enabled },
       }), "utf8");
       const app = await createRuntimeApp({
@@ -438,6 +438,39 @@ else {fs.writeFileSync(${JSON.stringify(marker)},'dispatched');console.log('{}')
     }
   });
 
+  it("uses the configured model inactivity deadline while progressing output still obeys the primary Run budget", async () => {
+    const root = await mkdtemp(join(tmpdir(), "serika-app-model-idle-"));
+    const configPath = join(root, "config.json");
+    await writeFile(configPath, JSON.stringify({ version: 2, modules: {}, run: { modelTimeoutMs: 80, totalTimeoutMs: 240 } }));
+    try {
+      for (const progressing of [false, true]) {
+        let timer: ReturnType<typeof setInterval> | undefined;
+        const app = await createRuntimeApp({
+          directory: join(root, progressing ? "progressing" : "stalled"),
+          assistant: { dataDirectory: join(root, "workspace/.runloom"), threadId: "idle-test", configPath },
+          modelAlias: "mock", output: capture().output, env: {}, cwd: root,
+          model: new MockLanguageModelV3({ doStream: async () => ({ stream: new ReadableStream({
+            start(controller) {
+              controller.enqueue({ type: "stream-start", warnings: [] });
+              controller.enqueue({ type: "text-start", id: "answer" });
+              controller.enqueue({ type: "text-delta", id: "answer", delta: "x" });
+              if (progressing) timer = setInterval(() => controller.enqueue({ type: "text-delta", id: "answer", delta: "x" }), 20);
+            },
+            cancel() { clearInterval(timer); },
+          }) }) }),
+        });
+        try {
+          const handle = await app.runtime.run({ agentId: app.agentId, threadId: app.threadId,
+            messages: [{ id: "user-idle", role: "user", parts: [{ type: "text", text: "hello" }] }] });
+          const result = await handle.result;
+          assert.equal(result.status, progressing ? "timed_out" : "failed");
+          assert.equal(result.error?.code, progressing ? "RUN_TIMEOUT" : "MODEL_TIMEOUT");
+          assert.match(result.error?.message ?? "", progressing ? /240ms/ : /no progress for 80ms/);
+        } finally { clearInterval(timer); app.dispose(); }
+      }
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
   it("forwards configured Shell progress before the final tool result", async () => {
     const root = await mkdtemp(join(tmpdir(), "runloom-app-shell-progress-"));
     const workspace = join(root, "workspace");
@@ -445,7 +478,7 @@ else {fs.writeFileSync(${JSON.stringify(marker)},'dispatched');console.log('{}')
     const transcripts = join(root, "transcripts");
     const configPath = join(root, "runloom.json");
     await writeFile(configPath, JSON.stringify({
-      version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+      version: 2, authorizedDirectories: [{ path: join(root, "workspace"), access: "readwrite" }],
       modules: { shell: { enabled: true, timeoutMs: 1_000 } },
       run: { totalTimeoutMs: 3_000 },
     }), "utf8");

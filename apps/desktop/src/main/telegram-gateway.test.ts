@@ -455,10 +455,13 @@ for (const scenario of [
   { name: "completed", status: "completed", text: "原始回复。", expected: "原始回复。" },
   { name: "empty", status: "completed", text: " \n ", expected: "这次没有可显示的回复，请查看桌面执行记录。" },
   { name: "task", status: "completed", text: "阶段结果。", task: true, expected: "结果仍需你在桌面验收。\n阶段结果。" },
-  { name: "failed", status: "failed", text: "部分回复。", expected: "这次执行失败了；操作结果请查看桌面回执。\n部分回复。" },
-  { name: "cancelled", status: "cancelled", text: null, expected: "本轮已停止；已执行的操作不会撤回，操作结果请查看桌面回执。" },
-  { name: "interrupted", status: "interrupted", text: "部分回复。", expected: "执行中断或效果未知，请回桌面核对；不会自动重做。\n部分回复。" },
-  { name: "unknown tool", status: "completed", text: "模型声称完成。", unknown: true, expected: "执行中断或效果未知，请回桌面核对；不会自动重做。\n模型声称完成。" },
+  { name: "failed", status: "failed", text: "部分回复。", expected: "本次请求未完成。\n本轮未执行工具操作。\n部分回复。" },
+  { name: "cancelled", status: "cancelled", text: null, expected: "本轮已停止。\n本轮未执行工具操作。" },
+  { name: "interrupted", status: "interrupted", text: "部分回复。", expected: "执行中断；不会自动重做。\n本轮未执行工具操作。" },
+  { name: "unknown tool", status: "completed", text: "模型声称完成。", unknown: true, expected: "有工具操作的效果尚未确认；不会自动重做。\n工具记录：效果未知 1 次。" },
+  { name: "model timeout", status: "failed", errorCode: "MODEL_TIMEOUT", text: null, expected: "模型回复超时，本次请求未完成。\n本轮未执行工具操作。" },
+  { name: "run timeout", status: "timed_out", errorCode: "RUN_TIMEOUT", text: null, expected: "本轮执行时间已用完，请求未完成。\n本轮未执行工具操作。" },
+  { name: "successful file before timeout", status: "failed", errorCode: "MODEL_TIMEOUT", text: null, fileCompleted: true, expected: "模型回复超时，本次请求未完成。\n工具记录：已返回 1 次；文件写入回执成功 1 次。" },
   { name: "truncated receipt", status: "completed", text: "部分回执。", truncated: true, expected: "部分回执。\n[恢复的是回执预览，已截断；完整回复请看桌面]" },
 ] as const) {
   it(`Telegram result copy: recovery preserves ${scenario.name} boundaries without a new Run or visible Run suffix`, async () => {
@@ -475,11 +478,14 @@ for (const scenario of [
       await f.store.update(data => { data.inputs[0]!.state = "bound"; data.inputs[0]!.taskId = taskId; data.deliveries = []; });
       // Fault injection at the owned receipt boundary; the initial Run and Store are real.
       f.host.channelReceipt = async () => ({ ...receipt, status: scenario.status,
-        ...(taskId ? { workTaskId: taskId } : {}), resultTextPreview: scenario.text,
+        ...(taskId ? { workTaskId: taskId } : {}), ...( "errorCode" in scenario ? { errorCode: scenario.errorCode } : {}), resultTextPreview: scenario.text,
         resultTextTruncated: "truncated" in scenario,
         tools: "unknown" in scenario ? [{ toolCallId: "unknown-call", toolName: "write_file", status: "unknown", requestedAt: receipt.startedAt,
           startedAt: receipt.startedAt, finishedAt: receipt.finishedAt, inputPreview: "{}", inputTruncated: false,
-          resultPreview: null, resultTruncated: false, errorPreview: "效果未知", shell: null }] : [],
+          resultPreview: null, resultTruncated: false, errorPreview: "效果未知", shell: null }] : "fileCompleted" in scenario ? [{ toolCallId: "saved-file", toolName: "write_file", status: "completed", requestedAt: receipt.startedAt,
+          startedAt: receipt.startedAt, finishedAt: receipt.finishedAt, inputPreview: "{}", inputTruncated: false,
+          resultPreview: null, resultTruncated: false, errorPreview: null, shell: null,
+          fileWrite: { path: "fixture.txt", bytes: 1, sha256: "0".repeat(64) } }] : [],
       });
       const store = new TelegramStore(f.store.path, f.store.workspace); await store.load();
       restarted = new TelegramGateway(f.host, store, f.api); await restarted.initialize(); await restarted.start();
@@ -1602,4 +1608,99 @@ it("Telegram cancels discovery choice without another model request or control a
     assert.ok(!f.store.snapshot().deliveries.some(row => row.key.startsWith("approval:")));
     await assert.rejects(readFile(join(f.root, "herdr-prompts.jsonl")), { code: "ENOENT" });
   } finally { await f.cleanup(); }
+});
+
+it("TG directory authorization uses an exact owner card to save and reread config without a model or replay", async () => {
+  const f = await fixture();
+  try {
+    await f.bind();
+    const target = join(f.root, "new directory"); await mkdir(target);
+    await f.gateway.receive(update(2, "/directories"));
+    await f.gateway.receive(update(3, "新增授权目录不行吗"));
+    assert.match(f.sent.at(-1)!, /授权目录 只读 \/绝对路径/);
+    assert.equal(f.calls(), 0);
+    const original = f.host.info().authorizedDirectories;
+    await f.gateway.receive(update(4, `授权目录 只读 ${target}`));
+    const card = f.store.snapshot().deliveries.find(item => item.key.startsWith("directory:")); assert(card?.state === "submitted");
+    assert.match(card.text, /新增.*只读/); assert(card.text.includes(target));
+    const markup = f.keyboards.at(-1)!.markup as { inline_keyboard: { callback_data: string }[][] };
+    const allow = markup.inline_keyboard[0]![0]!.callback_data;
+    assert.match(allow, /^directory_allow:/);
+    await f.gateway.receive(callback(5, allow, card.messageId!, 99));
+    await f.gateway.receive(callback(6, allow, card.messageId! + 100));
+    assert.deepEqual(f.host.info().authorizedDirectories, original);
+    await f.gateway.receive(callback(7, allow, card.messageId!));
+    const expected = [...original, { path: target, access: "read" }];
+    assert.deepEqual(f.host.info().authorizedDirectories, expected);
+    assert.deepEqual(JSON.parse(await readFile(join(f.root, "config.json"), "utf8")).authorizedDirectories, expected);
+    assert.match(f.sent.at(-1)!, /已保存并核对/);
+    const saved = await readFile(join(f.root, "config.json"), "utf8");
+    await f.gateway.receive(callback(8, allow, card.messageId!));
+    assert.equal(await readFile(join(f.root, "config.json"), "utf8"), saved);
+    assert.equal(f.calls(), 0);
+  } finally { await f.cleanup(); }
+});
+
+it("TG directory cards reject denial, expiry and changed directory CAS without a model", async () => {
+  const f = await fixture();
+  try {
+    await f.bind(); const target = join(f.root, "new-directory"); await mkdir(target);
+    for (const [index, mode] of ["deny", "expire", "changed"].entries()) {
+      const id = 2 + index * 2;
+      await f.gateway.receive(update(id, `授权目录 读写 ${target}`));
+      const card = f.store.snapshot().deliveries.filter(item => item.key.startsWith("directory:")).at(-1)!;
+      assert.equal(card.state, "submitted");
+      const markup = f.keyboards.at(-1)!.markup as { inline_keyboard: { callback_data: string }[][] };
+      if (mode === "expire") f.advanceTime(5 * 60_000 + 1);
+      if (mode === "changed") await f.host.setAuthorizedDirectories({ directories: [{ path: f.workspace, access: "read" }], expectedDirectories: f.host.info().authorizedDirectories });
+      const before = await readFile(join(f.root, "config.json"), "utf8");
+      await f.gateway.receive(callback(id + 1, markup.inline_keyboard[0]![mode === "deny" ? 1 : 0]!.callback_data, card.messageId!));
+      assert.equal(await readFile(join(f.root, "config.json"), "utf8"), before);
+      assert.match(f.sent.at(-1)!, mode === "deny" ? /已取消.*未改动/ : /已变化|已过期/);
+    }
+    assert.equal(f.calls(), 0);
+  } finally { await f.cleanup(); }
+});
+
+it("TG directory access replacements preview old and new permissions and preserve deeper rules", async () => {
+  const f = await fixture();
+  try {
+    await f.bind(); const deeper = join(f.workspace, "deeper"); await mkdir(deeper);
+    await f.host.setAuthorizedDirectories({ directories: [{ path: f.workspace, access: "readwrite" }, { path: deeper, access: "readwrite" }],
+      expectedDirectories: f.host.info().authorizedDirectories });
+    for (const [index, access] of ["read", "readwrite"].entries()) {
+      const id = 2 + index * 2, label = access === "read" ? "只读" : "读写", old = access === "read" ? "读写" : "只读";
+      await f.gateway.receive(update(id, `授权目录 ${label} ${f.workspace}`));
+      const card = f.store.snapshot().deliveries.filter(item => item.key.startsWith("directory:")).at(-1)!;
+      assert.equal(card.state, "submitted"); assert(card.text.includes(`替换这一项目录权限：${label} ${f.workspace}`));
+      assert(card.text.includes(`原权限：${old}`));
+      assert.deepEqual(f.host.info().authorizedDirectories[0], { path: f.workspace, access: access === "read" ? "readwrite" : "read" });
+      const markup = f.keyboards.at(-1)!.markup as { inline_keyboard: { callback_data: string }[][] };
+      await f.gateway.receive(callback(id + 1, markup.inline_keyboard[0]![0]!.callback_data, card.messageId!));
+      assert.deepEqual(f.host.info().authorizedDirectories, [{ path: f.workspace, access }, { path: deeper, access: "readwrite" }]);
+      assert.deepEqual(JSON.parse(await readFile(join(f.root, "config.json"), "utf8")).authorizedDirectories, f.host.info().authorizedDirectories);
+      assert.match(f.sent.at(-1)!, /已保存并核对/);
+    }
+    assert.equal(f.calls(), 0);
+  } finally { await f.cleanup(); }
+});
+
+it("TG directory permissions are not restored by old cards after gateway restart", async () => {
+  const f = await fixture(); let restarted: TelegramGateway | undefined;
+  try {
+    await f.bind(); const target = join(f.root, "new-directory"); await mkdir(target);
+    await f.gateway.receive(update(2, `授权目录 读写 ${target}`));
+    const card = f.store.snapshot().deliveries.find(item => item.key.startsWith("directory:")); assert(card?.state === "submitted");
+    const markup = f.keyboards.at(-1)!.markup as { inline_keyboard: { callback_data: string }[][] };
+    const before = await readFile(join(f.root, "config.json"), "utf8");
+    await f.gateway.close();
+    await f.store.update(data => { data.deliveries.push({ key: "directory:DEAD000000", chatId: 42, text: "stale", state: "pending", messageId: null }); });
+    const store = new TelegramStore(f.store.path, f.store.workspace); await store.load();
+    restarted = new TelegramGateway(f.host, store, f.api); await restarted.initialize(); await restarted.start();
+    assert.equal(store.snapshot().deliveries.find(item => item.key === "directory:DEAD000000")?.state, "cancelled");
+    await restarted.receive(callback(3, markup.inline_keyboard[0]![0]!.callback_data, card.messageId!));
+    assert.equal(await readFile(join(f.root, "config.json"), "utf8"), before);
+    assert.match(f.sent.at(-1)!, /已过期|已变化/);
+    assert.equal(f.calls(), 0);
+  } finally { await restarted?.close(); await f.cleanup(); }
 });

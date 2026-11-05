@@ -105,3 +105,7 @@
 
 - `verifyContinuityTaskRun` 仍断言存储状态 `paused`；安排失败的 Skill 验收仍断言 `failed`。6a 之后存储只有四态，可见阶段是 `workTaskPhase`。本步不改这些断言。
 - Linux 上 `foreground-herdr` 使用 `/private/tmp`，`permission-boundary` 的 b0 在 computer 模块处停止。本步没有重比权限快照。
+
+## N. 日用超时检修发现的既有验收缺口
+
+- 固定日用基线 `fcee6ed` 在 macOS 隔离实跑仍有 12 项失败：Computer／continuity 的任务旧状态断言、permission soft reject、RSS 待结算、Skill 状态／schema、依赖 `/proc/self/fd` 的故障注入、桌面 read_file 批准列表和提醒 golden。均与本轮修改前一致，未改业务／断言／快照来消除。逐项核对见 `daily-timeout-telegram-receipts.md`；另行处理这些全套检查的准入问题。

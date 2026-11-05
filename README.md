@@ -139,6 +139,8 @@ TUI 启动时会在历史记录之后显示一次只读 Home；空闲输入 `/ho
 
 持久规则只在配置启动时加载，配置文件必须位于 workspace 外；编辑或删除规则后重启 TUI 生效。`/permissions` 只读显示当前加载的规则，Shell、memory、Todoist 和 task 不受持久文件授权影响。
 
+已绑定的 Telegram 私聊可用 `/directories` 查看当前目录范围。空闲时发送 `授权目录 只读 /绝对路径` 或 `授权目录 读写 /绝对路径`，宿主会显示目录与权限确认卡；只有绑定用户点击五分钟内有效的原卡才会保存，并回读实际结果。相同路径可明确替换原权限，其他目录规则保留。此流程不调用模型；保存到与桌面共享的目录配置，重启保留。v2 的 `authorizedDirectories` 必须记录实际目录的绝对路径；旧相对路径、目录别名或大小写不同的写法需先重新选择实际目录，后续链接重定向会被拒绝。绑定、当前 Thread、配置或目录范围变化会使旧卡失效，保存结果未知时不会自动重试。
+
 启用 `--auto-consolidate` 后，普通 Run 成功且本轮没有 `memory_*` 工具请求时，会串行发起一次整理 Run：先 `memory_prepare_consolidation`，再 `memory_stage_candidates`。stage 只在进程内暂存；只有 Run 成功后才把待审候选与游标同锁保存到 `memory.json` v3，不直接写入正式记忆。首次最多取八个符合条件的普通回合，之后从最早未处理的积压开始，不跳过旧材料；游标绑定有序用户消息 ID 与精确正文，旧 JSONL 整理标记不再是完成证据。失败、取消、无效提案或提交失败不推进游标。候选来源只认已提交的普通用户原话，不认助手、工具、网页或摘要。候选通过当前 Thread 的显式审阅接受，或用 `memory_apply_candidate` 并通过正常 `y/n`；拒绝工具调用仍保留 pending，拒绝候选只改候选状态。接受原子写入正式记忆和应用回执，同一请求重放不重复写。详见[原生 Memory A+B 验收](docs/memory-native-acceptance.md)。
 
 TUI 的模块命令在空闲时直接执行，不创建 Run；配置 workspace 后可用 `/workspace` 查看当前根目录。模块通知使用同一条 TUI 输出流。
@@ -369,7 +371,9 @@ RUNLOOM_MODEL=deepseek node --env-file=.env packages/assistant/dist/task-worker-
 
 此模式明确关闭 thinking。当前循环不回传 `reasoning_content`，而 DeepSeek 思考模式下的工具对话要求回传该字段；本次仅适配非思考模式的文本和工具调用，不宣称支持思考模式或图像输入。默认模型名与参数依据 [DeepSeek 接入文档](https://api-docs.deepseek.com/) 和 [思考模式约定](https://api-docs.deepseek.com/guides/thinking_mode/)。
 
-离线测试覆盖模型选择、请求参数、流式工具调用 → 工具结果回传 → 最终文本，以及缺 Key 时不领取后台任务；不代表真实服务认证、延迟或任务质量已通过。已有后台闭环真实验收可将下节命令的 `RUNLOOM_ACCEPTANCE_MODEL` 改为 `deepseek`；Stage 7 的真实 Todoist 验收仍需单独完成。TUI calculator 每步模型流上限为 30 秒，自动整理 agent 仍为 5 秒；该上限只约束一步模型流，不含确认等待。若真实请求超时，应记录结果并单独确认预算调整。
+离线测试覆盖模型选择、请求参数、流式工具调用 → 工具结果回传 → 最终文本，以及缺 Key 时不领取后台任务；不代表真实服务认证、延迟或任务质量已通过。已有后台闭环真实验收可将下节命令的 `RUNLOOM_ACCEPTANCE_MODEL` 改为 `deepseek`；Stage 7 的真实 Todoist 验收仍需单独完成。
+
+TUI、桌面和 Telegram 主对话等待模型首个有效输出及后续无进展的默认时限为 30 秒，可通过外部配置 `run.modelTimeoutMs` 设置（正整数毫秒，最高沿用整轮预算的 1,800,000 毫秒配置上限）。非空文字、推理片段、工具参数片段或完整工具调用会更新活动计时；持续输出可以超过 30 秒，空片段不会延长等待。整轮仍受现有总预算限制：普通主对话使用 `run.totalTimeoutMs`，自主执行沿用 30 分钟预算；确认等待沿用原规则。此配置不改变工具、worker、Skill 或辅助模型请求的时限，也不允许重放已执行的操作。
 
 ### MiniMax M3
 

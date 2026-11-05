@@ -72,6 +72,7 @@ export const TUI_MAX_CONFIGURABLE_STEPS = 32;
 /** Default and maximum wall-clock budget for the primary TUI Run, excluding confirmation pauses. */
 export const TUI_DEFAULT_TOTAL_TIMEOUT_MS = 120_000;
 export const TUI_MAX_TOTAL_TIMEOUT_MS = 30 * 60_000;
+export const TUI_DEFAULT_MODEL_TIMEOUT_MS = 30_000;
 
 export interface TelegramAutonomyGrant { directory: string; botId: number; userId: number; chatId: number; threadId: string }
 
@@ -94,6 +95,7 @@ export interface ResolvedTuiModuleConfig {
   contextCompaction: ContextBudgetConfig;
   maxSteps: number;
   totalTimeoutMs: number;
+  modelTimeoutMs?: number;
   computer?: ComputerConfig;
   terminalTarget?: HerdrTarget;
   automation?: AutomationConfig;
@@ -211,6 +213,7 @@ const tuiModuleConfigSchema = z
       .object({
         maxSteps: z.number().int().min(1).max(TUI_MAX_CONFIGURABLE_STEPS).optional(),
         totalTimeoutMs: z.number().int().min(1).max(TUI_MAX_TOTAL_TIMEOUT_MS).optional(),
+        modelTimeoutMs: z.number().int().min(1).max(TUI_MAX_TOTAL_TIMEOUT_MS).optional(),
       })
       .strict()
       .optional(),
@@ -254,7 +257,7 @@ export interface TuiModuleConfig {
   desktopAutonomy?: { authorizedDirectory: string } | undefined;
   fileAuthorizations?: FileAuthorizationRule[] | undefined;
   contextCompaction?: ContextBudgetConfig | undefined;
-  run?: { maxSteps?: number | undefined; totalTimeoutMs?: number | undefined } | undefined;
+  run?: { maxSteps?: number | undefined; totalTimeoutMs?: number | undefined; modelTimeoutMs?: number | undefined } | undefined;
   automation?: AutomationConfig | undefined;
   modelPricing?: ModelPrice[] | undefined;
   modelContextWindows?: import("./context-budget.js").ModelContextWindow[] | undefined;
@@ -534,10 +537,10 @@ async function resolveConfiguredMode(
     throw new Error("web.feed requires web.enabled to be true");
   }
   const authorizedDirectories = await Promise.all((config.authorizedDirectories ?? []).map(async item => {
-    const path = resolvePath(dirname(absoluteConfigPath), item.path);
+    if (!isAbsolute(item.path)) throw new Error("授权目录必须填写实际目录的绝对路径，请重新选择目录");
     const canonical = await resolveWorkspace(item.path, dirname(absoluteConfigPath));
-    if ((await lstat(path)).isSymbolicLink()) throw new Error("Workspace must not be a symlink");
-    return { path: canonical, access: item.access };
+    if (canonical !== item.path) throw new Error("授权目录不是实际目录的绝对路径，或目录位置已变化，请重新选择目录");
+    return item;
   }));
   if (new Set(authorizedDirectories.map(item => item.path)).size !== authorizedDirectories.length) throw new Error("Duplicate authorized directory");
   const requestedProjectDirectory = config.projectDirectory === null ? undefined : config.projectDirectory ?? (authorizedDirectories.length === 1 ? authorizedDirectories[0]!.path : undefined);
@@ -609,6 +612,7 @@ async function resolveConfiguredMode(
     contextCompaction,
     maxSteps: config.run?.maxSteps ?? TUI_DEFAULT_MAX_STEPS,
     totalTimeoutMs: config.run?.totalTimeoutMs ?? TUI_DEFAULT_TOTAL_TIMEOUT_MS,
+    modelTimeoutMs: config.run?.modelTimeoutMs ?? TUI_DEFAULT_MODEL_TIMEOUT_MS,
     ...(computer ? { computer } : {}),
     ...(terminalTarget ? { terminalTarget } : {}),
     ...(config.automation ? { automation: config.automation } : {}),

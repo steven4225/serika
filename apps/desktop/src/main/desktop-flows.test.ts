@@ -1,6 +1,6 @@
 import { dirname } from "node:path";
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { realpath, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -33,7 +33,7 @@ async function waitFor(
 }
 
 async function prepareRoot(): Promise<{ root: string; workspace: string; transcripts: string; configPath: string }> {
-  const root = await mkdtemp(join(tmpdir(), "runloom-desktop-flow-"));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "runloom-desktop-flow-")));
   const workspace = join(root, "workspace");
   const transcripts = join(root, "transcripts");
   await mkdir(workspace);
@@ -41,7 +41,7 @@ async function prepareRoot(): Promise<{ root: string; workspace: string; transcr
   const configPath = join(root, "runloom.json");
   await writeFile(configPath, JSON.stringify({
     version: 2,
-    authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+    authorizedDirectories: [{ path: join(root, "workspace"), access: "readwrite" }],
     modules: {
       "read-file": { enabled: true },
       shell: { enabled: true, timeoutMs: 8_000 },

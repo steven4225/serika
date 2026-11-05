@@ -143,7 +143,7 @@ describe("static TUI startup check", () => {
     const config = join(cwd, "config.json");
     await writeFile(config, JSON.stringify({
       version: 2,
-      authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+      authorizedDirectories: [{ path: join(cwd, "workspace"), access: "readwrite" }],
       modules: { memory: { enabled: true }, checkpoint: { enabled: true }, task: { enabled: true } },
     }));
     const snapshot = await checkTuiStartup(["--home", join(cwd, "home"), "transcripts", "--thread", "personal", "--config", config], { cwd, env: {} });

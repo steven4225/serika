@@ -147,3 +147,18 @@ it("inconsistent multipart retry state fails closed before persistence", async (
     assert.equal(store.snapshot().deliveries.length, 0);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+it("directory keyboards persist only with matching directory callback namespace", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "serika-channel-keyboard-")));
+  try {
+    const store = new TelegramStore(join(root, "private", "telegram.json"), root); await store.load();
+    for (const [key, callback] of [["directory:ABCDEF1234", "allow:ABCDEF1234"], ["approval:ABCDEF1234", "directory_allow:ABCDEF1234"]]) {
+      await assert.rejects(store.update(data => data.deliveries.push({ key: key!, chatId: 42, text: "body", state: "pending", messageId: null,
+        keyboard: { inline_keyboard: [[{ text: "确认", callback_data: callback! }, { text: "取消", callback_data: callback! }]] } })), /无效/);
+    }
+    await store.update(data => data.deliveries.push({ key: "directory:ABCDEF1234", chatId: 42, text: "body", state: "pending", messageId: null,
+      keyboard: { inline_keyboard: [[{ text: "确认", callback_data: "directory_allow:ABCDEF1234" }, { text: "取消", callback_data: "directory_deny:ABCDEF1234" }]] } }));
+    const reopened = new TelegramStore(store.path, root); await reopened.load();
+    assert.deepEqual(reopened.snapshot().deliveries, store.snapshot().deliveries);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

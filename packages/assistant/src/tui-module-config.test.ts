@@ -16,7 +16,7 @@ async function createConfigWorkspace(): Promise<{
   configDirectory: string;
   workspace: string;
 }> {
-  const root = await mkdtemp(join(tmpdir(), "runloom-config-"));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "runloom-config-")));
   const configDirectory = join(root, "config");
   const workspace = join(configDirectory, "workspace");
   await mkdir(workspace, { recursive: true });
@@ -45,7 +45,7 @@ describe("resolveTuiModuleConfig", () => {
     const { configDirectory } = await createConfigWorkspace();
     for (const config of [
       { version: 2, workspace: "./workspace", modules: {} },
-      { version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], desktopAutonomy: { workspaceRoot: "./workspace" }, modules: {} },
+      { version: 2, authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }], desktopAutonomy: { workspaceRoot: "./workspace" }, modules: {} },
       { version: 2, modules: { memory: { enabled: true, writePolicy: "review" } } },
     ]) {
       const path = await writeConfig(configDirectory, config);
@@ -55,15 +55,15 @@ describe("resolveTuiModuleConfig", () => {
   it("keeps local Computer Use opt-in with an external config and trusted executable", { skip: process.platform !== "darwin" }, async () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     const computer = { enabled: true, executable: process.execPath, allowedBundleIds: ["com.apple.TextEdit"] };
-    const path = await writeConfig(configDirectory, { version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: { computer } });
+    const path = await writeConfig(configDirectory, { version: 2, authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }], modules: { computer } });
     const resolved = await resolveTuiModuleConfig(configArgs(path), { cwd: configDirectory });
     assert.equal(resolved.enabled.computer, true);
     assert.equal(resolved.computer?.executable, await realpath(process.execPath));
-    const inside = await writeConfig(workspace, { version: 2, authorizedDirectories: [{ path: ".", access: "readwrite" }], modules: { computer } });
+    const inside = await writeConfig(workspace, { version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }], modules: { computer } });
     await assert.rejects(resolveTuiModuleConfig(configArgs(inside), { cwd: workspace }), /outside the workspace/);
     const localExecutable = join(workspace, "driver");
     await writeFile(localExecutable, "not executed");
-    const untrusted = await writeConfig(configDirectory, { version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: { computer: { ...computer, executable: localExecutable } } });
+    const untrusted = await writeConfig(configDirectory, { version: 2, authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }], modules: { computer: { ...computer, executable: localExecutable } } });
     await assert.rejects(resolveTuiModuleConfig(configArgs(untrusted), { cwd: configDirectory }), /executable must be outside/);
     for (const definition of [{ enabled: true }, { ...computer, allowedBundleIds: ["*"] }]) {
       const bad = await writeConfig(configDirectory, { version: 2, modules: { computer: definition } });
@@ -77,7 +77,8 @@ describe("resolveTuiModuleConfig", () => {
     await writeFile(join(workspace, "package.json"), "{}", "utf8");
     const configPath = await writeConfig(configDirectory, {
       version: 2,
-      authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+      authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }],
+      projectDirectory: "./workspace",
       modules: {
         shell: {
           enabled: true,
@@ -122,7 +123,8 @@ describe("resolveTuiModuleConfig", () => {
     for (const value of configs) {
       const configPath = await writeConfig(configDirectory, {
         version: 2,
-        authorizedDirectories: [{ path: value.workspace, access: "readwrite" }],
+        authorizedDirectories: [{ path: workspace, access: "readwrite" }],
+        projectDirectory: value.workspace,
         modules: {
           shell: {
             enabled: true,
@@ -145,7 +147,7 @@ describe("resolveTuiModuleConfig", () => {
     await writeFile(filePath, "file", "utf8");
     const fileConfig = await writeConfig(configDirectory, {
       version: 2,
-      authorizedDirectories: [{ path: "./workspace-file.txt", access: "readwrite" }],
+      authorizedDirectories: [{ path: filePath, access: "readwrite" }],
       modules: {
         shell: {
           enabled: true,
@@ -167,7 +169,7 @@ describe("resolveTuiModuleConfig", () => {
     await symlink(workspace, workspaceLink, "dir");
     const symlinkConfig = await writeConfig(configDirectory, {
       version: 2,
-      authorizedDirectories: [{ path: "./workspace-link", access: "readwrite" }],
+      authorizedDirectories: [{ path: workspaceLink, access: "readwrite" }],
       modules: {
         shell: {
           enabled: true,
@@ -182,7 +184,7 @@ describe("resolveTuiModuleConfig", () => {
     }, "symlink-workspace.json");
     await assert.rejects(
       resolveTuiModuleConfig(configArgs(symlinkConfig), { cwd: configDirectory }),
-      /workspace must not be a symlink/i,
+      /实际目录.*重新选择目录/,
     );
   });
 
@@ -217,7 +219,8 @@ describe("resolveTuiModuleConfig", () => {
     for (const value of values) {
       const configPath = await writeConfig(configDirectory, {
         version: 2,
-        authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+        authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }],
+        projectDirectory: "./workspace",
         modules: {
           shell: {
             enabled: true,
@@ -241,7 +244,8 @@ describe("resolveTuiModuleConfig", () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     const disabledPath = await writeConfig(configDirectory, {
       version: 2,
-      authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+      authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }],
+      projectDirectory: "./workspace",
       modules: {
         shell: {
           enabled: false,
@@ -261,7 +265,8 @@ describe("resolveTuiModuleConfig", () => {
 
     const insidePath = await writeConfig(workspace, {
       version: 2,
-      authorizedDirectories: [{ path: ".", access: "readwrite" }],
+      authorizedDirectories: [{ path: workspace, access: "readwrite" }],
+      projectDirectory: ".",
       modules: {
         shell: {
           enabled: true,
@@ -284,7 +289,7 @@ describe("resolveTuiModuleConfig", () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     const configPath = await writeConfig(configDirectory, {
       version: 2,
-      authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+      authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }],
       modules: { "read-file": { enabled: true } },
       fileAuthorizations: [
         {
@@ -315,7 +320,7 @@ describe("resolveTuiModuleConfig", () => {
     const invalidValues = [
       {
         version: 2,
-        authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+        authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }],
         modules: { "read-file": { enabled: true } },
         fileAuthorizations: [
           { tools: ["shell_exec"], allowedPaths: ["docs"] },
@@ -323,7 +328,7 @@ describe("resolveTuiModuleConfig", () => {
       },
       {
         version: 2,
-        authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+        authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }],
         modules: { "read-file": { enabled: true } },
         fileAuthorizations: [
           { tools: ["read_file"], allowedPaths: ["../outside"] },
@@ -350,7 +355,7 @@ describe("resolveTuiModuleConfig", () => {
     const { workspace } = await createConfigWorkspace();
     const configPath = await writeConfig(workspace, {
       version: 2,
-      authorizedDirectories: [{ path: ".", access: "readwrite" }],
+      authorizedDirectories: [{ path: workspace, access: "readwrite" }],
       modules: { "read-file": { enabled: true } },
       fileAuthorizations: [
         { tools: ["read_file"], allowedPaths: ["docs"] },
@@ -367,7 +372,7 @@ describe("resolveTuiModuleConfig", () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     const insidePath = await writeConfig(workspace, {
       version: 2,
-      authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+      authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }],
       modules: { "read-file": { enabled: true } },
       fileAuthorizations: [
         { tools: ["read_file"], allowedPaths: ["docs"] },
@@ -386,7 +391,7 @@ describe("resolveTuiModuleConfig", () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     const configPath = await writeConfig(configDirectory, {
       version: 2,
-      authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+      authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }],
       modules: {
         "read-file": { enabled: true },
         todoist: { enabled: true },
@@ -571,7 +576,7 @@ describe("resolveTuiModuleConfig", () => {
     );
   });
 
-  it("resolves workspace relative to the config file directory", async () => {
+  it("rejects relative directory grants and accepts the actual absolute directory independently of cwd", async () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     const nestedDirectory = join(configDirectory, "nested");
     await mkdir(nestedDirectory);
@@ -581,18 +586,18 @@ describe("resolveTuiModuleConfig", () => {
       modules: { memory: { enabled: true } },
     });
 
-    const resolved = await resolveTuiModuleConfig(configArgs(configPath), {
-      cwd: tmpdir(),
-    });
-
-    assert.equal(resolved.workspaceRoot, await realpath(workspace));
+    await assert.rejects(resolveTuiModuleConfig(configArgs(configPath), { cwd: tmpdir() }), /实际目录的绝对路径.*重新选择目录/);
+    await writeFile(configPath, JSON.stringify({ version: 2, authorizedDirectories: [{ path: workspace, access: "readwrite" }],
+      modules: { memory: { enabled: true } } }));
+    const resolved = await resolveTuiModuleConfig(configArgs(configPath), { cwd: tmpdir() });
+    assert.equal(resolved.workspaceRoot, workspace);
   });
 
   it("supports memory auto consolidation only when memory is enabled", async () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     const configPath = await writeConfig(configDirectory, {
       version: 2,
-      authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+      authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }],
       modules: {
         memory: { enabled: true, autoConsolidate: true },
       },
@@ -659,7 +664,7 @@ describe("resolveTuiModuleConfig", () => {
 
     const enabledPath = await writeConfig(configDirectory, {
       version: 2,
-      authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+      authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }],
       modules: { checkpoint: { enabled: true }, memory: { enabled: false } },
     }, "checkpoint-memory-independent.json");
     const enabled = await resolveTuiModuleConfig(configArgs(enabledPath), {
@@ -695,7 +700,7 @@ describe("resolveTuiModuleConfig", () => {
     const { configDirectory, workspace } = await createConfigWorkspace();
     const configPath = await writeConfig(configDirectory, {
       version: 2,
-      authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+      authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }],
       modules: { shell: { enabled: true } },
     });
 
@@ -846,10 +851,10 @@ describe("resolveTuiModuleConfig", () => {
   it("bounds the Shell command timeout without changing the Run budget", async () => {
     const { configDirectory } = await createConfigWorkspace();
     const defaultPath = await writeConfig(configDirectory, {
-      version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: { shell: { enabled: true } },
+      version: 2, authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }], modules: { shell: { enabled: true } },
     }, "shell-default-timeout.json");
     const raisedPath = await writeConfig(configDirectory, {
-      version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: { shell: { enabled: true, timeoutMs: 600_000 } },
+      version: 2, authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }], modules: { shell: { enabled: true, timeoutMs: 600_000 } },
     }, "shell-raised-timeout.json");
     const defaults = await resolveTuiModuleConfig(configArgs(defaultPath), { cwd: configDirectory });
     assert.equal(defaults.shellTimeoutMs, 30_000);
@@ -858,7 +863,7 @@ describe("resolveTuiModuleConfig", () => {
     assert.equal(raised.totalTimeoutMs, 120_000);
     for (const [name, timeoutMs] of [["zero", 0], ["fraction", 1.5], ["too-high", 600_001]] as const) {
       const path = await writeConfig(configDirectory, {
-        version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: { shell: { enabled: true, timeoutMs } },
+        version: 2, authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }], modules: { shell: { enabled: true, timeoutMs } },
       }, `shell-${name}-timeout.json`);
       await assert.rejects(
         resolveTuiModuleConfig(configArgs(path), { cwd: configDirectory }),

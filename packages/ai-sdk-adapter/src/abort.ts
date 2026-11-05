@@ -90,5 +90,5 @@ export function throwIfAborted(signal: AbortSignal): void {
 export function invocationDeadline(timeoutMs: number) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new DOMException("The operation timed out", "TimeoutError")), timeoutMs);
-  return { signal: controller.signal, dispose: () => clearTimeout(timer) };
+  return { signal: controller.signal, refresh: () => { if (!controller.signal.aborted) timer.refresh(); }, dispose: () => clearTimeout(timer) };
 }

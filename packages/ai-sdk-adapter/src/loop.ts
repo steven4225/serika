@@ -94,7 +94,8 @@ export class AiSdkAgentLoop implements AgentLoop {
       let contextRetried = false;
       for (let attempt = 0; ; attempt += 1) {
         throwIfAborted(signal);
-        const deadline = invocationDeadline(definition.limits.stepTimeoutMs);
+        const timeoutMs = definition.limits.modelIdleTimeoutMs ?? definition.limits.stepTimeoutMs;
+        const deadline = invocationDeadline(timeoutMs);
         const stepSignal = AbortSignal.any([signal, deadline.signal]);
         const attemptCalls: PendingToolCall[] = [];
         let attemptText = "";
@@ -106,6 +107,10 @@ export class AiSdkAgentLoop implements AgentLoop {
             ...(definition.limits.maxOutputTokens !== undefined ? { maxOutputTokens: definition.limits.maxOutputTokens } : {}),
           });
           for await (const part of modelStreamWithSignal(result.stream, stepSignal)) {
+            if (definition.limits.modelIdleTimeoutMs !== undefined && (
+              (part.type === "text-delta" || part.type === "reasoning-delta") && part.text.length > 0 ||
+              part.type === "tool-input-delta" && part.delta.length > 0 || part.type === "tool-call"
+            )) deadline.refresh();
             if (part.type === "text-delta") {
               attemptHasOutput = true;
               attemptText += part.text;
@@ -139,7 +144,8 @@ export class AiSdkAgentLoop implements AgentLoop {
             modelMessages = await convertToModelMessages(smaller, { tools: modelTools });
             continue;
           }
-          const failure = modelFailureError(error, deadline.signal, definition.limits.stepTimeoutMs);
+          const failure = modelFailureError(error, { signal: deadline.signal, timeoutMs,
+            mode: definition.limits.modelIdleTimeoutMs === undefined ? "step" : "idle" });
           const canRetry = !this.#modelRetryDisabledAgentIds.has(definition.id) && !attemptHasOutput &&
             failure.data.retryable && attempt < this.#modelRetryDelaysMs.length;
           if (!canRetry) throw failure;
