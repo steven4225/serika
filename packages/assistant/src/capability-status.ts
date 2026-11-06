@@ -38,6 +38,10 @@ export function capabilityStatus(input: CapabilityStatusInput) {
     tools: [...tools],
     execution: {
       directories: config?.authorizedDirectories ?? [],
+      ...(input.entry === "telegram" ? { directoryAuthorization: {
+        commands: ["/directories", "授权目录 只读 /绝对路径", "授权目录 读写 /绝对路径"],
+        next: "当前绑定 Telegram 私聊可在空闲时发送完整指令，使用已存在目录的实际绝对路径。宿主显示范围并发送确认卡，点击原卡后才保存；只读授权不允许写入。收到宿主已保存并核对的回执后，才可按新权限继续。确认卡尚未点击时未保存；点击后保存结果未知时只用 /directories 核对，不自动重试或重放原任务。目录授权会持久保存，适用于共享此配置的桌面和当前绑定 Telegram。",
+      } } : {}),
       files: input.permissions?.autonomousFiles === true ? "foreground_authorized" : "scoped_grants_or_confirmation",
       fileGrants: input.permissions?.fileAuthorizations ?? [],
       shell: { configured: config?.enabled.shell === true, registered: tools.includes("shell_exec"),

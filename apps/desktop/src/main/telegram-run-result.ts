@@ -1,6 +1,7 @@
 import type { AgentErrorData } from "@serika/core";
 import type { ExecutionRunRecord, ExecutionToolRecord } from "@serika/assistant";
 import { telegramBoundedText } from "./telegram-format.js";
+import { TELEGRAM_DIRECTORY_AUTHORIZATION_USAGE } from "./telegram-directory-authorization.js";
 
 function failureReason(code: AgentErrorData["code"] | undefined): string {
   switch (code) {
@@ -33,6 +34,7 @@ function toolSummary(tools: readonly ExecutionToolRecord[]): string {
       case "TOOL_DENIED": reasons.add("操作未获批准"); break;
     }
   }
+  if (tools.some(tool => tool.errorCode === "PATH_OUTSIDE_WORKSPACE" || tool.errorCode === "READ_ONLY_DIRECTORY")) reasons.add(TELEGRAM_DIRECTORY_AUTHORIZATION_USAGE);
   const statuses = [counts.returned ? `已返回 ${counts.returned} 次` : "", counts.failed ? `失败 ${counts.failed} 次` : "",
     counts.notStarted ? `未执行 ${counts.notStarted} 次` : "", counts.unknown ? `效果未知 ${counts.unknown} 次` : "",
     counts.writes ? `文件写入回执成功 ${counts.writes} 次` : ""].filter(Boolean);

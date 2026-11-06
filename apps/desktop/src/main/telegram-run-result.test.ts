@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 import type { ExecutionRunRecord, ExecutionToolRecord } from "@serika/assistant";
 import { telegramRunResult } from "./telegram-run-result.js";
+import { TELEGRAM_DIRECTORY_AUTHORIZATION_USAGE } from "./telegram-directory-authorization.js";
 
 const tool: ExecutionToolRecord = { toolCallId: "fixture-tool", toolName: "read_file", status: "failed", requestedAt: "2026-11-05T00:00:00.000Z",
   startedAt: null, finishedAt: null, inputPreview: "sensitive input", inputTruncated: false, resultPreview: "sensitive result", resultTruncated: false,
@@ -13,7 +14,7 @@ const run: ExecutionRunRecord = { runId: "fixture-run", threadId: "fixture-threa
 it("TG failure reasons use structured host codes without reading arbitrary previews", () => {
   assert.equal(telegramRunResult({ run, task: false }).body, "本次请求未完成。\n本轮未执行工具操作。");
   const result = telegramRunResult({ run: { ...run, errorCode: "MODEL_TIMEOUT", tools: [{ ...tool, errorCode: "PATH_OUTSIDE_WORKSPACE" }] }, task: false });
-  assert.equal(result.body, "模型回复超时，本次请求未完成。\n工具记录：失败 1 次。\n目标路径尚未授权");
+  assert.equal(result.body, "模型回复超时，本次请求未完成。\n工具记录：失败 1 次。\n目标路径尚未授权\n" + TELEGRAM_DIRECTORY_AUTHORIZATION_USAGE);
   assert.doesNotMatch(result.body, /sensitive|fixture|read_file/);
 });
 
@@ -34,5 +35,15 @@ it("TG does not display unverified model prose when effects are unknown, includi
 it("TG completed Runs still show host-recorded tool rejection beside ordinary model text", () => {
   const result = telegramRunResult({ run: { ...run, status: "completed", tools: [{ ...tool, status: "completed", errorCode: "PATH_OUTSIDE_WORKSPACE" }] },
     text: "请稍后再试", task: false });
-  assert.equal(result.body, "工具记录：失败 1 次。\n目标路径尚未授权\n请稍后再试");
+  assert.equal(result.body, "工具记录：失败 1 次。\n目标路径尚未授权\n" + TELEGRAM_DIRECTORY_AUTHORIZATION_USAGE + "\n请稍后再试");
+});
+
+it("TG directory refusals give the existing authorization path without claiming a saved grant", () => {
+  for (const errorCode of ["PATH_OUTSIDE_WORKSPACE", "READ_ONLY_DIRECTORY"]) {
+    const result = telegramRunResult({ run: { ...run, tools: [{ ...tool, errorCode }] }, task: false });
+    assert.match(result.body, /授权目录 只读 \/绝对路径/);
+    assert.match(result.body, /授权目录 读写 \/绝对路径/);
+    assert.match(result.body, /点击确认/);
+    assert.doesNotMatch(result.body, /已保存并核对目录授权：|sensitive|fixture/);
+  }
 });
