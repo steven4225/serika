@@ -30,6 +30,22 @@ async function idle(host: DesktopRuntime) {
 }
 
 describe("normal desktop memory and history entry", () => {
+  it("shares a failed shutdown without repeating partially completed cleanup", async () => {
+    const root = await mkdtemp(join(tmpdir(), "serika-shutdown-once-"));
+    const host = await DesktopRuntime.create({ applicationHome: join(root, "profile"), cwd: root, env: {}, modelAlias: "mock",
+      model: new MockLanguageModelV3({ doStream: async () => response() }), send: () => {} });
+    const original = host.current.shutdown.bind(host.current), failure = new Error("failure after disposing controller");
+    let cleanups = 0;
+    const patched = mock.method(host.current, "shutdown", async () => { cleanups++; await original(); throw failure; });
+    try {
+      const first = host.shutdown(), concurrent = host.shutdown();
+      const results = await Promise.allSettled([first, concurrent]);
+      assert.ok(results.every(result => result.status === "rejected" && result.reason === failure));
+      await assert.rejects(host.shutdown(), error => error === failure);
+      assert.equal(cleanups, 1);
+    } finally { patched.mock.restore(); await original(); await rm(root, { recursive: true, force: true }); }
+  });
+
   it("blocks new execution after a post-rename config acknowledgement fault until an explicit reread", async t => {
     const root = await mkdtemp(join(tmpdir(), "serika-config-uncertain-"));
     const workspace = join(root, "workspace"), configPath = join(root, "config.json"); await mkdir(workspace);
