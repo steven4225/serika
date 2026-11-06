@@ -103,6 +103,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const { windowWidth, sidebarOpen, splitRoot, compact, dashboardOpen, actualFraction, saveSplit, rememberSidebar } = useSplitLayout(mobileDashboard);
   const [taskResultFocus, setTaskResultFocus] = useState<{ taskId: string; workspaceRoot: string; sequence: number } | null>(null);
   const state = useRuntime(runtime, runtimeState => runtimeState.state);
+  const initializing = useRuntime(runtime, runtimeState => runtimeState.initializing);
+  const busy = initializing || state.kind !== "idle";
   const homeSnapshot = useRuntime(runtime, runtimeState => runtimeState.homeSnapshot);
   const output = useRuntime(runtime, runtimeState => runtimeState.output);
   const storedHistory = useRuntime(runtime, runtimeState => runtimeState.history);
@@ -157,7 +159,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   runtime.setTraceVisible(detailsOpen && detailTab === "records");
   const { reloadOpenRecords, openRecord, closeRecord } = runtime;
   const taskRunStarted = useCallback((text: string) => { setSubmittedInput(text); followConversation.current = true; setDetailsOpen(false); setMobileDashboard(false); }, []);
-  const workTasks = useWorkTasks(info?.workTasks === true, state.kind !== "idle", taskRefresh, taskRunStarted, taskSelectionKey(info), info ? draftScope(info) : null);
+  const workTasks = useWorkTasks(info?.workTasks === true, busy, taskRefresh, taskRunStarted, taskSelectionKey(info), info ? draftScope(info) : null);
   const { composerTaskId: taskComposerId, setComposerTaskId: setTaskComposerId } = workTasks;
   const composerBinding = bindTaskComposer(taskComposerId, workTasks.task);
   const composingTask = composerBinding.kind === "task";
@@ -214,7 +216,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
 
   useConversationDraftPersistence(conversationDraft, info, drafts, creatingTask);
 
-  const { briefHold, setBriefNonce } = useBriefContinue({ info, draftReady, workTasks, uncertainSteer, setError, setDetailsOpen, setMobileDashboard, setTaskComposerId, setInput, inputRef });
+  const { briefHold, setBriefNonce } = useBriefContinue({ info, draftReady: draftReady && !initializing, workTasks, uncertainSteer, setError, setDetailsOpen, setMobileDashboard, setTaskComposerId, setInput, inputRef });
 
   useEffect(() => {
     if (!detailsOpen && !mobileDashboard) return;
@@ -280,7 +282,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
 
   const submit = useCallback(async () => {
     const line = composerText.trim();
-    if ((!composingTask && line.length === 0 && !attachments.length) || sendInFlight.current || threadSwitchInFlight.current) return;
+    if (initializing || (!composingTask && line.length === 0 && !attachments.length) || sendInFlight.current || threadSwitchInFlight.current) return;
     setError(null);
     if (!info || !draftReady || draftError || info.runtimeRecovery) { setError("请先恢复连接和草稿保存，再发送。"); return; }
     if (uncertainSteer !== null) { setError("上次补充的接收结果未知，请先核对；不会重复发送。"); return; }
@@ -371,11 +373,10 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
       setExcludeFromMemory(false);
     } catch { setError(creatingTask ? "任务保存或启动结果未确认。请查看任务列表核对，不会自动重试。" : "未收到启动结果。请核对当前状态，不会自动重发。"); }
     finally { sendInFlight.current = false; setSending(false); }
-  }, [attachments, composerText, composingTask, composerTask, creatingTask, workTasks, approval, state, excludeFromMemory, canSteer, uncertainSteer, info, draftReady, draftError]);
+  }, [attachments, composerText, composingTask, composerTask, creatingTask, workTasks, approval, state, excludeFromMemory, canSteer, uncertainSteer, info, draftReady, draftError, initializing]);
 
-  const busy = state.kind !== "idle";
   const steering = canSteerComposer(state, canSteer);
-  const composerReady = draftReady && draftError === null && (!composingTask || (workTasks.draftReady && !workTasks.draftError)) && !info?.runtimeRecovery && uncertainSteer === null && (steering || canSubmitComposer(state, composingTask ? "task" : composerText.trim().startsWith("/") ? "command" : "chat"));
+  const composerReady = !initializing && draftReady && draftError === null && (!composingTask || (workTasks.draftReady && !workTasks.draftError)) && !info?.runtimeRecovery && uncertainSteer === null && (steering || canSubmitComposer(state, composingTask ? "task" : composerText.trim().startsWith("/") ? "command" : "chat"));
   const running = state.kind === "running";
   const activePrimary = running && state.phase === "primary";
   const { recheckSteer, releaseSteer } = steerReview({ info, busy, uncertainSteer, setUncertainSteer, mergeSteer, workTasks, setInput, setTaskComposerId, setError, draftSave });
@@ -444,7 +445,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
 
   const attention = attentionKind({ approval: approval !== null || herdrSelection !== null, unknownRuns: unknownRuns.length || (reviewTask ? 1 : 0), pendingMemory: 0, idle: !busy });
   const status = headerStatus(state, attention);
-  const stageLabel = info?.runtimeRecovery ? "连接已停止" : info ? status.label : error ? "连接失败" : "正在连接";
+  const stageLabel = info?.runtimeRecovery ? "连接已停止" : initializing ? "正在连接" : info ? status.label : error ? "连接失败" : "正在连接";
   const threadDrafts = new Map(threads.flatMap(thread => {
     const draft = drafts.get(draftKey({ workspaceRoot: info?.workspaceRoot ?? null, directory: thread.transcriptDirectory, threadId: thread.threadId }));
     return draft?.text ? [[thread.threadId, draft.text] as const] : [];
@@ -569,8 +570,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
           <PersonalPromptEditor inputRef={inputRef} value={composerText} aria-label={composingTask ? "本轮任务指令" : "消息输入"}
               notice={composingTask ? !composerTask ? "任务已切换，原草稿仍保留。重新选择任务，或切回普通对话。" : !busy && !taskActions(composerTask).run ? "本轮已结束，请从任务卡查看结果，或切回普通对话。" : null : null}
               topContent={<>{recoverableAttachments ? <div className="serika-draft-setting"><span>上次未完成消息的附件仍可恢复。</span><button type="button" className="ghost" disabled={busy || sending || !!attachments.length || !!input.trim()} onClick={() => { setAttachments(recoverableAttachments.files); setInput(recoverableAttachments.text); setRecoverableAttachments(null); }}>恢复到草稿</button></div> : null}<AttachmentPreview attachments={attachments} setAttachments={setAttachments} disabled={sending} />{creatingTask ? <div className="composer-create-mode"><strong>新任务</strong><button type="button" className="ghost" disabled={busy || sending} onClick={() => setCreatingTask(false)}>返回普通对话</button></div> : null}{workTasks.task || composingTask ? <div className="composer-target" role="group" aria-label="发送方式"><button className={!composingTask ? "selected" : ""} type="button" aria-pressed={!composingTask} onClick={() => setTaskComposerId(null)}>普通对话</button><button className={composingTask ? "selected" : ""} type="button" aria-pressed={composingTask} disabled={!workTasks.task || (!taskActions(workTasks.task).run && !composingTask)} onClick={composeTask}>补充当前任务</button>{composingTask ? <span>{composerTask ? humanFacingTitle(composerTask.goal, "当前任务") : "当前任务暂不可用"}</span> : null}</div> : null}{excludeFromMemory && !composingTask ? <div className="serika-draft-setting"><Icon name="memory" size={13} /><span>本条不存入记忆</span><button type="button" className="icon-button" aria-label="恢复本条记忆整理" onClick={() => setExcludeFromMemory(false)}><Icon name="close" size={12} /></button></div> : null}</>}
-              disabled={sending || switchingThread || info === null || !draftReady || !!info.runtimeRecovery || (composingTask && !composerTask)}
-              placeholder={creatingTask ? "想让 Serika 完成什么？" : composingTask && !composerTask ? "重新选择任务，或切回对话…" : approval && !steering ? "先确认上方操作，再发送…" : !composerReady ? "可以先写，结束后再发送…" : "和 Serika 聊天"}
+              disabled={initializing || sending || switchingThread || info === null || !draftReady || !!info.runtimeRecovery || (composingTask && !composerTask)}
+              placeholder={initializing ? "正在连接…" : creatingTask ? "想让 Serika 完成什么？" : composingTask && !composerTask ? "重新选择任务，或切回对话…" : approval && !steering ? "先确认上方操作，再发送…" : !composerReady ? "可以先写，结束后再发送…" : "和 Serika 聊天"}
               onChange={event => { if (!composingTask) setInput(event.target.value); else if (composerTask) workTasks.setInstruction(event.target.value); }}
               onKeyDown={event => {
                 if (composerReady && shouldSubmitComposer({ key: event.key, shiftKey: event.shiftKey, isComposing: event.nativeEvent.isComposing })) {
@@ -587,7 +588,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                 {!composingTask && input ? <span className="hint" role="status">{draftError ? "草稿未保存" : draftSaving ? "保存草稿…" : "草稿已保存"}</span> : null}
                 {composingTask ? <span className="hint" role="status">{workTasks.draftError ? "任务草稿未保存" : workTasks.draftSaving ? "保存任务草稿…" : workTasks.draftReady ? "任务草稿已保存" : "正在恢复任务草稿…"}</span> : null}
                 <span className="serika-model-name" title="当前配置的模型；不代表本轮已联网验证">{info?.modelId ?? info?.modelAlias ?? "连接中"}</span>
-                {busy ? <Button type="button" variant="outline" size="icon" className="serika-stop-button" aria-label={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮"} title={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮；已执行的操作不会撤回"} onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Square size={12} /></Button> : null}
+                {!initializing && state.kind !== "idle" ? <Button type="button" variant="outline" size="icon" className="serika-stop-button" aria-label={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮"} title={state.kind === "compacting" ? "停止上下文压缩" : state.kind === "running" && state.phase === "consolidation" ? "停止记忆整理" : "停止本轮；已执行的操作不会撤回"} onClick={() => void window.runloom.cancel().catch(() => setError("取消结果未收到，请核对当前状态。"))}><Square size={12} /></Button> : null}
                 {composerReady ? <Button type="button" size={(creatingTask || composingTask) && !steering ? "default" : "icon"} className={`send-button${(creatingTask || composingTask) && !steering ? " task-send" : ""}`}
                   aria-label={creatingTask ? "创建并开始" : composingTask && !steering ? composerTask && workTaskPhase(composerTask) === "ready" ? "开始任务" : "继续此任务" : "发送消息"}
                   title={steering ? "发送到当前这轮，等待正在执行的步骤结束后处理" : composingTask ? "显式开始下一次任务处理；工具仍需确认" : "发送（Enter）· 换行（Shift + Enter）"}

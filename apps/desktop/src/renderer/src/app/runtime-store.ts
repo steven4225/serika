@@ -70,6 +70,7 @@ export interface OlderHistoryView {
  */
 export interface RuntimeState {
   readonly info: AppInfo | null;
+  readonly initializing: boolean;
   readonly state: UiState;
   readonly output: string;
   readonly approval: PendingApproval | null;
@@ -192,6 +193,7 @@ export interface RuntimeStoreOptions {
 
 export const initialRuntimeState: RuntimeState = {
   info: null,
+  initializing: true,
   state: { kind: "idle" },
   output: "",
   approval: null,
@@ -515,6 +517,7 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
 
     start(host) {
       const mine = ++session;
+      patch({ initializing: true });
       const cancelled = () => mine !== session;
       stopMessages = () => undefined;
       const openNotificationResult = async () => {
@@ -667,10 +670,13 @@ export function createRuntimeStore({ bridge }: RuntimeStoreOptions, initial: Run
           await refreshSnapshot();
           if (cancelled()) return;
           await store.loadRecords();
+          if (cancelled()) return;
           const homeResult = await bridge().home();
           if (!homeResult.ok && homeResult.reason !== "busy" && !cancelled()) onError(commandError(homeResult));
         } catch (cause: unknown) {
           if (!cancelled()) onError(String(cause));
+        } finally {
+          if (!cancelled()) patch({ initializing: false });
         }
       })();
     },
