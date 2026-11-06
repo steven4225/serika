@@ -35,6 +35,7 @@ export class DesktopRuntime {
   #bridge!: RuntimeBridge;
   #changing = false;
   #transition: Promise<void> | undefined;
+  #shutdown: Promise<void> | undefined;
   #available = true;
   #lastInfo!: AppInfo;
   #recoveryError: string | undefined;
@@ -389,10 +390,12 @@ export class DesktopRuntime {
     this.#transition = transition;
     try { await transition; } finally { this.#transition = undefined; }
   }
-  async shutdown() {
-    await this.#telegram?.close();
-    await this.#transition?.catch(() => undefined);
-    try { if (this.#available) await this.#bridge.shutdown(); }
-    finally { this.#pomodoroService.dispose(); }
+  shutdown(): Promise<void> {
+    return this.#shutdown ??= (async () => {
+      await this.#telegram?.close();
+      await this.#transition?.catch(() => undefined);
+      try { if (this.#available) await this.#bridge.shutdown(); }
+      finally { this.#pomodoroService.dispose(); }
+    })();
   }
 }
