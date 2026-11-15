@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, open, readFile, rename, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { AgentEvent, RunResult } from "@serika/core";
+import type { AgentErrorData, AgentEvent, RunResult } from "@serika/core";
 import { acquireFlock, tryAcquireFlock, type FlockHandle } from "./flock.js";
 import { compactTraceEvent, validTrace, validTraceUsage, TRACE_MAX_EVENTS, TRACE_MAX_BYTES, type ExecutionTrace } from "./execution-trace.js";
 import { MODEL_CALL_LIMIT, validModelCall, type ModelCallRecord, type ModelUsagePage } from "./model-usage.js";
@@ -15,6 +15,14 @@ export const EXECUTION_RECORD_PREVIEW_BYTES = 2 * 1024;
 const FILE_WRITE_MAX_BYTES = 65_536;
 const FILE_PATH_MAX_BYTES = 1_024;
 const SHA256 = /^[0-9a-f]{64}$/;
+const RUN_ERROR_CODES = {
+  AGENT_NOT_FOUND: true, INVALID_REQUEST: true, MODEL_AUTH: true, MODEL_RATE_LIMIT: true,
+  MODEL_UNAVAILABLE: true, MODEL_TIMEOUT: true, MODEL_BAD_RESPONSE: true, CONTEXT_PREPARE_FAILED: true,
+  TOOL_NOT_FOUND: true, TOOL_SOFT_REJECTED: true, TOOL_INVALID_INPUT: true, TOOL_EXECUTION_FAILED: true,
+  TOOL_OUTCOME_UNKNOWN: true, TOOL_DENIED: true, TOOL_PRECHECK_FAILED: true, RUN_CONFLICT: true,
+  RUN_CANCELLED: true, RUN_TIMEOUT: true, RUN_LIMIT_EXCEEDED: true, STORAGE_CORRUPT: true,
+  STORAGE_WRITE_FAILED: true, STORAGE_COMMIT_UNCERTAIN: true, INTERNAL: true,
+} satisfies Record<AgentErrorData["code"], true>;
 
 export type ExecutionRunStatus = RunResult["status"] | "running" | "interrupted";
 export type ExecutionToolStatus =
@@ -46,7 +54,7 @@ export interface ExecutionToolRecord {
   resultPreview: string | null;
   resultTruncated: boolean;
   errorPreview: string | null;
-  /** Host error code. Written only for TOOL_DENIED; status stays "failed". Read as any string. */
+  /** Full host event or structured tool-result error code, independent of invocation status. */
   errorCode?: string;
   shell: { exitCode: number | null; timedOut: boolean; cancelled: boolean } | null;
   /** Captured from the full request before dispatch; never reconstructed from a preview. */
@@ -68,6 +76,7 @@ export interface ExecutionRunRecord {
   resultTextPreview: string | null;
   resultTextTruncated: boolean;
   errorPreview: string | null;
+  errorCode?: AgentErrorData["code"];
   tools: ExecutionToolRecord[];
   completion?: RunResult["completion"];
   /** Host-observed versions prepared during this primary Run; never model claims. */
@@ -123,6 +132,10 @@ function stringifyPreview(value: unknown): { text: string; truncated: boolean } 
 
 function validPreview(value: unknown): value is string {
   return typeof value === "string" && Buffer.byteLength(value, "utf8") <= EXECUTION_RECORD_PREVIEW_BYTES + 3;
+}
+
+function validToolErrorCode(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= 256;
 }
 
 function filePath(value: unknown): value is string {
@@ -205,7 +218,7 @@ function validateTool(value: unknown): ExecutionToolRecord {
       (value.resultPreview !== null && !validPreview(value.resultPreview)) ||
       typeof value.resultTruncated !== "boolean" ||
       (value.errorPreview !== null && !validPreview(value.errorPreview)) ||
-      (value.errorCode !== undefined && typeof value.errorCode !== "string")) {
+      (value.errorCode !== undefined && !validToolErrorCode(value.errorCode))) {
     fail("FILE_INVALID", "Tool record contains invalid fields");
   }
   if (value.shell !== null && (!isObject(value.shell) ||
@@ -254,6 +267,7 @@ export function validateExecutionRunRecord(value: unknown): ExecutionRunRecord {
       (value.resultTextPreview !== null && !validPreview(value.resultTextPreview)) ||
       typeof value.resultTextTruncated !== "boolean" ||
       (value.errorPreview !== null && !validPreview(value.errorPreview)) ||
+      (value.errorCode !== undefined && (typeof value.errorCode !== "string" || !Object.hasOwn(RUN_ERROR_CODES, value.errorCode))) ||
       !Array.isArray(value.tools) || value.tools.length > EXECUTION_RECORD_MAX_TOOLS) {
     fail("FILE_INVALID", "Run record contains invalid fields");
   }
@@ -457,6 +471,10 @@ export class ExecutionRecordStore {
         const result = stringifyPreview(event.data.output);
         tool.resultPreview = result.text;
         tool.resultTruncated = result.truncated;
+        const output = event.data.output;
+        if (isObject(output) && output.ok === false && isObject(output.error) && validToolErrorCode(output.error.code)) {
+          tool.errorCode = output.error.code;
+        }
         if (tool.toolName === "shell_exec" || tool.toolName === "terminal_exec" || tool.toolName === "recipe_run") tool.shell = shellReceipt(event.data.output);
         const written = fileResult(tool, event.data.output);
         if (written !== undefined) tool.fileWrite = written;
@@ -464,7 +482,7 @@ export class ExecutionRecordStore {
         if (read !== undefined) tool.fileRead = read;
       } else {
         tool.errorPreview = preview(event.data.error.message).text;
-        if (event.data.error.code === "TOOL_DENIED") tool.errorCode = event.data.error.code;
+        tool.errorCode = event.data.error.code;
       }
     }, runId);
   }
@@ -504,6 +522,8 @@ export class ExecutionRecordStore {
       run.resultTextPreview = text.text;
       run.resultTextTruncated = text.truncated;
       run.errorPreview = result.error ? preview(result.error.message).text : null;
+      if (result.error) run.errorCode = result.error.code;
+      else delete run.errorCode;
       if (run.trace) {
         if (validTraceUsage(result.usage)) run.trace.usage = structuredClone(result.usage);
         if (Number.isSafeInteger(result.steps) && result.steps >= 0) run.trace.steps = result.steps;
@@ -534,6 +554,7 @@ export class ExecutionRecordStore {
       run.status = "failed";
       run.finishedAt = this.#now().toISOString();
       run.errorPreview = preview(String(error)).text;
+      delete run.errorCode;
     }, runId);
   }
 
@@ -551,6 +572,7 @@ export class ExecutionRecordStore {
         if (run.threadId !== threadId || run.status !== "running") continue;
         recovered += 1;
         run.status = "interrupted";
+        delete run.errorCode;
         run.finishedAt = at;
         for (const steer of run.steers ?? []) {
           if (steer.status === "accepted") { steer.status = "not_applied"; steer.reason = "interrupted"; }

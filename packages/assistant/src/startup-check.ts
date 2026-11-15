@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import type { AssistantAssembly } from "./assembly.js";
 import { assistantDataPaths } from "./data-paths.js";
 import { inspectCliModelConfig } from "./model-config.js";
-import { resolveTuiModuleConfig } from "./tui-module-config.js";
+import { resolveTuiModuleConfig, TUI_DEFAULT_MODEL_TIMEOUT_MS } from "./tui-module-config.js";
 import { loadSkillPackages } from "./skill-catalog.js";
 import { builtinMemoryHookRules, compileHookRules } from "./automation-hooks.js";
 import { MEMORY_SKILL_ID } from "./automation-execution.js";
@@ -90,7 +90,7 @@ export async function checkAssistantStartup(
     if (config.computer) {
       checks.push({ id: "computer", level: "warning", message: `Computer AX-addressed allowed apps: ${config.computer.allowedBundleIds!.join(", ")}. Driver executable: ${config.computer.executable}. Static check does not launch the driver or prove daemon/OS permissions or application control`, blocking: false });
     }
-    checks.push({ id: "run-budget", level: "ok", message: `Primary TUI run maxSteps ${config.maxSteps} (default 8, ceiling 32), totalTimeoutMs ${config.totalTimeoutMs} (default 120000, ceiling 1800000). Shell command timeoutMs ${config.shellTimeoutMs} (default 30000, ceiling 600000). Step timeout, confirmation pause, and worker limits are unchanged`, blocking: false });
+    checks.push({ id: "run-budget", level: "ok", message: `Primary TUI run maxSteps ${config.maxSteps} (default 8, ceiling 32), totalTimeoutMs ${config.totalTimeoutMs} (default 120000, ceiling 1800000). Model first-output/inactivity timeoutMs ${config.modelTimeoutMs ?? TUI_DEFAULT_MODEL_TIMEOUT_MS}; nonempty output renews it. Shell command timeoutMs ${config.shellTimeoutMs} (default 30000, ceiling 600000). Confirmation pauses and worker limits are unchanged`, blocking: false });
     if (args.dataDirectory !== undefined) {
       const paths = assistantDataPaths(resolve(cwd, args.dataDirectory));
       const dataFiles = [

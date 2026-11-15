@@ -38,13 +38,18 @@ export class ConfigCommitUncertainError extends Error {
   constructor(cause: unknown) { super("配置保存结果未确认，已暂停新执行。请重新连接并核对实际模块开关；不会自动重做任务。", { cause }); }
 }
 
-async function replace(path: string, expected: string | undefined, content: string, mode: number, cwd: string, validation: false | { dataDirectory?: string }) {
+async function replace(path: string, expected: string | undefined, content: string, mode: number, cwd: string, validation: false | { dataDirectory?: string; expectedDirectories?: readonly DirectoryAuthorization[] }) {
   const temporary = `${path}.${randomUUID()}.tmp`;
   let renamed = false;
   try {
     const file = await open(temporary, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, mode);
     try { await file.writeFile(content, "utf8"); await file.chmod(mode); await file.sync(); } finally { await file.close(); }
-    if (validation) await resolveTuiModuleConfig({ ...validation, configPath: temporary }, { cwd });
+    if (validation) {
+      const resolved = await resolveTuiModuleConfig({ ...validation, configPath: temporary }, { cwd });
+      if (validation.expectedDirectories && JSON.stringify(resolved.authorizedDirectories) !== JSON.stringify(validation.expectedDirectories)) {
+        throw new Error("目录规范路径已变化，未保存，请重新选择后核对");
+      }
+    }
     let current: string | undefined;
     try { current = (await readConfig(path)).text; }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
@@ -63,7 +68,7 @@ async function replace(path: string, expected: string | undefined, content: stri
 }
 
 /** Shared by every desktop config writer; caller supplies only a trusted host path. */
-export async function updateDesktopConfig(configPath: string, cwd: string, mutate: (text: string | undefined, path: string) => Promise<string | undefined>, options: { allowCreate?: boolean; dataDirectory?: string } = {}): Promise<{ changed: boolean; rollback?: () => Promise<void> }> {
+export async function updateDesktopConfig(configPath: string, cwd: string, mutate: (text: string | undefined, path: string) => Promise<string | undefined>, options: { allowCreate?: boolean; dataDirectory?: string; expectedDirectories?: readonly DirectoryAuthorization[] } = {}): Promise<{ changed: boolean; rollback?: () => Promise<void> }> {
   try {
     const stat = await lstat(configPath);
     if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("配置必须是常规文件，且不超过 64 KiB");
@@ -120,7 +125,7 @@ export async function changeDirectorySettings(configPath: string, input: Directo
     config.authorizedDirectories = input.directories;
     config.projectDirectory = current.projectDirectory;
     return JSON.stringify(config, null, 2) + "\n";
-  }, options.dataDirectory ? { dataDirectory: options.dataDirectory } : {});
+  }, { ...(options.dataDirectory ? { dataDirectory: options.dataDirectory } : {}), expectedDirectories: input.directories });
   return result.rollback ?? (async () => {});
 }
 

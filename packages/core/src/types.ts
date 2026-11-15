@@ -19,6 +19,8 @@ export interface AgentLimits {
   maxSteps: number;
   totalTimeoutMs: number;
   stepTimeoutMs: number;
+  /** Foreground models may renew this deadline on nonempty output; the Run budget still applies. */
+  modelIdleTimeoutMs?: number;
   maxOutputTokens?: number;
 }
 

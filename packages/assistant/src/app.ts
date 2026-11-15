@@ -100,6 +100,7 @@ import { createMemoryReferenceSource } from "./memory-reference-source.js";
 import {
   resolveTuiModuleConfig,
   TUI_DEFAULT_TOTAL_TIMEOUT_MS,
+  TUI_DEFAULT_MODEL_TIMEOUT_MS,
   type ResolvedTuiModuleConfig,
 } from "./tui-module-config.js";
 import {
@@ -764,6 +765,7 @@ export async function createRuntimeApp(options: RuntimeAppOptions): Promise<Runt
           maxSteps: tuiMode ? (moduleConfig?.maxSteps ?? 8) : 4,
           totalTimeoutMs: tuiMode ? (moduleConfig?.totalTimeoutMs ?? TUI_DEFAULT_TOTAL_TIMEOUT_MS) : 10_000,
           stepTimeoutMs: tuiMode ? 30_000 : 5_000,
+          ...(tuiMode ? { modelIdleTimeoutMs: moduleConfig?.modelTimeoutMs ?? TUI_DEFAULT_MODEL_TIMEOUT_MS } : {}),
           ...(tuiMode && moduleConfig?.contextCompaction.enabled
             ? { maxOutputTokens: moduleConfig.contextCompaction.maxOutputTokens }
             : {}),
