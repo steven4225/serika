@@ -63,7 +63,7 @@ export function RssPanel({ enabled, busy, showInbox = true }: { enabled: boolean
       </form>
       {!view.scheduleId ? <form className="work-task-form" onSubmit={e => { e.preventDefault(); setPreview({ action: { action: "schedule", expectedRevision: view.revision, recurrence: { kind: "daily", time, utcOffset: offset } }, label: `每天 ${time}（固定 UTC${offset}）抓取启用的订阅；不处理夏令时` }); }}>
         <label>每天<input type="time" required value={time} onChange={e => setTime(e.target.value)} disabled={disabled} /></label>
-        <label>固定 UTC 偏移<input value={offset} pattern="[+-][0-9]{2}:[0-9]{2}" required onChange={e => setOffset(e.target.value)} disabled={disabled} /></label>
+        <label>固定 UTC 偏移<input value={offset} pattern="[+\-][0-9]{2}:[0-9]{2}" required onChange={e => setOffset(e.target.value)} disabled={disabled} /></label>
         <button className="ghost" disabled={disabled || !view.sources.some(s => s.enabled)}>启用排期…</button>
       </form> : <button className="ghost" disabled={disabled} onClick={() => setPreview({ action: { action: "enabled", enabled: !view.enabled, expectedRevision: view.revision }, label: `${view.enabled ? "暂停" : "恢复"}资讯排期；已经开始的请求或交付无法撤回` })}>{view.enabled ? "暂停排期…" : "恢复排期…"}</button>}
       {preview ? <div className="card"><p>{preview.label}</p><p className="hint">只修改订阅或排期，不会立即抓取，也不会自动启动后台服务。</p><button disabled={disabled} onClick={() => void save()}>确认</button><button className="ghost" disabled={pending} onClick={() => setPreview(null)}>取消</button></div> : null}

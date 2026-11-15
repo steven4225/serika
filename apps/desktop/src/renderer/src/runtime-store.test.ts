@@ -75,7 +75,7 @@ const watched = () => {
 test("runtime store starts from the values AssistantPage used to start with", () => {
   const store = newStore();
   assert.deepEqual(store.getState(), {
-    info: null, state: { kind: "idle" }, output: "", approval: null, herdrSelection: null, homeSnapshot: null, memoryRefresh: 0, contextRefresh: 0, taskRefresh: 0,
+    info: null, initializing: true, state: { kind: "idle" }, output: "", approval: null, herdrSelection: null, homeSnapshot: null, memoryRefresh: 0, contextRefresh: 0, taskRefresh: 0,
     live: emptyLiveRun, lastResult: null, canSteer: false, finalRecord: null, steers: [], uncertainSteer: null,
     history: { rows: [], runId: null }, historyBefore: null, historyLoading: false,
     records: { status: "loading" }, recordDetail: { status: "idle" }, traceFocusTool: null,
@@ -712,6 +712,43 @@ const startupHarness = (overrides: Partial<Record<string, unknown>> = {}) => {
   return { store, calls, errors, host, hostApi, send, listeners, answers };
 };
 const settle = async () => { for (let index = 0; index < 20; index += 1) await flush(); };
+
+test("startup settlement keeps input admission closed through Home and releases it after success or failure", async () => {
+  for (const failure of [false, true]) {
+    let release!: () => void;
+    const home = new Promise<void>(done => { release = done; });
+    const f = startupHarness({ home: async () => { await home; if (failure) throw new Error("Home IPC failed"); return { ok: true }; } });
+    f.store.start(f.hostApi);
+    await settle();
+    assert.equal(f.calls.at(-1), "home");
+    assert.deepEqual(f.host, ["applyDraft:草稿"]);
+    f.send({ type: "state", state: { kind: "idle" } });
+    assert.equal(f.store.getState().initializing, true, "idle does not settle the startup reads");
+    release();
+    await settle();
+    assert.equal(f.store.getState().initializing, false);
+    assert.deepEqual(f.errors, failure ? ["Error: Home IPC failed"] : []);
+    f.store.dispose();
+  }
+});
+
+test("disposed startup cannot send a late Home or settle a newer startup", async () => {
+  let release!: () => void;
+  let calls = 0;
+  const records = new Promise<void>(done => { release = done; });
+  const f = startupHarness({ listRuns: async () => { if (++calls > 1) await records; return { ok: true, runs: [] }; } });
+  f.store.start(f.hostApi);
+  await settle();
+  assert.equal(calls, 2);
+  f.store.dispose();
+  f.answers.info = new Promise(() => {});
+  f.store.start(f.hostApi);
+  release();
+  await settle();
+  assert.equal(f.calls.includes("home"), false);
+  assert.equal(f.store.getState().initializing, true, "only the newer startup may release admission");
+  f.store.dispose();
+});
 
 test("start: subscribes, then info → draft → task route → snapshot ×2 → history → snapshot → records → Home, each after the previous", async () => {
   const { store, calls, host, hostApi, errors } = startupHarness();

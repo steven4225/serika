@@ -9,7 +9,7 @@ import { ResidentClient } from "./resident-transport.js";
 import { residentStartup, saveResidentStartup } from "./resident-startup.js";
 import type { PendingApproval } from "../shared/ui-contract.js";
 
-it("the actual headless entry retains Thread, Run receipts and a timer when clients detach, change a capability and switch Thread", { timeout: 20_000 }, async () => {
+for (const termination of ["requestStop", "SIGTERM"] as const) it(`the actual headless entry retains Thread, Run receipts and a timer, then closes its configured transport via ${termination}`, { timeout: 20_000 }, async () => {
   const root = await mkdtemp(`${process.platform === "darwin" ? "/private/tmp" : "/tmp"}/serika-process-`);
   const workspace = join(root, "workspace"), applicationHome = join(root, "profile"), configPath = join(root, "config.json");
   const directory = join(root, "state"), identityPath = join(directory, "identity.json"), socket = join(root, "socket", "host.sock");
@@ -21,7 +21,7 @@ it("the actual headless entry retains Thread, Run receipts and a timer when clie
     modelContextWindows: [{ provider: "mock-provider", modelId: "mock-model-id", contextWindowTokens: 512_000 }] }));
   await saveResidentStartup(identityPath, residentStartup(applicationHome, root, { RUNLOOM_CONFIG: configPath, RUNLOOM_MODEL: "mock", RUNLOOM_DESKTOP_TEST: "1" }), false);
   const child = spawn(process.execPath, ["--import", import.meta.resolve("tsx"), fileURLToPath(new URL("./resident-entry.ts", import.meta.url)), "--identity", identityPath, "--socket", socket], {
-    cwd: fileURLToPath(new URL("../..", import.meta.url)), env: { ...process.env, RUNLOOM_MODEL: "mock" }, stdio: ["ignore", "pipe", "pipe"],
+    cwd: fileURLToPath(new URL("../..", import.meta.url)), env: { ...process.env, RUNLOOM_MODEL: "mock", TELEGRAM_BOT_TOKEN: "123:offline-process-fixture", TELEGRAM_PROXY_URL: "http://127.0.0.1:1" }, stdio: ["ignore", "pipe", "pipe"],
   });
   let stderr = "";
   child.stderr.on("data", chunk => { stderr = (stderr + chunk.toString()).slice(-4000); });
@@ -74,7 +74,8 @@ it("the actual headless entry retains Thread, Run receipts and a timer when clie
     assert.equal((await client.getLifecycleStatus()).pomodoroRunning, true);
     await assert.rejects(client.requestStop(), /番茄钟/);
     await client.current.command("/pomodoro cancel");
-    await client.requestStop();
+    if (termination === "requestStop") await client.requestStop();
+    else child.kill("SIGTERM");
     const exit = await exited;
     assert.equal(exit.code, 0, stderr);
     assert.equal(exit.signal, null);
