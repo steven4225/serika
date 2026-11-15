@@ -219,6 +219,8 @@ export class HerdrClient {
         if (result.terminal_id !== target.terminalId || result.pane_id !== target.paneId || result.agent !== "pi") return failure("HERDR_TARGET_CHANGED", "Herdr 终端已关闭或替换，请重新选择目标");
         return { ok: true as const, value: snapshot(result) };
       }
+      // Herdr 0.8.x copies this argv slot into the prompt unchanged. A preceding `--` is not
+      // end-of-options: 0.8.2 treats it as the text and reports the real text as an unknown option.
       const args = action.action === "prompt" ? ["agent", "prompt", target.paneId, action.text]
         : ["agent", "send-keys", target.paneId, action.action === "stop" ? "ctrl+c" : action.key];
       const response: unknown = await this.#json({ binary, args: [...prefix, ...args], signal, stage: action.action, onSpawn: () => { dispatched = true; } });

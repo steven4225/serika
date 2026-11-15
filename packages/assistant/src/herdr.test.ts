@@ -17,8 +17,11 @@ async function fixture() {
   await writeFile(join(bin, "herdr"), `#!${process.execPath}
 import {readFileSync,appendFileSync,writeFileSync} from 'node:fs';
 const argv=process.argv.slice(2), mode=JSON.parse(readFileSync(${JSON.stringify(stateFile)},'utf8'));
+const stdinRaw=process.stdin.read();
+const stdin=stdinRaw==null?'':Buffer.from(stdinRaw).toString('utf8');
+process.stdin.unref();
 if (Object.keys(process.env).some(k=>k.startsWith('HERDR_') || k==='API_KEY')) { console.error('unexpected environment'); process.exit(1); }
-appendFileSync(${JSON.stringify(log)},JSON.stringify(argv)+'\\n');
+appendFileSync(${JSON.stringify(log)},JSON.stringify({argv,stdin})+'\\n');
 if(mode==='server-not-running' || mode==='discovery' && argv[1]==='broken') { console.error(JSON.stringify({error:{code:'server_not_running',message:'password='+${JSON.stringify(secret)}}})); process.exit(1); }
 if(mode==='invalid-json') { console.log('password='+${JSON.stringify(secret)}); process.exit(0); }
 if(mode==='invalid-metadata') { console.log('{}'); process.exit(0); }
@@ -36,8 +39,9 @@ else console.log(JSON.stringify({result:argv[3]==='send-keys'?{type:'ok'}:{type:
   const client = new HerdrClient({ cwd: root, authorizedDirectory: directory,
     env: { HOME: home, PATH: bin, HERDR_ENV: "1", HERDR_SESSION: "wrong-session", API_KEY: secret } });
   const target = { authorizedDirectory: directory, session: "offline", paneId: "w1:p1", terminalId: "terminal-1" };
-  const calls = async (): Promise<string[][]> => (await readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line));
-  return { root, directory, client, target, secret, set, calls };
+  const invocations = async (): Promise<Array<{ argv: string[]; stdin: string }>> => (await readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line));
+  const calls = async (): Promise<string[][]> => (await invocations()).map(item => item.argv);
+  return { root, directory, client, target, secret, set, calls, invocations };
 }
 
 it("Herdr fixed actions verify the selected Pi identity, strip credentials and use only explicit argv", async () => {
@@ -62,6 +66,18 @@ it("Herdr fixed actions verify the selected Pi identity, strip credentials and u
     await assert.rejects(f.client.panes("--current"), /会话名称无效/);
     assert.equal(herdrReadSchema.safeParse({ action: "read", session: "another" }).success, false);
     assert.equal(herdrControlSchema.safeParse({ action: "input", key: "arbitrary command" }).success, false);
+  } finally { await rm(f.root, { recursive: true, force: true }); }
+});
+
+it("Herdr prompt text is one literal argv slot, including text that starts with '-'", async () => {
+  const f = await fixture();
+  try {
+    const texts = ["normal task", "-x", "--help", "--", "- list item"];
+    for (const text of texts) assert.equal((await f.client.execute(f.target, { action: "prompt", text })).ok, true);
+    const prompts = (await f.invocations()).filter(call => call.argv[3] === "prompt");
+    assert.deepEqual(prompts.map(call => call.argv), texts.map(text => ["--session", "offline", "agent", "prompt", "w1:p1", text]));
+    assert.deepEqual(prompts.map(call => call.stdin), texts.map(() => ""));
+    assert.ok(prompts.every(call => call.argv.length === 6));
   } finally { await rm(f.root, { recursive: true, force: true }); }
 });
 
