@@ -53,6 +53,15 @@ export function settingsRouteForInitial(initial: false | "modules" | "context" |
   return "home";
 }
 
+/**
+ * Whether an identity change must remount the page. A settings save that applied
+ * cleanly must not: remounting drops unsaved drafts on every page and lands the
+ * user on whichever category the change's reason maps to.
+ */
+export function settingsRefreshNeedsRemount(message: { reason?: string; configurationError?: string }): boolean {
+  return message.reason === undefined || message.configurationError !== undefined;
+}
+
 /** Home returns to 手札. Every pushed pane returns to the settings list. */
 export function settingsBackTarget(route: SettingsRoute): "hand" | "home" {
   return route === "home" ? "hand" : "home";

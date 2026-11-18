@@ -64,7 +64,7 @@ import { SearchOverlay } from "./personal/search-overlay.js";
 import { PageHeader } from "./personal/page-header.js";
 import { NavigationRow, NavigationRows, RowGroup } from "./personal/settings-rows.js";
 import { SettingsAbout, SettingsFrame, SettingsGeneral, SettingsHome, SettingsNotifications, SettingsShortcuts } from "./personal/settings.js";
-import { modulesForSettingsRoute, settingsRouteForInitial, type SettingsListTarget, type SettingsRoute } from "./personal/settings-model.js";
+import { modulesForSettingsRoute, settingsRefreshNeedsRemount, settingsRouteForInitial, type SettingsListTarget, type SettingsRoute } from "./personal/settings-model.js";
 import { clampChatFraction, dashboardTabForDetail, detailBackTarget } from "./personal/layout.js";
 import { humanFacingTitle } from "../../shared/human-title.js";
 import { RemindersPanel } from "./reminders.js";
@@ -94,9 +94,12 @@ export function App({ initialLayout }: { initialLayout?: DesktopLayout } = {}) {
     return next;
   });
   useEffect(() => window.runloom.onMessage(message => {
-    if (message.type === "identity-changed") { setInitialSettings(message.reason ?? false); setInitialSettingsError(message.configurationError ?? null); setIdentityGeneration(value => value + 1); }
+    if (message.type === "identity-changed") {
+      setInitialSettings(message.reason ?? false); setInitialSettingsError(message.configurationError ?? null);
+      if (settingsRefreshNeedsRemount(message)) setIdentityGeneration(value => value + 1);
+    }
   }), []);
-  // Reset evidence/previews on identity changes; drafts also recover from main-process storage.
+  // Reset evidence/previews when the thread or workspace changes; drafts also recover from main-process storage.
   const page = <AssistantPage key={identityGeneration} drafts={drafts.current} layout={layout} initialSettings={initialSettings} initialSettingsError={initialSettingsError} appearance={appearance} onAppearance={toggleAppearance} />;
   return <div className={`serika-personal-shell personal-theme-${appearance}`}><DesktopWindowFrame title="Serika" isDesktop={true} isMacDesktop={document.documentElement.dataset.nativeWindowControls === "macos"}>{page}</DesktopWindowFrame></div>;
 }

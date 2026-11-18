@@ -5,7 +5,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AppInfo } from "../../../shared/ui-contract.js";
 import { dashboardTabForDetail } from "./layout.js";
-import { modulesForSettingsRoute, SETTINGS_ROUTES, settingsRouteForModule, readRecordedCallsWhenActive, readWhenHostReady, recordedCallLabel, recordedCallView, SETTINGS_HOST_RETRY_MS, settingsBackTarget, settingsCopy, settingsRouteForInitial, takeHostRead } from "./settings-model.js";
+import { modulesForSettingsRoute, SETTINGS_ROUTES, settingsRefreshNeedsRemount, settingsRouteForModule, readRecordedCallsWhenActive, readWhenHostReady, recordedCallLabel, recordedCallView, SETTINGS_HOST_RETRY_MS, settingsBackTarget, settingsCopy, settingsRouteForInitial, takeHostRead } from "./settings-model.js";
 import { SettingsFrame, SettingsHome } from "./settings.js";
 import { readAppSource } from "../../test-support/app-source.js";
 
@@ -179,4 +179,13 @@ it("every capability switch and permission control belongs to exactly one settin
   for (const control of ["DirectorySettings", "ProjectSelection", "AutonomySetting", "ComputerConnectionSetting", "HerdrTargetSetting"]) {
     assert.equal(app.match(new RegExp(`<${control} `, "g"))?.length, 1, `${control} must be rendered on one page only`);
   }
+});
+
+it("a settings save that applied keeps the page mounted and the user on the same category", async () => {
+  assert.equal(settingsRefreshNeedsRemount({}), true, "a thread or workspace change still remounts");
+  assert.equal(settingsRefreshNeedsRemount({ reason: "modules" }), false);
+  assert.equal(settingsRefreshNeedsRemount({ reason: "directories" }), false);
+  assert.equal(settingsRefreshNeedsRemount({ reason: "modules", configurationError: "TODOIST_API_TOKEN 未设置" }), true);
+  const app = await readAppSource();
+  assert.match(app, /if \(settingsRefreshNeedsRemount\(message\)\) setIdentityGeneration/);
 });
