@@ -46,7 +46,8 @@
 .personal-settings .capability-row { gap: 16px; padding: 16px 0; }
 .personal-settings .capability-row:last-child { border-bottom: 0; }
 .personal-settings .capability-row > div:first-child { flex: 1; min-width: 0; }
-.personal-settings .card { background: var(--surface); border: 0; border-radius: 20px; padding: 18px; }
+.personal-settings .card,
+.personal-settings .setting-block { background: var(--surface); border: 0; border-radius: 20px; padding: 18px; }
 .personal-settings .card-head { font-size: 15px; }
 .personal-settings details > summary { cursor: pointer; }
 .personal-settings details[open] > summary { margin-bottom: 12px; }

@@ -512,6 +512,19 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 .capability-control { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .capability-confirm { padding: 16px; border-left: 3px solid var(--accent, #285dc1); background: var(--panel, #f5f7fb); margin-top: 20px; }
 .capability-confirm p { line-height: 1.6; max-width: 65ch; }
+/* One layout for every path, permission, button and unsaved state on a settings page. */
+.setting-block { display: block; padding: 20px 0; border-bottom: 1px solid var(--border, #e5e8ed); }
+.setting-block strong { font-size: 15px; }
+.setting-block > p { margin: 7px 0; color: var(--muted, #657184); font-size: 13px; line-height: 1.6; max-width: 65ch; }
+.setting-block > small { display: block; color: var(--muted, #657184); font-size: 12px; line-height: 1.8; }
+.setting-paths { display: grid; gap: 8px; margin: 14px 0; }
+.setting-path-row { display: flex; align-items: center; gap: 8px; }
+.setting-path-row input { flex: 1; min-width: 0; }
+.setting-save-bar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+.setting-save-bar button { font-size: 12px; }
+.setting-save-bar .ghost { margin-right: auto; }
+.setting-save-state { color: var(--muted, #657184); font-size: 12px; }
+@media (max-width: 520px) { .setting-path-row { flex-wrap: wrap; } .setting-path-row input { flex-basis: 100%; } }
 .context-page { max-width: 760px; }
 .context-mode-picker { display: flex; flex-wrap: wrap; gap: 6px; }
 .context-mode-picker button { background: transparent; border: 1px solid var(--border); border-radius: 999px; padding: 7px 14px; color: var(--muted); }

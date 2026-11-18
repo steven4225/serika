@@ -34,6 +34,11 @@ import { steerFailureLabel } from "../../shared/steer.js";
 import { Icon, SerikaMark, SerikaPersona } from "./icons.js";
 import { MessageContent } from "./markdown.js";
 import { CapabilitiesPanel } from "./capabilities.js";
+import { ProjectSelection } from "./project-setting.js";
+import { DirectorySettings } from "./directory-authorization.js";
+import { AutonomySetting } from "./autonomy-setting.js";
+import { ComputerConnectionSetting } from "./computer-connection-setting.js";
+import { HerdrTargetSetting } from "./herdr-target-setting.js";
 import { TelegramPanel } from "./telegram-panel.js";
 import { PomodoroPanel } from "./pomodoro.js";
 import { attentionKind, headerStatus, deliveredReplyKeys, isMockModel } from "./attention.js";
@@ -59,7 +64,7 @@ import { SearchOverlay } from "./personal/search-overlay.js";
 import { PageHeader } from "./personal/page-header.js";
 import { NavigationRow, NavigationRows, RowGroup } from "./personal/settings-rows.js";
 import { SettingsAbout, SettingsFrame, SettingsGeneral, SettingsHome, SettingsNotifications, SettingsShortcuts } from "./personal/settings.js";
-import { isConnectorModule, settingsRouteForInitial, type SettingsListTarget, type SettingsRoute } from "./personal/settings-model.js";
+import { modulesForSettingsRoute, settingsRouteForInitial, type SettingsListTarget, type SettingsRoute } from "./personal/settings-model.js";
 import { clampChatFraction, dashboardTabForDetail, detailBackTarget } from "./personal/layout.js";
 import { humanFacingTitle } from "../../shared/human-title.js";
 import { RemindersPanel } from "./reminders.js";
@@ -654,21 +659,41 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
               <div hidden={detailTab !== "settings"}>
                 <SettingsFrame route={settingsRoute} onBack={backSettings}>
                   {settingsRoute === "home" ? <SettingsHome info={info} busy={busy} onOpen={openSettings} /> : null}
-                  {settingsRoute === "connectors" && info ? <CapabilitiesPanel info={{ ...info, modules: (info.modules ?? []).filter(module => isConnectorModule(module.id)) }} busy={busy} intro="连接外部服务，操作仍按原权限确认。" /> : null}
-                  {settingsRoute === "files" && info ? <CapabilitiesPanel info={{ ...info, modules: (info.modules ?? []).filter(module => ["read-file", "web"].includes(module.id)) }} busy={busy} initialError={initialSettings === "directories" ? initialSettingsError : null} intro="访问工作区文件和公开网页；搜索、RSS 的配置状态单独显示。" /> : null}
-                  {settingsRoute === "devices" && info ? <CapabilitiesPanel info={{ ...info, modules: (info.modules ?? []).filter(module => module.id === "computer") }} busy={busy} intro="只控制允许列表中的应用。驱动连接、系统权限与工具注册是不同状态。可在对话中请求 computer_check，经你批准后检查。" /> : null}
+                  {settingsRoute === "connectors" && info ? <CapabilitiesPanel info={info} modules={modulesForSettingsRoute("connectors", info.modules)} busy={busy} /> : null}
+                  {settingsRoute === "files" && info ? <>
+                    <DirectorySettings key={JSON.stringify(info.authorizedDirectories)} info={info} busy={busy} />
+                    <CapabilitiesPanel info={info} modules={modulesForSettingsRoute("files", info.modules)} busy={busy} initialError={initialSettings === "directories" ? initialSettingsError : null} />
+                  </> : null}
+                  {settingsRoute === "devices" && info ? <>
+                    <ComputerConnectionSetting info={info} busy={busy} />
+                    <CapabilitiesPanel info={info} modules={modulesForSettingsRoute("devices", info.modules)} busy={busy} />
+                  </> : null}
+                  {settingsRoute === "shell" && info ? <>
+                    <AutonomySetting info={info} busy={busy} />
+                    {info.modules?.some(module => module.id === "terminal" && module.enabled) ? <HerdrTargetSetting key={JSON.stringify(info.terminalTarget ?? null)} info={info} busy={busy} /> : null}
+                    <CapabilitiesPanel info={info} modules={modulesForSettingsRoute("shell", info.modules)} busy={busy} />
+                  </> : null}
                   {settingsRoute === "skills" && info ? <SkillsPanel busy={busy} identity={`${info.workspaceRoot}:${info.threadId}`} refreshSequence={automationRefresh} onUseRecipe={text => void newConversation(text)} /> : null}
                   {settingsRoute === "channels" ? <TelegramPanel busy={busy} /> : null}
-                  {settingsRoute === "memory" && info ? <><MemorySetup info={info} busy={busy} /><details className="card"><summary>管理记录</summary><MemoryPanel key={`management:${info.workspaceRoot}:${info.threadId}`} managementOnly memory={info.memory} temporaryThread={info.temporaryThread} threadId={info.threadId} controllerIdle={!busy} refreshToken={memoryRefresh} /></details><details className="card"><summary>高级配置与诊断</summary><CapabilitiesPanel info={{ ...info, modules: (info.modules ?? []).filter(module => module.id === "memory") }} busy={busy} /></details></> : null}
+                  {settingsRoute === "memory" && info ? <>
+                    <MemorySetup info={info} busy={busy} />
+                    <CapabilitiesPanel info={info} modules={modulesForSettingsRoute("memory", info.modules)} busy={busy} />
+                    <details className="card"><summary>管理记录</summary><MemoryPanel key={`management:${info.workspaceRoot}:${info.threadId}`} managementOnly memory={info.memory} temporaryThread={info.temporaryThread} threadId={info.threadId} controllerIdle={!busy} refreshToken={memoryRefresh} /></details>
+                  </> : null}
                   {settingsRoute === "advanced" && info ? <>
+                    <ProjectSelection key={info.project?.id ?? "none"} info={info} busy={busy} />
+                    <CapabilitiesPanel info={info} modules={modulesForSettingsRoute("advanced", info.modules)} busy={busy} initialError={initialSettings === "modules" ? initialSettingsError : null} />
                     <RowGroup>
                       <NavigationRow title="上下文与压缩" description="查看长对话预算和压缩状态。" onOpen={() => openSettings("context")} />
                       <NavigationRow title="执行记录与用量" description="核对工具回执、未知效果和模型调用。" onOpen={() => openSettings("records")} />
                       <NavigationRow title="对话与历史" description="查找、登记或恢复当前工作区的旧对话。" onOpen={() => openDetails("threads")} />
                     </RowGroup>
                     <details className="card"><summary>命令与诊断</summary><div className="serika-command-list">{info.commands.map(name => <button type="button" className="ghost" key={name} disabled={busy} onClick={() => prepareInput(`/${name} `)}>/{name}</button>)}</div><button type="button" className="ghost" onClick={() => setShowOutput(value => !value)}>{showOutput ? "隐藏系统输出" : "查看系统输出"}</button></details>
-                    <details className="card"><summary>数据与配置位置</summary><Identity info={info} /><dl className="session-facts"><dt>配置</dt><dd>{info.configPath ?? "未指定"}</dd><dt>工作区</dt><dd>{info.workspaceRoot ?? "未配置"}</dd><dt>对话记录</dt><dd>{info.directory}</dd></dl></details>
-                    {initialSettings === "modules" && initialSettingsError ? <p className="error" role="alert">未应用：{initialSettingsError}</p> : null}
+                    <section className="setting-block" aria-label="数据与配置位置">
+                      <strong>数据与配置位置</strong>
+                      <Identity info={info} />
+                      <dl className="session-facts"><dt>配置</dt><dd>{info.configPath ?? "未指定"}</dd><dt>工作区</dt><dd>{info.workspaceRoot ?? "未配置"}</dd><dt>对话记录</dt><dd>{info.directory}</dd></dl>
+                    </section>
                     <details className="card"><summary>已保存的项目进度</summary><button className="ghost" disabled={busy} onClick={() => void window.runloom.home().then(response => { if (!response.ok) setError(commandError(response)); }).catch(() => setError("概览读取失败"))}>刷新</button><HomeBody view={homeView} /></details>
                   </> : null}
                   {settingsRoute === "general" ? <SettingsGeneral appearance={appearance} busy={busy} onAppearance={onAppearance} /> : null}

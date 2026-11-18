@@ -5,7 +5,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AppInfo } from "../../../shared/ui-contract.js";
 import { dashboardTabForDetail } from "./layout.js";
-import { readRecordedCallsWhenActive, readWhenHostReady, recordedCallLabel, recordedCallView, SETTINGS_HOST_RETRY_MS, settingsBackTarget, settingsCopy, settingsRouteForInitial, takeHostRead } from "./settings-model.js";
+import { modulesForSettingsRoute, SETTINGS_ROUTES, settingsRouteForModule, readRecordedCallsWhenActive, readWhenHostReady, recordedCallLabel, recordedCallView, SETTINGS_HOST_RETRY_MS, settingsBackTarget, settingsCopy, settingsRouteForInitial, takeHostRead } from "./settings-model.js";
 import { SettingsFrame, SettingsHome } from "./settings.js";
 import { readAppSource } from "../../test-support/app-source.js";
 
@@ -165,4 +165,18 @@ it("opening settings stays on the gear and does not select the persona pill", as
   assert.doesNotMatch(settings, /useEffect\(\(\) => \{ void load\(\); \}, \[\]\)/);
   assert.doesNotMatch(settings, /月度用量|订阅未配置/);
   assert.doesNotMatch(app, /openDetails\("modules"\)|personal-settings-nav/);
+});
+
+it("every capability switch and permission control belongs to exactly one settings page", async () => {
+  const ids = ["pomodoro", "read-file", "memory", "checkpoint", "task", "todoist", "terminal", "shell", "web", "computer"];
+  const modules = ids.map(id => ({ id, enabled: false }));
+  for (const id of ids) {
+    const pages = SETTINGS_ROUTES.filter(route => modulesForSettingsRoute(route, modules).some(module => module.id === id));
+    assert.deepEqual(pages, [settingsRouteForModule(id)], `${id} must appear on one page only`);
+  }
+  assert.equal(settingsRouteForModule("unknown-capability"), "advanced");
+  const app = await readAppSource();
+  for (const control of ["DirectorySettings", "ProjectSelection", "AutonomySetting", "ComputerConnectionSetting", "HerdrTargetSetting"]) {
+    assert.equal(app.match(new RegExp(`<${control} `, "g"))?.length, 1, `${control} must be rendered on one page only`);
+  }
 });
