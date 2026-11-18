@@ -10,6 +10,11 @@ import { isCurrentMemory, memoryItemTitle, memoryUpdatedLabel } from "./personal
 import { memoryErrorText } from "../../shared/memory-labels.js";
 
 /** Saved memories can only be edited or deleted. Deletion is permanent and needs one confirmation. */
+/** A detail write belongs to the entry it started on; a later open or back makes its response stale. */
+export function detailWriteIsStale(started: { request: number; id: string | null }, now: { request: number; id: string | null }): boolean {
+  return started.request !== now.request || started.id !== now.id;
+}
+
 export function FormalMemories({ enabled, controllerIdle, refreshToken }: { enabled: boolean; controllerIdle: boolean; refreshToken: number; managementOnly?: boolean }) {
   const [page, setPage] = useState<MemoryPage | null>(null);
   const [current, setCurrent] = useState<FormalMemory | null>(null);
@@ -77,15 +82,18 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken }: { enab
   const ready = current !== null && controllerIdle && !busy;
   async function apply(action: MemoryAction, done: string) {
     if (!ready || mutation.current) return;
+    const started = { request: detailSequence.current, id: openId };
     mutation.current = true; setBusy(true); setError(null); setNotice(null);
     try {
       const result = await window.runloom.applyMemoryAction(action);
-      if (!result.ok) { setError(`${memoryErrorText(result.error)}不会自动重试。`); return; }
+      const stale = detailWriteIsStale(started, { request: detailSequence.current, id: openId });
+      if (!result.ok) { if (!stale) setError(`${memoryErrorText(result.error)}不会自动重试。`); return; }
+      if (stale) { await load(); return; }
       setNotice(done);
       if (result.value) { setCurrent(result.value); setEditText(null); }
       else { setCurrent(null); setOpenId(null); setConfirmDelete(false); }
       await load();
-    } catch { setError("保存结果未确认，请重新加载核对；不要直接重复操作。"); }
+    } catch { if (!detailWriteIsStale(started, { request: detailSequence.current, id: openId })) setError("保存结果未确认，请重新加载核对；不要直接重复操作。"); }
     finally { mutation.current = false; setBusy(false); }
   }
   function back() { ++detailSequence.current; setOpenId(null); setCurrent(null); setEditText(null); setConfirmDelete(false); setError(null); }
