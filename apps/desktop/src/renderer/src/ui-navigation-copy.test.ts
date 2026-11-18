@@ -11,7 +11,8 @@ import { contextOverview } from "../../shared/context-panel.js";
 import { ContextPanel } from "./context.js";
 import { consolidationStatusLabel } from "./memory-consolidation.js";
 import { MemoryPanel } from "./memory.js";
-import { dashboardTabForDetail } from "./personal/layout.js";
+import { dashboardTabForDetail, detailBackTarget } from "./personal/layout.js";
+import { SETTINGS_OTHER_ROWS } from "./personal/settings-model.js";
 import { readAppSource } from "../test-support/app-source.js";
 
 const source = (path: string) => readFile(new URL(path, import.meta.url), "utf8");
@@ -30,7 +31,8 @@ it("UI regression 1: workspace belongs to settings and never selects 手札", as
   assert.equal(dashboardTabForDetail("home"), "设置");
   assert.equal(dashboardTabForDetail("settings"), "设置");
   const app = await readAppSource();
-  assert.match(app, /openSettings\("advanced"\)/);
+  assert.ok(SETTINGS_OTHER_ROWS.some(row => row.route === "advanced" && row.title === "高级"));
+  assert.match(app, /settingsRoute === "advanced"/);
   assert.doesNotMatch(app, /personal-settings-nav|aria-label="助手设置"/);
   assert.doesNotMatch(app, /\["modules", "模块"\]/);
 });
@@ -85,12 +87,17 @@ it("reminders stay reachable from 手札 and are not a top pill or a settings in
   assert.doesNotMatch(app, /\["modules", "records", "context", "home", "reminders"\]/);
 });
 
-it("schedule management belongs to reminders instead of task templates", async () => {
+it("schedule management is a pushed page off reminders, not a disclosure inside it", async () => {
   const app = await readAppSource();
-  assert.doesNotMatch(app, /detailTab === "tasks" && info \? <details className="task-arrangements"/);
+  assert.doesNotMatch(app, /className="task-arrangements"|管理定时安排与订阅/);
   const reminders = app.slice(app.indexOf('<div hidden={detailTab !== "reminders"}>'), app.indexOf('<div hidden={detailTab !== "settings"}>'));
-  assert.match(reminders, /管理定时安排与订阅/);
-  assert.match(reminders, /<AutomationPanel/);
-  assert.match(reminders, /<RssPanel/);
-  assert.doesNotMatch(reminders, /onSettings/);
+  assert.match(reminders, /<NavigationRow title="定时安排与订阅"/);
+  assert.match(reminders, /openDetails\("arrangements"\)/);
+  assert.doesNotMatch(reminders, /<AutomationPanel|<RssPanel|onSettings/);
+  const arrangements = app.slice(app.indexOf('<div hidden={detailTab !== "arrangements"}>'), app.indexOf('<div hidden={detailTab !== "reminders"}>'));
+  assert.match(arrangements, /<AutomationPanel/);
+  assert.match(arrangements, /<RssPanel/);
+  assert.equal(detailBackTarget("arrangements"), "reminders");
+  assert.equal(detailBackTarget("reminders"), null);
+  assert.match(app, /label: "返回提醒"/);
 });

@@ -159,7 +159,7 @@ it("keeps a failed create or reschedule as a Chinese failure instead of 已记�
   assert.match(created.aside ?? "", /cannot create scheduled reminder/);
 });
 
-it("reminder home shows the subject and local time without the task id on the primary line", () => {
+it("reminder home shows the subject and local time and keeps the task id off the page", () => {
   const html = renderToStaticMarkup(createElement(ReminderHome, {
     rows: [{ id: "task-water", subject: "喝水", when: "每天 9:00", status: "按这个时间重复", kind: "recurring", canCancel: true }],
     other: 0, truncated: false, loading: false, error: "", pendingCancel: null, working: false,
@@ -167,6 +167,5 @@ it("reminder home shows the subject and local time without the task id on the pr
   }));
   assert.match(html, /aria-label="我的提醒"/);
   assert.match(html, /<strong>喝水<\/strong><p>每天 9:00 · 按这个时间重复<\/p>/);
-  assert.match(html, /<details><summary>编号<\/summary><code>task-water<\/code>/);
-  assert.doesNotMatch(html, /<p>[^<]*task-water|scheduled|task_create/);
+  assert.doesNotMatch(html, /task-water|scheduled|task_create/);
 });

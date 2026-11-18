@@ -4,7 +4,7 @@ const out = process.argv[2]; mkdirSync(out, { recursive: true });
 const pages = ["shell-preview.html", "interaction-preview.html", "interaction-preview.html?tasks=1", "interaction-preview.html?brief=empty",
   "interaction-preview.html?brief=degraded", "interaction-preview.html?work-task-flow", "memory-preview.html"];
 const nav = ["对话", "手札", "任务", "记忆", "搜索", "设置"];
-const settings = ["连接应用", "文件与网页", "电脑控制", "技能", "Telegram", "通用", "记忆设置", "通知与后台", "快捷键", "高级", "关于"];
+const settings = ["连接应用", "文件与网页", "电脑控制", "命令与终端", "技能", "Telegram", "通用", "记忆设置", "通知与后台", "快捷键", "高级", "关于"];
 const b = await chromium.launch({ ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}), args: ["--no-sandbox"] });
 const norm = html => html.replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z?/g, "ISO").replace(/\d{1,2}:\d{2}(:\d{2})?(\.\d+)?/g, "HH:MM").replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g, "ISO").replace(/\?t=\d+/g, "").replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "UUID");
 let n = 0;

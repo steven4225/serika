@@ -5,11 +5,16 @@ import { MemoryExtractionFailures } from "./memory-extraction-failures.js";
 import { CurrentMemoryDetails } from "./memory-temporal.js";
 import { memoryDisabledEmptyCopy, savedMemoryEmptyCopy } from "./memory-copy.js";
 import { FailureAlert } from "./failure-notice.js";
-import { MemoryBack } from "./personal/memory-home.js";
+import { PageHeader } from "./personal/page-header.js";
 import { isCurrentMemory, memoryItemTitle, memoryUpdatedLabel } from "./personal/memory-cards.js";
 import { memoryErrorText } from "../../shared/memory-labels.js";
 
 /** Saved memories can only be edited or deleted. Deletion is permanent and needs one confirmation. */
+/** A detail write belongs to the entry it started on; a later open or back makes its response stale. */
+export function detailWriteIsStale(started: { request: number; id: string | null }, now: { request: number; id: string | null }): boolean {
+  return started.request !== now.request || started.id !== now.id;
+}
+
 export function FormalMemories({ enabled, controllerIdle, refreshToken }: { enabled: boolean; controllerIdle: boolean; refreshToken: number; managementOnly?: boolean }) {
   const [page, setPage] = useState<MemoryPage | null>(null);
   const [current, setCurrent] = useState<FormalMemory | null>(null);
@@ -77,15 +82,18 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken }: { enab
   const ready = current !== null && controllerIdle && !busy;
   async function apply(action: MemoryAction, done: string) {
     if (!ready || mutation.current) return;
+    const started = { request: detailSequence.current, id: openId };
     mutation.current = true; setBusy(true); setError(null); setNotice(null);
     try {
       const result = await window.runloom.applyMemoryAction(action);
-      if (!result.ok) { setError(`${memoryErrorText(result.error)}不会自动重试。`); return; }
+      const stale = detailWriteIsStale(started, { request: detailSequence.current, id: openId });
+      if (!result.ok) { if (!stale) setError(`${memoryErrorText(result.error)}不会自动重试。`); return; }
+      if (stale) { await load(); return; }
       setNotice(done);
       if (result.value) { setCurrent(result.value); setEditText(null); }
       else { setCurrent(null); setOpenId(null); setConfirmDelete(false); }
       await load();
-    } catch { setError("保存结果未确认，请重新加载核对；不要直接重复操作。"); }
+    } catch { if (!detailWriteIsStale(started, { request: detailSequence.current, id: openId })) setError("保存结果未确认，请重新加载核对；不要直接重复操作。"); }
     finally { mutation.current = false; setBusy(false); }
   }
   function back() { ++detailSequence.current; setOpenId(null); setCurrent(null); setEditText(null); setConfirmDelete(false); setError(null); }
@@ -93,7 +101,7 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken }: { enab
   if (!enabled) return <p className="hint">{memoryDisabledEmptyCopy()}</p>;
   const entries = page?.entries ?? [];
   if (openId !== null) return <section className="formal-memories"><div className="memory-detail">
-    <MemoryBack label="记忆详情" onBack={back} />
+    <PageHeader title="记忆详情" back={{ label: "返回记忆列表", onBack: back }} />
     {error ? <FailureAlert text={error} /> : null}
     {notice ? <p className="hint" role="status">{notice}</p> : null}
     {current === null ? error ? <button className="ghost" onClick={() => void open(openId)}>重新读取</button> : <p className="hint">读取中…</p> : <>

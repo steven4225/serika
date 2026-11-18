@@ -43,17 +43,22 @@ export function ContextPanel({ controllerIdle, refreshToken, initialError = null
       {value ? <div className="context-history-note">{latest ? `最近保存的上下文摘要：${new Date(latest.createdAt).toLocaleString()}。历史记录不代表这轮已经使用。` : "这段对话还没有生成上下文摘要。"}</div> : null}
       {commandNotice ? <p role="status" className="context-history-note">{commandNotice}</p> : null}
       {commandError ? <div className="error" role="alert">{commandError}</div> : null}
-      <details className="context-technical"><summary>高级：预算与压缩详情</summary>
-      {value ? (
-        <div className="home-body">
-          <div>{value.enabled ? "模型摘要压缩已启用" : "模型摘要压缩未启用"}</div>
-          <div className="hint">估算方式：{value.estimatorVersion}</div>
-          <div>窗口 {value.budget.contextWindowTokens} · 输出预留 {value.budget.maxOutputTokens} · 安全余量 {value.budget.safetyMarginTokens}</div>
-          <div>保留近期 {value.budget.keepRecentTokens} · 摘要输出上限 {value.budget.summaryMaxOutputTokens}</div>
-          <div>输入上限 {contextInputBudget(value.budget)} · 正常触发 {contextBudgetThresholds(value.budget).triggerTokens}</div>
-          <div>摘要分块 {value.budget.summaryInputChunkTokens ?? value.budget.keepRecentTokens} · 预测增长预留 {contextBudgetThresholds(value.budget).predictedGrowthTokens}</div>
-          {latest ? (
-            <>
+      {value ? <>
+        <dl className="session-facts context-budget">
+          <dt>窗口</dt><dd>{value.budget.contextWindowTokens.toLocaleString()} tokens</dd>
+          <dt>输入上限</dt><dd>{contextInputBudget(value.budget).toLocaleString()} tokens</dd>
+          <dt>输出预留</dt><dd>{value.budget.maxOutputTokens.toLocaleString()} tokens</dd>
+          <dt>安全余量</dt><dd>{value.budget.safetyMarginTokens.toLocaleString()} tokens</dd>
+          <dt>保留近期</dt><dd>{value.budget.keepRecentTokens.toLocaleString()} tokens</dd>
+          <dt>正常触发</dt><dd>{contextBudgetThresholds(value.budget).triggerTokens.toLocaleString()} tokens</dd>
+          <dt>摘要分块</dt><dd>{(value.budget.summaryInputChunkTokens ?? value.budget.keepRecentTokens).toLocaleString()} tokens · 摘要输出上限 {value.budget.summaryMaxOutputTokens.toLocaleString()}</dd>
+          <dt>预测增长预留</dt><dd>{contextBudgetThresholds(value.budget).predictedGrowthTokens.toLocaleString()} tokens</dd>
+          <dt>估算方式</dt><dd>{value.estimatorVersion}</dd>
+        </dl>
+        {!value.enabled ? <p className="hint">完整原文保留；本配置未启用摘要压缩。</p> : null}
+        <details><summary>压缩记录与本次准备</summary>
+          <div className="home-body">
+            {latest ? <>
               <div>最近有效上下文摘要</div>
               <div className="hint">{latest.createdAt} · {latest.modelId}</div>
               <div>保留边界：从第 {latest.firstKeptMessageIndex + 1} 条消息开始保留原文</div>
@@ -61,19 +66,15 @@ export function ContextPanel({ controllerIdle, refreshToken, initialError = null
               <div>耗时 {latest.metrics.durationMs} ms · 尝试 {latest.metrics.attempts} 次</div>
               <div>实际模型用量：{latest.metrics.usage ? `输入 ${latest.metrics.usage.inputTokens ?? "未报告"} · 输出 ${latest.metrics.usage.outputTokens ?? "未报告"} · 总计 ${latest.metrics.usage.totalTokens ?? "未报告"}` : "未报告"}</div>
               <div className="hint">历史有效记录不等于本进程已使用，也不证明工具成功或当前磁盘事实。</div>
-            </>
-          ) : <div>没有有效压缩记录</div>}
-          {preparation ? (
-            <>
+            </> : <div>没有有效压缩记录</div>}
+            {preparation ? <>
               <div>本进程最近准备：{preparationLabel(preparation.outcome)}</div>
               <div className="hint">{preparation.at} · 记录 {preparation.compactionId ?? "无"} · 估算输入 {preparation.estimatedInputTokens ?? "未报告"}</div>
               {preparation.error ? <div className="error">{contextErrorText(preparation.error)}</div> : null}
-            </>
-          ) : <div className="hint">本进程尚无上下文准备结果（重启不会沿用上一进程的结果）。</div>}
-          {!value.enabled ? <div className="hint">完整原文保留；本配置未启用摘要压缩。</div> : null}
-        </div>
-      ) : <div className="muted">{state.loading ? "正在读取…" : "上下文诊断不可用"}</div>}
-      </details>
+            </> : <div className="hint">本进程尚无上下文准备结果（重启不会沿用上一进程的结果）。</div>}
+          </div>
+        </details>
+      </> : <p className="muted" role="status">{state.loading ? "正在读取…" : "上下文诊断不可用"}</p>}
     </section>
   );
 }

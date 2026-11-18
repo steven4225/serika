@@ -244,7 +244,7 @@ function CreateTask({ view, onClose, initialGoal = "" }: { view: WorkTaskView; o
   </form>;
 }
 
-function TaskDetail({ task, view, onRun, onCompose }: { task: WorkTask; view: WorkTaskView; onRun: (id: string) => void; onCompose?: () => void }) {
+function TaskDetail({ task, view, onRun, onCompose, heading = true }: { task: WorkTask; view: WorkTaskView; onRun: (id: string) => void; onCompose?: () => void; heading?: boolean }) {
   const [summary, setSummary] = useState(task.delivery?.summary ?? "");
   const [artifacts, setArtifacts] = useState(task.delivery?.artifactRefs.join("\n") ?? "");
   const [unresolved, setUnresolved] = useState(task.delivery?.unresolved.join("\n") ?? "");
@@ -290,7 +290,7 @@ function TaskDetail({ task, view, onRun, onCompose }: { task: WorkTask; view: Wo
     } catch { setReceiptError("未读到回执，请重新读取；也可以直接核对实际效果并报告。"); setReceiptRead(true); }
   };
   return <div className="work-task-detail">
-    <div className="work-task-title"><h2>{task.goal}</h2><span className={`work-task-status task-${task.status}`}>{taskStatusLabels[workTaskPhase(task)]}</span></div>
+    <div className="work-task-title">{heading ? <h2>{task.goal}</h2> : null}<span className={`work-task-status task-${task.status}`}>{taskStatusLabels[workTaskPhase(task)]}</span></div>
     <p className="task-next-step">下一步：{taskNextAction(task)}。{workTaskPhase(task) === "paused" ? "需要继续时另开一轮；本轮结束不代表交付通过。" : ""}</p>
     {taskVerificationSummary(task) ? <p className="work-task-notice" role="status">{taskVerificationSummary(task)}</p> : null}
     {actions.run && onCompose ? <div className="work-task-buttons"><button className="allow" disabled={view.locked} onClick={onCompose}>{workTaskPhase(task) === "ready" ? "回到对话，开始任务" : "回到对话，补充要求并继续"}</button></div> : null}
@@ -398,8 +398,9 @@ export function WorkTasksPanel({ view, onRun, createRequest = 0, initialGoal = "
   const panel = useRef<HTMLElement | null>(null);
   useEffect(() => { if (createRequest > 0) { setCreating(true); panel.current?.scrollIntoView({ block: "start" }); } }, [createRequest]);
   useEffect(() => { if (view.draftReady && view.creationDraft && !focused) setCreating(true); }, [view.draftReady, focused]);
-  return <section ref={panel} className="card work-tasks" aria-label="工作任务">
-    <div className="card-head"><span>{creating ? "创建任务" : focused ? "当前任务" : "本对话的工作任务"}</span><div className="work-task-buttons"><button className="ghost" disabled={view.loading || view.acting} onClick={view.reread}>重新读取</button>{!focused && !creating ? <button disabled={view.locked} onClick={() => setCreating(true)}>创建工作任务</button> : null}</div></div>
+  // A focused task already has the thread's page header; a second card head would repeat its title.
+  return <section ref={panel} className={focused && !creating ? "work-tasks" : "card work-tasks"} aria-label={focused && !creating ? "验收与核对" : "工作任务"}>
+    <div className="card-head">{focused && !creating ? null : <span>{creating ? "创建任务" : "本对话的工作任务"}</span>}<div className="work-task-buttons"><button className="ghost" disabled={view.loading || view.acting} onClick={view.reread}>重新读取</button>{!focused && !creating ? <button disabled={view.locked} onClick={() => setCreating(true)}>创建工作任务</button> : null}</div></div>
     {!focused && !creating ? <p className="hint">当前对话的最近 20 项任务。与定时提醒分开；窗口关闭不保证继续执行。</p> : null}
     {!view.enabled ? <p className="muted">未配置工作区，工作任务不可用。</p> : null}
     {view.error ? <p className="error" role="alert">{view.error}{view.task ? "（下方为旧内容，操作已停用）" : ""}</p> : null}
@@ -408,6 +409,6 @@ export function WorkTasksPanel({ view, onRun, createRequest = 0, initialGoal = "
     {view.loading ? <p className="muted">正在读取最新任务…</p> : null}
     {creating ? <CreateTask key={createRequest} view={{ ...view, create: async input => { const ok = await view.create(input); if (ok) onCreated?.(); return ok; } }} initialGoal={initialGoal} onClose={() => setCreating(false)} /> : null}
     {!creating && !focused && view.tasks.length ? <div className="work-task-list" role="group" aria-label="选择工作任务">{view.tasks.map(item => <button key={item.id} disabled={view.acting} className={view.task?.id === item.id ? "selected" : ""} onClick={() => view.select(item.id)}><span>{item.goal}</span><small>{taskStatusLabels[workTaskPhase(item)]}</small></button>)}</div> : !creating && !view.task && !view.loading && !view.error && view.enabled ? <p className="muted">还没有工作任务。需要执行并验收时再显式创建，普通对话照常使用。</p> : null}
-    {!creating && view.task ? <TaskDetail key={`${view.task.id}:${view.task.revision}`} task={view.task} view={view} onRun={onRun} {...(onCompose ? { onCompose } : {})} /> : null}
+    {!creating && view.task ? <TaskDetail key={`${view.task.id}:${view.task.revision}`} task={view.task} view={view} onRun={onRun} heading={!focused} {...(onCompose ? { onCompose } : {})} /> : null}
   </section>;
 }

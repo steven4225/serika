@@ -114,10 +114,7 @@
 .personal-layout :is(.rows, .personal-today-scroll, .inspector-pane)::-webkit-scrollbar-track { background: transparent; }
 .personal-layout :is(.rows, .personal-today-scroll, .inspector-pane)::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 9px; }
 .personal-layout .inspector { flex: 1; width: 100%; min-width: 0; min-height: 0; background: transparent; border: 0; padding: 0; border-radius: 0; }
-.personal-layout .inspector-header { padding: 12px 24px 20px; background: transparent; border: 0; align-items: flex-start; }
-.personal-layout .inspector-header h1 { margin: 0; font-size: 20px; color: var(--text); }
-.personal-layout .inspector-header p { color: var(--muted); font-size: 12px; max-width: 45ch; }
-.personal-layout .inspector-header > button { padding-top: 2px; font-size: 12px; flex: none; }
+.personal-layout .inspector > .page-header { padding: 12px 24px 20px; }
 .personal-layout .inspector-pane { flex: 1; min-height: 0; overflow: auto; padding: 0 24px 24px; }
 .personal-layout .inspector-pane .card { background: var(--surface); border: 0; border-radius: 20px; box-shadow: -4px 8px 28px #6868680a, 0 2px 8px #6464640f; padding: 18px; margin-bottom: 16px; }
 .personal-layout .personal-settings-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 0 24px 12px; }
@@ -173,8 +170,8 @@
   .personal-layout .rows { padding: 12px 16px 18px; }
   .personal-layout .action-dock { padding: 10px 12px 12px; }
   .personal-layout .personal-today-scroll, .personal-layout .inspector-pane { padding-inline: 16px; }
-  .personal-layout .personal-dashboard-header, .personal-layout .inspector-header { padding-inline: 16px; }
-  .personal-layout .inspector-header { flex-wrap: wrap; gap: 5px; }
+  .personal-layout .personal-dashboard-header, .personal-layout .inspector > .page-header { padding-inline: 16px; }
+  .personal-layout .page-header { flex-wrap: wrap; gap: 5px; }
 }
 @media (prefers-reduced-motion: reduce) { .personal-layout * { scroll-behavior: auto; transition: none; } }
 .personal-theme-dark {
@@ -204,6 +201,16 @@
 .personal-layout details > summary::before { content: none; }
 .personal-layout details > summary::after { content: ""; display: inline-block; flex: none; width: 6px; height: 6px; margin-left: 10px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform .15s; vertical-align: 2px; }
 .personal-layout details[open] > summary::after { transform: rotate(45deg); }
+
+/* One navigation row for every pushed page: back control, title, note, actions. */
+.page-header { display: flex; align-items: flex-start; gap: 10px; }
+.page-header-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.page-header h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.03em; overflow-wrap: anywhere; }
+.page-header-note { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.page-header-actions { display: flex; flex: none; align-items: center; gap: 8px; }
+.personal-layout button.page-back { display: grid; place-items: center; width: 36px; height: 36px; flex: none; padding: 0; border: 0; border-radius: 50%; background: #ffffff73; color: var(--text); }
+.personal-layout button.page-back:disabled { opacity: .55; cursor: default; }
+.personal-theme-dark .personal-layout button.page-back { background: #ffffff14; color: var(--text); }
 
 /* Match the existing task template cards for navigation and management. */
 .personal-layout :is(button, summary).personal-entry-card {

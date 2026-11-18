@@ -2,10 +2,7 @@
 .personal-settings h1, .personal-settings h2, .personal-settings p { margin: 0; }
 .personal-settings button { font: inherit; color: inherit; cursor: pointer; }
 .personal-settings button:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
-.settings-push-header { display: flex; align-items: flex-start; gap: 10px; }
-.settings-push-header h1 { font-size: 22px; font-weight: 650; letter-spacing: -.03em; }
-.settings-push-header p, .settings-note, .settings-row small, .settings-mode span { color: var(--muted); font-size: 13px; }
-.personal-layout .settings-back { display: grid; place-items: center; width: 36px; height: 36px; flex: none; padding: 0; border: 0; border-radius: 50%; background: #ffffff73; }
+.settings-note, .settings-row small, .settings-mode span { color: var(--muted); font-size: 13px; }
 .settings-section { margin: 8px 4px 0; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: 0; }
 .settings-subscription, .settings-group, .settings-shortcuts, .settings-manage { background: var(--surface); border-radius: 20px; box-shadow: -4px 8px 28px #6868680a, 0 2px 8px #6464640f; }
 .settings-subscription { display: flex; align-items: center; gap: 14px; padding: 16px; }
@@ -35,7 +32,7 @@
 .settings-detail { display: flex; flex-direction: column; gap: 12px; }
 .capability-technical { margin-top: 4px; }
 .capability-technical summary { color: var(--muted); font-size: 12px; cursor: pointer; }
-.personal-theme-dark .settings-mode, .personal-theme-dark .settings-back { background: #ffffff0d; }
+.personal-theme-dark .settings-mode { background: #ffffff0d; }
 .personal-theme-dark .settings-mode[aria-checked="true"], .personal-theme-dark .settings-row:hover:not(:disabled) { background: #3a3850; }
 .personal-theme-dark .settings-manage-button { background: #fff; color: #241f2b; }
 @media (max-width: 560px) { .settings-modes { grid-template-columns: 1fr; } }
@@ -43,13 +40,14 @@
 /* Settings use the same helper text scale as their navigation rows. */
 .personal-settings .hint, .personal-settings small, .personal-settings summary,
 .personal-memory .hint { font-size: 13px; line-height: 1.6; color: var(--muted); }
-.settings-push-header p, .settings-note, .settings-row small, .settings-mode span { line-height: 1.6; }
+.settings-note, .settings-row small, .settings-mode span { line-height: 1.6; }
 .personal-settings .capability-page { display: flex; flex-direction: column; gap: 16px; }
 .personal-settings .capability-list { background: var(--surface); border-radius: 20px; padding: 0 16px; }
 .personal-settings .capability-row { gap: 16px; padding: 16px 0; }
 .personal-settings .capability-row:last-child { border-bottom: 0; }
 .personal-settings .capability-row > div:first-child { flex: 1; min-width: 0; }
-.personal-settings .card { background: var(--surface); border: 0; border-radius: 20px; padding: 18px; }
+.personal-settings .card,
+.personal-settings .setting-block { background: var(--surface); border: 0; border-radius: 20px; padding: 18px; }
 .personal-settings .card-head { font-size: 15px; }
 .personal-settings details > summary { cursor: pointer; }
 .personal-settings details[open] > summary { margin-bottom: 12px; }
