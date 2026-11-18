@@ -14,7 +14,7 @@ export function SettingsFrame({ route, onBack, children }: { route: SettingsRout
   const copy = settingsCopy(route);
   const back = settingsBackTarget(route);
   return <div className="personal-settings">
-    <PageHeader title={copy.title} description={copy.description} back={{ label: back === "hand" ? "回到手札" : "返回设置", onBack }} />
+    <PageHeader key={route} title={copy.title} description={copy.description} back={{ label: back === "hand" ? "回到手札" : "返回设置", onBack }} />
     {children}
   </div>;
 }

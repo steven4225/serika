@@ -23,7 +23,7 @@ const info = {
 it("settings home is a grouped push list and keeps engineering ids off the chrome", () => {
   const html = render(createElement(SettingsFrame, { route: "home", onBack() {} }, createElement(SettingsHome, { info, busy: false, onOpen() {} })));
   assert.match(html, /aria-label="回到手札"/);
-  assert.match(html, /<h1>设置<\/h1>/);
+  assert.match(html, /<h1 tabindex="-1">设置<\/h1>/);
   assert.match(html, /外观、偏好和应用信息/);
   for (const title of ["连接应用", "文件与网页", "电脑控制", "技能", "Telegram", "通用", "记忆设置", "通知与后台", "高级", "快捷键", "关于"]) assert.match(html, new RegExp(title));
   assert.doesNotMatch(html, /执行记录与用量|本地使用，无需订阅|云电脑|入会提醒|退出登录未配置|已开启 \d+ 项/);
@@ -38,7 +38,7 @@ it("a settings row pushes a detail whose back control returns to settings home",
   assert.equal(settingsCopy("connectors").title, "连接应用");
   const html = render(createElement(SettingsFrame, { route: "connectors", onBack() {} }, createElement("p", null, "连接详情")));
   assert.match(html, /aria-label="返回设置"/);
-  assert.match(html, /<h1>连接应用<\/h1>/);
+  assert.match(html, /<h1 tabindex="-1">连接应用<\/h1>/);
   assert.doesNotMatch(html, /回到手札/);
 });
 
