@@ -156,7 +156,7 @@ try {
   const taskRow = page.locator('.task-row', { hasText: 'slug' });
   if (await taskRow.count()) await taskRow.first().click();
   else throw new Error(`task row missing\n${(await page.locator('body').innerText()).slice(0, 1200)}`);
-  await page.getByText('验收与核对').click();
+  // Opening a task shows its review controls directly; there is no fold to expand.
   await page.getByRole('button', { name: '回到对话，开始任务' }).click();
   await page.getByRole('button', { name: '开始任务', exact: true }).click();
   await until(page, async () => (await page.getByText('程序检查已跑完。人工项仍待审核。').count()) > 0);
@@ -173,8 +173,7 @@ try {
   assert.notEqual((await workTasks(page))[0].status, 'completed');
   check('delivery-pending-human');
 
-  const advanced = page.locator('details.task-advanced');
-  if ((await advanced.getAttribute('open')) === null) await advanced.locator('summary').click();
+  // The acceptance items sit on the task page itself, with no 高级 fold to open.
   const accept = page.getByRole('button', { name: '通过此项' });
   if (!(await accept.count())) throw new Error(`accept missing\n${(await page.locator('body').innerText()).slice(0, 1500)}`);
   await accept.click();
