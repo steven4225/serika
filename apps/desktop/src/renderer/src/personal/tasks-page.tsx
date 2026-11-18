@@ -48,7 +48,7 @@ export interface TasksPageProps {
   onCancelReminder: (row: ScheduledTaskRow) => void;
   onConfirmCancel: () => void;
   onDismissCancel: () => void;
-  onOpenSettings: () => void;
+  onOpenArrangements: () => void;
   advanced: React.ReactNode;
 }
 
@@ -106,7 +106,7 @@ function ScheduledTaskList(props: TasksPageProps & { now: Date; clock: ReturnTyp
       <h2>{group.bucket}</h2>
       {group.items.map(item => <button type="button" className="task-row" key={`${item.kind}:${item.id}`} disabled={props.busy} onClick={() => props.onOpenReminder(item.id)}><span>{item.title}</span><small>{scheduleRowMeta(item)}</small></button>)}
     </section>)}
-    {props.reminderOther > 0 ? <p className="task-note">另有 {props.reminderOther} 条其他定时安排。<button type="button" className="ghost" onClick={props.onOpenSettings}>在设置里查看</button></p> : null}
+    {props.reminderOther > 0 ? <p className="task-note">另有 {props.reminderOther} 条其他定时安排。<button type="button" className="ghost" onClick={props.onOpenArrangements}>在「定时安排与订阅」里查看</button></p> : null}
     {empty || props.remindersError ? <section className="task-template-list" aria-label="为你推荐">
       <h2>为你推荐</h2>
       {SCHEDULE_TEMPLATES.map(template => <div className="task-template" key={template.id}>
@@ -257,7 +257,7 @@ function ReminderThread({ row, now, busy, error, pendingCancel, onBack, onContin
 
 export function TasksHome({
   tasksEnabled, tasks, selected, loading, error, busy, focused, workspaceReady, refreshToken, identity, formRequest,
-  onSelect, onCreate, onContinue, onOpenSettings, advancedForm, advancedDetail,
+  onSelect, onCreate, onContinue, onOpenArrangements, advancedForm, advancedDetail,
 }: {
   tasksEnabled: boolean;
   tasks: readonly WorkTask[];
@@ -273,7 +273,7 @@ export function TasksHome({
   onSelect: (id: string) => void;
   onCreate: (handoff: TaskComposerHandoff) => void;
   onContinue: (handoff: TaskComposerHandoff) => void;
-  onOpenSettings: () => void;
+  onOpenArrangements: () => void;
   advancedForm: React.ReactNode;
   advancedDetail: React.ReactNode;
 }) {
@@ -360,7 +360,7 @@ export function TasksHome({
     onBack={() => { setOpenedTaskId(null); setOpenedReminderId(null); setPendingCancel(null); }}
     onCreate={onCreate} onContinue={onContinue}
     onCancelReminder={setPendingCancel} onConfirmCancel={() => void confirmCancel()} onDismissCancel={() => setPendingCancel(null)}
-    onOpenSettings={onOpenSettings}
+    onOpenArrangements={onOpenArrangements}
     advanced={openedTask ? advancedDetail : null}
   />;
 }

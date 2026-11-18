@@ -59,7 +59,7 @@ const page = (overrides: Partial<TasksPageProps> = {}) => renderToStaticMarkup(c
   onCancelReminder: noop,
   onConfirmCancel: noop,
   onDismissCancel: noop,
-  onOpenSettings: noop,
+  onOpenArrangements: noop,
   advanced: null,
   ...overrides,
 }));

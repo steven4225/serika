@@ -56,7 +56,6 @@
 .chat-attachment span { overflow-wrap: anywhere; }
 .chat-attachment img { width: 64px; height: 64px; object-fit: contain; border-radius: 6px; }
 .personal-layout .serika-prompt-options > summary::after { display: none; }
-.personal-layout .task-arrangements > summary { padding: 10px 4px; font-size: 14px; color: var(--muted); }
 .memory-page-tools { grid-template-columns: minmax(0, 1fr); margin-top: 16px; }
 .memory-page-tools .personal-entry-card { padding: 12px 16px; min-height: 48px; }
 .memory-page-tools .entry-card-copy strong { font-size: 15px; }

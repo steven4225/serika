@@ -60,7 +60,7 @@ import { PageHeader } from "./personal/page-header.js";
 import { NavigationRow, NavigationRows, RowGroup } from "./personal/settings-rows.js";
 import { SettingsAbout, SettingsFrame, SettingsGeneral, SettingsHome, SettingsNotifications, SettingsShortcuts } from "./personal/settings.js";
 import { isConnectorModule, settingsRouteForInitial, type SettingsListTarget, type SettingsRoute } from "./personal/settings-model.js";
-import { clampChatFraction, dashboardTabForDetail } from "./personal/layout.js";
+import { clampChatFraction, dashboardTabForDetail, detailBackTarget } from "./personal/layout.js";
 import { humanFacingTitle } from "../../shared/human-title.js";
 import { RemindersPanel } from "./reminders.js";
 import { DesktopWindowFrame } from "./ui-kit/upstream/desktop-window-frame.js";
@@ -141,7 +141,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const [switchingThread, setSwitchingThread] = useState(false);
   const threadSwitchInFlight = useRef(false);
   const [detailsOpen, setDetailsOpen] = useState(!!initialSettings);
-  const [detailTab, setDetailTab] = useState<"threads" | "tasks" | "reminders" | "home" | "records" | "memory" | "context" | "pomodoro" | "modules" | "settings">(initialSettings ? "settings" : "home");
+  const [detailTab, setDetailTab] = useState<"threads" | "tasks" | "reminders" | "arrangements" | "home" | "records" | "memory" | "pomodoro" | "settings">(initialSettings ? "settings" : "home");
   const [settingsRoute, setSettingsRoute] = useState<SettingsRoute>(settingsRouteForInitial(initialSettings));
   const [searchOpen, setSearchOpen] = useState(false);
   const briefFeeds = useTodayBriefFeeds(info?.workspaceRoot != null, automationRefresh, info?.workspaceRoot);
@@ -220,20 +220,6 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
 
   const { briefHold, setBriefNonce } = useBriefContinue({ info, draftReady: draftReady && !initializing, workTasks, uncertainSteer, setError, setDetailsOpen, setMobileDashboard, setTaskComposerId, setInput, inputRef });
 
-  useEffect(() => {
-    if (!detailsOpen && !mobileDashboard) return;
-    const close = (event: KeyboardEvent) => {
-      // Let an inner disclosure/dialog consume Escape first.
-      if (searchOpen) return;
-      if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
-        if (detailTab === "settings" && settingsRoute !== "home") { setSettingsRoute("home"); event.preventDefault(); return; }
-        setDetailsOpen(false); setMobileDashboard(false); event.preventDefault();
-      }
-    };
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [detailsOpen, mobileDashboard, searchOpen, detailTab, settingsRoute]);
-
   const conversationTitle = useRuntime(runtime, runtimeState => runtimeState.conversationTitle);
   const threads = useRuntime(runtime, runtimeState => runtimeState.threads);
   const threadsRefresh = useRuntime(runtime, runtimeState => runtimeState.threadsRefresh);
@@ -271,9 +257,12 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         setSearchOpen(open => !open);
         return;
       }
+      // Let an inner disclosure or dialog consume Escape first.
       if (searchOpen) return;
       if (event.key === "Escape" && !event.defaultPrevented) {
+        const parent = detailBackTarget(detailTab);
         if (detailTab === "settings" && settingsRoute !== "home") { setSettingsRoute("home"); return; }
+        if (detailsOpen && parent) { setDetailTab(parent); return; }
         if (detailsOpen || mobileDashboard) { setDetailsOpen(false); setMobileDashboard(false); }
         else void window.runloom.hide();
       }
@@ -454,8 +443,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
     const draft = drafts.get(draftKey({ workspaceRoot: info?.workspaceRoot ?? null, directory: thread.transcriptDirectory, threadId: thread.threadId }));
     return draft?.text ? [[thread.threadId, draft.text] as const] : [];
   }));
-  const pageTitle = !detailsOpen ? conversationTitle : ({ threads: "全部对话", tasks: "任务", reminders: "提醒", home: "工作区", records: "执行记录", memory: "记忆", context: "上下文与压缩", pomodoro: "番茄钟", modules: "模块能力", settings: "设置" })[detailTab];
-  const pageDescription = ({ threads: "继续之前的对话，或开始一段新对话。", tasks: "把需要执行和验收的事放在这里；普通聊天不用创建任务。", reminders: "查看已经设好的提醒，以及刚刚触发的结果。", home: "查看保存的进度、订阅和当前配置。提醒列表在「提醒」。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "已经记住的偏好、项目和工作。", context: "长对话由系统自动管理，通常不需要你操作。", pomodoro: "专注计时，直接操作，不必发消息。", modules: "决定助手可以使用哪些能力。", settings: "外观、偏好和应用信息" })[detailTab];
+  const pageTitle = !detailsOpen ? conversationTitle : ({ threads: "全部对话", tasks: "任务", reminders: "提醒", arrangements: "定时安排与订阅", home: "工作区", records: "执行记录", memory: "记忆", pomodoro: "番茄钟", settings: "设置" })[detailTab];
+  const pageDescription = ({ threads: "继续之前的对话，或开始一段新对话。", tasks: "把需要执行和验收的事放在这里；普通聊天不用创建任务。", reminders: "查看已经设好的提醒，以及刚刚触发的结果。", arrangements: "按时间执行的安排和订阅来源；排期不等于已经执行。", home: "查看保存的进度、订阅和当前配置。提醒列表在「提醒」。", records: "核对每次执行的工具结果，区分完成、失败和未知效果。", memory: "已经记住的偏好、项目和工作。", pomodoro: "专注计时，直接操作，不必发消息。", settings: "外观、偏好和应用信息" })[detailTab];
   const newConversation = async (chatDraft?: string) => {
     if (busy || sending || threadSwitchInFlight.current || !info) return;
     threadSwitchInFlight.current = true;
@@ -633,7 +622,10 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
             onPomodoro={() => openDetails("pomodoro")} onAutomation={() => openDetails("reminders")} />
         </div>
           <section className="inspector" hidden={!detailsOpen} aria-label={pageTitle}>
-            {detailTab === "tasks" || detailTab === "settings" || detailTab === "memory" ? null : <PageHeader title={pageTitle} description={pageDescription} back={{ label: "回到手札", onBack: () => { setDetailsOpen(false); setMobileDashboard(false); } }} />}
+            {detailTab === "tasks" || detailTab === "settings" || detailTab === "memory" ? null : <PageHeader title={pageTitle} description={pageDescription}
+              back={detailBackTarget(detailTab) === "reminders"
+                ? { label: "返回提醒", onBack: () => setDetailTab("reminders") }
+                : { label: "回到手札", onBack: () => { setDetailsOpen(false); setMobileDashboard(false); } }} />}
             <div className="inspector-pane" ref={inspectorScroll} onScroll={() => { if (inspectorScroll.current) inspectorPositions.current.set(inspectorKey, inspectorScroll.current.scrollTop); }}>
               {detailTab === "threads" && info ? <ThreadsPanel info={info} drafts={threadDrafts} busy={busy || switchingThread} onSelect={selectConversation} onCreate={() => newConversation()} onChanged={refreshThreads} /> : null}
               <div hidden={detailTab !== "tasks"}>
@@ -641,14 +633,20 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                   tasksEnabled={info?.workTasks === true} tasks={workTasks.tasks} selected={workTasks.task} loading={workTasks.loading} error={workTasks.error}
                   busy={busy || sending || switchingThread || workTasks.acting} focused={taskFocused} workspaceReady={!!info?.workspaceRoot}
                   refreshToken={automationRefresh} identity={`${info?.configPath ?? ""}:${info?.workspaceRoot ?? ""}`} formRequest={createTaskRequest}
-                  onSelect={workTasks.select} onCreate={handoff => { if (handoff.purpose === "arrangement" || handoff.mode === "chat") void newConversation(handoff.text); }} onContinue={applyTaskHandoff} onOpenSettings={() => openSettings("advanced")}
+                  onSelect={workTasks.select} onCreate={handoff => { if (handoff.purpose === "arrangement" || handoff.mode === "chat") void newConversation(handoff.text); }} onContinue={applyTaskHandoff} onOpenArrangements={() => openDetails("arrangements")}
                   advancedForm={<WorkTasksPanel view={workTasks} createRequest={createTaskRequest} initialGoal={taskDraft} focused={false} onCompose={composeTask} onCreated={() => { setDetailsOpen(false); setMobileDashboard(false); setTaskFocused(true); }} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />}
                   advancedDetail={<WorkTasksPanel view={workTasks} focused={true} onCompose={composeTask} onRun={runId => { openDetails("records"); void openRecord(runId).catch(() => setError("执行回执读取失败")); }} />}
                 />
               </div>
+              <div hidden={detailTab !== "arrangements"}>
+                {detailTab === "arrangements" && info ? <>
+                  <AutomationPanel busy={busy} identity={`${info.workspaceRoot}:${info.threadId}`} refreshSequence={automationRefresh} onRun={runId => { openDetails("records"); void openRecord(runId); }} />
+                  <RssPanel key={info.workspaceRoot ?? "no-workspace"} showInbox={false} enabled={!!info.workspaceRoot && info.modules?.some(module => module.id === "task" && module.enabled) === true} busy={busy} />
+                </> : null}
+              </div>
               <div hidden={detailTab !== "reminders"}>
                 <RemindersPanel enabled={!!info?.workspaceRoot} busy={busy} identity={`${info?.configPath ?? ""}:${info?.workspaceRoot ?? ""}`} refreshSequence={automationRefresh} />
-                {detailTab === "reminders" && info ? <details className="task-arrangements"><summary>管理定时安排与订阅</summary><div className="task-arrangements-body"><AutomationPanel busy={busy} identity={`${info.workspaceRoot}:${info.threadId}`} refreshSequence={automationRefresh} onRun={runId => { openDetails("records"); void openRecord(runId); }} /><RssPanel key={info.workspaceRoot ?? "no-workspace"} showInbox={false} enabled={!!info.workspaceRoot && info.modules?.some(module => module.id === "task" && module.enabled) === true} busy={busy} /></div></details> : null}
+                {info ? <RowGroup><NavigationRow title="定时安排与订阅" description="按时间执行的安排、订阅来源和后台登记状态。" onOpen={() => openDetails("arrangements")} /></RowGroup> : null}
                 <TaskInbox key={`${info?.configPath}:${info?.workspaceRoot}`} enabled={!!info?.workspaceRoot} canAcknowledge={info?.modules?.some(m => m.id === "task" && m.enabled) === true} busy={busy} onResultsRead={() => runtime.refreshAutomation()} onResultOpened={task => {
                   if (info?.workspaceRoot) createTaskNoticeDismissals(window.localStorage, info.workspaceRoot).dismiss(task);
                 }} focus={taskResultFocus?.workspaceRoot === info?.workspaceRoot ? taskResultFocus : null} />

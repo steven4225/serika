@@ -31,6 +31,11 @@ export function loadSidebarOpen(raw: string | null): boolean {
   return raw !== "collapsed";
 }
 
+/** A pushed page returns to the tab that owns it; every other page closes the pane. */
+export function detailBackTarget(detail: string): "reminders" | null {
+  return detail === "arrangements" ? "reminders" : null;
+}
+
 export type PersonalPill = "手札" | "任务" | "记忆" | "设置";
 
 /** Top pills are 手札, tasks, memory and settings. Reminders stay a 手札 destination. */
