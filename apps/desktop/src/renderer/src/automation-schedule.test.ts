@@ -38,3 +38,11 @@ it("places unified arrangements in the existing workspace and invalidates stale 
   assert.doesNotMatch(panel, /打开提醒，查看刚刚触发的结果/);
   assert.doesNotMatch(panel, /\{task\.runAt\}/);
 });
+
+it("locks every schedule field while a submission is in flight", async () => {
+  const panel = await readFile(new URL("./automation-panel.tsx", import.meta.url), "utf8");
+  const form = panel.slice(panel.indexOf("<label>执行哪个 Skill"), panel.indexOf("</fieldset>"));
+  assert.match(panel, /<fieldset disabled=\{busy \|\| working\}>/);
+  for (const field of ["日期", "星期", "时间", "固定 UTC 偏移", "交给它的输入", "什么时候", "执行哪个 Skill"]) assert.ok(form.includes(field), `${field} must sit inside the locked fieldset`);
+  assert.doesNotMatch(form, /disabled=\{busy \|\| working\}/);
+});

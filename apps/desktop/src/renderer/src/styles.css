@@ -104,6 +104,8 @@ button.chip { font-size: 12px; padding: 5px 9px; border-color: var(--line); }
 }
 .work-task-buttons { display: flex; gap: 7px; flex-wrap: wrap; }
 .work-task-form { display: grid; gap: 14px; margin: 16px 0; }
+/* One submit lock for a whole form: the fieldset carries it without changing the layout. */
+.work-task-form fieldset { display: grid; gap: 14px; border: 0; margin: 0; padding: 0; min-width: 0; }
 .work-task-form label { display: grid; gap: 5px; font-size: 13px; }
 .work-task-form small { font-size: 12px; color: var(--muted); font-weight: 400; }
 .work-task-form textarea, .work-task-form select { width: 100%; min-width: 0; border: 1px solid var(--line-strong); border-radius: 6px; padding: 8px 10px; background: var(--surface); color: var(--text); font: inherit; resize: vertical; }
