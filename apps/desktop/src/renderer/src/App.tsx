@@ -56,6 +56,8 @@ import { useTodayBriefFeeds } from "./personal/today-feeds.js";
 import { writeBriefContinue, type BriefContinueTarget } from "./personal/today-continue.js";
 import { createAndStartTask } from "./create-task.js";
 import { SearchOverlay } from "./personal/search-overlay.js";
+import { PageHeader } from "./personal/page-header.js";
+import { NavigationRow, NavigationRows, RowGroup } from "./personal/settings-rows.js";
 import { SettingsAbout, SettingsFrame, SettingsGeneral, SettingsHome, SettingsNotifications, SettingsShortcuts } from "./personal/settings.js";
 import { isConnectorModule, settingsRouteForInitial, type SettingsListTarget, type SettingsRoute } from "./personal/settings-model.js";
 import { clampChatFraction, dashboardTabForDetail } from "./personal/layout.js";
@@ -391,6 +393,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
   const homeView = toHomeView(homeSnapshot);
   const unknownRuns = records.status === "ready" ? unreconciledRuns(records.runs, workTasks.tasks) : [];
   const reviewTask = workTasks.tasks.find(task => workTaskPhase(task) === "needs_review");
+  // The current-task card above the conversation is already that task's entry; a banner would be the second.
+  const reviewInCurrentTask = reviewTask !== undefined && workTasks.task?.id === reviewTask.id && workTasks.error === null;
   const openDetails = (tab: typeof detailTab) => {
     setDetailTab(tab); setDetailsOpen(true); setMobileDashboard(true);
     if (!compact) rememberSidebar(true);
@@ -518,8 +522,8 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
         }} /> : null}
         {info && attention === "none" ? <MemoryConsolidationNotice key={`${info.workspaceRoot}:${info.threadId}`} enabled={info.memory.enabled} busy={busy} quiet={true} running={state.kind === "running" && state.phase === "consolidation"} refreshToken={memoryRefresh} onOpen={() => openMemory()} /> : null}
         <div className="attention-region" hidden={attention === "none"}>
-          {attention === "unknown" ? <div className="review-notice execution-review" role="status"><Icon name="shield" size={16} /><span>执行效果待核对 · 不会自动重做</span><button className="ghost" onClick={() => { if (reviewTask) { workTasks.select(reviewTask.id); openTask(); } else { openDetails("records"); const run = unknownRuns[0]; if (run) void openRecord(run.runId); } }}>{reviewTask ? "核对工作任务" : "查看回执"}<Icon name="chevron" size={14} /></button></div> : null}
-          {attention === "approval" && unknownRuns.length > 0 ? <div className="attention-summary"><button className="ghost" onClick={() => openDetails("records")}>另有执行效果待核对</button></div> : null}
+          {attention === "unknown" && !reviewInCurrentTask ? <div className="review-notice execution-review" role="status"><Icon name="shield" size={16} /><span>执行效果待核对 · 不会自动重做</span><button className="ghost" onClick={() => { if (reviewTask) { workTasks.select(reviewTask.id); openTask(); } else { openDetails("records"); const run = unknownRuns[0]; if (run) void openRecord(run.runId); } }}>{reviewTask ? "核对工作任务" : "查看回执"}<Icon name="chevron" size={14} /></button></div> : null}
+          {(attention === "approval" || reviewInCurrentTask) && unknownRuns.length > 0 ? <div className="attention-summary"><button className="ghost" onClick={() => openDetails("records")}>另有执行效果待核对</button></div> : null}
         </div>
         <div className="workbench">
           <main className="workspace-pane">
@@ -629,7 +633,7 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
             onPomodoro={() => openDetails("pomodoro")} onAutomation={() => openDetails("reminders")} />
         </div>
           <section className="inspector" hidden={!detailsOpen} aria-label={pageTitle}>
-            {detailTab === "tasks" || detailTab === "settings" || detailTab === "memory" ? null : <div className="inspector-header"><div><h1>{pageTitle}</h1><p>{pageDescription}</p></div><button className="ghost" title="回到手札 · Escape" onClick={() => { setDetailsOpen(false); setMobileDashboard(false); }}><Icon name="close" size={16} />回到手札</button></div>}
+            {detailTab === "tasks" || detailTab === "settings" || detailTab === "memory" ? null : <PageHeader title={pageTitle} description={pageDescription} back={{ label: "回到手札", onBack: () => { setDetailsOpen(false); setMobileDashboard(false); } }} />}
             <div className="inspector-pane" ref={inspectorScroll} onScroll={() => { if (inspectorScroll.current) inspectorPositions.current.set(inspectorKey, inspectorScroll.current.scrollTop); }}>
               {detailTab === "threads" && info ? <ThreadsPanel info={info} drafts={threadDrafts} busy={busy || switchingThread} onSelect={selectConversation} onCreate={() => newConversation()} onChanged={refreshThreads} /> : null}
               <div hidden={detailTab !== "tasks"}>
@@ -659,7 +663,11 @@ function AssistantPage({ drafts, layout, initialSettings = false, initialSetting
                   {settingsRoute === "channels" ? <TelegramPanel busy={busy} /> : null}
                   {settingsRoute === "memory" && info ? <><MemorySetup info={info} busy={busy} /><details className="card"><summary>管理记录</summary><MemoryPanel key={`management:${info.workspaceRoot}:${info.threadId}`} managementOnly memory={info.memory} temporaryThread={info.temporaryThread} threadId={info.threadId} controllerIdle={!busy} refreshToken={memoryRefresh} /></details><details className="card"><summary>高级配置与诊断</summary><CapabilitiesPanel info={{ ...info, modules: (info.modules ?? []).filter(module => module.id === "memory") }} busy={busy} /></details></> : null}
                   {settingsRoute === "advanced" && info ? <>
-                    <div className="settings-group"><button className="settings-row" onClick={() => openSettings("context")}><span className="settings-row-copy"><strong>上下文与压缩</strong><small>查看长对话预算和压缩状态。</small></span></button><button className="settings-row" onClick={() => openSettings("records")}><span className="settings-row-copy"><strong>执行记录与用量</strong><small>核对工具回执、未知效果和模型调用。</small></span></button><button className="settings-row" onClick={() => openDetails("threads")}><span className="settings-row-copy"><strong>对话与历史</strong><small>查找、登记或恢复当前工作区的旧对话。</small></span></button></div>
+                    <RowGroup>
+                      <NavigationRow title="上下文与压缩" description="查看长对话预算和压缩状态。" onOpen={() => openSettings("context")} />
+                      <NavigationRow title="执行记录与用量" description="核对工具回执、未知效果和模型调用。" onOpen={() => openSettings("records")} />
+                      <NavigationRow title="对话与历史" description="查找、登记或恢复当前工作区的旧对话。" onOpen={() => openDetails("threads")} />
+                    </RowGroup>
                     <details className="card"><summary>命令与诊断</summary><div className="serika-command-list">{info.commands.map(name => <button type="button" className="ghost" key={name} disabled={busy} onClick={() => prepareInput(`/${name} `)}>/{name}</button>)}</div><button type="button" className="ghost" onClick={() => setShowOutput(value => !value)}>{showOutput ? "隐藏系统输出" : "查看系统输出"}</button></details>
                     <details className="card"><summary>数据与配置位置</summary><Identity info={info} /><dl className="session-facts"><dt>配置</dt><dd>{info.configPath ?? "未指定"}</dd><dt>工作区</dt><dd>{info.workspaceRoot ?? "未配置"}</dd><dt>对话记录</dt><dd>{info.directory}</dd></dl></details>
                     {initialSettings === "modules" && initialSettingsError ? <p className="error" role="alert">未应用：{initialSettingsError}</p> : null}

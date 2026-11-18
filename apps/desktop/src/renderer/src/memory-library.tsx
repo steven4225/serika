@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, FileText, Folder, FolderOpen, MoreHorizontal, Plus, RotateCw, Upload } from "lucide-react";
+import { FileText, Folder, FolderOpen, MoreHorizontal, Plus, RotateCw, Upload } from "lucide-react";
+import { PageHeader } from "./personal/page-header.js";
 import type { MemoryLibraryAction, MemoryLibraryDocument, MemoryLibraryView } from "@serika/assistant";
 import { MessageContent } from "./markdown.js";
 
@@ -151,12 +152,10 @@ export function MemoryLibraryPanel({ enabled, controllerIdle, refreshToken, onMa
   if (!enabled) return <p>记忆未启用，请在设置中开启。</p>;
   const items = library?.documents.filter(item => item.folderId === folderId && (item.active || item.missing)) ?? [];
   return <div className="memory-library">
-    <div className="memory-library-toolbar">
-      <div className="memory-back-row">
-        {location.kind !== "home" || draft || document || folderDraft ? <button type="button" className="memory-back" aria-label="返回文件夹" disabled={saving || uncertain} onClick={back}><ChevronLeft size={20} /></button> : null}
-        <h1>{draft ? document ? "编辑文档" : "新建文档" : document ? document.title : folderDraft ? folderDraft.operation === "create-folder" ? "新建文件夹" : "重命名文件夹" : location.kind === "home" ? "记忆" : folderName}</h1>
-      </div>
-      {!draft && !document && !folderDraft ? <details className="memory-library-menu" ref={menu}>
+    <PageHeader
+      title={draft ? document ? "编辑文档" : "新建文档" : document ? document.title : folderDraft ? folderDraft.operation === "create-folder" ? "新建文件夹" : "重命名文件夹" : location.kind === "home" ? "记忆" : folderName}
+      {...(location.kind !== "home" || draft || document || folderDraft ? { back: { label: "返回文件夹", onBack: back, disabled: saving || uncertain } } : {})}
+      actions={!draft && !document && !folderDraft ? <details className="memory-library-menu" ref={menu}>
         <summary aria-label="记忆操作"><MoreHorizontal size={21} /></summary>
         <div role="group" aria-label="记忆操作">
           <button disabled={blocked || !library} onClick={() => { closeMenu(); picker.current?.click(); }}><Upload size={16} />导入文件</button>
@@ -164,8 +163,7 @@ export function MemoryLibraryPanel({ enabled, controllerIdle, refreshToken, onMa
           <button disabled={blocked || !library} onClick={beginFolder}><Plus size={16} />新建文件夹</button>
           {folderId && library ? <button disabled={blocked} onClick={() => { setFolderDraft({ operation: "rename-folder", id: folderId, name: folderName, expectedRevision: library.revision }); closeMenu(); }}>重命名文件夹</button> : null}
         </div>
-      </details> : document && !draft ? <div className="actions"><button className="ghost" aria-label="重新读取文档" disabled={blocked} onClick={() => void open(document.id)}><RotateCw size={16} /></button><button className="ghost" disabled={blocked || document.missing || changed} onClick={() => setDraft({ id: document.id, title: document.title, text: document.text, folderId: document.folderId, entries: document.entries, expectedRevision: document.libraryRevision })}>编辑</button></div> : null}
-    </div>
+      </details> : document && !draft ? <><button className="ghost" aria-label="重新读取文档" disabled={blocked} onClick={() => void open(document.id)}><RotateCw size={16} /></button><button className="ghost" disabled={blocked || document.missing || changed} onClick={() => setDraft({ id: document.id, title: document.title, text: document.text, folderId: document.folderId, entries: document.entries, expectedRevision: document.libraryRevision })}>编辑</button></> : null} />
     <input ref={picker} type="file" accept=".txt,.md,text/plain,text/markdown" hidden onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importFile(file); }} />
     {error ? <p role="alert" className="memory-library-error">{error}</p> : null}
     {notice ? <p role="status" className="memory-library-notice">{notice}</p> : null}

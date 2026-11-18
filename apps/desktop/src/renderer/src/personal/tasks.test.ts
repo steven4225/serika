@@ -92,8 +92,8 @@ describe("tasks page", () => {
     assert.match(list, /效果待核对/);
     assert.doesNotMatch(list, /开始执行|开始任务|取消此任务/);
     const opened = page({ tasks: [review], openedTask: review });
-    assert.match(opened, /task-thread-meta task-review/);
-    assert.match(opened, /效果待核对/);
+    assert.match(opened, /class="page-header-note"[^>]*><span class="task-review" role="status">效果待核对/);
+    assert.match(opened, /aria-label="返回任务列表"/);
     assert.match(opened, /不会自动重做/);
     assert.doesNotMatch(opened, /开始执行|开始任务/);
   });
@@ -110,7 +110,7 @@ describe("tasks page", () => {
     assert.match(html, /aria-label="提醒结果"/);
     assert.match(html, /复核这份改动/);
     assert.match(html, /标为已读不改变这条结果/);
-    assert.match(html, /<summary>编号<\/summary><code>task_hidden_review_reminder<\/code>/);
+    assert.doesNotMatch(html, /task_hidden_review_reminder/);
   });
 
   it("shows the segmented control, human rows, and no engineering ids", () => {
@@ -145,7 +145,7 @@ describe("tasks page", () => {
     assert.doesNotMatch(page({ segment: "tasks" }), /为你推荐/);
   });
 
-  it("keeps a saved reminder on the scheduled list and its id in the detail only", () => {
+  it("keeps a saved reminder on the scheduled list and keeps its id out of both views", () => {
     const clock = { now, timeZone: "Asia/Shanghai" };
     const view = scheduledTaskRows({
       scheduled: [{ id: "task_hidden_water", promptPreview: "喝水", status: "pending", runAt: at(12, 20), arrangement: { kind: "reminder" } }],
@@ -158,7 +158,7 @@ describe("tasks page", () => {
     assert.match(list, /喝水/);
     assert.doesNotMatch(list, /task_hidden_water|为你推荐/);
     const detail = page({ segment: "scheduled", reminders: view.rows, openedReminder: row });
-    assert.match(detail, /<summary>编号<\/summary><code>task_hidden_water<\/code>/);
+    assert.doesNotMatch(detail, /task_hidden_water/);
     assert.match(detail, /和 Serika 聊这件提醒/);
     assert.match(detail, /取消提醒/);
     assert.match(detail, /已经提醒到你/);
@@ -218,13 +218,13 @@ describe("tasks page", () => {
     assert.ok(digest);
     const detail = page({ segment: "scheduled", reminders: view.rows, openedReminder: digest });
     assert.match(detail, /邮件今日速览/);
-    assert.match(detail, /<summary>编号<\/summary><code>task_hidden_digest<\/code>/);
+    assert.doesNotMatch(detail, /task_hidden_digest/);
     assert.match(detail, /取消这项安排/);
     assert.match(detail, /和 Serika 聊这项安排/);
     assert.doesNotMatch(detail, /已经提醒到你|另有/);
   });
 
-  it("opens a task as a thread with artifacts, continue input, and the id only under 编号", () => {
+  it("opens a task showing the review controls first, with records on demand and no engineering id", () => {
     const item = task("task_hidden_wake", "起床提醒", 11, "awaiting_acceptance");
     item.delivery = { summary: "起床啦。先喝口水，慢慢坐起来。", artifactRefs: ["notes/morning.md"], evidence: [], unresolved: [] };
     item.acceptance = [{ id: "file", description: "留下说明", method: "automatic", verification: { kind: "artifact_exists", path: "notes/morning.md", requireReadback: true }, required: true, status: "passed", evidenceRefs: [], note: null }];
@@ -232,9 +232,10 @@ describe("tasks page", () => {
     assert.match(html, /起床提醒/);
     assert.match(html, /notes\/morning\.md/);
     assert.match(html, /aria-label="和 Serika 聊这件任务"/);
-    assert.match(html, /<summary>编号<\/summary><code>task_hidden_wake<\/code>/);
-    assert.doesNotMatch(html, /thread_hidden_alpha/);
-    assert.match(html, /<summary>验收与核对<\/summary>保留验收/);
+    assert.doesNotMatch(html, /task_hidden_wake|thread_hidden_alpha/);
+    assert.doesNotMatch(html, /验收与核对/);
+    assert.ok(html.indexOf("保留验收") < html.indexOf("task-record"), "review controls come before the record disclosure");
+    assert.match(html, /<summary class="personal-entry-card"><span class="entry-card-copy"><strong>任务记录与产物/);
     const handoff = planTaskContinueHandoff(item, "");
     assert.equal(handoff.mode, "chat");
     assert.equal(planTaskContinueHandoff({ ...item, status: "pending", acceptanceOpen: false, effectReviewRequired: false }, "继续写完").mode, "task");

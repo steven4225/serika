@@ -5,7 +5,7 @@ import { MemoryExtractionFailures } from "./memory-extraction-failures.js";
 import { CurrentMemoryDetails } from "./memory-temporal.js";
 import { memoryDisabledEmptyCopy, savedMemoryEmptyCopy } from "./memory-copy.js";
 import { FailureAlert } from "./failure-notice.js";
-import { MemoryBack } from "./personal/memory-home.js";
+import { PageHeader } from "./personal/page-header.js";
 import { isCurrentMemory, memoryItemTitle, memoryUpdatedLabel } from "./personal/memory-cards.js";
 import { memoryErrorText } from "../../shared/memory-labels.js";
 
@@ -93,7 +93,7 @@ export function FormalMemories({ enabled, controllerIdle, refreshToken }: { enab
   if (!enabled) return <p className="hint">{memoryDisabledEmptyCopy()}</p>;
   const entries = page?.entries ?? [];
   if (openId !== null) return <section className="formal-memories"><div className="memory-detail">
-    <MemoryBack label="记忆详情" onBack={back} />
+    <PageHeader title="记忆详情" back={{ label: "返回记忆列表", onBack: back }} />
     {error ? <FailureAlert text={error} /> : null}
     {notice ? <p className="hint" role="status">{notice}</p> : null}
     {current === null ? error ? <button className="ghost" onClick={() => void open(openId)}>重新读取</button> : <p className="hint">读取中…</p> : <>

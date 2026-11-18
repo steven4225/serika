@@ -4,6 +4,8 @@ import type { WorkTask } from "../../../shared/work-tasks.js";
 import { humanFacingTitle } from "../../../shared/human-title.js";
 import { reminderClock, type ReminderDisplayRow } from "../reminder-copy.js";
 import { Clock, Plus } from "lucide-react";
+import { EntryCardContent } from "./entry-card.js";
+import { PageHeader } from "./page-header.js";
 import {
   SCHEDULE_TEMPLATES,
   TASK_EXAMPLE_PROMPTS,
@@ -55,7 +57,10 @@ export function TasksPage(props: TasksPageProps) {
   const clock = reminderClock(now);
   const detail = props.segment === "tasks" ? props.openedTask : props.openedReminder;
   if (props.opening && props.segment === "tasks" && !props.openedTask) {
-    return <div className="personal-tasks"><p className="task-note" role="status">正在读取这件任务…</p><button type="button" className="ghost" onClick={props.onBack}>返回任务列表</button></div>;
+    return <div className="personal-tasks">
+      <PageHeader title="任务" back={{ label: "返回任务列表", onBack: props.onBack }} description="正在读取这件任务…" />
+      <p className="task-note" role="status">正在读取这件任务…</p>
+    </div>;
   }
   return <div className="personal-tasks">
     {props.segment === "tasks" && props.openedTask ? <WorkTaskThread task={props.openedTask} now={now} busy={props.busy} advanced={props.advanced} onBack={props.onBack} onContinue={props.onContinue} /> : null}
@@ -126,21 +131,22 @@ function WorkTaskThread({ task, now, busy, advanced, onBack, onContinue }: {
   const lines = taskProgressLines(task);
   const artifacts = taskArtifactCards(task);
   const status = lines[0] ?? "状态待核对";
+  const review = status === "效果待核对";
   return <section className="task-thread" aria-label={title}>
-    <header className="task-thread-heading">
-      <button type="button" className="task-back" aria-label="返回任务列表" onClick={onBack}>‹</button>
-      <div className="task-thread-copy"><h1>{title}</h1><p className={`task-thread-meta${status === "效果待核对" ? " task-review" : ""}`} role={status === "效果待核对" ? "status" : undefined}>{status} · {taskWhenLabel(task.updatedAt, now, clock)}</p></div>
-    </header>
-    <div className="task-thread-log">
-      {lines.slice(1).map(line => <article className="task-bubble" key={line}><p>{line}</p></article>)}
-      {artifacts.map(card => <article className="task-artifact-card" key={card.path}><strong>{card.label}</strong><p><code>{card.path}</code></p></article>)}
-    </div>
+    <PageHeader title={title} back={{ label: "返回任务列表", onBack }}
+      description={<span className={review ? "task-review" : undefined} role={review ? "status" : undefined}>{status} · {taskWhenLabel(task.updatedAt, now, clock)}</span>} />
+    {advanced}
+    {lines.length > 1 || artifacts.length ? <details className="task-record">
+      <summary className="personal-entry-card"><EntryCardContent title="任务记录与产物" description={`${lines.length - 1} 条进展 · ${artifacts.length} 个产物`} /></summary>
+      <div className="task-thread-log">
+        {lines.slice(1).map(line => <article className="task-bubble" key={line}><p>{line}</p></article>)}
+        {artifacts.map(card => <article className="task-artifact-card" key={card.path}><strong>{card.label}</strong><p><code>{card.path}</code></p></article>)}
+      </div>
+    </details> : null}
     <form className="task-thread-compose" onSubmit={event => { event.preventDefault(); onContinue(planTaskContinueHandoff(task, draft)); }}>
       <input aria-label="和 Serika 聊这件任务" placeholder="和 Serika 聊这件任务" value={draft} onChange={event => setDraft(event.target.value)} />
       <button type="submit" disabled={busy}>继续</button>
     </form>
-    {advanced ? <details className="task-advanced"><summary>验收与核对</summary>{advanced}</details> : null}
-    <details className="technical-id"><summary>编号</summary><code>{task.id}</code></details>
   </section>;
 }
 
@@ -228,10 +234,8 @@ function ReminderThread({ row, now, busy, error, pendingCancel, onBack, onContin
   const confirming = pendingCancel && pendingCancel.id === row.id ? pendingCancel : null;
   const confirmCopy = confirming ? scheduleConfirmCopy(confirming) : null;
   return <section className="task-thread" aria-label={row.title}>
-    <header className="task-thread-heading">
-      <button type="button" className="task-back" aria-label="返回定时任务" onClick={onBack}>‹</button>
-      <div className="task-thread-copy"><h1>{row.title}</h1><p className="task-thread-meta">{row.family === "schedule" ? `${row.kindLabel} · ` : ""}{when} · {row.status}</p></div>
-    </header>
+    <PageHeader title={row.title} back={{ label: "返回定时任务", onBack }}
+      description={`${row.family === "schedule" ? `${row.kindLabel} · ` : ""}${when} · ${row.status}`} />
     <article className="task-bubble"><p>{row.when}</p><p>{row.status}。{scheduleNotice(row.family)}</p></article>
     {row.resultText ? <article className="task-bubble" aria-label="提醒结果"><p>{row.resultText}</p><p>标为已读不改变这条结果，也不会再执行一次。</p></article> : null}
     {error ? <p className="task-warning" role="alert">{error}请回到列表重新读取并核对这项安排是否还在；不会自动重试。</p> : null}
@@ -248,7 +252,6 @@ function ReminderThread({ row, now, busy, error, pendingCancel, onBack, onContin
       <input aria-label={chatting} placeholder={chatting} value={draft} onChange={event => setDraft(event.target.value)} />
       <button type="submit" disabled={busy}>继续</button>
     </form>
-    <details className="technical-id"><summary>编号</summary><code>{row.id}</code></details>
   </section>;
 }
 
@@ -345,7 +348,7 @@ export function TasksHome({
   const openedTask = openedTaskId && selected?.id === openedTaskId ? selected : null;
   const openingTask = segment === "tasks" && openedTaskId !== null && openedTask === null;
   return showForm ? <div className="personal-tasks">
-    <button type="button" className="task-back" onClick={() => setShowForm(false)}>返回任务列表</button>
+    <PageHeader title="创建任务" back={{ label: "返回任务列表", onBack: () => setShowForm(false) }} description="填写验收后才会创建，不会直接执行。" />
     {advancedForm}
   </div> : <TasksPage
     tasksEnabled={tasksEnabled} tasks={tasks} openedTask={openedTask} opening={openingTask} loading={loading} error={error} busy={busy || working}
