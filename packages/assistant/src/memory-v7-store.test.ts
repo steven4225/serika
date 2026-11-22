@@ -58,6 +58,88 @@ test("v7 replacement/undo, withdrawal/undo, conflict diagnostics and source-spec
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("automatic replay cannot add or replace a fact from the source of a manual correction", async () => {
+  const root = await mkdtemp(join(tmpdir(), "v7-correct-"));
+  try {
+    const file = join(root, "memory.json"), store = new V7MemoryStore(file, null);
+    const original = change();
+    const added = await store.writeV7([original]); assert.ok(added.ok);
+    const old = added.value[0]!;
+    const corrected = await store.update(old.id, { expectedRevision: old.revision!, text: "我住在上海" });
+    assert.ok(corrected.ok);
+    assert.deepEqual(corrected.entry.source, { kind: "manual" });
+
+    const addedReplay = await store.writeV7([original], undefined, { automatic: true });
+    assert.ok(addedReplay.ok); assert.deepEqual(addedReplay.value, []);
+
+    const reopened = new V7MemoryStore(file, null);
+    const { id, revision } = corrected.entry;
+    const replacedReplay = await reopened.writeV7([{ ...original, operation: "replace", id, expectedRevision: revision! }], undefined, { automatic: true });
+    assert.ok(replacedReplay.ok); assert.deepEqual(replacedReplay.value, []);
+    const listed = await reopened.list(); assert.ok(listed.ok);
+    assert.deepEqual(listed.entries.filter(entry => entry.enabled), [corrected.entry]);
+
+    const explicit = await reopened.writeV7([{ ...change("深圳"), operation: "replace", id, expectedRevision: revision! }]);
+    assert.ok(explicit.ok); assert.equal(explicit.value[0]?.text, "我住在深圳");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("deleting a manual correction suppresses its original source and identity after reopen", async () => {
+  const root = await mkdtemp(join(tmpdir(), "v7-correct-delete-"));
+  try {
+    const file = join(root, "memory.json"), store = new V7MemoryStore(file, "a");
+    const original = change();
+    const added = await store.writeV7([original]); assert.ok(added.ok);
+    const old = added.value[0]!;
+    const first = await store.update(old.id, { expectedRevision: old.revision!, text: "我住在上海" }); assert.ok(first.ok);
+    const corrected = await store.update(first.entry.id, { expectedRevision: first.entry.revision!, text: "我住在杭州" }); assert.ok(corrected.ok);
+    const { id, revision } = corrected.entry;
+    assert.ok((await new V7MemoryStore(file, "a").deleteMemory({ id, expectedRevision: revision! })).ok);
+
+    const reopened = new V7MemoryStore(file, "a");
+    const rephrased = { ...original, text: "北京是我的住址" };
+    const replay = await reopened.writeV7([rephrased], undefined, { automatic: true, reextract: true });
+    assert.ok(replay.ok); assert.deepEqual(replay.value, []);
+    const after = await reopened.readV7(); assert.ok(after.ok);
+    assert.equal(after.value.entries.some(entry => entry.state === "active" || entry.id === id), false);
+    assert.deepEqual(after.value.suppressed, [{
+      threadId: "t", messageId: "北京", scope: { kind: "user" }, identity: { subject: "user", attribute: "住址" },
+    }]);
+
+    assert.equal(rephrased.source.kind, "conversation");
+    const independent = await reopened.writeV7([
+      { ...rephrased, source: { ...rephrased.source, messageId: "later" } },
+      { ...rephrased, scope: { kind: "project", projectId: "a" } },
+    ], undefined, { automatic: true });
+    assert.ok(independent.ok); assert.deepEqual(independent.value.map(entry => entry.text), [rephrased.text, rephrased.text]);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("v7 commits to a non-default filename and reads it back after reopen", async () => {
+  const root = await mkdtemp(join(tmpdir(), "v7-direct-path-"));
+  try {
+    const file = join(root, "direct.json");
+    const written = await new V7MemoryStore(file, null).writeV7([change()]); assert.ok(written.ok);
+    const reopened = await new V7MemoryStore(file, null).list(); assert.ok(reopened.ok);
+    assert.deepEqual(reopened.entries, written.value);
+    assert.equal((await readdir(root)).includes("memory.json"), false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("v7 stores with different filenames in one directory commit independently", async () => {
+  const root = await mkdtemp(join(tmpdir(), "v7-sibling-paths-"));
+  try {
+    const fileA = join(root, "a.json"), fileB = join(root, "b.json");
+    const a = await new V7MemoryStore(fileA, null).writeV7([change()]); assert.ok(a.ok);
+    const b = await new V7MemoryStore(fileB, null).writeV7([change("上海")]); assert.ok(b.ok);
+    for (const [file, entries] of [[fileA, a.value], [fileB, b.value]] as const) {
+      const reopened = await new V7MemoryStore(file, null).list(); assert.ok(reopened.ok);
+      assert.deepEqual(reopened.entries, entries);
+    }
+    assert.equal((await readdir(root)).includes("memory.json"), false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("memory and progress share the commit barrier; pre-rename and post-rename failures stay distinct", async () => {
   const root = await mkdtemp(join(tmpdir(), "cm4-barrier-"));
   try {
