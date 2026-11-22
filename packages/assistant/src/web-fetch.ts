@@ -1,5 +1,7 @@
+import type { LookupAddress } from "node:dns";
 import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import { isIP, type LookupFunction } from "node:net";
+import { Agent, EnvHttpProxyAgent, getGlobalDispatcher, type Dispatcher } from "undici";
 import { z } from "zod";
 
 export const WEB_FETCH_TIMEOUT_MS = 20_000;
@@ -323,8 +325,8 @@ export async function validatePublicFeedItemUrl(
     ? timeoutController.signal
     : AbortSignal.any([options.signal, timeoutController.signal]);
   try {
-    const blocked = await assertPublicTarget(parsed, signal, options.resolveHost ?? defaultResolveHost());
-    return blocked === undefined && !signal.aborted ? parsed.toString() : null;
+    const target = await resolvePublicTarget(parsed, signal, options.resolveHost ?? defaultResolveHost());
+    return target.ok && !signal.aborted ? parsed.toString() : null;
   } catch {
     return null;
   } finally {
@@ -332,11 +334,11 @@ export async function validatePublicFeedItemUrl(
   }
 }
 
-async function assertPublicTarget(
+async function resolvePublicTarget(
   url: URL,
   signal: AbortSignal,
   resolveHost: ResolveWebHost,
-): Promise<WebFetchFailure | undefined> {
+): Promise<{ ok: true; addresses: readonly LookupAddress[] } | WebFetchFailure> {
   if (isBlockedHostname(url.hostname)) {
     return failure("TARGET_BLOCKED", "The URL targets a local or private host", {
       finalUrl: url.toString(),
@@ -348,7 +350,8 @@ async function assertPublicTarget(
       finalUrl: url.toString(),
     });
   }
-  if (isIP(host) !== 0) return undefined;
+  const family = isIP(host);
+  if (family === 4 || family === 6) return { ok: true, addresses: [{ address: host, family }] };
   let addresses: readonly { address: string; family: 4 | 6 }[];
   try {
     addresses = await resolveHost(host, { all: true, verbatim: true, signal });
@@ -358,17 +361,41 @@ async function assertPublicTarget(
       finalUrl: url.toString(),
     });
   }
-  // Fake-ip A records are local resolver tokens, not a connection to 198.18/15.
-  // URL hosts that are IP literals in that range stay blocked above.
+  // Clash and Surge use validated fake-IP answers as local routing tokens.
   if (
     addresses.length === 0 ||
-    addresses.some(({ address }) => isPrivateIp(address) && !isFakeIpDnsAnswer(address))
+    addresses.some(({ address, family }) =>
+      isIP(address) !== family || (isPrivateIp(address) && !isFakeIpDnsAnswer(address)))
   ) {
     return failure("TARGET_BLOCKED", "The URL resolves to a local or private host", {
       finalUrl: url.toString(),
     });
   }
-  return undefined;
+  return { ok: true, addresses: addresses.map(({ address, family }) => ({ address, family })) };
+}
+
+function createWebDispatcher(addresses: readonly LookupAddress[]): Dispatcher {
+  const pinnedLookup: LookupFunction = (_host, options, callback) => {
+    const candidates = options.family === 4 || options.family === 6
+      ? addresses.filter(({ family }) => family === options.family)
+      : [...addresses];
+    queueMicrotask(() => {
+      const first = candidates[0];
+      if (first === undefined) callback(new Error("No validated address for socket family"), "", 0);
+      else if (options.all) callback(null, candidates);
+      else callback(null, first.address, first.family);
+    });
+  };
+  const connect = { lookup: pinnedLookup, autoSelectFamily: true, rejectUnauthorized: true };
+  // Node's bundled Undici can expose its active dispatcher behind a v1 compatibility wrapper.
+  const activeDispatcher: unknown =
+    Reflect.get(globalThis, Symbol.for("undici.globalDispatcher.2")) ?? getGlobalDispatcher();
+  const useEnvProxy = typeof activeDispatcher === "object" &&
+    activeDispatcher?.constructor?.name === "EnvHttpProxyAgent";
+  // Rebuild the environment proxy dispatcher so NO_PROXY also uses the pinned lookup.
+  return useEnvProxy
+    ? new EnvHttpProxyAgent({ connect, requestTls: { rejectUnauthorized: true } })
+    : new Agent({ connect });
 }
 
 async function readBody(
@@ -498,6 +525,7 @@ async function fetchPublicBody(
 
   let current = initial;
   let redirects = 0;
+  let dispatcher: Dispatcher | undefined;
   try {
     while (true) {
       if (!isAllowedOrigin(current, options.allowedOrigins)) {
@@ -507,19 +535,23 @@ async function fetchPublicBody(
           { finalUrl: current.toString() },
         );
       }
-      const blocked = await assertPublicTarget(current, signal, resolveHost);
-      if (blocked !== undefined) return blocked;
+      const target = await resolvePublicTarget(current, signal, resolveHost);
+      if (!target.ok) return target;
+      signal.throwIfAborted();
 
       let response: Response;
       try {
-        response = await fetchImpl(current, {
+        dispatcher = options.fetch === undefined ? createWebDispatcher(target.addresses) : undefined;
+        const init: RequestInit & { dispatcher?: Dispatcher } = {
           method: "GET",
           redirect: "manual",
           signal,
           headers: { accept: kind === "feed"
             ? "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html"
             : "text/html, text/plain, application/json, application/xhtml+xml, application/xml" },
-        });
+          ...(dispatcher === undefined ? {} : { dispatcher }),
+        };
+        response = await fetchImpl(current, init);
       } catch (error) {
         if (isTimeoutError(error, timeoutController.signal)) {
           return failure("TIMEOUT", "Web request timed out", { finalUrl: current.toString() });
@@ -562,6 +594,8 @@ async function fetchPublicBody(
         }
         current = redirectUrl;
         redirects += 1;
+        await dispatcher?.destroy();
+        dispatcher = undefined;
         continue;
       }
 
@@ -607,6 +641,7 @@ async function fetchPublicBody(
     return failure("NETWORK_ERROR", "Web response could not be read", { finalUrl: current.toString() });
   } finally {
     clearTimeout(timeout);
+    await dispatcher?.destroy();
   }
 }
 
