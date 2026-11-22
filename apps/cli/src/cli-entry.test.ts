@@ -38,7 +38,7 @@ describe("TUI module configuration entry", () => {
     const { root, configDirectory } = await createConfigWorkspace();
     const configPath = await writeConfig(configDirectory, {
       version: 2,
-      authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+      authorizedDirectories: [{ path: join(configDirectory, "workspace"), access: "readwrite" }],
       modules: { "read-file": { enabled: true } },
       fileAuthorizations: [
         { tools: ["read_file"], allowedPaths: ["docs"] },

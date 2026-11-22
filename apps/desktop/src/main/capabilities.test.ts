@@ -1,6 +1,6 @@
 import { dirname } from "node:path";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, readdir, rm } from "node:fs/promises";
+import { realpath, mkdtemp, mkdir, writeFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -10,10 +10,10 @@ import { createDemoModel } from "@serika/assistant";
 import { RuntimeBridge, TeeOutput } from "./runtime-bridge.js";
 
 test("capability configuration and pomodoro commands share the real timer without model Runs", async () => {
-  const root = await mkdtemp(join(tmpdir(), "desktop-capabilities-"));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "desktop-capabilities-")));
   await mkdir(join(root, "workspace"));
   await mkdir(join(root, "transcripts"));
-  await writeFile(join(root, "config.json"), JSON.stringify({ version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: { pomodoro: { enabled: true } } }));
+  await writeFile(join(root, "config.json"), JSON.stringify({ version: 2, authorizedDirectories: [{ path: join(root, "workspace"), access: "readwrite" }], modules: { pomodoro: { enabled: true } } }));
   const output = new TeeOutput(() => {});
   const app = await createRuntimeApp({ directory: join(root, "transcripts"), assistant: { dataDirectory: join(dirname(join(root, "config.json")), "workspace/.runloom"), threadId: "capabilities", configPath: join(root, "config.json") }, modelAlias: "mock", model: createDemoModel(), env: {}, cwd: root, output });
   const controller = createAssistantController(app);

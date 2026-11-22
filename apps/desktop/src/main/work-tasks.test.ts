@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { describe, it } from "node:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { realpath, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
@@ -42,10 +42,10 @@ function testModel(write: boolean) {
 }
 
 async function prepare() {
-  const root = await mkdtemp(join(tmpdir(), "runloom-desktop-worktask-"));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "runloom-desktop-worktask-")));
   await mkdir(join(root, "workspace"));
   await mkdir(join(root, "transcripts"));
-  await writeFile(join(root, "config.json"), JSON.stringify({ version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }], modules: { "read-file": { enabled: true } } }));
+  await writeFile(join(root, "config.json"), JSON.stringify({ version: 2, authorizedDirectories: [{ path: join(root, "workspace"), access: "readwrite" }], modules: { "read-file": { enabled: true } } }));
   return root;
 }
 async function open(root: string, thread = "work-thread", writes = false, model?: LanguageModel) {
@@ -128,7 +128,7 @@ describe("work task desktop boundary", () => {
     const command = "node check-plan.mjs";
     await writeFile(join(root, "workspace", "check-plan.mjs"),
       'import assert from "node:assert/strict"; import {readFileSync} from "node:fs"; const text=readFileSync("report.md","utf8"); for(const part of ["# Goal","# Checks","# Next","KEEP-THIS"]) assert.ok(text.includes(part),part); console.log("plan checks passed");');
-    await writeFile(join(root, "config.json"), JSON.stringify({ version: 2, authorizedDirectories: [{ path: "./workspace", access: "readwrite" }],
+    await writeFile(join(root, "config.json"), JSON.stringify({ version: 2, authorizedDirectories: [{ path: join(root, "workspace"), access: "readwrite" }],
       modules: { "read-file": { enabled: true }, shell: { enabled: true, timeoutMs: 8000 } } }));
     function scripted(actions: Array<{ name: string; input: unknown }>) {
       let step = 0;

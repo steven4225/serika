@@ -57,11 +57,11 @@ export class DirectoryAccess {
   async declarations(): Promise<readonly DirectoryAuthorization[]> {
     const declarations = await this.options.load();
     return Promise.all(declarations.map(async declaration => {
-      if ((await lstat(declaration.path)).isSymbolicLink()) throw new Error("Authorized directory must not be a symlink");
-      const inspected = await inspectPath(await realpath(declaration.path));
-      if (inspected.blocked) throw new Error(`Authorized directory rejected: ${inspected.blocked}`);
+      if (!isAbsolute(declaration.path)) throw new Error("授权目录必须填写实际目录的绝对路径，请重新选择目录");
+      const inspected = await inspectPath(declaration.path);
+      if (inspected.blocked || inspected.path !== declaration.path) throw new Error("授权目录不是实际目录的绝对路径，或目录位置已变化，请重新选择目录");
       if (!(await lstat(inspected.path)).isDirectory()) throw new Error("Authorized path must be a directory");
-      return { ...declaration, path: inspected.path };
+      return declaration;
     }));
   }
 

@@ -74,9 +74,9 @@ function valid(data: TelegramData, workspace: string) {
     Array.isArray(data.deliveries) && data.deliveries.length <= TELEGRAM_DELIVERY_LIMIT && new Set(data.deliveries.map(x => x.key)).size === data.deliveries.length && data.deliveries.every(x =>
       typeof x.key === "string" && positive(x.chatId) && typeof x.text === "string" && x.text.length <= 32_768 &&
       ["pending", "sending", "submitted", "failed", "unknown", "cancelled"].includes(x.state) && (x.messageId === null || positive(x.messageId)) &&
-      (x.keyboard === undefined || x.key.startsWith("approval:") && Array.isArray(x.keyboard.inline_keyboard) && x.keyboard.inline_keyboard.length === 1 &&
+      (x.keyboard === undefined || /^(?:approval|directory):/.test(x.key) && Array.isArray(x.keyboard.inline_keyboard) && x.keyboard.inline_keyboard.length === 1 &&
         x.keyboard.inline_keyboard.every(row => Array.isArray(row) && row.length === 2 && row.every(button => typeof button.text === "string" && button.text.length > 0 && button.text.length <= 32 &&
-          typeof button.callback_data === "string" && /^(allow|deny):[A-F0-9]{10}$/.test(button.callback_data)))) &&
+          typeof button.callback_data === "string" && (x.key.startsWith("directory:") ? /^directory_(allow|deny):[A-F0-9]{10}$/.test(button.callback_data) : /^(allow|deny):[A-F0-9]{10}$/.test(button.callback_data))))) &&
       (x.parts === undefined || data.version >= 2 && Array.isArray(x.parts) && x.parts.length > 0 && x.parts.length <= 128 &&
         x.parts.every((part, i) => typeof part.text === "string" && part.text.length > 0 && part.text.length <= 4096 &&
           ["pending", "sending", "submitted", "failed", "unknown"].includes(part.state) &&

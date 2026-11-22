@@ -67,7 +67,7 @@ it("terminal target/config boundaries reject writable config, foreign directory 
     const outside = join(root, "config.json");
     await writeFile(outside, JSON.stringify({ ...config, modules: { terminal: { enabled: true, target: { authorizedDirectory: root, session: "offline", paneId: "p1", terminalId: "t1" } } } }));
     await assert.rejects(resolveTuiModuleConfig({ configPath: outside, dataDirectory: join(root, "data") }, { cwd: root }), /exact projectDirectory/);
-    await writeFile(outside, JSON.stringify({ ...config, authorizedDirectories: [{ path: "./directory", access: "readwrite" }], modules: { ...config.modules, shell: { enabled: true, sandbox: { backend: "docker", image: "fixture", readablePaths: ["."], writablePaths: ["."] } } } }));
+    await writeFile(outside, JSON.stringify({ ...config, projectDirectory: "./directory", authorizedDirectories: [{ path: directory, access: "readwrite" }], modules: { ...config.modules, shell: { enabled: true, sandbox: { backend: "docker", image: "fixture", readablePaths: ["."], writablePaths: ["."] } } } }));
     await assert.rejects(resolveTuiModuleConfig({ configPath: outside, dataDirectory: join(root, "data") }, { cwd: root }), /cannot be combined with Docker/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
