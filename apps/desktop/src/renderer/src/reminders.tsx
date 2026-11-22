@@ -24,12 +24,11 @@ export function ReminderHome({ rows, other, truncated, loading, error, pendingCa
       <div>
         <strong>{row.subject}</strong>
         <p>{row.when} · {row.status}</p>
-        <details><summary>编号</summary><code>{row.id}</code></details>
       </div>
       {row.canCancel ? <button type="button" className="ghost" disabled={working} onClick={() => onCancel(row)}>取消提醒…</button> : null}
     </div>)}
     {truncated ? <p className="hint">只显示最近的一部分安排。</p> : null}
-    {other > 0 ? <p className="hint">另有 {other} 条其他定时安排。可在下方「管理定时安排与订阅」查看。</p> : null}
+    {other > 0 ? <p className="hint">另有 {other} 条其他定时安排，在「定时安排与订阅」里查看。</p> : null}
     {pendingCancel ? <div className="memory-setup-preview" role="group" aria-label="取消提醒确认">
       <strong>取消「{pendingCancel.subject}」？</strong>
       <p>只停止以后的提醒，不会撤回已经弹出的通知，也不会重做已经发生的结果。</p>

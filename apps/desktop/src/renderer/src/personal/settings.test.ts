@@ -5,7 +5,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AppInfo } from "../../../shared/ui-contract.js";
 import { dashboardTabForDetail } from "./layout.js";
-import { readRecordedCallsWhenActive, readWhenHostReady, recordedCallLabel, recordedCallView, SETTINGS_HOST_RETRY_MS, settingsBackTarget, settingsCopy, settingsRouteForInitial, takeHostRead } from "./settings-model.js";
+import { modulesForSettingsRoute, SETTINGS_ROUTES, settingsRefreshNeedsRemount, settingsRouteForModule, readRecordedCallsWhenActive, readWhenHostReady, recordedCallLabel, recordedCallView, SETTINGS_HOST_RETRY_MS, settingsBackTarget, settingsCopy, settingsRouteForInitial, takeHostRead } from "./settings-model.js";
 import { SettingsFrame, SettingsHome } from "./settings.js";
 import { readAppSource } from "../../test-support/app-source.js";
 
@@ -23,7 +23,7 @@ const info = {
 it("settings home is a grouped push list and keeps engineering ids off the chrome", () => {
   const html = render(createElement(SettingsFrame, { route: "home", onBack() {} }, createElement(SettingsHome, { info, busy: false, onOpen() {} })));
   assert.match(html, /aria-label="回到手札"/);
-  assert.match(html, /<h1>设置<\/h1>/);
+  assert.match(html, /<h1 tabindex="-1">设置<\/h1>/);
   assert.match(html, /外观、偏好和应用信息/);
   for (const title of ["连接应用", "文件与网页", "电脑控制", "技能", "Telegram", "通用", "记忆设置", "通知与后台", "高级", "快捷键", "关于"]) assert.match(html, new RegExp(title));
   assert.doesNotMatch(html, /执行记录与用量|本地使用，无需订阅|云电脑|入会提醒|退出登录未配置|已开启 \d+ 项/);
@@ -38,7 +38,7 @@ it("a settings row pushes a detail whose back control returns to settings home",
   assert.equal(settingsCopy("connectors").title, "连接应用");
   const html = render(createElement(SettingsFrame, { route: "connectors", onBack() {} }, createElement("p", null, "连接详情")));
   assert.match(html, /aria-label="返回设置"/);
-  assert.match(html, /<h1>连接应用<\/h1>/);
+  assert.match(html, /<h1 tabindex="-1">连接应用<\/h1>/);
   assert.doesNotMatch(html, /回到手札/);
 });
 
@@ -165,4 +165,27 @@ it("opening settings stays on the gear and does not select the persona pill", as
   assert.doesNotMatch(settings, /useEffect\(\(\) => \{ void load\(\); \}, \[\]\)/);
   assert.doesNotMatch(settings, /月度用量|订阅未配置/);
   assert.doesNotMatch(app, /openDetails\("modules"\)|personal-settings-nav/);
+});
+
+it("every capability switch and permission control belongs to exactly one settings page", async () => {
+  const ids = ["pomodoro", "read-file", "memory", "checkpoint", "task", "todoist", "terminal", "shell", "web", "computer"];
+  const modules = ids.map(id => ({ id, enabled: false }));
+  for (const id of ids) {
+    const pages = SETTINGS_ROUTES.filter(route => modulesForSettingsRoute(route, modules).some(module => module.id === id));
+    assert.deepEqual(pages, [settingsRouteForModule(id)], `${id} must appear on one page only`);
+  }
+  assert.equal(settingsRouteForModule("unknown-capability"), "advanced");
+  const app = await readAppSource();
+  for (const control of ["DirectorySettings", "ProjectSelection", "AutonomySetting", "ComputerConnectionSetting", "HerdrTargetSetting"]) {
+    assert.equal(app.match(new RegExp(`<${control} `, "g"))?.length, 1, `${control} must be rendered on one page only`);
+  }
+});
+
+it("a settings save that applied keeps the page mounted and the user on the same category", async () => {
+  assert.equal(settingsRefreshNeedsRemount({}), true, "a thread or workspace change still remounts");
+  assert.equal(settingsRefreshNeedsRemount({ reason: "modules" }), false);
+  assert.equal(settingsRefreshNeedsRemount({ reason: "directories" }), false);
+  assert.equal(settingsRefreshNeedsRemount({ reason: "modules", configurationError: "TODOIST_API_TOKEN 未设置" }), true);
+  const app = await readAppSource();
+  assert.match(app, /if \(settingsRefreshNeedsRemount\(message\)\) setIdentityGeneration/);
 });

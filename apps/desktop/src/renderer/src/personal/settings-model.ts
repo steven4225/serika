@@ -2,6 +2,7 @@ export const SETTINGS_ROUTES = [
   "home",
   "connectors",
   "devices",
+  "shell",
   "skills",
   "channels",
   "memory",
@@ -23,10 +24,26 @@ export type SettingsListTarget = SettingsRoute | "records";
 export const SETTINGS_HOST_RETRY_MS = 300;
 export const SETTINGS_HOST_READ_ATTEMPTS = 4;
 
-const CONNECTOR_MODULE_IDS = ["todoist"] as const;
+/**
+ * Which settings page owns each capability switch. One page per switch, so a
+ * capability is never offered twice. Unlisted ids fall back to 高级.
+ */
+const SETTINGS_MODULE_ROUTES: Partial<Record<SettingsRoute, readonly string[]>> = {
+  connectors: ["todoist"],
+  files: ["read-file", "web"],
+  devices: ["computer"],
+  shell: ["shell", "terminal"],
+  memory: ["memory"],
+  notifications: ["task"],
+};
 
-export function isConnectorModule(id: string): boolean {
-  return (CONNECTOR_MODULE_IDS as readonly string[]).includes(id);
+export function settingsRouteForModule(id: string): SettingsRoute {
+  for (const [route, ids] of Object.entries(SETTINGS_MODULE_ROUTES)) if (ids.includes(id)) return route as SettingsRoute;
+  return "advanced";
+}
+
+export function modulesForSettingsRoute<Module extends { id: string }>(route: SettingsRoute, modules: readonly Module[] | undefined): Module[] {
+  return (modules ?? []).filter(module => settingsRouteForModule(module.id) === route);
 }
 
 export function settingsRouteForInitial(initial: false | "modules" | "context" | "directories"): SettingsRoute {
@@ -34,6 +51,15 @@ export function settingsRouteForInitial(initial: false | "modules" | "context" |
   if (initial === "directories") return "files";
   if (initial === "modules") return "advanced";
   return "home";
+}
+
+/**
+ * Whether an identity change must remount the page. A settings save that applied
+ * cleanly must not: remounting drops unsaved drafts on every page and lands the
+ * user on whichever category the change's reason maps to.
+ */
+export function settingsRefreshNeedsRemount(message: { reason?: string; configurationError?: string }): boolean {
+  return message.reason === undefined || message.configurationError !== undefined;
 }
 
 /** Home returns to 手札. Every pushed pane returns to the settings list. */
@@ -46,6 +72,7 @@ export function settingsCopy(route: SettingsRoute): { title: string; description
     case "home": return { title: "设置", description: "外观、偏好和应用信息" };
     case "connectors": return { title: "连接应用", description: "连接 Todoist 等外部服务。" };
     case "devices": return { title: "电脑控制", description: "查看允许控制的应用、驱动与实际注册的工具。" };
+    case "shell": return { title: "命令与终端", description: "命令执行、本机终端目标与本机自主执行的授权。" };
     case "skills": return { title: "技能", description: "使用已加载的文本技能、命令配方和已审核的经验。" };
     case "channels": return { title: "Telegram", description: "连接手机私聊，接收回复、确认操作和提醒结果。" };
     case "memory": return { title: "记忆设置", description: "设置日常聊天中的自动记忆。" };
@@ -67,6 +94,7 @@ export const SETTINGS_CONNECTION_ROWS = [
   { route: "connectors", title: "连接应用", description: "连接 Todoist 等外部服务。" },
   { route: "files", title: "文件与网页", description: "访问工作区文件、公开网页、搜索和 RSS 来源。" },
   { route: "devices", title: "电脑控制", description: "查看允许控制的应用、驱动与实际注册的工具。" },
+  { route: "shell", title: "命令与终端", description: "命令执行、本机终端目标与本机自主执行的授权。" },
   { route: "skills", title: "技能", description: "使用已加载的文本技能、命令配方和已审核的经验。" },
   { route: "channels", title: "Telegram", description: "连接手机私聊，接收回复、确认操作和提醒结果。" },
 ] as const satisfies readonly { route: SettingsRoute; title: string; description: string }[];

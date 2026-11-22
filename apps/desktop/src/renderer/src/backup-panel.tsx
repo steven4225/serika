@@ -4,7 +4,15 @@ export function BackupPanel({ busy }: { busy: boolean }) {
   const [working, setWorking] = useState(false), [message, setMessage] = useState<string | null>(null), [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<RestorePreview | null>(null), [restored, setRestored] = useState<RestoreResult | null>(null);
   const [originalWorkspace, setOriginalWorkspace] = useState<string | null>(null), [activatePreview, setActivatePreview] = useState<"activate" | "return" | null>(null);
-  useEffect(() => { void window.runloom.info().then(info => setOriginalWorkspace(info.recoveryWorkspace?.originalWorkspace ?? null)).catch(() => {}); }, []);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const readWorkspace = async () => {
+    try {
+      const info = await window.runloom.info();
+      setOriginalWorkspace(info.recoveryWorkspace?.originalWorkspace ?? null);
+      setWorkspaceError(null);
+    } catch { setWorkspaceError("工作区状态读取失败，无法确认当前是否恢复工作区；「返回原工作区」暂时不可用。"); }
+  };
+  useEffect(() => { void readWorkspace(); }, []);
   const perform = async (action: "backup" | "preview" | "restore" | "activate" | "return") => {
     if (busy || working) return;
     setWorking(true); setError(null); setMessage(null);
@@ -38,6 +46,7 @@ export function BackupPanel({ busy }: { busy: boolean }) {
     <h3>数据备份与恢复</h3>
     <p className="hint">备份当前工作区的对话、记忆、快照、任务和回执；不包含项目文件、配置、API key 或 Telegram 凭据文件。正文仍可能含有你写过的敏感信息，请保存在可信位置。</p>
     <p className="hint">备份时锁住相关存储写入；若正在写入则请稍后重试，不导出部分备份。恢复先预览，再创建新副本；旧单次排期取消、重复排期暂停，不恢复授权或连接。项目文件仍需另外备份。</p>
+    {workspaceError ? <p className="error" role="alert">{workspaceError} <button className="ghost" disabled={busy || working} onClick={() => void readWorkspace()}>重新读取</button></p> : null}
     {originalWorkspace ? <div className="memory-setup-preview"><strong>当前是恢复工作区</strong><p>原工作区仍在：{originalWorkspace}。独立后台安排不会因界面切换自动停止；恢复区默认未接通后台服务和 Telegram。</p><button className="ghost" disabled={busy || working} onClick={() => setActivatePreview("return")}>返回原工作区…</button></div> : null}
     <div className="actions"><button className="ghost" disabled={busy || working} onClick={() => void perform("backup")}>导出备份</button><button className="ghost" disabled={busy || working} onClick={() => void perform("preview")}>选择备份恢复…</button></div>
     {preview && !restored ? <div className="memory-setup-preview"><strong>核对恢复范围</strong><p>来源工作区：{preview.originWorkspace}</p><p>{preview.createdAt} · {preview.threads} 个对话 · {preview.files} 个数据文件</p><p className="hint">包含：{preview.stores.map(name => ({ "memory.json": "记忆", "tasks.json": "安排", "work-tasks.json": "工作任务", "checkpoint.json": "快照", "rss.json": "RSS", "dreaming.json": "经验方法" })[name] ?? name).join("、") || "已保存的对话与回执"}。不会覆盖原数据，也不带入凭据。</p><button className="ghost" disabled={busy || working} onClick={() => void perform("restore")}>确认范围并选择保存位置</button><button className="ghost" disabled={working} onClick={() => setPreview(null)}>取消</button></div> : null}

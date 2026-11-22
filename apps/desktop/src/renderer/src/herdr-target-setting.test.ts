@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { HerdrTargetSetting } from "./herdr-target-setting.js";
+import { herdrEmptyNotices, HerdrTargetSetting } from "./herdr-target-setting.js";
 import type { AppInfo } from "../../shared/ui-contract.js";
 
 it("shows fixed-target Herdr read permission and unremembered send approvals", () => {
@@ -18,4 +18,15 @@ it("shows fixed-target Herdr read permission and unremembered send approvals", (
     assert.match(html, /通用本机 CLI 按工作目录批准一次后沿用/);
     assert.match(html, /disabled=""/);
   } finally { if (before) Object.defineProperty(globalThis, "window", before); else Reflect.deleteProperty(globalThis, "window"); }
+});
+
+it("explains an empty session or terminal lookup instead of showing nothing", () => {
+  const base = { searched: false, loading: false, sessions: 0, session: "", panes: 0 };
+  assert.equal(herdrEmptyNotices(base).sessions, null);
+  assert.equal(herdrEmptyNotices({ ...base, searched: true, loading: true }).sessions, null);
+  assert.match(herdrEmptyNotices({ ...base, searched: true }).sessions!, /没有找到 Herdr 会话。不会自动启动 Herdr/);
+  assert.equal(herdrEmptyNotices({ ...base, searched: true, sessions: 1 }).sessions, null);
+  assert.match(herdrEmptyNotices({ ...base, session: "s" }).panes!, /没有可用终端/);
+  assert.equal(herdrEmptyNotices({ ...base, session: "s", panes: 2 }).panes, null);
+  assert.equal(herdrEmptyNotices({ ...base, session: "s", loading: true }).panes, null);
 });

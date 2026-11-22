@@ -1,6 +1,7 @@
 import React from "react";
-import { Briefcase, ChevronLeft, ChevronRight, Crown, Folder, Sparkles } from "lucide-react";
+import { Briefcase, ChevronRight, Crown, Folder, Sparkles } from "lucide-react";
 import { MessageContent } from "../markdown.js";
+import { PageHeader } from "./page-header.js";
 import { savedMemoryEmptyCopy } from "../memory-copy.js";
 import {
   MEMORY_CATEGORIES,
@@ -17,13 +18,6 @@ import {
 } from "./memory-cards.js";
 
 const ICONS = { preference: Sparkles, project: Folder, work: Briefcase } as const;
-
-export function MemoryBack({ label, onBack }: { label: string; onBack: () => void }) {
-  return <div className="memory-back-row">
-    <button type="button" className="memory-back" aria-label="返回" onClick={onBack}><ChevronLeft size={18} /></button>
-    <h1>{label}</h1>
-  </div>;
-}
 
 export function MemoryCardHome({ loaded, entries, now, onOpenSummary, onOpenCategory }: {
   loaded: boolean;
@@ -71,8 +65,7 @@ export function MemoryCategoryFolder({ category, entries, now, onBack, onOpen }:
   const name = MEMORY_CATEGORIES.find(item => item.id === category)?.name ?? "记忆";
   const items = entries.filter(entry => isCurrentMemory(entry, now) && memoryCategory(entry) === category);
   return <div className="memory-folder" data-memory-view="category">
-    <MemoryBack label={name} onBack={onBack} />
-    <p className="memory-updated">{memoryCountLabel(items.length)}</p>
+    <PageHeader title={name} back={{ label: "返回记忆", onBack }} description={memoryCountLabel(items.length)} />
     {items.length === 0 ? <p className="memory-empty">{savedMemoryEmptyCopy()}</p> : null}
     {items.map(entry => <button type="button" className="memory-item-card" key={entry.id} onClick={() => onOpen(entry.id)}>
       <strong>{memoryItemTitle(entry.preview)}</strong>
@@ -92,8 +85,7 @@ export function MemoryUnderstanding({ entries, texts, now, onBack }: {
   const understanding = memoryUnderstanding(entries, now);
   const live = entries.filter(entry => isCurrentMemory(entry, now));
   return <div className="memory-understanding" data-memory-view="summary">
-    <MemoryBack label="我对你的了解" onBack={onBack} />
-    {!understanding.empty ? <p className="memory-updated">{understanding.updatedLabel}</p> : null}
+    <PageHeader title="我对你的了解" back={{ label: "返回记忆", onBack }} {...(understanding.empty ? {} : { description: understanding.updatedLabel })} />
     {understanding.empty ? <p>{savedMemoryEmptyCopy()}</p> : MEMORY_CATEGORIES.map(category => {
       const items = live.filter(entry => memoryCategory(entry) === category.id && (entry.preview.trim() || texts[entry.id]));
       if (items.length === 0) return null;

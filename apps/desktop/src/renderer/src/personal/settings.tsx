@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ContextBudgetConfig } from "@serika/assistant";
 import type { AppInfo } from "../../../shared/ui-contract.js";
 import type { ResidentServiceState } from "../../../shared/resident-service.js";
-import { Icon } from "../icons.js";
+import { PageHeader } from "./page-header.js";
+import { NavigationRows, RowGroup } from "./settings-rows.js";
 import { BuildIdentityPanel } from "../build-identity-panel.js";
 import { BackupPanel } from "../backup-panel.js";
 import { ResidentServicePanel } from "../resident-service-panel.js";
@@ -13,10 +14,7 @@ export function SettingsFrame({ route, onBack, children }: { route: SettingsRout
   const copy = settingsCopy(route);
   const back = settingsBackTarget(route);
   return <div className="personal-settings">
-    <header className="settings-push-header">
-      <button type="button" className="settings-back" aria-label={back === "hand" ? "回到手札" : "返回设置"} onClick={onBack}><Icon name="chevron" size={16} style={{ transform: "rotate(180deg)" }} /></button>
-      <div><h1>{copy.title}</h1><p>{copy.description}</p></div>
-    </header>
+    <PageHeader key={route} title={copy.title} description={copy.description} back={{ label: back === "hand" ? "回到手札" : "返回设置", onBack }} />
     {children}
   </div>;
 }
@@ -28,33 +26,19 @@ export function SettingsHome({ info, busy, onOpen }: {
 }) {
   return <>
     <h2 className="settings-section">能力与连接</h2>
-    <SettingsRows rows={SETTINGS_CONNECTION_ROWS} onOpen={onOpen} />
+    <NavigationRows rows={SETTINGS_CONNECTION_ROWS} onOpen={onOpen} />
     <h2 className="settings-section">其他</h2>
-    <SettingsRows rows={SETTINGS_OTHER_ROWS} onOpen={onOpen} />
+    <NavigationRows rows={SETTINGS_OTHER_ROWS} onOpen={onOpen} />
   </>;
-}
-
-function SettingsRows<Route extends SettingsRoute>({ rows, onOpen }: {
-  rows: readonly { route: Route; title: string; description: string }[];
-  onOpen: (route: Route) => void;
-}) {
-  return <div className="settings-group">
-    {rows.map(row => {
-      return <button type="button" className="settings-row" key={row.route} onClick={() => onOpen(row.route)}>
-        <span className="settings-row-copy"><strong>{row.title}</strong><small>{row.description}</small></span>
-        <Icon name="chevron" size={16} />
-      </button>;
-    })}
-  </div>;
 }
 
 export function SettingsGeneral({ appearance, busy, onAppearance }: { appearance: "dark" | "light"; busy: boolean; onAppearance: () => void }) {
   return <section className="settings-detail" aria-label="通用">
-    <div className="settings-group">
+    <RowGroup>
       <div className="settings-row" role="group"><span className="settings-row-copy"><strong>外观</strong><small>{appearance === "dark" ? "深色" : "浅色"}</small></span>
         <button type="button" className="ghost" aria-label={appearance === "dark" ? "切换为浅色外观" : "切换为深色外观"} onClick={onAppearance}>{appearance === "dark" ? "浅色" : "深色"}</button>
       </div>
-    </div>
+    </RowGroup>
   </section>;
 }
 
