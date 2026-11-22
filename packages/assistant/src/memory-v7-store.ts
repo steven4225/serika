@@ -1,7 +1,7 @@
 import { constants, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { lstat, mkdir, open, rename, rm } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { hashCanonicalJson } from "@serika/core";
@@ -64,6 +64,32 @@ export function v7Conflicts(entries: readonly V7Entry[]): string[][] {
   return [...groups.values()].filter(group => new Set(group.map(entry => entry.identity!.value)).size > 1).map(group => group.map(entry => entry.id));
 }
 
+function suppressionKeys(entry: V7Entry, entries: readonly V7Entry[], includeDirectSources: boolean): V7Document["suppressed"] {
+  if (!entry.identity) return [];
+  const { subject, attribute } = entry.identity;
+  const keys: V7Document["suppressed"] = [];
+  const pending = [{ current: entry, includeSources: includeDirectSources }], visited = new Set<string>();
+  for (const { current, includeSources } of pending) {
+    if (visited.has(current.id)) continue;
+    visited.add(current.id);
+    if (includeSources) {
+      for (const source of current.sources) {
+        if (source.kind === "conversation") keys.push({ threadId: source.threadId, messageId: source.messageId, scope: entry.scope, identity: { subject, attribute } });
+      }
+    }
+    // A single-target replacement starts with its write source. A merge inherits member source order.
+    const isManualCorrection = current.replaces.length === 1 && current.sources[0]?.kind === "manual";
+    if (!isManualCorrection && current.replaces.length < 2) continue;
+    for (const previous of entries) {
+      if (previous.supersededBy === current.id && current.replaces.includes(previous.id) &&
+        sameMemoryScope(previous.scope, entry.scope) && previous.identity?.subject === subject && previous.identity.attribute === attribute) {
+        pending.push({ current: previous, includeSources: isManualCorrection });
+      }
+    }
+  }
+  return keys;
+}
+
 /** Atomic v7 Memory storage. Older files require the explicit one-time migration. */
 export class V7MemoryStore {
   readonly #file: string;
@@ -109,7 +135,7 @@ export class V7MemoryStore {
     const directory = dirname(this.#file); await mkdir(directory, { recursive: true });
     const lock = await acquireFlock(`${this.#file}.lock`, signal);
     let renamed = false;
-    const temporary = join(directory, `.memory.json.runloom-${randomUUID()}.tmp`);
+    const temporary = join(directory, `.${basename(this.#file)}.runloom-${randomUUID()}.tmp`);
     try {
       const document = await this.#read(); signal.throwIfAborted();
       const stamp = (now ?? new Date()).toISOString();
@@ -123,7 +149,7 @@ export class V7MemoryStore {
       const handle = await open(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
       try { await handle.writeFile(serialized); await handle.sync(); } finally { await handle.close(); }
       await this.#boundary?.("before-rename"); signal.throwIfAborted();
-      await rename(temporary, join(directory, "memory.json")); renamed = true;
+      await rename(temporary, this.#file); renamed = true;
       await this.#boundary?.("after-rename");
       const folder = await open(directory, constants.O_RDONLY | constants.O_NOFOLLOW);
       try { await folder.sync(); } finally { await folder.close(); }
@@ -172,8 +198,15 @@ export class V7MemoryStore {
         const source = v7SourceSchema.parse(raw.source);
         if (source.kind === "conversation" && !source.quote.trim()) fail("MEMORY_SOURCE_INVALID", "Conversation source quote is empty");
         if (source.kind === "conversation" && document.excludedSources.some(item => item.threadId === source.threadId && (item.messageId === source.messageId || item.messageId === source.proposal?.messageId))) fail("MEMORY_SOURCE_INVALID", "Excluded source");
-        if ((raw.operation === "add" || raw.operation === "replace") && document.suppressed.some(item => source.kind === "conversation" && item.threadId === source.threadId && item.messageId === source.messageId &&
-          (sameMemoryScope(item.scope, raw.scope) && raw.identity && item.identity.subject === raw.identity.subject && item.identity.attribute === raw.identity.attribute))) continue;
+        if ((raw.operation === "add" || raw.operation === "replace") && source.kind === "conversation" && raw.identity) {
+          const { subject, attribute } = raw.identity;
+          const matches = (item: V7Document["suppressed"][number]) => item.threadId === source.threadId && item.messageId === source.messageId &&
+            sameMemoryScope(item.scope, raw.scope) && item.identity.subject === subject && item.identity.attribute === attribute;
+          if (document.suppressed.some(matches)) continue;
+          if (options.automatic && document.entries.some(entry => entry.state === "active" && entry.replaces.length > 0 &&
+            sameMemoryScope(entry.scope, raw.scope) && entry.identity?.subject === subject && entry.identity.attribute === attribute &&
+            suppressionKeys(entry, document.entries, false).some(matches))) continue;
+        }
         let target = raw.operation === "add" ? undefined : document.entries.find(entry => entry.id === raw.id && this.#visible(entry));
         if (raw.operation !== "add" && (!target || target.revision !== raw.expectedRevision)) fail("MEMORY_REVISION_CONFLICT", "Memory target changed or is missing");
         if (raw.operation === "replace" && target && !sameMemoryScope(target.scope, raw.scope)) fail("MEMORY_SCOPE_INVALID", "Replacement cannot change scope");
@@ -293,7 +326,7 @@ export class V7MemoryStore {
       const entry = document.entries.find(entry => entry.id === input.id && this.#visible(entry));
       if (!entry || entry.revision !== input.expectedRevision) fail("MEMORY_REVISION_CONFLICT", "Memory changed");
       if (!entry.privacyExcluded && !entry.identity && entry.sources.some(source => source.kind === "conversation")) fail("MEMORY_SOURCE_INVALID", "Conversation memory needs an identity before deletion");
-      for (const source of entry.sources) if (source.kind === "conversation" && entry.identity) document.suppressed.push({ threadId: source.threadId, messageId: source.messageId, scope: entry.scope, identity: { subject: entry.identity.subject, attribute: entry.identity.attribute } });
+      document.suppressed.push(...suppressionKeys(entry, document.entries, true));
       document.entries = document.entries.filter(item => item.id !== entry.id); return input.id;
     }, options?.now));
     return result.ok ? { ok: true as const, id: result.value } : result;
