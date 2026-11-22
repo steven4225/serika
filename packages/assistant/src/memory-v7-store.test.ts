@@ -115,6 +115,64 @@ test("deleting a manual correction suppresses its original source and identity a
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+async function mergeCorrectedFact(file: string, conversationFirst: boolean) {
+  const store = new V7MemoryStore(file, "a");
+  const original = change(), unrelatedHistory = change("南京");
+  const added = await store.writeV7([original, unrelatedHistory]); assert.ok(added.ok);
+  const [old, unrelated] = added.value;
+  const text = "我住在上海";
+  const corrected = await store.update(old!.id, { expectedRevision: old!.revision!, text }); assert.ok(corrected.ok);
+  const sameFact = change("上海");
+  const conversation = await store.writeV7([{ ...sameFact, identity: { subject: "user", attribute: "住址", value: text },
+    operation: "replace", id: unrelated!.id, expectedRevision: unrelated!.revision! }]); assert.ok(conversation.ok);
+  const members = [corrected.entry, conversation.value[0]!].map(({ id, revision }) => ({ id, revision: revision! }));
+  const merged = await store.mergeV7({ members: conversationFirst ? members.reverse() : members, text }); assert.ok(merged.ok);
+  return { store, original, unrelatedHistory, merged: merged.value };
+}
+
+for (const conversationFirst of [false, true]) {
+  const first = conversationFirst ? "conversation" : "manual";
+
+  test(`a merge with ${first} first protects the correction from automatic add and replace`, async () => {
+    const root = await mkdtemp(join(tmpdir(), "v7-correct-merge-"));
+    try {
+      const { store, original, unrelatedHistory, merged } = await mergeCorrectedFact(join(root, "memory.json"), conversationFirst);
+      const { id, revision } = merged;
+      const replay = await store.writeV7([original, { ...original, operation: "replace", id, expectedRevision: revision! }], undefined, { automatic: true });
+      assert.ok(replay.ok); assert.equal(replay.value.length, 0);
+      const listed = await store.list(); assert.ok(listed.ok);
+      assert.deepEqual(listed.entries.filter(entry => entry.enabled), [merged]);
+
+      const independent = await store.writeV7([
+        unrelatedHistory,
+        { ...original, scope: { kind: "project", projectId: "a" } },
+        change("北京", "公司地址"),
+      ], undefined, { automatic: true });
+      assert.ok(independent.ok); assert.equal(independent.value.length, 3);
+      const explicit = await store.writeV7([{ ...change("深圳"), operation: "replace", id, expectedRevision: revision! }]);
+      assert.ok(explicit.ok); assert.equal(explicit.value[0]?.text, "我住在深圳");
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  test(`deleting a merge with ${first} first suppresses the correction's source after reopen`, async () => {
+    const root = await mkdtemp(join(tmpdir(), "v7-correct-merge-delete-"));
+    try {
+      const file = join(root, "memory.json");
+      const { store, original, unrelatedHistory, merged } = await mergeCorrectedFact(file, conversationFirst);
+      assert.ok((await store.deleteMemory({ id: merged.id, expectedRevision: merged.revision! })).ok);
+
+      const reopened = new V7MemoryStore(file, "a");
+      const replay = await reopened.writeV7([{ ...original, text: "北京是我的住址" }], undefined, { automatic: true, reextract: true });
+      assert.ok(replay.ok); assert.equal(replay.value.length, 0);
+      const after = await reopened.readV7(); assert.ok(after.ok);
+      assert.equal(after.value.entries.some(entry => entry.state === "active" || entry.id === merged.id), false);
+      assert.deepEqual(new Set(after.value.suppressed.map(item => item.messageId)), new Set(["上海", "北京"]));
+      const independent = await reopened.writeV7([unrelatedHistory], undefined, { automatic: true });
+      assert.ok(independent.ok); assert.equal(independent.value.length, 1);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+}
+
 test("v7 commits to a non-default filename and reads it back after reopen", async () => {
   const root = await mkdtemp(join(tmpdir(), "v7-direct-path-"));
   try {

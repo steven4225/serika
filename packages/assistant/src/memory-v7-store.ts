@@ -64,20 +64,27 @@ export function v7Conflicts(entries: readonly V7Entry[]): string[][] {
   return [...groups.values()].filter(group => new Set(group.map(entry => entry.identity!.value)).size > 1).map(group => group.map(entry => entry.id));
 }
 
-function suppressionKeys(entry: V7Entry, entries: readonly V7Entry[]): V7Document["suppressed"] {
+function suppressionKeys(entry: V7Entry, entries: readonly V7Entry[], includeDirectSources: boolean): V7Document["suppressed"] {
   if (!entry.identity) return [];
   const { subject, attribute } = entry.identity;
   const keys: V7Document["suppressed"] = [];
-  const pending = [entry], visited = new Set<string>();
-  for (const current of pending) {
+  const pending = [{ current: entry, includeSources: includeDirectSources }], visited = new Set<string>();
+  for (const { current, includeSources } of pending) {
     if (visited.has(current.id)) continue;
     visited.add(current.id);
-    for (const source of current.sources) {
-      if (source.kind === "conversation") keys.push({ threadId: source.threadId, messageId: source.messageId, scope: entry.scope, identity: { subject, attribute } });
+    if (includeSources) {
+      for (const source of current.sources) {
+        if (source.kind === "conversation") keys.push({ threadId: source.threadId, messageId: source.messageId, scope: entry.scope, identity: { subject, attribute } });
+      }
     }
-    if (current.sources[0]?.kind === "manual") {
-      pending.push(...entries.filter(previous => previous.supersededBy === current.id && current.replaces.includes(previous.id) &&
-        sameMemoryScope(previous.scope, entry.scope) && previous.identity?.subject === subject && previous.identity.attribute === attribute));
+    // A single-target replacement starts with its write source. A merge inherits member source order.
+    const isManualCorrection = current.replaces.length === 1 && current.sources[0]?.kind === "manual";
+    if (!isManualCorrection && current.replaces.length < 2) continue;
+    for (const previous of entries) {
+      if (previous.supersededBy === current.id && current.replaces.includes(previous.id) &&
+        sameMemoryScope(previous.scope, entry.scope) && previous.identity?.subject === subject && previous.identity.attribute === attribute) {
+        pending.push({ current: previous, includeSources: isManualCorrection });
+      }
     }
   }
   return keys;
@@ -196,9 +203,9 @@ export class V7MemoryStore {
           const matches = (item: V7Document["suppressed"][number]) => item.threadId === source.threadId && item.messageId === source.messageId &&
             sameMemoryScope(item.scope, raw.scope) && item.identity.subject === subject && item.identity.attribute === attribute;
           if (document.suppressed.some(matches)) continue;
-          if (options.automatic && document.entries.some(entry => entry.state === "active" && entry.sources[0]?.kind === "manual" && entry.replaces.length > 0 &&
+          if (options.automatic && document.entries.some(entry => entry.state === "active" && entry.replaces.length > 0 &&
             sameMemoryScope(entry.scope, raw.scope) && entry.identity?.subject === subject && entry.identity.attribute === attribute &&
-            suppressionKeys(entry, document.entries).some(matches))) continue;
+            suppressionKeys(entry, document.entries, false).some(matches))) continue;
         }
         let target = raw.operation === "add" ? undefined : document.entries.find(entry => entry.id === raw.id && this.#visible(entry));
         if (raw.operation !== "add" && (!target || target.revision !== raw.expectedRevision)) fail("MEMORY_REVISION_CONFLICT", "Memory target changed or is missing");
@@ -319,7 +326,7 @@ export class V7MemoryStore {
       const entry = document.entries.find(entry => entry.id === input.id && this.#visible(entry));
       if (!entry || entry.revision !== input.expectedRevision) fail("MEMORY_REVISION_CONFLICT", "Memory changed");
       if (!entry.privacyExcluded && !entry.identity && entry.sources.some(source => source.kind === "conversation")) fail("MEMORY_SOURCE_INVALID", "Conversation memory needs an identity before deletion");
-      document.suppressed.push(...suppressionKeys(entry, document.entries));
+      document.suppressed.push(...suppressionKeys(entry, document.entries, true));
       document.entries = document.entries.filter(item => item.id !== entry.id); return input.id;
     }, options?.now));
     return result.ok ? { ok: true as const, id: result.value } : result;
