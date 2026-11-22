@@ -30,6 +30,7 @@
     "@serika/core": "workspace:*",
     "ai": "7.0.37",
     "saxes": "6.0.0",
+    "undici": "7.29.0",
     "zod": "4.4.3"
   }
 }
